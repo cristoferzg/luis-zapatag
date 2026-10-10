@@ -23,3 +23,6 @@ firebase-debug.*.log
 
 # Cache
 .cache/
+
+# Cloud Functions deps
+functions/node_modules/

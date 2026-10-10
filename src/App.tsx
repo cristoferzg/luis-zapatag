@@ -1643,7 +1643,6 @@ export default function App() {
           lastLogin: new Date().toLocaleDateString('es-PE') + ' ' + new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
         };
 
-        safeStorage.setItem('savedPin', pinInput);
         safeStorage.setItem('savedUser', adminSystemUser);
         safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
         setUser(adminSystemUser);
@@ -1685,7 +1684,6 @@ export default function App() {
 
       setUser(userData);
       safeStorage.setItem('savedUser', userData);
-      safeStorage.setItem('savedPin', pinInput);
       setCurrentView('dashboard');
     } catch (error: any) {
       console.warn('Firestore PIN check error, checking local cache fallback:', error);
@@ -1721,7 +1719,6 @@ export default function App() {
           safeStorage.setItem('savedUser', cachedUser);
         }
 
-        safeStorage.setItem('savedPin', pinInput);
         setCurrentView('dashboard');
         return;
       }
@@ -1741,7 +1738,6 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    safeStorage.removeItem('savedPin');
     safeStorage.removeItem('savedUser');
     safeStorage.removeItem('innova_last_authorized_admin_email');
     setUser(null);
