@@ -26,7 +26,8 @@ import {
   Info,
   Sliders,
   Copy,
-  Clipboard
+  Clipboard,
+  ChevronDown
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
@@ -172,12 +173,29 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
 
 
+  // Dropdown de herramienta en la barra superior (estilo Herrería: acceso
+  // rápido arriba sin tapar el lienzo con el panel central). El menú se
+  // posiciona con `fixed` (medido del botón) para no recortarse dentro de la
+  // barra, que tiene overflow-x-auto.
+  const [showTopToolDropdown, setShowTopToolDropdown] = useState<boolean>(false);
+  const [toolMenuPos, setToolMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const topToolBtnRef = useRef<HTMLButtonElement>(null);
+  const toggleTopToolDropdown = useCallback(() => {
+    setShowTopToolDropdown(prev => {
+      const next = !prev;
+      if (next && topToolBtnRef.current) {
+        const r = topToolBtnRef.current.getBoundingClientRect();
+        setToolMenuPos({ top: r.bottom + 4, left: r.left });
+      }
+      return next;
+    });
+  }, []);
+
   // PANEL FLOTANTE Y ARRASTRABLE DE HERRAMIENTAS CAD DETALLADAS
   const [showFloatingToolsPanel, setShowFloatingToolsPanel] = useState<boolean>(true);
-  // En móvil/tablet el panel arranca colapsado para no tapar el lienzo.
-  const [isToolsPanelCollapsed, setIsToolsPanelCollapsed] = useState<boolean>(
-    () => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false)
-  );
+  // El panel arranca colapsado en todos los tamaños (estilo Herrería: lienzo
+  // limpio y herramientas en el dropdown superior). Se reabre con la llave.
+  const [isToolsPanelCollapsed, setIsToolsPanelCollapsed] = useState<boolean>(true);
   const [floatingToolsPanelPos, setFloatingToolsPanelPos] = useState<{ x: number; y: number }>({ x: 20, y: 110 });
   const isDraggingToolsPanelRef = useRef(false);
   const toolsPanelDragOffsetRef = useRef({ x: 0, y: 0 });
@@ -1144,6 +1162,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         onWheel={handleHorizontalWheel}
         className="h-9 sm:h-10 bg-white border-b border-slate-200 px-2 sm:px-3 flex items-center justify-between shrink-0 z-20 shadow-2xs gap-1 sm:gap-2 overflow-x-auto scrollbar-none"
       >
+        {/* Izquierda: Vistas + Herramienta (acceso rápido estilo Herrería) */}
+        <div className="flex items-center gap-1.5 shrink-0 min-w-0">
         {/* Segmented Control de Vistas */}
         <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200/90 shadow-2xs shrink-0">
           <button
@@ -1188,6 +1208,62 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <span>3D</span>
             <span className="hidden sm:inline text-[10px] ml-0.5 font-bold">Aluzinc</span>
           </button>
+        </div>
+
+        {/* Dropdown de HERRAMIENTA en la barra superior (estilo Herrería):
+            selecciona la herramienta activa sin abrir el panel central. Solo
+            en vistas 2D (en 3D no aplica). */}
+        {vista !== '3d' && (
+          <div className="relative shrink-0">
+            <button
+              ref={topToolBtnRef}
+              onClick={toggleTopToolDropdown}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-2xs ${
+                isDrawingTool
+                  ? 'bg-amber-500 text-slate-950 border-amber-500'
+                  : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
+              }`}
+              title="Herramienta de dibujo activa"
+            >
+              <PenTool className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">{TOOL_LABELS[activeTool] || 'Herramienta'}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showTopToolDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showTopToolDropdown && toolMenuPos && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowTopToolDropdown(false)} />
+                <div
+                  className="fixed z-50 w-44 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 grid grid-cols-2 gap-1"
+                  style={{ top: toolMenuPos.top, left: toolMenuPos.left }}
+                >
+                  {([
+                    { t: 'select', ic: <MousePointer className="w-3.5 h-3.5" /> },
+                    { t: 'draw_line', ic: <PenTool className="w-3.5 h-3.5" /> },
+                    { t: 'draw_arc', ic: <Spline className="w-3.5 h-3.5" /> },
+                    { t: 'draw_col', ic: <Columns className="w-3.5 h-3.5" /> },
+                    { t: 'draw_tijeral', ic: <Wrench className="w-3.5 h-3.5" /> },
+                    { t: 'draw_correa', ic: <Grid className="w-3.5 h-3.5" /> },
+                    { t: 'draw_arriostre', ic: <X className="w-3.5 h-3.5" /> },
+                    { t: 'draw_node', ic: <Crosshair className="w-3.5 h-3.5" /> },
+                    { t: 'measure', ic: <Ruler className="w-3.5 h-3.5" /> },
+                  ] as { t: ToolModoCad; ic: React.ReactNode }[]).map(({ t, ic }) => (
+                    <button
+                      key={t}
+                      onClick={() => { setTool(t); setShowTopToolDropdown(false); }}
+                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-[11px] font-bold transition-colors ${
+                        activeTool === t ? 'bg-amber-500 text-slate-950' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {ic}
+                      <span className="truncate">{TOOL_LABELS[t]}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         </div>
 
         {/* Acciones auxiliares compactas a la derecha */}

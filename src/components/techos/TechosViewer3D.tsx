@@ -30,7 +30,8 @@ import {
   Layers,
   SlidersHorizontal,
   Video,
-  Square
+  Square,
+  Box
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
@@ -2710,7 +2711,16 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
         {/* Lado Derecho: Simulación (Lluvia, Sismo), Iluminación, Cámara y Zoom */}
         <div className="flex items-center gap-1 sm:gap-1.5 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full overflow-x-auto touch-pan-x scrollbar-none select-none">
-          
+
+          {/* Badge de estado 3D (estilo Herrería, limpio y consistente) */}
+          <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shrink-0">
+            <Box className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">Vista 3D</span>
+            <span className="sm:hidden">3D</span>
+          </div>
+
+          <div className="h-4 w-px bg-slate-200 mx-0.5 shrink-0" />
+
           {/* Alternar Modo Claro / Oscuro */}
           <button
             onClick={handleToggleIluminacion}
@@ -2776,14 +2786,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           </button>
 
           {/* Giro Automático */}
-          <button 
-            onClick={() => setAutoRotate(!autoRotate)} 
-            className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer shrink-0 ${
+          <button
+            onClick={() => setAutoRotate(!autoRotate)}
+            className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
               autoRotate ? 'bg-amber-500 text-slate-950 border-amber-400' : 'bg-slate-50 text-slate-700 border-slate-200'
-            }`} 
+            }`}
             title="Giro Automático"
           >
             <RotateCw className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Giro</span>
           </button>
 
           {/* Botón Inspección de Proximidad Ultra-Cercana y Panorámica */}
