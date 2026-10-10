@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import JSZip from 'jszip';
 import { GoogleGenAI } from '@google/genai';
 
 dotenv.config();
@@ -12,8 +11,8 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  app.use(express.json({ limit: '500mb' }));
-  app.use(express.urlencoded({ limit: '500mb', extended: true }));
+  app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
   // API endpoint for AI-powered real-time construction and metal market prices
   app.post('/api/market-prices-ai', async (req, res) => {
@@ -21,7 +20,9 @@ async function startServer() {
       const region = req.body?.region || 'Perú';
       const category = req.body?.category || 'all';
 
-      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+      // Only read the server-side secret. Never fall back to a VITE_-prefixed
+      // variable: Vite inlines any VITE_* value into the public client bundle.
+      const apiKey = process.env.GEMINI_API_KEY || '';
       if (!apiKey) {
         // Fallback curated updated 2026 data
         return res.json({
@@ -149,41 +150,9 @@ Formatea la respuesta estrictamente como JSON válido con esta estructura:
     }
   });
 
-  // API endpoint to download source code ZIP for administrators
-  app.get('/api/download-zip', async (req, res) => {
-    try {
-      const zip = new JSZip();
-      
-      function addDirectoryToZip(currentPath: string, zipFolder: JSZip) {
-        const items = fs.readdirSync(currentPath);
-        for (const item of items) {
-          if (['node_modules', 'dist', 'build', '.git', '.cache', 'bun.lock'].includes(item)) {
-            continue;
-          }
-          const fullPath = path.join(currentPath, item);
-          const stat = fs.statSync(fullPath);
-          if (stat.isDirectory()) {
-            const newFolder = zipFolder.folder(item);
-            if (newFolder) {
-              addDirectoryToZip(fullPath, newFolder);
-            }
-          } else if (stat.isFile()) {
-            const content = fs.readFileSync(fullPath);
-            zipFolder.file(item, content);
-          }
-        }
-      }
-      
-      addDirectoryToZip(process.cwd(), zip);
-      const content = await zip.generateAsync({ type: 'nodebuffer' });
-      
-      res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', 'attachment; filename=sistema_completo.zip');
-      res.send(content);
-    } catch (error: any) {
-      res.status(500).json({ error: 'Error generating zip: ' + error.message });
-    }
-  });
+  // NOTE: The former GET /api/download-zip endpoint was removed. It packaged
+  // and served the entire repository (source and any local secrets) with no
+  // authentication, which is a source-code / credential disclosure risk.
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {

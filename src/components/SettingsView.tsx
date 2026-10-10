@@ -744,31 +744,6 @@ export default function SettingsView({
     e.target.value = '';
   };
 
-  const [downloadingZip, setDownloadingZip] = useState(false);
-
-  const handleDownloadSourceZip = async () => {
-    setDownloadingZip(true);
-    try {
-      const response = await fetch('/api/download-zip');
-      if (!response.ok) {
-        throw new Error('No se pudo generar el archivo ZIP del sistema.');
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `sistema_completo_${new Date().toISOString().split('T')[0]}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error: any) {
-      alert('Error al descargar el archivo ZIP: ' + error.message);
-    } finally {
-      setDownloadingZip(false);
-    }
-  };
-
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-16">
       {/* Header */}
@@ -1577,25 +1552,11 @@ export default function SettingsView({
                 Descargar Código Fuente y Archivos del Sistema (.ZIP)
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Descarga un archivo comprimido <strong className="text-slate-800">ZIP completo</strong> con todos los archivos del código fuente de la aplicación (HTML, React, Vite, CSS, config). Podrás subir este archivo comprimido directamente a un hosting estático (como Vercel, Netlify, Firebase Hosting, o tu propio servidor) y enlazarlo con tu propio dominio personalizado.
+                El código fuente de la aplicación (HTML, React, Vite, CSS, config) se entrega de forma controlada por el administrador, no desde un botón público dentro de la app. Con el código podrás desplegarlo en un hosting estático (Vercel, Netlify, Firebase Hosting, o tu propio servidor) y enlazarlo con tu dominio personalizado siguiendo la guía siguiente.
               </p>
-              <button 
-                onClick={handleDownloadSourceZip} 
-                disabled={downloadingZip}
-                className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold text-xs transition-colors shadow-2xs disabled:opacity-50 cursor-pointer mb-4"
-              >
-                {downloadingZip ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
-                    <span>Generando Archivo Comprimido...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    <span>Descargar Todo el Sistema (.ZIP)</span>
-                  </>
-                )}
-              </button>
+              <p className="text-[11px] text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 mb-4">
+                Nota de seguridad: la descarga automática del código desde la aplicación fue retirada porque exponía todo el proyecto sin autenticación.
+              </p>
 
               <div className="border-t border-slate-200/80 pt-4 mt-4 space-y-3 text-xs text-slate-600 leading-relaxed">
                 <h4 className="font-extrabold text-slate-800 text-sm flex items-center">
