@@ -111,6 +111,11 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   const gridStepM = 0.05; // 5cm
   const [orthoLock, setOrthoLock] = useState(false);
 
+  // Profundidad del plano de trabajo (eje perpendicular a la vista activa).
+  // Permite dibujar un objeto 3D real por vistas: p.ej. patas delanteras en z=0
+  // y patas traseras en z=0.35 sin salir de la vista Frontal.
+  const [planoProfundidadM, setPlanoProfundidadM] = useState<number>(0);
+
   // Estado de Dibujo en progreso
   const [drawStep, setDrawStep] = useState<0 | 1 | 2>(0);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
@@ -184,6 +189,21 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
     const sy = centerOriginY - wy * scalePxPerM * zoom;
     return { x: sx, y: sy };
   }, [centerOriginX, centerOriginY, zoom]);
+
+  // Mapea un punto del plano de la vista activa a coordenadas 3D (x,y,z) de la pieza.
+  // Frontal → edita X-Y (z = profundidad del plano)
+  // Lateral → edita Z-Y (x = profundidad del plano)
+  // Planta/superior → edita X-Z (y = profundidad del plano)
+  // Así, un trazo hecho en Lateral o Planta genera profundidad real que el visor 3D usa.
+  const toPiece3D = useCallback((pt: { x: number; y: number }) => {
+    if (currentVista === 'lateral') {
+      return { x: roundToPrecision(planoProfundidadM, 3), y: pt.y, z: roundToPrecision(pt.x, 3) };
+    }
+    if (currentVista === 'superior') {
+      return { x: pt.x, y: roundToPrecision(planoProfundidadM, 3), z: roundToPrecision(pt.y, 3) };
+    }
+    return { x: pt.x, y: pt.y, z: roundToPrecision(planoProfundidadM, 3) };
+  }, [currentVista, planoProfundidadM]);
 
   const handleZoom = (factor: number) => {
     const newZoom = Math.min(4, Math.max(0.2, zoom * factor));
@@ -517,6 +537,11 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
 
       if (ancho >= 0.05 && alto >= 0.05) {
         const nextIdx = newPiezas.length + 1;
+        // Esquinas del marco proyectadas al espacio 3D según la vista activa
+        const bl = toPiece3D({ x: minX, y: minY });
+        const br = toPiece3D({ x: maxX, y: minY });
+        const tl = toPiece3D({ x: minX, y: maxY });
+        const tr = toPiece3D({ x: maxX, y: maxY });
         // 1. Travesaño Inferior
         newPiezas.push({
           id: `p-${timestamp}-inf`,
@@ -525,8 +550,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
           tipo: 'perfil',
           material: materialActivo,
           perfilId: perfilActivoId,
-          x1: minX, y1: minY, z1: 0,
-          x2: maxX, y2: minY, z2: 0,
+          x1: bl.x, y1: bl.y, z1: bl.z,
+          x2: br.x, y2: br.y, z2: br.z,
           longitudM: ancho,
           rotacionDeg: 0,
           corteInicio: '45°',
@@ -542,8 +567,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
           tipo: 'perfil',
           material: materialActivo,
           perfilId: perfilActivoId,
-          x1: minX, y1: minY, z1: 0,
-          x2: minX, y2: maxY, z2: 0,
+          x1: bl.x, y1: bl.y, z1: bl.z,
+          x2: tl.x, y2: tl.y, z2: tl.z,
           longitudM: alto,
           rotacionDeg: 0,
           corteInicio: '45°',
@@ -559,8 +584,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
           tipo: 'perfil',
           material: materialActivo,
           perfilId: perfilActivoId,
-          x1: maxX, y1: minY, z1: 0,
-          x2: maxX, y2: maxY, z2: 0,
+          x1: br.x, y1: br.y, z1: br.z,
+          x2: tr.x, y2: tr.y, z2: tr.z,
           longitudM: alto,
           rotacionDeg: 0,
           corteInicio: '45°',
@@ -576,8 +601,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
           tipo: 'perfil',
           material: materialActivo,
           perfilId: perfilActivoId,
-          x1: minX, y1: maxY, z1: 0,
-          x2: maxX, y2: maxY, z2: 0,
+          x1: tl.x, y1: tl.y, z1: tl.z,
+          x2: tr.x, y2: tr.y, z2: tr.z,
           longitudM: ancho,
           rotacionDeg: 0,
           corteInicio: '45°',
@@ -594,6 +619,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       const ancho = roundToPrecision(maxX - minX);
       const alto = roundToPrecision(maxY - minY);
       const nextIdx = newPiezas.length + 1;
+      const plBl = toPiece3D({ x: minX, y: minY });
+      const plTr = toPiece3D({ x: maxX, y: maxY });
       newPiezas.push({
         id: `p-${timestamp}-pl`,
         marca: `PL-${String(nextIdx).padStart(2, '0')}`,
@@ -601,8 +628,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
         tipo: 'plancha',
         material: materialActivo,
         perfilId: perfilActivoId,
-        x1: minX, y1: minY, z1: 0,
-        x2: maxX, y2: maxY, z2: 0,
+        x1: plBl.x, y1: plBl.y, z1: plBl.z,
+        x2: plTr.x, y2: plTr.y, z2: plTr.z,
         longitudM: ancho,
         rotacionDeg: 0,
         corteInicio: '90°',
@@ -648,6 +675,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       const correctedDistM = roundToPrecision(distance2D(p1.x, p1.y, correctedP2.x, correctedP2.y));
       const nextIdx = newPiezas.length + 1;
       const orient = Math.abs(correctedP2.y - p1.y) < 0.005 ? 'Horizontal' : (Math.abs(correctedP2.x - p1.x) < 0.005 ? 'Vertical' : 'Diagonal');
+      const a3 = toPiece3D(p1);
+      const b3 = toPiece3D(correctedP2);
 
       newPiezas.push({
         id: `p-${timestamp}`,
@@ -656,8 +685,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
         tipo: 'perfil',
         material: materialActivo,
         perfilId: perfilActivoId,
-        x1: p1.x, y1: p1.y, z1: 0,
-        x2: correctedP2.x, y2: correctedP2.y, z2: 0,
+        x1: a3.x, y1: a3.y, z1: a3.z,
+        x2: b3.x, y2: b3.y, z2: b3.z,
         longitudM: correctedDistM,
         rotacionDeg: 0,
         corteInicio: '90°',
@@ -706,10 +735,10 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       perfilId: perfilActivoId,
       x1: roundToPrecision(p1.x),
       y1: roundToPrecision(p1.y),
-      z1: 0,
+      z1: roundToPrecision(planoProfundidadM, 3),
       x2: roundToPrecision(p2.x),
       y2: roundToPrecision(p2.y),
-      z2: 0,
+      z2: roundToPrecision(planoProfundidadM, 3),
       longitudM: roundToPrecision(arcLength),
       rotacionDeg: 0,
       corteInicio: '90°',
@@ -1918,6 +1947,32 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
               </button>
             </>
           )}
+        </div>
+
+        {/* Profundidad del plano de trabajo (eje Z) — permite dibujar en 3D por vistas */}
+        <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-2xl shadow-md border border-slate-200 flex flex-col items-center gap-1" title="Profundidad del plano: el eje perpendicular a la vista actual. Dibuja las patas delanteras en 0 y las traseras en otra profundidad (p.ej. 35 cm) para obtener volumen real en 3D.">
+          <span className="text-[9px] font-bold text-slate-500 leading-none">PROF. Z</span>
+          <button
+            onClick={() => setPlanoProfundidadM(v => roundToPrecision(v + 0.05, 3))}
+            className="w-8 h-6 rounded-lg text-slate-600 bg-slate-100 hover:bg-amber-100 hover:text-amber-700 text-sm font-bold flex items-center justify-center"
+          >+</button>
+          <input
+            type="number"
+            step={5}
+            value={Math.round(planoProfundidadM * 100)}
+            onChange={(e) => {
+              const cm = parseFloat(e.target.value);
+              setPlanoProfundidadM(Number.isFinite(cm) ? roundToPrecision(cm / 100, 3) : 0);
+            }}
+            className={`w-10 text-center text-[11px] font-bold rounded-lg border py-0.5 ${
+              Math.abs(planoProfundidadM) > 0.0001 ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600'
+            }`}
+          />
+          <span className="text-[8px] text-slate-400 leading-none">cm</span>
+          <button
+            onClick={() => setPlanoProfundidadM(v => roundToPrecision(v - 0.05, 3))}
+            className="w-8 h-6 rounded-lg text-slate-600 bg-slate-100 hover:bg-amber-100 hover:text-amber-700 text-sm font-bold flex items-center justify-center"
+          >−</button>
         </div>
 
         {/* Botones de Zoom Físico Táctil */}
