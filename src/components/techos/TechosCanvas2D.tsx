@@ -2211,7 +2211,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           </div>
         )}
         {/* GUÍA DE LIENZO VACÍO: invita a usar el Asistente paramétrico */}
-        {Object.keys(nodes).length === 0 && (
+        {Object.keys(nodes).length === 0 && vista !== '3d' && (
           <div className="absolute inset-0 z-30 flex items-center justify-center lg:justify-end lg:pr-12 p-4 pointer-events-none">
             <div className="pointer-events-auto max-w-xs w-full bg-white/95 backdrop-blur-md border border-amber-200 rounded-3xl shadow-2xl p-5 text-center space-y-3">
               <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-md">
@@ -2237,7 +2237,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         )}
 
         {/* PANEL FLOTANTE DE HERRAMIENTAS CAD COMPLETO / COLAPSADO */}
-        {showFloatingToolsPanel && (
+        {showFloatingToolsPanel && vista !== '3d' && (
           isToolsPanelCollapsed ? (
             /* VERSIÓN COLAPSADA / MINIMIZADA (Súper compacta, arrastrable) */
             <button
