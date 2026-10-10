@@ -153,6 +153,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [drawingStartNodeId, setDrawingStartNodeId] = useState<string | null>(null);
   // Nodo donde comenzó la cadena de trazado (para detectar cierre de perímetro)
   const [chainFirstNodeId, setChainFirstNodeId] = useState<string | null>(null);
+  // Modo de trazo: true = cadena continua (une tramo tras tramo);
+  // false = "viga suelta" (cada par de clics crea un tramo independiente).
+  const [chainMode, setChainMode] = useState<boolean>(true);
 
   // Resultado de detección O-Snap activa (Vértices, Medios, Intersecciones, Anclajes, Cierre de Perímetro)
   const [activeSnap, setActiveSnap] = useState<CadSnapResult | null>(null);
@@ -870,9 +873,15 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           return;
         }
 
-        // Conectar al nodo existente y continuar cadena
+        // Conectar al nodo existente. En modo cadena continuamos desde este
+        // nodo; en modo "viga suelta" cerramos el tramo y empezamos de cero.
         engineState.addSegment(drawingStartNodeId, targetNodeId, rol);
-        setDrawingStartNodeId(targetNodeId);
+        if (chainMode) {
+          setDrawingStartNodeId(targetNodeId);
+        } else {
+          setDrawingStartNodeId(null);
+          setChainFirstNodeId(null);
+        }
         engineState.setSelectedElementIds([targetNodeId]);
         return;
       }
@@ -882,6 +891,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       const zVal = vista === 'planta' ? clickCoords.y : 0;
       const yVal = vista === 'seccion' ? clickCoords.y : beamElevationSetting;
 
+      const hadStart = !!drawingStartNodeId;
       const newNodeId = engineState.addNode(x, yVal, zVal);
 
       if (drawingStartNodeId) {
@@ -890,8 +900,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         setChainFirstNodeId(newNodeId);
       }
 
-      // Encadenar siguiente tramo
-      setDrawingStartNodeId(newNodeId);
+      if (!chainMode && hadStart) {
+        // "Viga suelta": ya cerramos este tramo; el siguiente clic empieza otro.
+        setDrawingStartNodeId(null);
+        setChainFirstNodeId(null);
+      } else {
+        // Cadena continua (o primer clic): seguir desde este nodo.
+        setDrawingStartNodeId(newNodeId);
+      }
       engineState.setSelectedElementIds([newNodeId]);
     }
   };
@@ -2352,6 +2368,33 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* MODO DE TRAZO: cadena continua vs. viga suelta */}
+              <div className="border-t border-slate-800 pt-3">
+                <span className="block font-black text-[9px] uppercase tracking-wider text-slate-400 mb-1.5">Modo de trazo</span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    onClick={() => setChainMode(true)}
+                    className={`px-2 py-1.5 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                      chainMode ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm' : 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-800'
+                    }`}
+                    title="Cada clic continúa la línea anterior (ideal para tijerales y perímetros)"
+                  >
+                    <Spline className="w-3.5 h-3.5 shrink-0" />
+                    <span>Encadenado</span>
+                  </button>
+                  <button
+                    onClick={() => { setChainMode(false); handleCancelChain(); }}
+                    className={`px-2 py-1.5 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                      !chainMode ? 'bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm' : 'bg-slate-800/80 text-slate-300 border-slate-700/60 hover:bg-slate-800'
+                    }`}
+                    title="Cada par de clics crea una viga independiente (no se enlazan)"
+                  >
+                    <PenTool className="w-3.5 h-3.5 shrink-0" />
+                    <span>Viga suelta</span>
+                  </button>
                 </div>
               </div>
 
