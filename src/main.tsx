@@ -4,7 +4,13 @@ import App from './App'
 import './index.css'
 import { AppErrorBoundary } from './components/common/AppErrorBoundary'
 import { auditLogger } from './lib/auditLogger'
+import { ensureAnonymousAuth } from './lib/firebase'
 import { registerSW } from 'virtual:pwa-register'
+
+// Establish an (anonymous) Firebase Auth session as early as possible so that
+// every Firestore/Storage request is authenticated and the security rules can
+// reject unauthenticated traffic. Best-effort and non-blocking.
+ensureAnonymousAuth();
 
 // Registro y monitoreo de Service Worker para PWA (únicamente en producción)
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {

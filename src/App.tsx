@@ -1446,9 +1446,13 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
 // Master Administrator Email
 export const PRIMARY_ADMIN_EMAIL = 'chiwawatec@gmail.com';
 
-// Irreversible SHA-256 hash for Master Administrator PIN verification
-// Note: The plain-text PIN never appears in the platform source code
-const MASTER_ADMIN_PIN_HASH = '860fb7113e0249b33ecc70b7fa000f1bde1fdf7940b509eb9e20c91247836010';
+// SHA-256 hash of the Master Administrator PIN.
+// SECURITY NOTE: A 6-digit PIN only has 1,000,000 combinations, so this hash
+// embedded in the client bundle can be brute-forced offline in seconds. This
+// is a temporary rotation (demo PIN) — the real fix (phase 2b) is to verify the
+// admin PIN server-side and NOT ship any admin credential in the bundle.
+// Current value: SHA-256('602908').
+const MASTER_ADMIN_PIN_HASH = '60876bbe7e8f5271eaa089908ba07c0d872aa80ecfed113b0417c1afb4da9875';
 
 async function computePinSha256(pin: string): Promise<string> {
   const encoder = new TextEncoder();
