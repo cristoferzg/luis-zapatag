@@ -886,9 +886,11 @@ function EPPSubView({
         margin: [10, 10, 10, 10] as [number, number, number, number],
         filename: `EPP_${workerNameClean}_${projectNameClean}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0, scrollX: 0 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, scrollY: 0, scrollX: 0, windowWidth: 794 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        // Sin 'avoid-all' para que el contenido fluya y no salte de página de
+        // golpe; solo se evita partir cada fila de la tabla y el bloque de firma.
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['tr', '.epp-signature', '.epp-no-break'] }
       };
       html2pdf().set(opt).from(eppRef.current).save();
     }
@@ -997,9 +999,22 @@ function EPPSubView({
             
             <div className="p-3 sm:p-6 overflow-x-auto bg-slate-200 flex-1">
               <div className="min-w-[210mm] flex justify-center">
-                <div 
-                  ref={eppRef} 
-                  className="bg-white p-8 sm:p-12 shadow-2xl shrink-0 text-xs" 
+                <style>{`
+                  #epp-a4-content, #epp-a4-content * {
+                    box-sizing: border-box;
+                    max-width: 100%;
+                    overflow-wrap: break-word;
+                    word-break: break-word;
+                  }
+                  #epp-a4-content table { table-layout: fixed; width: 100%; }
+                  #epp-a4-content td, #epp-a4-content th { overflow-wrap: break-word; }
+                  #epp-a4-content img { max-width: 100%; height: auto; }
+                  #epp-a4-content tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+                `}</style>
+                <div
+                  id="epp-a4-content"
+                  ref={eppRef}
+                  className="bg-white p-8 sm:p-12 shadow-2xl shrink-0 text-xs"
                   style={{ width: '210mm', minHeight: '297mm', color: '#000', fontFamily: 'serif' }}
                 >
                   <h2 className="text-center font-bold text-lg mb-6 uppercase underline decoration-2 underline-offset-4">
@@ -1039,7 +1054,7 @@ function EPPSubView({
                       ))}
                     </tbody>
                   </table>
-                  <div className="mt-20 pt-10 grid grid-cols-2 gap-12 text-center">
+                  <div className="epp-signature mt-20 pt-10 grid grid-cols-2 gap-12 text-center">
                     <div>
                       <div className="border-t border-black pt-2 font-bold">{selectedWorker.name}</div>
                       <div className="text-[10px] text-slate-600">DNI: {selectedWorker.dni || '_________________'}</div>
