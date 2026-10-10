@@ -251,6 +251,24 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const selectedElementIds = engineState?.selectedElementIds || [];
   const activeTool: ToolModoCad = engineState?.activeTool || 'select';
 
+  // Herramientas que dibujan sobre el lienzo (no selección/paneo).
+  const DRAWING_TOOLS: ToolModoCad[] = ['draw_line', 'draw_arc', 'draw_col', 'draw_tijeral', 'draw_correa', 'draw_arriostre', 'draw_node', 'measure'];
+  const isDrawingTool = DRAWING_TOOLS.includes(activeTool);
+  const TOOL_LABELS: Record<string, string> = {
+    draw_line: 'Viga', draw_arc: 'Arco', draw_col: 'Columna', draw_tijeral: 'Tijeral',
+    draw_correa: 'Correa', draw_arriostre: 'Cruz', draw_node: 'Nodo', measure: 'Medir', select: 'Seleccionar', pan: 'Mover',
+  };
+
+  // Al elegir una herramienta de dibujo, colapsa el panel flotante para que no
+  // tape el lienzo ni se "coma" los clics destinados a dibujar (móvil, tablet
+  // y escritorio). El usuario puede reabrirlo con el botón de la llave.
+  useEffect(() => {
+    if (isDrawingTool) {
+      setIsToolsPanelCollapsed(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTool]);
+
   useEffect(() => {
     if (activeTool === 'draw_tijeral') {
       setDrawingStartNodeId(null);
@@ -2023,9 +2041,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </div>
             <button
               onClick={handleCancelChain}
-              className="shrink-0 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[10px] font-black cursor-pointer shadow-xs active:scale-95 transition-all"
+              className="shrink-0 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 text-xs font-black cursor-pointer shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+              title="Terminar el trazo actual (o tecla Esc)"
             >
-              Terminar (Esc)
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>Terminar trazo</span>
             </button>
           </div>
         )}
@@ -2210,8 +2230,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </div>
           </div>
         )}
-        {/* GUÍA DE LIENZO VACÍO: invita a usar el Asistente paramétrico */}
-        {Object.keys(nodes).length === 0 && vista !== '3d' && (
+        {/* GUÍA DE LIENZO VACÍO: invita a usar el Asistente paramétrico.
+            Se oculta si ya eligieron una herramienta de dibujo, para no tapar
+            los toques/clics destinados a dibujar (sobre todo en móvil). */}
+        {Object.keys(nodes).length === 0 && vista !== '3d' && !isDrawingTool && (
           <div className="absolute inset-0 z-30 flex items-center justify-center lg:justify-end lg:pr-12 p-4 pointer-events-none">
             <div className="pointer-events-auto max-w-xs w-full bg-white/95 backdrop-blur-md border border-amber-200 rounded-3xl shadow-2xl p-5 text-center space-y-3">
               <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-md">
@@ -2245,14 +2267,21 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               onPointerMove={handleToolsPanelPointerMove}
               onPointerUp={handleToolsPanelPointerUp}
               onClick={() => setIsToolsPanelCollapsed(false)}
-              className="absolute z-40 w-12 h-12 rounded-2xl bg-slate-900 border border-amber-500/80 hover:border-amber-400 flex items-center justify-center cursor-grab active:cursor-grabbing shadow-2xl hover:scale-105 active:scale-95 transition-all drag-handle-tools group"
+              className={`absolute z-40 h-12 rounded-2xl border flex items-center justify-center gap-1.5 cursor-grab active:cursor-grabbing shadow-2xl hover:scale-105 active:scale-95 transition-all drag-handle-tools group ${
+                isDrawingTool
+                  ? 'px-3 bg-amber-500 border-amber-400 text-slate-950'
+                  : 'w-12 bg-slate-900 border-amber-500/80 hover:border-amber-400'
+              }`}
               style={{
                 left: `${floatingToolsPanelPos.x}px`,
                 top: `${floatingToolsPanelPos.y}px`,
               }}
-              title="Expandir Herramientas CAD (Arrastrable)"
+              title={isDrawingTool ? `Dibujando: ${TOOL_LABELS[activeTool] || activeTool}. Toca para ver herramientas.` : 'Expandir Herramientas CAD (Arrastrable)'}
             >
-              <Wrench className="w-5 h-5 text-amber-500 group-hover:rotate-12 transition-transform duration-300" />
+              <Wrench className={`w-5 h-5 shrink-0 group-hover:rotate-12 transition-transform duration-300 ${isDrawingTool ? 'text-slate-950' : 'text-amber-500'}`} />
+              {isDrawingTool && (
+                <span className="text-[11px] font-black whitespace-nowrap pr-0.5">{TOOL_LABELS[activeTool] || 'Dibujar'}</span>
+              )}
             </button>
           ) : (
             /* VERSIÓN COMPLETA: arrastrable en escritorio, hoja inferior en móvil */
