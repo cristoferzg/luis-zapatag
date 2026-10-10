@@ -1,0 +1,6 @@
+{
+  "name": "Innova Contratistas",
+  "description": "Plataforma integral para controlar proyectos de estructuras metálicas, módulo CAD de herrería y cerrajería, clientes y finanzas personales (gastos, familia, inversiones, deudas).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
