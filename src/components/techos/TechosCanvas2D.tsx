@@ -2353,6 +2353,26 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         )}
 
         {/* PANEL FLOTANTE DE HERRAMIENTAS CAD COMPLETO / COLAPSADO */}
+        {/* CHIP DE RETÍCULA / SNAP (dock derecho, estilo Herrería): mantiene el
+            ajuste de snap más usado accesible sin abrir el panel central. */}
+        {engineState && vista !== '3d' && (
+          <div className="absolute bottom-3 right-3 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto">
+            <Grid className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="text-[10px] font-bold text-slate-500 hidden sm:inline">Rejilla</span>
+            <select
+              value={engineState.snapGridSizeM}
+              onChange={(e) => engineState.setSnapGridSizeM(parseFloat(e.target.value) || 0.25)}
+              className="bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg px-1.5 py-0.5 text-slate-800 font-mono font-bold text-[11px] cursor-pointer focus:border-amber-500 outline-none"
+              title="Paso de la retícula magnética (snap)"
+            >
+              <option value={0.1}>0.10m</option>
+              <option value={0.25}>0.25m</option>
+              <option value={0.5}>0.50m</option>
+              <option value={1.0}>1.00m</option>
+            </select>
+          </div>
+        )}
+
         {showFloatingToolsPanel && vista !== '3d' && (
           isToolsPanelCollapsed ? (
             /* VERSIÓN COLAPSADA / MINIMIZADA (Súper compacta, arrastrable) */
