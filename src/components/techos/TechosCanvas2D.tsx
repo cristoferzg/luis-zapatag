@@ -171,7 +171,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // PANEL FLOTANTE Y ARRASTRABLE DE HERRAMIENTAS CAD DETALLADAS
   const [showFloatingToolsPanel, setShowFloatingToolsPanel] = useState<boolean>(true);
-  const [isToolsPanelCollapsed, setIsToolsPanelCollapsed] = useState<boolean>(false);
+  // En móvil/tablet el panel arranca colapsado para no tapar el lienzo.
+  const [isToolsPanelCollapsed, setIsToolsPanelCollapsed] = useState<boolean>(
+    () => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false)
+  );
   const [floatingToolsPanelPos, setFloatingToolsPanelPos] = useState<{ x: number; y: number }>({ x: 20, y: 110 });
   const isDraggingToolsPanelRef = useRef(false);
   const toolsPanelDragOffsetRef = useRef({ x: 0, y: 0 });
@@ -2226,17 +2229,28 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <Wrench className="w-5 h-5 text-amber-500 group-hover:rotate-12 transition-transform duration-300" />
             </button>
           ) : (
-            /* VERSIÓN COMPLETA ARRASTRABLE */
+            /* VERSIÓN COMPLETA: arrastrable en escritorio, hoja inferior en móvil */
             <div
-              style={{
-                position: 'absolute',
-                left: `${floatingToolsPanelPos.x}px`,
-                top: `${floatingToolsPanelPos.y}px`,
-              }}
-              onPointerDown={handleToolsPanelPointerDown}
-              onPointerMove={handleToolsPanelPointerMove}
-              onPointerUp={handleToolsPanelPointerUp}
-              className="z-40 w-72 bg-slate-900/95 text-white border border-slate-700/60 rounded-3xl shadow-2xl p-3.5 space-y-3.5 backdrop-blur-md select-none"
+              style={
+                isDesktop
+                  ? {
+                      position: 'absolute',
+                      left: `${floatingToolsPanelPos.x}px`,
+                      top: `${floatingToolsPanelPos.y}px`,
+                    }
+                  : {
+                      position: 'absolute',
+                      left: 8,
+                      right: 8,
+                      bottom: 8,
+                      maxHeight: '48vh',
+                      overflowY: 'auto',
+                    }
+              }
+              onPointerDown={isDesktop ? handleToolsPanelPointerDown : undefined}
+              onPointerMove={isDesktop ? handleToolsPanelPointerMove : undefined}
+              onPointerUp={isDesktop ? handleToolsPanelPointerUp : undefined}
+              className={`z-40 ${isDesktop ? 'w-72' : 'w-auto'} bg-slate-900/95 text-white border border-slate-700/60 rounded-3xl shadow-2xl p-3.5 space-y-3.5 backdrop-blur-md select-none`}
             >
               {/* Cabecera del Panel con drag handle */}
               <div className="drag-handle-tools flex items-center justify-between cursor-grab active:cursor-grabbing border-b border-slate-800 pb-2.5">
