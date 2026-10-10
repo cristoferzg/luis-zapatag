@@ -2805,31 +2805,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <span className="text-[11px]">Panorámica</span>
           </button>
 
-          {/* Zoom In / Out (Visible en barra superior en pantallas grandes) */}
-          <button 
-            onClick={handleZoomIn} 
-            className="hidden sm:flex p-1.5 sm:p-2 rounded-xl bg-slate-50 text-slate-800 border border-slate-200 hover:bg-slate-100 cursor-pointer shrink-0 items-center justify-center" 
-            title="Acercar (+)"
-          >
-            <Plus className="w-4 h-4 font-bold" />
-          </button>
-
-          <button 
-            onClick={handleZoomOut} 
-            className="hidden sm:flex p-1.5 sm:p-2 rounded-xl bg-slate-50 text-slate-800 border border-slate-200 hover:bg-slate-100 cursor-pointer shrink-0 items-center justify-center" 
-            title="Alejar (-)"
-          >
-            <Minus className="w-4 h-4 font-bold" />
-          </button>
-
-          {/* Centrar Vista 3D */}
-          <button 
-            onClick={setProximityCenteredView} 
-            className="p-1.5 sm:p-2 rounded-xl bg-slate-50 text-amber-600 border border-slate-200 hover:bg-slate-100 cursor-pointer shrink-0 flex items-center justify-center" 
-            title="Centrar Vista y Enfoque"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
+          {/* Zoom (+/-) y Centrar se eliminaron de esta barra: ya están en los
+              controles flotantes siempre visibles de abajo-derecha. */}
         </div>
       </div>
 

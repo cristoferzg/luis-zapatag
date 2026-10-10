@@ -301,9 +301,12 @@ function ContratosSubView({
         windowWidth: 794 // 210mm @ 96 DPI
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-      pagebreak: { 
-        mode: ['avoid-all', 'css', 'legacy'],
-        avoid: ['.clause-block', '.signature-block', '.header-block', 'h1', 'h2', 'h3']
+      // 'avoid-all' hacía que TODO el bloque de cláusulas saltara de página,
+      // dejando la primera hoja casi vacía. Con 'css'+'legacy' el texto fluye
+      // natural y solo se protege el corte de cada cláusula/firma por su clase.
+      pagebreak: {
+        mode: ['css', 'legacy'],
+        avoid: ['.clause-block', '.signature-block', '.header-block']
       }
     };
     
@@ -648,6 +651,31 @@ function ContratosSubView({
           .header-block {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+          }
+
+          /* Evita que cualquier contenido (RUC, direcciones o textos largos
+             sin espacios) se salga del margen derecho de la hoja. */
+          #contract-a4-content,
+          #contract-a4-content * {
+            box-sizing: border-box;
+            max-width: 100%;
+            overflow-wrap: break-word;
+            word-break: break-word;
+          }
+          #contract-a4-content img {
+            max-width: 100%;
+            height: auto;
+          }
+
+          /* Diseño más práctico y escaneable: cada cláusula con un acento
+             lateral ámbar y separación clara (sin quitar ninguna cláusula). */
+          #contract-a4-content .clause-block h2 {
+            border-left: 3px solid #d97706;
+            padding-left: 8px;
+            margin-bottom: 4px;
+          }
+          #contract-a4-content .clause-block {
+            padding: 2px 0 2px 2px;
           }
         `}</style>
 
