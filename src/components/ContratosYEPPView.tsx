@@ -352,42 +352,34 @@ function ContratosSubView({
   };
 
   const renderHeader = () => {
-    if (letterheadBase64) {
-      return (
-        <div className="header-block w-full mb-3 border-b border-slate-300 pb-2 relative z-10">
-          <img 
-            src={letterheadBase64} 
-            alt="Membrete Oficial" 
-            className="w-full max-h-[15mm] object-contain mx-auto" 
-          />
-        </div>
-      );
-    }
-
+    // Membrete limpio y uniforme: logo a la izquierda (sin estirar) + datos de
+    // la empresa a la derecha. Se usa la imagen de logo si existe, y si solo
+    // hay un "letterhead" cargado, se emplea como logo contenido a la izquierda.
+    const logoSrc = logoBase64 || letterheadBase64 || '';
     return (
-      <div className="header-block flex items-start justify-between border-b border-slate-300 pb-2 mb-3 relative z-10 gap-4">
-        {/* Logo al costado de la hoja: compacto, estilizado y sin deformación */}
+      <div className="header-block flex items-center justify-between border-b-2 border-slate-800 pb-2.5 mb-3 relative z-10 gap-4">
+        {/* Logo a la izquierda, contenido y sin deformación */}
         <div className="flex items-center shrink-0">
-          {logoBase64 ? (
-            <img 
-              src={logoBase64} 
-              alt={contratistaNombre || 'Logo Contratista'} 
-              className="h-10 max-h-[12mm] w-auto max-w-[40mm] object-contain object-left rounded-sm" 
+          {logoSrc ? (
+            <img
+              src={logoSrc}
+              alt={contratistaNombre || 'Logo Contratista'}
+              className="h-auto max-h-[16mm] w-auto max-w-[55mm] object-contain object-left"
             />
           ) : (
-            <div className="text-[9pt] font-black uppercase text-slate-800 border border-slate-300 px-2 py-1 rounded">
+            <div className="text-[11pt] font-black uppercase text-slate-900 leading-tight">
               {contratistaNombre || 'EMPRESA'}
             </div>
           )}
         </div>
-        {/* Datos empresariales alineados al margen derecho */}
-        <div className="text-right leading-tight min-w-0">
-          <h2 className="text-[9.5pt] font-extrabold text-slate-950 uppercase tracking-tight break-words">
+        {/* Datos de la empresa alineados a la derecha */}
+        <div className="text-right leading-snug min-w-0">
+          <h2 className="text-[10pt] font-black text-slate-950 uppercase tracking-tight break-words">
             {contratistaNombre}
           </h2>
-          {contratistaRuc && <p className="text-[8pt] font-medium text-slate-600 mt-0.5">RUC/DNI: {contratistaRuc}</p>}
-          {contratistaTel && <p className="text-[8pt] font-medium text-slate-600">Tel: {contratistaTel}</p>}
-          {contratistaDir && <p className="text-[8pt] font-medium text-slate-600 break-words">{contratistaDir}</p>}
+          {contratistaRuc && <p className="text-[8pt] font-semibold text-slate-600 mt-0.5">RUC/DNI: {contratistaRuc}</p>}
+          {contratistaTel && <p className="text-[8pt] font-semibold text-slate-600">Tel: {contratistaTel}</p>}
+          {contratistaDir && <p className="text-[8pt] font-medium text-slate-500 break-words">{contratistaDir}</p>}
         </div>
       </div>
     );
