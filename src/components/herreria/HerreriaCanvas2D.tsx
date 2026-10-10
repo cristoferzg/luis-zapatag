@@ -1,6 +1,6 @@
 // Centro CAD Paramétrico 2D para Herrería y Carpintería Metálica
 // Construcción pieza por pieza desde lienzo en blanco con referencias geométricas (SNAP) y medidas paramétricas
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   Minus, 
@@ -260,6 +260,21 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   const accesorios = design.accesoriosCad || [];
   const cotas = design.cotasCad || [];
 
+  // Proyecta las coordenadas 3D de cada pieza al plano 2D de la vista activa.
+  // Necesario para que el snap (que compara contra x1/y1) coincida con lo que se
+  // ve en Lateral (Z-Y) y Planta (X-Z), no solo en Frontal.
+  const piezasEnVista = useMemo<PiezaCad[]>(() => {
+    if (currentVista === 'frontal') return piezas;
+    const prj = (x: number, y: number, z: number) =>
+      currentVista === 'lateral' ? { x: z, y } : { x, y: z }; // superior = X-Z
+    return piezas.map((p) => {
+      const a = prj(p.x1, p.y1, p.z1 || 0);
+      const b = prj(p.x2, p.y2, p.z2 || 0);
+      const proj: PiezaCad = { ...p, x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+      return proj;
+    });
+  }, [piezas, currentVista]);
+
   // Puntero y SNAP en tiempo real
   const handlePointerMove = (e: React.PointerEvent) => {
     if (pointerDownPosRef.current) {
@@ -291,7 +306,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
     }
 
     // Buscar SNAP (con detección milimétrica de contacto adyacente cara con cara y alineación ortogonal recta)
-    const snap = findBestSnapPoint(targetPt, piezas, 0.08 / zoom, {
+    const snap = findBestSnapPoint(targetPt, piezasEnVista, 0.08 / zoom, {
       snapEndpoints,
       snapMidpoints,
       snapIntersections,
@@ -414,7 +429,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       }
     }
 
-    const snap = findBestSnapPoint(targetPt, piezas, 0.08 / zoom, {
+    const snap = findBestSnapPoint(targetPt, piezasEnVista, 0.08 / zoom, {
       snapEndpoints,
       snapMidpoints,
       snapIntersections,
