@@ -11,6 +11,7 @@ import { User } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { auth } from './lib/firebase';
+import { loginWithPinViaFunction } from './lib/pinAuth';
 import { useFirestoreArraySync } from './lib/db';
 import CotizadorRapidoView from './components/CotizadorRapidoView';
 import UsuariosView from './components/UsuariosView';
@@ -1628,6 +1629,39 @@ export default function App() {
     }
     setIsLoggingIn(true);
     setPinError('');
+
+    // 0. PREFERRED: server-side PIN verification via Cloud Function (phase 3).
+    //    Establishes a trusted Firebase Auth session (role/workspace claims) so
+    //    the browser never needs to read the 'usuarios' collection. If the
+    //    function is not deployed yet, we fall through to the legacy flow below,
+    //    so the app keeps working before and after the function is live.
+    try {
+      const result = await loginWithPinViaFunction(pinInput);
+      const nowStr = new Date().toLocaleDateString('es-PE') + ' ' +
+        new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+      const sessionUser: SystemUser = result.role === 'admin'
+        ? { id: 'admin', name: result.name || 'Innova Contratistas', email: PRIMARY_ADMIN_EMAIL, role: 'admin', pin: '', isActive: true, lastLogin: nowStr }
+        : { id: result.workspace.replace(/^user_/, ''), name: result.name || 'Usuario', role: 'user', pin: '', isActive: true, lastLogin: nowStr };
+      setUser(sessionUser);
+      safeStorage.setItem('savedUser', sessionUser);
+      if (result.role === 'admin') {
+        safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
+      }
+      setCurrentView('dashboard');
+      setIsLoggingIn(false);
+      return;
+    } catch (fnErr: any) {
+      const code = String(fnErr?.code || '').toLowerCase();
+      // Definitive rejection from the server (wrong/disabled PIN): stop here.
+      if (code.includes('permission-denied') || code.includes('invalid-argument') || code.includes('unauthenticated')) {
+        setPinError('PIN no válido o acceso desactivado.');
+        setIsLoggingIn(false);
+        return;
+      }
+      // Otherwise the function is simply not deployed/available yet — use the
+      // legacy client-side flow below so nothing breaks before phase-3 rollout.
+      console.warn('[pinAuth] server login unavailable, using legacy flow:', code || fnErr?.message);
+    }
 
     try {
       // 1. Verificación del PIN Maestro de Administrador mediante hash SHA-256

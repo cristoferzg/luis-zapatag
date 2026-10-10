@@ -1,10 +1,10 @@
 /**
  * Client helper for Option B (server-side PIN auth).
  *
- * This is NOT wired into the app yet. To switch over once the `loginWithPin`
- * Cloud Function is deployed, replace the body of handlePinLogin in App.tsx
- * with a call to loginWithPinViaFunction(pin) and use the returned claims to
- * build the local SystemUser. See SECURITY.md for the exact steps.
+ * This IS now wired into handlePinLogin in App.tsx as the preferred login path,
+ * with a safe fallback: if the Cloud Function is not deployed yet, login falls
+ * back to the legacy client-side flow, so the app works before and after the
+ * phase-3 rollout. See SECURITY.md.
  *
  * Why: today the browser queries the `usuarios` collection and compares PINs,
  * which requires that collection to be readable by clients and exposes every

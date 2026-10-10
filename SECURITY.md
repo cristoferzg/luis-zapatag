@@ -59,8 +59,10 @@ un token con claims de confianza (`role`, `workspace`). Archivos incluidos:
 - `functions/package.json`.
 - `firestore.rules.phase3` — reglas basadas en claims (aislamiento por workspace;
   `usuarios` solo legible por admin / la función).
-- `src/lib/pinAuth.ts` — helper de cliente `loginWithPinViaFunction` (aún no
-  cableado en `handlePinLogin`).
+- `src/lib/pinAuth.ts` — helper de cliente `loginWithPinViaFunction`, **ya
+  cableado** en `handlePinLogin` como vía preferente, con **fallback** al flujo
+  heredado si la función aún no está desplegada (la app funciona antes y después
+  del despliegue).
 
 ### Pasos para activar la Fase 3
 
@@ -68,13 +70,20 @@ un token con claims de confianza (`role`, `workspace`). Archivos incluidos:
 2. Define el PIN maestro como secreto (no lo pongas en código):
    `firebase functions:secrets:set ADMIN_PIN`
 3. `firebase deploy --only functions`
-4. En `src/App.tsx`, reemplaza el cuerpo de `handlePinLogin` por una llamada a
-   `loginWithPinViaFunction(pinInput)` y construye el `SystemUser` con el
-   resultado (`role`, `workspace`, `name`).
-5. Elimina la rotación del hash del PIN de admin del bundle (ya no se necesita).
-6. Prueba con el emulador: `firebase emulators:start --only firestore,functions`.
+   - El cliente ya llama a la función automáticamente; en cuanto esté
+     desplegada, el login empieza a usar la vía servidor. No hay que tocar más
+     código.
+4. **Prueba en un canal de preview antes de ir a producción:**
+   `firebase hosting:channel:deploy prueba-seguridad`
+   Entra por la URL temporal que te da y verifica login (admin + un usuario).
+5. Cuando funcione, despliega a producción: `firebase deploy --only hosting`.
+6. Prueba también con el emulador si quieres:
+   `firebase emulators:start --only firestore,functions`.
 7. Sustituye `firestore.rules` por `firestore.rules.phase3` y despliega:
    `firebase deploy --only firestore:rules`.
+8. (Opcional, recomendado) Una vez todo funcione con la función, elimina el
+   hash del PIN de admin del bundle en `src/App.tsx`: el PIN de admin ya se
+   verifica server-side con el secreto `ADMIN_PIN`.
 
 ### Por qué resuelve los riesgos
 - El cliente ya no lee `usuarios`, así que los PINs dejan de estar expuestos.
