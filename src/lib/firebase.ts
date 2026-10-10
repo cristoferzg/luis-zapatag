@@ -46,30 +46,49 @@ export const storage: FirebaseStorage = getStorage(app);
  * Sign-in method BEFORE deploying the stricter Firestore rules, otherwise all
  * reads/writes will be denied.
  */
-let authReadyResolve: (v: boolean) => void;
+let authReadyResolve: ((v: boolean) => void) | undefined;
+let authReadySettled = false;
+// Resolves once there is an auth session (anonymous or restored), or once we
+// know sign-in is unavailable. Consumers (e.g. Firestore subscriptions) await
+// this so their first request is not sent before request.auth exists.
 export const authReady: Promise<boolean> = new Promise((resolve) => {
   authReadyResolve = resolve;
 });
+const settleAuthReady = (ok: boolean) => {
+  if (authReadySettled) return;
+  authReadySettled = true;
+  authReadyResolve?.(ok);
+};
+
+let anonymousStarted = false;
 
 export function ensureAnonymousAuth(): void {
   try {
+    // onAuthStateChanged is the source of truth. On reload it fires first with
+    // any *restored* session (e.g. a custom-token admin/user session), so we
+    // must NOT sign in anonymously before this callback runs — otherwise we
+    // would overwrite the restored session and its role/workspace claims.
     onAuthStateChanged(auth, (user) => {
       if (user) {
-        authReadyResolve?.(true);
+        settleAuthReady(true);
+        return;
+      }
+      // No session (first visit, or signed out): establish an anonymous one once.
+      if (!anonymousStarted) {
+        anonymousStarted = true;
+        signInAnonymously(auth).catch((err) => {
+          // Non-blocking: run in offline/cached mode if sign-in is unavailable.
+          console.warn('[auth] anonymous sign-in unavailable:', err?.code || err?.message || err);
+          settleAuthReady(false);
+        });
       }
     });
-    if (!auth.currentUser) {
-      signInAnonymously(auth).catch((err) => {
-        // Do not block the UI: log quietly and let the app run in offline/cached mode.
-        console.warn('[auth] anonymous sign-in unavailable:', err?.code || err?.message || err);
-        authReadyResolve?.(false);
-      });
-    } else {
-      authReadyResolve?.(true);
-    }
+
+    // Safety net: never leave consumers awaiting forever if Auth is unreachable.
+    setTimeout(() => settleAuthReady(false), 8000);
   } catch (err) {
     console.warn('[auth] ensureAnonymousAuth failed:', err);
-    authReadyResolve?.(false);
+    settleAuthReady(false);
   }
 }
 

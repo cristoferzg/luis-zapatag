@@ -1651,15 +1651,16 @@ export default function App() {
       setIsLoggingIn(false);
       return;
     } catch (fnErr: any) {
+      // The server path failed. We intentionally fall through to the legacy
+      // client-side flow in ALL cases (not just transport errors):
+      //  - If the function is not deployed yet, legacy keeps the app working.
+      //  - If the function IS deployed but rejects (e.g. the ADMIN_PIN secret
+      //    is unset or differs from the master PIN), the legacy master-admin
+      //    hash check below still lets the administrator in, so a server
+      //    misconfiguration can never fully lock the admin out.
+      // A genuinely wrong PIN simply fails the legacy checks too and shows the
+      // normal "PIN no registrado" message.
       const code = String(fnErr?.code || '').toLowerCase();
-      // Definitive rejection from the server (wrong/disabled PIN): stop here.
-      if (code.includes('permission-denied') || code.includes('invalid-argument') || code.includes('unauthenticated')) {
-        setPinError('PIN no válido o acceso desactivado.');
-        setIsLoggingIn(false);
-        return;
-      }
-      // Otherwise the function is simply not deployed/available yet — use the
-      // legacy client-side flow below so nothing breaks before phase-3 rollout.
       console.warn('[pinAuth] server login unavailable, using legacy flow:', code || fnErr?.message);
     }
 

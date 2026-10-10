@@ -33,12 +33,21 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 initializeApp();
 const db = getFirestore();
 
-const sha256 = (s) => createHash('sha256').update(String(s).trim()).digest('hex');
+const sha256Buf = (s) => createHash('sha256').update(String(s).trim()).digest();
+// Constant-time comparison of two secrets (compared via their fixed-length
+// SHA-256 digests so timingSafeEqual always gets equal-length buffers).
+const secretsEqual = (a, b) => {
+  try {
+    return timingSafeEqual(sha256Buf(a), sha256Buf(b));
+  } catch (_) {
+    return false;
+  }
+};
 
 /**
  * loginWithPin({ pin }) -> { token, role, workspace, name }
@@ -55,7 +64,7 @@ export const loginWithPin = onCall(
 
     // 1) Master administrator PIN (stored as a server secret, never in the bundle).
     const adminPin = process.env.ADMIN_PIN || '';
-    if (adminPin && sha256(pin) === sha256(adminPin)) {
+    if (adminPin && secretsEqual(pin, adminPin)) {
       const claims = { role: 'admin', workspace: 'admin' };
       const token = await getAuth().createCustomToken('admin', claims);
       return { token, role: 'admin', workspace: 'admin', name: 'Innova Contratistas' };

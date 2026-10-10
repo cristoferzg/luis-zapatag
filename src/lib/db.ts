@@ -1,5 +1,5 @@
 import { collection, deleteDoc, doc, onSnapshot, query, where, setDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, authReady } from './firebase';
 import { handleFirestoreError } from './firebaseErrors';
 import { safeStorage } from './storageManager';
 import { useState, useEffect, useRef } from 'react';
@@ -351,9 +351,23 @@ export function useFirestoreArraySync<T extends {id: string}>(
       setData(cached);
     }
     
-    return subscribeToCollection<T>(collectionName, userId, (freshItems) => {
-      setData(freshItems);
-    }, isGlobal, isAdmin);
+    // Wait until there is an auth session before opening the listener, so the
+    // first request carries request.auth and is not rejected by rules that
+    // require authentication. authReady always settles (success or the safety
+    // timeout), so this never hangs.
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+    authReady.then(() => {
+      if (cancelled) return;
+      unsubscribe = subscribeToCollection<T>(collectionName, userId, (freshItems) => {
+        setData(freshItems);
+      }, isGlobal, isAdmin);
+    });
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
+    };
   }, [collectionName, userId, isGlobal, isAdmin, cacheKey]);
 
   const updateData: React.Dispatch<React.SetStateAction<T[]>> = (action) => {
