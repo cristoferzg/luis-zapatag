@@ -1825,11 +1825,11 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
           BANNER FLOTANTE GUÍA CUANDO SE ESTÁ TRAZANDO UNA PIEZA
       ======================================================== */}
       {drawStep >= 1 && (
-        <div className="absolute top-20 sm:top-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-slate-900/95 text-white backdrop-blur-md px-4 py-2 rounded-2xl shadow-2xl border border-blue-500/40 select-none animate-fadeIn pointer-events-auto max-w-[92vw]">
+        <div className="absolute top-20 sm:top-16 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-slate-900/95 text-white backdrop-blur-md px-4 py-2 rounded-2xl shadow-2xl border border-blue-500/40 select-none animate-fadeIn pointer-events-none max-w-[92vw]">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping" />
           <span className="text-xs font-bold truncate">
-            {herramienta === 'arco' 
-              ? (drawStep === 1 ? '🏹 Arco Paso 1: Toca el punto final de la cuerda' : '🏹 Arco Paso 2: Mueve para arquear y toca para fijar') 
+            {herramienta === 'arco'
+              ? (drawStep === 1 ? '🏹 Arco Paso 1: Toca el punto final de la cuerda' : '🏹 Arco Paso 2: Mueve para arquear y toca para fijar')
               : `📏 Trazando ${herramienta.toUpperCase()}: Toca el punto final`}
           </span>
           <button
@@ -1839,7 +1839,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
               setArcEndPoint(null);
               setHerramienta('select');
             }}
-            className="ml-2 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+            className="ml-2 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-extrabold flex items-center gap-1 shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 pointer-events-auto"
             title="Cancelar trazo activo (Escape)"
           >
             <X className="w-3.5 h-3.5" />
