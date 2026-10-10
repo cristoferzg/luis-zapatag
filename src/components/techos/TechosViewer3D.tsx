@@ -28,7 +28,9 @@ import {
   ChevronUp,
   CheckCircle2,
   Layers,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Video,
+  Square
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
@@ -266,7 +268,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     setModoIluminacion(prev => prev === 'claro' ? 'oscuro' : 'claro');
   };
 
-  const [mostrarCobertura, setMostrarCobertura] = useState(true);
+  // Por defecto OCULTA para que al abrir el 3D se vea la estructura metálica
+  // (tubos, cordones, montantes). El botón del ojo muestra la cobertura Aluzinc.
+  const [mostrarCobertura, setMostrarCobertura] = useState(false);
   const mostrarCoberturaRef = useRef(true);
   useEffect(() => { mostrarCoberturaRef.current = mostrarCobertura; }, [mostrarCobertura]);
 
@@ -552,8 +556,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const velocityThetaRef = useRef(0);
   const velocityPhiRef = useRef(0);
 
-  // Mobile Device Orientation Gyroscope Sensor
-  const [gyroActive, setGyroActive] = useState<boolean>(false);
+  // Grabación de video del visor 3D (giro lento + descarga)
+  const [isRecording, setIsRecording] = useState<boolean>(false);
 
   const updateCameraPos = useCallback(() => {
     if (!cameraRef.current) return;
@@ -570,48 +574,6 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     cameraRef.current.lookAt(target);
   }, []);
 
-  // Device Orientation Gyroscope Sensor Listener (Calibrado suave y lento)
-  useEffect(() => {
-    if (!gyroActive) return;
-
-    let prevOrientation: { gamma: number; beta: number } | null = null;
-
-    const handleDeviceMotion = (e: DeviceOrientationEvent) => {
-      if (e.gamma !== null && e.beta !== null) {
-        if (!prevOrientation) {
-          prevOrientation = { gamma: e.gamma, beta: e.beta };
-          return;
-        }
-
-        const deltaGamma = e.gamma - prevOrientation.gamma;
-        const deltaBeta = e.beta - prevOrientation.beta;
-        prevOrientation = { gamma: e.gamma, beta: e.beta };
-
-        // Evitar saltos bruscos si el dispositivo cruza los límites (±180°)
-        if (Math.abs(deltaGamma) > 25 || Math.abs(deltaBeta) > 25) return;
-
-        // Zona muerta para filtrar micro-temblores
-        const deadzone = 0.08;
-        const filteredGamma = Math.abs(deltaGamma) > deadzone ? deltaGamma : 0;
-        const filteredBeta = Math.abs(deltaBeta) > deadzone ? deltaBeta : 0;
-
-        // Sensibilidad lenta, suave y controlada
-        const factor = 0.005;
-        const gammaRad = (filteredGamma * Math.PI / 180) * factor;
-        const betaRad = (filteredBeta * Math.PI / 180) * factor;
-
-        cameraAngleThetaRef.current += gammaRad;
-        cameraAnglePhiRef.current = Math.max(0.04, Math.min(Math.PI - 0.04, cameraAnglePhiRef.current + betaRad));
-        updateCameraPos();
-      }
-    };
-
-    window.addEventListener('deviceorientation', handleDeviceMotion);
-    return () => {
-      window.removeEventListener('deviceorientation', handleDeviceMotion);
-      prevOrientation = null;
-    };
-  }, [gyroActive, updateCameraPos]);
 
   // Manejadores Pointer Events con captura completa para ratón, lápiz y pantallas táctiles
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -802,6 +764,61 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const handleZoomOut = () => {
     cameraRadiusRef.current = Math.min(60, cameraRadiusRef.current * 1.30);
     updateCameraPos();
+  };
+
+  // Grabar un video del visor 3D con un giro lento de 360° y descargarlo.
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const handleRecord3D = () => {
+    // Si ya está grabando, detener y descargar.
+    if (isRecording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
+    if (!canvas || typeof (canvas as any).captureStream !== 'function' || typeof MediaRecorder === 'undefined') {
+      alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.');
+      return;
+    }
+
+    try {
+      const stream = (canvas as any).captureStream(30) as MediaStream;
+      const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+        .find(m => (MediaRecorder as any).isTypeSupported?.(m)) || 'video/webm';
+      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+      recorderRef.current = recorder;
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `techo_3d_${new Date().toISOString().split('T')[0]}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setIsRecording(false);
+      };
+
+      // Giro lento automático durante la grabación (una vuelta completa).
+      const prevAuto = autoRotateRef.current;
+      setAutoRotate(true);
+      recorder.start();
+      setIsRecording(true);
+
+      // ~14 s = una vuelta lenta y suave; luego detener automáticamente.
+      window.setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+          recorderRef.current.stop();
+        }
+        if (!prevAuto) setAutoRotate(false);
+      }, 14000);
+    } catch (err: any) {
+      console.warn('No se pudo iniciar la grabación 3D:', err);
+      alert('No se pudo iniciar la grabación: ' + (err?.message || err));
+      setIsRecording(false);
+    }
   };
 
   // Modos de Proximidad Directa
@@ -2254,7 +2271,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 500);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     rendererRef.current = renderer;
@@ -2746,15 +2763,16 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
           <div className="h-4 w-px bg-slate-200 mx-0.5 shrink-0" />
 
-          {/* Activar Giroscopio por Sensor de Movimiento Móvil */}
-          <button 
-            onClick={() => setGyroActive(!gyroActive)} 
-            className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer shrink-0 ${
-              gyroActive ? 'bg-indigo-600 text-white border-indigo-500 shadow-md ring-2 ring-indigo-300' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-            }`} 
-            title="Activar / Desactivar Giroscopio por Inclinación de Celular"
+          {/* Grabar video 3D (giro lento 360° y descarga) */}
+          <button
+            onClick={handleRecord3D}
+            className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
+              isRecording ? 'bg-rose-600 text-white border-rose-500 shadow-md ring-2 ring-rose-300 animate-pulse' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+            title={isRecording ? 'Detener y descargar el video 3D' : 'Grabar video 3D (giro lento 360°) y descargar'}
           >
-            <Compass className="w-4 h-4" />
+            {isRecording ? <Square className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+            <span className="hidden xl:inline text-[11px] font-bold">{isRecording ? 'Detener' : 'Grabar'}</span>
           </button>
 
           {/* Giro Automático */}
