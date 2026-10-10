@@ -18,7 +18,9 @@ import {
   SlidersHorizontal,
   Wrench,
   CheckCircle2,
-  X
+  X,
+  Video,
+  Square
 } from 'lucide-react';
 import { HerreriaDesign } from './herreriaTypes';
 import { PERFILES_CATALOGO } from './herreriaCatalog';
@@ -211,6 +213,49 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
   const mountRef = useRef<HTMLDivElement>(null);
   const [autoRotate, setAutoRotate] = useState(false);
   const autoRotateRef = useRef(false);
+  // Grabación de video del visor 3D (giro lento + descarga)
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const handleRecord3D = useCallback(() => {
+    if (isRecording) { recorderRef.current?.stop(); return; }
+    const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
+    if (!canvas || typeof (canvas as any).captureStream !== 'function' || typeof MediaRecorder === 'undefined') {
+      alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.');
+      return;
+    }
+    try {
+      const stream = (canvas as any).captureStream(30) as MediaStream;
+      const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
+        .find(m => (MediaRecorder as any).isTypeSupported?.(m)) || 'video/webm';
+      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+      recorderRef.current = recorder;
+      const chunks: BlobPart[] = [];
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `herreria_3d_${new Date().toISOString().split('T')[0]}.webm`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setIsRecording(false);
+      };
+      const prevAuto = autoRotateRef.current;
+      setAutoRotate(true);
+      recorder.start();
+      setIsRecording(true);
+      window.setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop();
+        if (!prevAuto) setAutoRotate(false);
+      }, 14000);
+    } catch (err: any) {
+      console.warn('No se pudo iniciar la grabación 3D:', err);
+      alert('No se pudo iniciar la grabación: ' + (err?.message || err));
+      setIsRecording(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording]);
   useEffect(() => {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
@@ -1085,7 +1130,7 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
     resetCamera();
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
@@ -1444,6 +1489,18 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
             <RotateCw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Giro Auto</span>
             <span className="sm:hidden">Giro</span>
+          </button>
+
+          {/* Grabar video 3D (giro lento 360° y descarga) */}
+          <button
+            onClick={handleRecord3D}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-colors ${
+              isRecording ? 'bg-rose-600 text-white shadow-xs animate-pulse' : 'text-slate-700 hover:bg-slate-100'
+            }`}
+            title={isRecording ? 'Detener y descargar el video 3D' : 'Grabar video 3D (giro lento 360°) y descargar'}
+          >
+            {isRecording ? <Square className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isRecording ? 'Detener' : 'Grabar'}</span>
           </button>
 
           <button
