@@ -2045,7 +2045,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {/* BANNER FLOTANTE DE ENCADENAMIENTO DE TRAZO */}
         {/* ------------------------------------------------------------- */}
         {drawingStartNodeId && activeTool !== 'draw_arc' && !draggingNodeId && (
-          <div className="absolute top-2 inset-x-3 max-w-sm sm:max-w-md mx-auto z-30 flex items-center justify-between gap-2 bg-slate-900/95 text-white px-3.5 py-2 rounded-2xl shadow-2xl border border-amber-400/60 backdrop-blur-md text-xs animate-in fade-in">
+          <div className="absolute top-2 inset-x-3 max-w-sm sm:max-w-md mx-auto z-30 flex items-center justify-between gap-2 bg-slate-900/95 text-white px-3.5 py-2 rounded-2xl shadow-2xl border border-amber-400/60 backdrop-blur-md text-xs animate-in fade-in pointer-events-none">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
               <div className="min-w-0">
@@ -2059,7 +2059,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </div>
             <button
               onClick={handleCancelChain}
-              className="shrink-0 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 text-xs font-black cursor-pointer shadow-md active:scale-95 transition-all flex items-center gap-1.5"
+              className="shrink-0 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 text-xs font-black cursor-pointer shadow-md active:scale-95 transition-all flex items-center gap-1.5 pointer-events-auto"
               title="Terminar el trazo actual (o tecla Esc)"
             >
               <CheckCircle2 className="w-4 h-4 shrink-0" />
