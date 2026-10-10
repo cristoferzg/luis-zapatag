@@ -748,7 +748,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>1. DISEÑO CAD (2D / 3D)</span>
+            <span className="sm:hidden">1. Diseño</span>
+            <span className="hidden sm:inline">1. DISEÑO CAD (2D / 3D)</span>
           </button>
 
           <button
@@ -760,7 +761,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <Scissors className="w-4 h-4" />
-            <span>2. DESPIECE Y CORTES</span>
+            <span className="sm:hidden">2. Despiece</span>
+            <span className="hidden sm:inline">2. DESPIECE Y CORTES</span>
           </button>
 
           <button
@@ -772,7 +774,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>3. MATERIALES AGRUPADOS</span>
+            <span className="sm:hidden">3. Materiales</span>
+            <span className="hidden sm:inline">3. MATERIALES AGRUPADOS</span>
           </button>
 
           <button
@@ -784,7 +787,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <DollarSign className="w-4 h-4" />
-            <span>4. ESTRUCTURA DE COSTOS</span>
+            <span className="sm:hidden">4. Costos</span>
+            <span className="hidden sm:inline">4. ESTRUCTURA DE COSTOS</span>
           </button>
 
           <button
@@ -796,7 +800,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>5. PRESUPUESTO FORMAL</span>
+            <span className="sm:hidden">5. Presupuesto</span>
+            <span className="hidden sm:inline">5. PRESUPUESTO FORMAL</span>
           </button>
 
           <button
@@ -808,7 +813,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <Compass className="w-4 h-4" />
-            <span>6. PLANO CM-02</span>
+            <span className="sm:hidden">6. Plano</span>
+            <span className="hidden sm:inline">6. PLANO CM-02</span>
           </button>
 
           <button
@@ -820,7 +826,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <Activity className="w-4 h-4 text-indigo-600" />
-            <span>7. ANÁLISIS ESTRUCTURAL RNE</span>
+            <span className="sm:hidden">7. Análisis</span>
+            <span className="hidden sm:inline">7. ANÁLISIS ESTRUCTURAL RNE</span>
           </button>
 
           <button
@@ -832,7 +839,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             }`}
           >
             <ClipboardList className="w-4 h-4 text-amber-600" />
-            <span>📊 RESUMEN COMPONENTES 2D/3D</span>
+            <span className="sm:hidden">📊 Resumen</span>
+            <span className="hidden sm:inline">📊 RESUMEN COMPONENTES 2D/3D</span>
           </button>
         </div>
       </nav>

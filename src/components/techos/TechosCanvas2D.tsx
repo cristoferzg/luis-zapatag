@@ -1174,7 +1174,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               title="Abrir Propiedades de Elemento (Sección, Espesor, Cargas)"
             >
               <Sliders className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-              <span className="text-xs font-bold">Propied.</span>
+              <span className="text-xs font-bold hidden sm:inline">Propied.</span>
             </button>
           )}
 
@@ -1189,7 +1189,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             title="Mostrar / Ocultar Panel de Control CAD Flotante"
           >
             <PenTool className="w-3.5 h-3.5 shrink-0" />
-            <span>Panel CAD</span>
+            <span className="hidden sm:inline">Panel CAD</span>
           </button>
 
           {/* BOTÓN SUMILLA DE CONTROLES CAD */}
