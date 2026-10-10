@@ -1,7 +1,7 @@
 // Hook de Gestión de Estado Vectorial CAD y Trazado Libre (Node-to-Node / Line-to-Line)
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { 
   Node3D, 
   Segment3D, 
@@ -239,6 +239,11 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   const defaultCoverageZones: Record<string, CoverageZone3D> = {};
 
   const [nodes, setNodes] = useState<Record<string, Node3D>>(defaultNodes);
+  // Espejo síncrono de `nodes`: permite que operaciones que crean un nodo y
+  // acto seguido lo usan (p. ej. el Tijeral a mano) vean el nodo recién creado
+  // en el mismo tick, antes de que React confirme el re-render.
+  const nodesRef = useRef<Record<string, Node3D>>(nodes);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   const [segments, setSegments] = useState<Record<string, Segment3D>>(defaultSegments);
   const [coverageZones, setCoverageZones] = useState<Record<string, CoverageZone3D>>(defaultCoverageZones);
 
@@ -329,6 +334,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       [id]: { id, x: finalX, y: finalY, z: finalZ, isFixedSupport: isFixed, nodeLabel: `N-${Object.keys(nodes).length + 1}` }
     };
 
+    nodesRef.current = newNodes; // disponible de inmediato para la misma operación
     setNodes(newNodes);
     pushHistory(newNodes, segments, coverageZones);
     return id;
@@ -849,8 +855,10 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     numDivisions?: number,
     customSpacingM?: number
   ) => {
-    const nA = nodes[startNodeId];
-    const nB = nodes[endNodeId];
+    // Usar el espejo síncrono para ver un nodo recién creado en este mismo tick.
+    const liveNodes = nodesRef.current;
+    const nA = liveNodes[startNodeId];
+    const nB = liveNodes[endNodeId];
     if (!nA || !nB) return;
 
     const totalLength = Math.hypot(nB.x - nA.x, (nB.z || 0) - (nA.z || 0), nB.y - nA.y);
@@ -865,7 +873,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const dy = (nB.y - nA.y) / numPanels;
     const dz = ((nB.z || 0) - (nA.z || 0)) / numPanels;
 
-    const newNodes = { ...nodes };
+    const newNodes = { ...liveNodes };
     const newSegs = { ...segments };
 
     const bottomNodeIds: string[] = [startNodeId];
@@ -886,7 +894,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
 
     // Cordón superior
     for (let i = 0; i <= numPanels; i++) {
-      const bNode = newNodes[bottomNodeIds[i]] || nodes[bottomNodeIds[i]];
+      const bNode = newNodes[bottomNodeIds[i]] || liveNodes[bottomNodeIds[i]];
       const id = `node_truss_t_${i}_${Date.now()}`;
       newNodes[id] = { 
         id, 

@@ -434,7 +434,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       {
         snapEnabled: snapGrid,
         snapGridSizeM: engineState?.snapGridSizeM || 0.25,
-        magneticRadiusPx: 28,
+        // Radio magnético más generoso para conectar mejor con nodos/columnas;
+        // mayor en móvil/tablet, donde el dedo es menos preciso que el ratón.
+        magneticRadiusPx: isDesktop ? 42 : 64,
         enableIntersections: true,
         enableMidpoints: true,
         enablePerpendicular: true
