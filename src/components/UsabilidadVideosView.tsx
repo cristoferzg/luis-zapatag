@@ -130,11 +130,13 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     return safeStorage.getItem<string[]>(`innova_watched_videos_${currentUser?.id || 'guest'}`, []);
   });
 
+  // Marcar una lección como vista. Es "pegajoso": una vez vista queda fija y NO
+  // se puede desactivar (así el avance del usuario no se pierde por un re-clic).
   const toggleVideoWatched = (videoId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setWatchedVideoIds(prev => {
-      const exists = prev.includes(videoId);
-      const next = exists ? prev.filter(id => id !== videoId) : [...prev, videoId];
+      if (prev.includes(videoId)) return prev; // ya vista → se queda activa
+      const next = [...prev, videoId];
       safeStorage.setItem(`innova_watched_videos_${currentUser?.id || 'guest'}`, next);
       return next;
     });
@@ -883,76 +885,28 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
         >
           Tu navegador no soporta la reproducción de video HTML5.
         </video>
-        <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md text-white px-3 py-1.5 rounded-xl border border-slate-700/50 flex items-center gap-2 text-[11px] font-extrabold shadow-lg pointer-events-none">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Reproductor Nativo HD • {video.category}</span>
-        </div>
       </div>
     );
   };
 
   const getCategoryTheme = (categoryName: string) => {
     const norm = (categoryName || '').toLowerCase();
-    if (norm.includes('herr')) {
-      return {
-        gradient: 'from-amber-600 via-orange-600 to-amber-900',
-        badge: 'bg-amber-500/20 text-amber-200 border-amber-400/30',
-        accent: 'text-amber-500',
-        icon: '🔥',
-        level: 'Herrería & Forja • Taller'
-      };
-    }
-    if (norm.includes('techo')) {
-      return {
-        gradient: 'from-blue-600 via-sky-600 to-indigo-900',
-        badge: 'bg-sky-500/20 text-sky-200 border-sky-400/30',
-        accent: 'text-sky-500',
-        icon: '🏗️',
-        level: 'Techos & Coberturas'
-      };
-    }
-    if (norm.includes('estructura')) {
-      return {
-        gradient: 'from-indigo-600 via-slate-800 to-indigo-950',
-        badge: 'bg-indigo-500/20 text-indigo-200 border-indigo-400/30',
-        accent: 'text-indigo-400',
-        icon: '📐',
-        level: 'Estructuras Pesadas'
-      };
-    }
-    if (norm.includes('soldad')) {
-      return {
-        gradient: 'from-violet-600 via-purple-700 to-slate-900',
-        badge: 'bg-purple-500/20 text-purple-200 border-purple-400/30',
-        accent: 'text-purple-400',
-        icon: '⚡',
-        level: 'Soldadura Calificada'
-      };
-    }
-    if (norm.includes('carpinter')) {
-      return {
-        gradient: 'from-emerald-600 via-teal-700 to-slate-900',
-        badge: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30',
-        accent: 'text-emerald-400',
-        icon: '🛠️',
-        level: 'Carpintería Metálica'
-      };
-    }
-    if (norm.includes('plano')) {
-      return {
-        gradient: 'from-cyan-600 via-blue-700 to-slate-900',
-        badge: 'bg-cyan-500/20 text-cyan-200 border-cyan-400/30',
-        accent: 'text-cyan-400',
-        icon: '📋',
-        level: 'Lectura Técnica'
-      };
-    }
+    // Paleta sobria y uniforme para toda la Academia: un solo tono neutro
+    // (slate) en lugar de un gradiente de color distinto por categoría. Solo
+    // cambia la etiqueta de texto del nivel, no el color, para evitar distracción.
+    let level = 'Capacitación General';
+    if (norm.includes('herr')) level = 'Herrería & Forja • Taller';
+    else if (norm.includes('techo')) level = 'Techos & Coberturas';
+    else if (norm.includes('estructura')) level = 'Estructuras Pesadas';
+    else if (norm.includes('soldad')) level = 'Soldadura Calificada';
+    else if (norm.includes('carpinter')) level = 'Carpintería Metálica';
+    else if (norm.includes('plano')) level = 'Lectura Técnica';
     return {
-      gradient: 'from-slate-800 via-indigo-900 to-slate-950',
-      badge: 'bg-indigo-500/20 text-indigo-200 border-indigo-400/30',
-      accent: 'text-indigo-400',
+      gradient: 'from-slate-700 via-slate-800 to-slate-900',
+      badge: 'bg-white/15 text-slate-100 border-white/20',
+      accent: 'text-slate-300',
       icon: '🎓',
-      level: 'Capacitación General'
+      level
     };
   };
 
@@ -1029,7 +983,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       <div 
         key={video.id} 
         className={`bg-white rounded-3xl border transition-all duration-200 p-4 flex flex-col justify-between space-y-3.5 group relative ${
-          isWatched ? 'border-emerald-200 shadow-2xs' : 'border-slate-200 shadow-xs hover:shadow-xl hover:border-indigo-400'
+          isWatched ? 'border-emerald-200 shadow-2xs' : 'border-slate-200 shadow-xs hover:shadow-xl hover:border-slate-400'
         }`}
       >
         <div className="space-y-3">
@@ -1051,13 +1005,13 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 p-4 text-center">
-                <Video className="w-8 h-8 text-indigo-400 opacity-60 mb-1" />
+              <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 p-4 text-center">
+                <Video className="w-8 h-8 text-slate-400 opacity-60 mb-1" />
                 <span className="text-[11px] font-bold text-slate-300 line-clamp-1">{video.title}</span>
               </div>
             )}
             <div className="absolute inset-0 bg-slate-950/40 group-hover/thumb:bg-slate-950/20 transition-colors flex items-center justify-center">
-              <div className="w-10 h-10 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-lg transform group-hover/thumb:scale-110 transition-transform">
+              <div className="w-10 h-10 rounded-full bg-slate-600/90 text-white flex items-center justify-center shadow-lg transform group-hover/thumb:scale-110 transition-transform">
                 <Play className="w-5 h-5 fill-white ml-0.5" />
               </div>
             </div>
@@ -1086,7 +1040,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           <div className="flex items-center justify-between gap-2">
             {!hideCategoryTag ? (
               <div className="flex items-center gap-2 min-w-0">
-                <div className="p-1.5 rounded-xl shrink-0 flex items-center justify-center bg-indigo-50 text-indigo-600 border border-indigo-100">
+                <div className="p-1.5 rounded-xl shrink-0 flex items-center justify-center bg-slate-50 text-slate-600 border border-slate-100">
                   <Video className="w-3.5 h-3.5" />
                 </div>
                 <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200/80 truncate">
@@ -1095,7 +1049,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
-                <FileVideo className="w-3.5 h-3.5 text-indigo-500" />
+                <FileVideo className="w-3.5 h-3.5 text-slate-500" />
                 <span>Lección Práctica</span>
               </div>
             )}
@@ -1106,7 +1060,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   Gratis
                 </span>
               ) : (
-                <span className="text-[10px] font-black text-indigo-900 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200 shadow-2xs">
+                <span className="text-[10px] font-black text-slate-900 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200 shadow-2xs">
                   {getFormattedPrice(video.priceSoles || 39.90)}
                 </span>
               )}
@@ -1115,7 +1069,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
           {/* Título y Descripción */}
           <div>
-            <h3 className="font-extrabold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+            <h3 className="font-extrabold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-slate-600 transition-colors">
               {video.title}
             </h3>
             {video.description && (
@@ -1146,7 +1100,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             {unlocked ? (
               <button
                 onClick={() => handlePlayVideoClick(video)}
-                className="w-full py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                className="w-full py-2.5 px-3 bg-slate-600 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
               >
                 <Play className="w-3.5 h-3.5 fill-white" />
                 <span className="truncate">Ver Clase</span>
@@ -1174,7 +1128,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               </button>
               <button
                 onClick={(e) => handleOpenEditModal(video, e)}
-                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-slate-500 hover:text-slate-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
                 title="Editar clase"
               >
                 <Edit2 className="w-3.5 h-3.5" />
@@ -1200,14 +1154,14 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   return (
     <div className="w-full min-h-full space-y-6 pb-16 select-none max-w-6xl mx-auto px-3 sm:px-4">
       {/* HEADER DE ACADEMIA TÉCNICA - ESTILO UDEMY PRO */}
-      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border border-slate-800 p-5 sm:p-7 text-white shadow-xl">
-        <div className="absolute -top-24 -right-24 w-80 h-80 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800 p-5 sm:p-7 text-white shadow-xl">
+        <div className="absolute -top-24 -right-24 w-80 h-80 bg-slate-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 text-[11px] font-black uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-500/20 border border-slate-400/30 text-slate-300 text-[11px] font-black uppercase tracking-wider">
                 <GraduationCap className="w-3.5 h-3.5" />
                 Academia Técnica Innova
               </span>
@@ -1231,13 +1185,13 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                   Progreso completado
                 </span>
-                <span className="font-black text-indigo-300">
+                <span className="font-black text-slate-300">
                   {activeVideos.filter(v => watchedVideoIds.includes(v.id)).length} de {activeVideos.length} clases ({activeVideos.length > 0 ? Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100) : 0}%)
                 </span>
               </div>
               <div className="w-full h-2.5 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/60">
                 <div 
-                  className="h-full bg-gradient-to-r from-indigo-500 via-indigo-400 to-emerald-400 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-slate-500 via-slate-400 to-emerald-400 rounded-full transition-all duration-500"
                   style={{ 
                     width: `${activeVideos.length > 0 ? Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100) : 0}%` 
                   }}
@@ -1267,13 +1221,13 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           {/* BOTONES DE ADMINISTRACIÓN COMPACTOS */}
           {isAdmin && (
             <div className="flex flex-col gap-2 shrink-0 bg-white/5 border border-white/10 p-3.5 rounded-2xl backdrop-blur-sm sm:w-auto">
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
                 Panel Instructor Admin
               </span>
               <div className="flex flex-col sm:flex-row md:flex-col gap-2">
                 <button
                   onClick={handleOpenAddCourseModal}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  className="px-3.5 py-2 bg-slate-600 hover:bg-slate-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
                 >
                   <FolderPlus className="w-3.5 h-3.5" />
                   <span>+ Crear Curso</span>
@@ -1303,7 +1257,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             onClick={() => { setActiveTab('cursos'); setSelectedCourseFolder(null); }}
             className={`flex items-center space-x-2 py-2 px-3.5 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
               activeTab === 'cursos'
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-slate-600 text-white shadow-sm'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -1428,7 +1382,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
                         <button
                           onClick={() => handleOpenAddModal(currentCourseObj.name)}
-                          className="px-3.5 py-2 bg-white text-indigo-950 hover:bg-slate-100 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
+                          className="px-3.5 py-2 bg-white text-slate-950 hover:bg-slate-100 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
                           title="Subir o enlazar una nueva clase a este curso"
                         >
                           <Plus className="w-4 h-4" />
@@ -1458,7 +1412,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder={`Buscar lección en ${currentCourseObj.name}...`}
-                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-400 transition-all"
+                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-400 transition-all"
                   />
                   {searchTerm && (
                     <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -1478,7 +1432,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       onClick={() => setCourseViewMode('temario')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                         courseViewMode === 'temario'
-                          ? 'bg-white text-indigo-600 shadow-2xs'
+                          ? 'bg-white text-slate-600 shadow-2xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                       title="Ver como lista estructurada estilo Udemy"
@@ -1490,7 +1444,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       onClick={() => setCourseViewMode('grid')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                         courseViewMode === 'grid'
-                          ? 'bg-white text-indigo-600 shadow-2xs'
+                          ? 'bg-white text-slate-600 shadow-2xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                       title="Ver en cuadrícula de tarjetas"
@@ -1505,7 +1459,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               {/* CONTENIDO DE LAS LECCIONES */}
               {currentCourseVideos.length === 0 ? (
                 <div className="bg-white p-12 rounded-3xl border-2 border-dashed border-slate-200 text-center space-y-3 max-w-md mx-auto">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-3xl mx-auto border border-indigo-100">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-600 flex items-center justify-center text-3xl mx-auto border border-slate-100">
                     {courseTheme.icon}
                   </div>
                   <p className="text-sm font-extrabold text-slate-800">Este curso aún no tiene clases publicadas</p>
@@ -1515,7 +1469,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   {isAdmin && (
                     <button
                       onClick={() => handleOpenAddModal(currentCourseObj.name)}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                      className="px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
                       <span>+ Agregar Primera Clase a este Curso</span>
@@ -1536,7 +1490,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                         className={`bg-white rounded-2xl border p-4 sm:p-4.5 transition-all duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4 group ${
                           isWatched 
                             ? 'border-emerald-200 bg-emerald-50/15 shadow-2xs' 
-                            : 'border-slate-200 hover:border-indigo-400 hover:shadow-md'
+                            : 'border-slate-200 hover:border-slate-400 hover:shadow-md'
                         }`}
                       >
                         {/* Lado Izquierdo: Número, Checkbox, Portada y Datos de la Lección */}
@@ -1572,12 +1526,12 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                                 className="w-full h-full object-cover transition-transform duration-300 group-hover/th:scale-105"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-indigo-950 text-indigo-400">
+                              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 text-slate-400">
                                 <Video className="w-5 h-5 opacity-70" />
                               </div>
                             )}
                             <div className="absolute inset-0 bg-slate-950/30 group-hover/th:bg-slate-950/10 flex items-center justify-center transition-colors">
-                              <div className="w-6 h-6 rounded-full bg-indigo-600/90 text-white flex items-center justify-center shadow-md">
+                              <div className="w-6 h-6 rounded-full bg-slate-600/90 text-white flex items-center justify-center shadow-md">
                                 <Play className="w-3 h-3 fill-white ml-0.5" />
                               </div>
                             </div>
@@ -1591,7 +1545,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                                   Gratis
                                 </span>
                               ) : (
-                                <span className="text-[10px] font-black text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                                <span className="text-[10px] font-black text-slate-900 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                                   {getFormattedPrice(video.priceSoles || 39.90)}
                                 </span>
                               )}
@@ -1613,7 +1567,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
                             <h4
                               onClick={() => handlePlayVideoClick(video)}
-                              className="font-extrabold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors cursor-pointer line-clamp-1 leading-snug"
+                              className="font-extrabold text-sm text-slate-900 group-hover:text-slate-600 transition-colors cursor-pointer line-clamp-1 leading-snug"
                             >
                               {video.title}
                             </h4>
@@ -1631,7 +1585,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                           {unlocked ? (
                             <button
                               onClick={() => handlePlayVideoClick(video)}
-                              className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                              className="py-2 px-4 bg-slate-600 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
                             >
                               <Play className="w-3.5 h-3.5 fill-white" />
                               <span>Ver Clase</span>
@@ -1658,7 +1612,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                               </button>
                               <button
                                 onClick={(e) => handleOpenEditModal(video, e)}
-                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 text-slate-500 hover:text-slate-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
                                 title="Editar clase"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -1702,7 +1656,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar carpeta de curso..."
-                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-400 transition-all"
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-400 transition-all"
               />
               {searchTerm && (
                 <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -1718,7 +1672,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               {isAdmin && (
                 <button
                   onClick={handleOpenAddCourseModal}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                  className="px-3.5 py-2 bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
                 >
                   <FolderPlus className="w-4 h-4" />
                   <span>+ Nuevo Curso</span>
@@ -1736,7 +1690,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               {isAdmin && (
                 <button
                   onClick={handleOpenAddCourseModal}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
+                  className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white font-bold text-xs rounded-xl inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-95 cursor-pointer"
                 >
                   <FolderPlus className="w-4 h-4" />
                   <span>+ Crear Primer Curso</span>
@@ -1756,7 +1710,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   <div
                     key={course.id}
                     onClick={() => setSelectedCourseFolder(course.name)}
-                    className="bg-white rounded-3xl border border-slate-200 shadow-xs hover:shadow-xl hover:border-indigo-400 transition-all duration-300 cursor-pointer group flex flex-col justify-between overflow-hidden relative"
+                    className="bg-white rounded-3xl border border-slate-200 shadow-xs hover:shadow-xl hover:border-slate-400 transition-all duration-300 cursor-pointer group flex flex-col justify-between overflow-hidden relative"
                   >
                     {/* BANNER TEMÁTICO SUPERIOR ESTILO UDEMY */}
                     <div className={`relative h-44 w-full bg-gradient-to-br ${theme.gradient} p-4 sm:p-5 flex flex-col justify-between text-white overflow-hidden`}>
@@ -1801,7 +1755,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                           </div>
                         </div>
 
-                        <div className="w-9 h-9 rounded-full bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center text-white group-hover:bg-indigo-500 group-hover:border-indigo-400 transition-colors shadow-md">
+                        <div className="w-9 h-9 rounded-full bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center text-white group-hover:bg-slate-500 group-hover:border-slate-400 transition-colors shadow-md">
                           <Play className="w-4 h-4 fill-current ml-0.5" />
                         </div>
                       </div>
@@ -1810,7 +1764,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     {/* CUERPO DE LA TARJETA */}
                     <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                       <div className="space-y-1.5">
-                        <h3 className="text-base font-black text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1 leading-snug">
+                        <h3 className="text-base font-black text-slate-900 group-hover:text-slate-600 transition-colors line-clamp-1 leading-snug">
                           {course.name}
                         </h3>
                         <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
@@ -1842,7 +1796,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                               progressPct === 100 
                                 ? 'bg-emerald-500' 
                                 : progressPct > 0 
-                                ? 'bg-gradient-to-r from-indigo-500 to-emerald-400' 
+                                ? 'bg-gradient-to-r from-slate-500 to-emerald-400' 
                                 : 'bg-transparent'
                             }`}
                             style={{ width: `${progressPct}%` }}
@@ -1852,7 +1806,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
                       {/* BOTÓN CTA INFERIOR & HERRAMIENTAS ADMIN */}
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-xs font-black text-indigo-600 group-hover:text-indigo-700">
+                        <div className="flex items-center gap-1.5 text-xs font-black text-slate-600 group-hover:text-slate-700">
                           <span>{watchedInCourse > 0 ? 'Continuar Lecciones' : 'Comenzar Curso'}</span>
                           <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                         </div>
@@ -1864,7 +1818,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                           >
                             <button
                               onClick={() => handleOpenAddModal(course.name)}
-                              className="p-1.5 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                               title="Añadir clase a este curso"
                             >
                               <Plus className="w-3.5 h-3.5" />
@@ -1872,7 +1826,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                             {course.rawCourse && (
                               <button
                                 onClick={(e) => handleOpenEditCourseModal(course.rawCourse!, e)}
-                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
                                 title="Editar curso"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -1906,7 +1860,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             {/* Tarjeta 1: Gestión de Categorías */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3 flex flex-col justify-between">
               <div className="space-y-2">
-                <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl w-fit border border-indigo-100">
+                <div className="p-3 bg-slate-50 text-slate-600 rounded-xl w-fit border border-slate-100">
                   <Sliders className="w-5 h-5" />
                 </div>
                 <h3 className="font-black text-slate-900 text-sm">Gestión de Categorías</h3>
@@ -1916,7 +1870,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               </div>
               <button
                 onClick={() => setShowCategoryManagerModal(true)}
-                className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl border border-indigo-200 transition-colors cursor-pointer"
+                className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors cursor-pointer"
               >
                 Abrir Administrador
               </button>
@@ -1990,7 +1944,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar clases por nombre o tema..."
-                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-400 transition-all"
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-slate-400 transition-all"
                 />
                 {searchTerm && (
                   <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -2003,7 +1957,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 <select
                   value={selectedCategoryFilter}
                   onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                  className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 cursor-pointer"
+                  className="w-full sm:w-auto bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-slate-400 cursor-pointer"
                 >
                   <option value="all">Todas las Categorías</option>
                   {allPresetCategories.map(cat => (
@@ -2035,7 +1989,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
             <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
+                <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
                   <Sliders className="w-4 h-4" />
                 </div>
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight">
@@ -2062,7 +2016,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   return (
                     <div key={cat} className="p-3 flex items-center justify-between gap-3 bg-white hover:bg-slate-50 transition-colors">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                        <div className="p-2 rounded-lg bg-slate-50 text-slate-600 border border-slate-100 shrink-0">
                           <Video className="w-3.5 h-3.5" />
                         </div>
                         <div className="min-w-0">
@@ -2114,8 +2068,8 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             <div className="bg-slate-900 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-800 text-white animate-scaleUp">
               <div className="flex items-center justify-between p-4 bg-slate-950 border-b border-slate-800">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl">
-                    <Play className="w-4 h-4 fill-indigo-400" />
+                  <div className="p-2 bg-slate-500/20 text-slate-400 rounded-xl">
+                    <Play className="w-4 h-4 fill-slate-400" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -2188,7 +2142,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   {nextVideo && (
                     <button
                       onClick={() => handlePlayVideoClick(nextVideo)}
-                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                      className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
                       title={`Siguiente lección: ${nextVideo.title}`}
                     >
                       <span>Siguiente</span>
@@ -2265,7 +2219,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
             <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
+                <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
                   <FolderPlus className="w-4 h-4" />
                 </div>
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight">
@@ -2297,7 +2251,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   value={courseFormData.name}
                   onChange={(e) => setCourseFormData({ ...courseFormData, name: e.target.value })}
                   placeholder="Ej: Techos Parabólicos Avanzados"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 font-bold focus:outline-none focus:ring-1 focus:ring-slate-500 focus:bg-white"
                 />
               </div>
 
@@ -2310,7 +2264,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   value={courseFormData.description}
                   onChange={(e) => setCourseFormData({ ...courseFormData, description: e.target.value })}
                   placeholder="Explica qué temas o técnicas se enseñarán..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white resize-none"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 focus:bg-white resize-none"
                 />
               </div>
 
@@ -2360,7 +2314,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                         value={courseFormData.priceSoles}
                         onChange={(e) => setCourseFormData({ ...courseFormData, priceSoles: Number(e.target.value) })}
                         placeholder="Ej: 49.90"
-                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-slate-500"
                       />
                     </div>
                   </div>
@@ -2393,7 +2347,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-650 hover:bg-indigo-600 text-white text-xs font-black rounded-lg shadow-sm transition-all cursor-pointer"
+                  className="px-4 py-2 bg-slate-650 hover:bg-slate-600 text-white text-xs font-black rounded-lg shadow-sm transition-all cursor-pointer"
                 >
                   {editingCourseId ? 'Guardar Cambios' : 'Crear Curso'}
                 </button>
@@ -2409,7 +2363,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
             <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
+                <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
                   <Video className="w-4 h-4" />
                 </div>
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight">
@@ -2442,7 +2396,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     onClick={() => setVideoSourceType('file')}
                     className={`p-2.5 rounded-xl border text-[11px] font-extrabold transition-all cursor-pointer flex flex-col items-center gap-1 text-center ${
                       videoSourceType === 'file'
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-750 shadow-2xs ring-1 ring-indigo-500'
+                        ? 'border-slate-600 bg-slate-50 text-slate-700 shadow-2xs ring-1 ring-slate-500'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-600'
                     }`}
                   >
@@ -2455,7 +2409,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     onClick={() => setVideoSourceType('link')}
                     className={`p-2.5 rounded-xl border text-[11px] font-extrabold transition-all cursor-pointer flex flex-col items-center gap-1 text-center ${
                       videoSourceType === 'link'
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-750 shadow-2xs ring-1 ring-indigo-500'
+                        ? 'border-slate-600 bg-slate-50 text-slate-700 shadow-2xs ring-1 ring-slate-500'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-600'
                     }`}
                   >
@@ -2470,7 +2424,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   <label className="block text-[10px] font-bold text-slate-600 uppercase">
                     Seleccionar Archivo de Video *
                   </label>
-                  <div className="relative border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 transition-all bg-slate-50/50 flex flex-col items-center justify-center text-center cursor-pointer group">
+                  <div className="relative border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl p-4 transition-all bg-slate-50/50 flex flex-col items-center justify-center text-center cursor-pointer group">
                     <input
                       type="file"
                       required={!editingVideoId}
@@ -2478,10 +2432,10 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       onChange={handleFileChange}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     />
-                    <UploadCloud className="w-8 h-8 text-slate-450 group-hover:text-indigo-500 transition-colors mb-1" />
+                    <UploadCloud className="w-8 h-8 text-slate-450 group-hover:text-slate-500 transition-colors mb-1" />
                     {selectedFile ? (
                       <div>
-                        <p className="text-xs font-bold text-indigo-600 line-clamp-1">{selectedFile.name}</p>
+                        <p className="text-xs font-bold text-slate-600 line-clamp-1">{selectedFile.name}</p>
                         <p className="text-[10px] text-slate-400 font-mono">{(selectedFile.size / (1024 * 1024)).toFixed(1)} MB</p>
                       </div>
                     ) : (
@@ -2503,7 +2457,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     value={formData.externalUrl}
                     onChange={(e) => setFormData({ ...formData, externalUrl: e.target.value })}
                     placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500"
                   />
                 </div>
               )}
@@ -2518,7 +2472,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="Ej: Paso 1: Cálculo de tijerales en acero"
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500"
                 />
               </div>
 
@@ -2531,7 +2485,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   <button
                     type="button"
                     onClick={handleOpenAddCourseModal}
-                    className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                    className="text-[10px] font-extrabold text-slate-600 hover:text-slate-800 transition-colors cursor-pointer"
                   >
                     + Crear Curso Nuevo
                   </button>
@@ -2547,7 +2501,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                         onClick={() => setFormData({ ...formData, category: cat })}
                         className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
                           formData.category === cat 
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs scale-105' 
+                            ? 'bg-slate-600 text-white border-slate-600 shadow-2xs scale-105' 
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
@@ -2579,7 +2533,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       placeholder="O escribe nueva categoría..."
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-slate-500"
                     />
                   </div>
                 </div>
@@ -2601,7 +2555,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   accept="image/*"
                   onChange={handleThumbnailUpload}
                   disabled={isUploadingThumbnail}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700"
+                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-50 file:text-slate-700"
                 />
 
                 {isUploadingThumbnail && (
@@ -2647,7 +2601,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       onClick={() => setFormData({ ...formData, imageWidth: 0, imageHeight: 0 })}
                       className={`px-2 py-0.5 rounded-md text-[9px] font-bold border cursor-pointer ${
                         !formData.imageWidth && !formData.imageHeight 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
+                          ? 'bg-slate-600 text-white border-slate-600' 
                           : 'bg-white text-slate-600 border-slate-200'
                       }`}
                     >
@@ -2658,7 +2612,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       onClick={() => setFormData({ ...formData, imageWidth: 400, imageHeight: 225 })}
                       className={`px-2 py-0.5 rounded-md text-[9px] font-bold border cursor-pointer ${
                         formData.imageWidth === 400 && formData.imageHeight === 225 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
+                          ? 'bg-slate-600 text-white border-slate-600' 
                           : 'bg-white text-slate-600 border-slate-200'
                       }`}
                     >
@@ -2669,7 +2623,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       onClick={() => setFormData({ ...formData, imageWidth: 280, imageHeight: 180 })}
                       className={`px-2 py-0.5 rounded-md text-[9px] font-bold border cursor-pointer ${
                         formData.imageWidth === 280 && formData.imageHeight === 180 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
+                          ? 'bg-slate-600 text-white border-slate-600' 
                           : 'bg-white text-slate-600 border-slate-200'
                       }`}
                     >
@@ -2712,7 +2666,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       name="isFree"
                       checked={formData.isFree}
                       onChange={() => setFormData({ ...formData, isFree: true })}
-                      className="w-3.5 h-3.5 text-indigo-600"
+                      className="w-3.5 h-3.5 text-slate-600"
                     />
                     <span>Gratuita</span>
                   </label>
@@ -2722,7 +2676,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       name="isFree"
                       checked={!formData.isFree}
                       onChange={() => setFormData({ ...formData, isFree: false })}
-                      className="w-3.5 h-3.5 text-indigo-600"
+                      className="w-3.5 h-3.5 text-slate-600"
                     />
                     <span>De Pago Individual</span>
                   </label>
@@ -2744,7 +2698,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                         value={formData.priceSoles}
                         onChange={(e) => setFormData({ ...formData, priceSoles: Number(e.target.value) })}
                         placeholder="Ej: 39.90"
-                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-slate-500"
                       />
                     </div>
                   </div>
@@ -2776,7 +2730,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Detalles sobre lo que se explica en esta lección..."
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 resize-none"
                 />
               </div>
 
@@ -2809,7 +2763,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 <button
                   type="submit"
                   disabled={isProcessingUpload}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-xs font-extrabold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isProcessingUpload ? (
                     <>
@@ -2832,7 +2786,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
             <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-100">
               <div className="flex items-center gap-1.5">
-                <ShoppingCart className="w-4 h-4 text-indigo-600" />
+                <ShoppingCart className="w-4 h-4 text-slate-600" />
                 <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight">Adquirir Acceso</h3>
               </div>
               <button
@@ -2890,7 +2844,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
             <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-indigo-600" />
+                <UserCheck className="w-4 h-4 text-slate-600" />
                 <div>
                   <h3 className="text-xs font-extrabold text-slate-800">Alumnos Autorizados</h3>
                   <p className="text-[10px] text-slate-400 font-medium">Habilita o revoca accesos manualmente</p>
@@ -2941,7 +2895,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowAccessManagerVideo(null)}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-2xs cursor-pointer"
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white font-extrabold text-xs rounded-xl shadow-2xs cursor-pointer"
               >
                 Listo
               </button>
@@ -2967,7 +2921,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               <p className="text-xs text-slate-500 leading-relaxed">
                 El acceso gratuito tiene un límite de <strong>1 video por día</strong>. Tu clase asignada para hoy es:
               </p>
-              <div className="p-3 bg-indigo-50/80 rounded-xl border border-indigo-100 text-xs font-bold text-indigo-900 mt-2">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 text-xs font-bold text-slate-900 mt-2">
                 🎬 "{dailyLimitExceededInfo.activeTodayTitle}"
               </div>
               <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
@@ -2984,7 +2938,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     setDailyLimitExceededInfo(null);
                     if (target) setPlayingVideo(target);
                   }}
-                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 bg-slate-600 hover:bg-slate-700 active:scale-98 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-white" />
                   <span>Ver mi clase gratuita de hoy</span>
