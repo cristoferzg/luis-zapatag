@@ -1107,7 +1107,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100' 
                 : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100'
             }`}
-            title={isWatched ? 'Marcar como pendiente' : 'Marcar como completada'}
+            title={isWatched ? 'Lección completada' : 'Marcar como completada'}
           >
             <CheckCircle2 className={`w-4 h-4 ${isWatched ? 'text-emerald-600 fill-emerald-100' : ''}`} />
           </button>
@@ -1274,102 +1274,85 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
           return (
             <div className="space-y-5 animate-fadeIn">
-              {/* HERO BANNER DEL CURSO ESTILO UDEMY */}
-              <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${courseTheme.gradient} border border-slate-700/60 p-5 sm:p-7 text-white shadow-xl`}>
-                <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-black/30 rounded-full blur-3xl pointer-events-none" />
+              {/* CABECERA DEL CURSO (clara y compacta, en armonía con el catálogo) */}
+              <div className="space-y-4">
+                <button
+                  onClick={() => setSelectedCourseFolder(null)}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                  title="Volver al catálogo de cursos"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Volver al catálogo</span>
+                </button>
 
-                <div className="relative z-10 space-y-4">
-                  {/* Fila Superior: Botón Volver y Badges */}
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <button
-                      onClick={() => setSelectedCourseFolder(null)}
-                      className="px-3.5 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white backdrop-blur-md transition-all cursor-pointer flex items-center gap-2 font-bold text-xs shadow-xs"
-                      title="Volver al catálogo de cursos"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      <span>Volver al Catálogo de Cursos</span>
-                    </button>
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border backdrop-blur-md shadow-xs ${courseTheme.badge}`}>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-slate-100 text-slate-600 border border-slate-200">
                         <span>{courseTheme.icon}</span>
                         <span>{courseTheme.level}</span>
                       </span>
-
                       {currentCourseObj.isFeatured && (
-                        <span className="bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                          <Star className="w-3.5 h-3.5 fill-slate-950" />
-                          <span>Curso Destacado</span>
+                        <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                          <span>Destacado</span>
                         </span>
                       )}
-
                       {currentCourseObj.isFree ? (
-                        <span className="text-xs font-black text-emerald-300 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/40 backdrop-blur-xs">
+                        <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                           100% Gratuito
                         </span>
                       ) : (
-                        <span className="text-xs font-black text-amber-200 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-500/40 backdrop-blur-xs">
+                        <span className="text-[11px] font-black text-slate-700 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200">
                           {getFormattedPrice(currentCourseObj.priceSoles || 49.90)}
                         </span>
                       )}
                     </div>
-                  </div>
-
-                  {/* Título y Descripción del Curso */}
-                  <div className="space-y-2 max-w-3xl">
-                    <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-snug">
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
                       {currentCourseObj.name}
                     </h2>
-                    <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-2xl">
-                      {currentCourseObj.description || `Formación técnica integral y lecciones prácticas paso a paso filmadas en taller para perfeccionar tu dominio en ${currentCourseObj.name}.`}
+                    <p className="text-slate-500 text-sm mt-1 max-w-2xl leading-relaxed">
+                      {currentCourseObj.description || `Formación técnica integral y lecciones prácticas paso a paso para dominar ${currentCourseObj.name}.`}
                     </p>
                   </div>
 
-                  {/* Barra de Progreso del Alumno y Métricas */}
-                  <div className="pt-2 flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-white/15">
-                    <div className="space-y-1.5 flex-1 max-w-md">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-white/90 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          Tu Progreso en este Curso:
-                        </span>
-                        <span className="font-black text-emerald-300">
-                          {watchedInCurrentCourse} de {currentCourseVideos.length} lecciones ({currentCourseProgressPercent}%)
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-black/40 rounded-full overflow-hidden border border-white/20">
-                        <div 
-                          className="h-full bg-gradient-to-r from-emerald-400 to-teal-300 rounded-full transition-all duration-500 shadow-sm"
-                          style={{ width: `${currentCourseProgressPercent}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Botones Admin en Banner Hero */}
-                    {isAdmin && (
-                      <div className="flex items-center gap-2 shrink-0 self-start md:self-auto">
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleOpenAddModal(currentCourseObj.name)}
+                        className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                        title="Subir o enlazar una nueva clase a este curso"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Agregar Clase</span>
+                      </button>
+                      {currentCourseObj.rawCourse && (
                         <button
-                          onClick={() => handleOpenAddModal(currentCourseObj.name)}
-                          className="px-3.5 py-2 bg-white text-slate-950 hover:bg-slate-100 font-black text-xs rounded-xl flex items-center gap-1.5 shadow-md transition-all active:scale-95 cursor-pointer"
-                          title="Subir o enlazar una nueva clase a este curso"
+                          onClick={(e) => handleOpenEditCourseModal(currentCourseObj.rawCourse!, e)}
+                          className="p-2 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                          title="Editar detalles del curso"
                         >
-                          <Plus className="w-4 h-4" />
-                          <span>+ Agregar Clase</span>
+                          <Edit2 className="w-4 h-4" />
                         </button>
-                        {currentCourseObj.rawCourse && (
-                          <button
-                            onClick={(e) => handleOpenEditCourseModal(currentCourseObj.rawCourse!, e)}
-                            className="p-2 bg-white/15 hover:bg-white/25 text-white border border-white/20 rounded-xl transition-colors cursor-pointer"
-                            title="Editar detalles del curso"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                {/* Progreso en el curso (línea sutil) */}
+                {currentCourseVideos.length > 0 && (
+                  <div className="flex items-center gap-3 max-w-md">
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                      <div
+                        className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                        style={{ width: `${currentCourseProgressPercent}%` }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 shrink-0">
+                      {watchedInCurrentCourse} de {currentCourseVideos.length} ({currentCourseProgressPercent}%)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* BARRA DE HERRAMIENTAS: BÚSQUEDA Y SELECTOR DE MODO DE VISTA UDEMY */}
@@ -1478,7 +1461,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                                 ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs' 
                                 : 'bg-slate-50 border-slate-300 text-slate-300 hover:border-emerald-500 hover:text-emerald-500'
                             }`}
-                            title={isWatched ? 'Marcar como pendiente' : 'Marcar como completada'}
+                            title={isWatched ? 'Lección completada' : 'Marcar como completada'}
                           >
                             <Check className="w-4 h-4 stroke-[3]" />
                           </button>
@@ -1681,52 +1664,36 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     onClick={() => setSelectedCourseFolder(course.name)}
                     className="bg-white rounded-3xl border border-slate-200 shadow-xs hover:shadow-xl hover:border-slate-400 transition-all duration-300 cursor-pointer group flex flex-col justify-between overflow-hidden relative"
                   >
-                    {/* BANNER TEMÁTICO SUPERIOR ESTILO UDEMY */}
-                    <div className={`relative h-44 w-full bg-gradient-to-br ${theme.gradient} p-4 sm:p-5 flex flex-col justify-between text-white overflow-hidden`}>
-                      <div className="absolute -top-12 -right-12 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-                      <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-black/25 rounded-full blur-2xl pointer-events-none" />
-
-                      {/* Fila Superior: Badge Nivel y Precios */}
-                      <div className="relative z-10 flex items-center justify-between gap-2">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black border backdrop-blur-md shadow-xs ${theme.badge}`}>
-                          <span>{theme.icon}</span>
-                          <span className="truncate max-w-[150px]">{theme.level}</span>
-                        </span>
-
-                        <div className="flex items-center gap-1.5">
-                          {course.isFeatured && (
-                            <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-                              <Star className="w-3 h-3 fill-slate-950" />
-                              <span>Destacado</span>
-                            </span>
-                          )}
-                          {course.isFree ? (
-                            <span className="text-[10px] font-black text-emerald-300 bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-500/40 backdrop-blur-xs">
-                              100% Gratis
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-black text-amber-200 bg-amber-950/80 px-2.5 py-0.5 rounded-full border border-amber-500/40 backdrop-blur-xs">
-                              {getFormattedPrice(course.priceSoles || 49.90)}
-                            </span>
-                          )}
+                    {/* CABECERA CLARA Y COMPACTA DEL CURSO */}
+                    <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                          {theme.icon}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Módulo Técnico</span>
+                          <span className="text-xs font-black text-slate-700">
+                            {course.videosCount} {course.videosCount === 1 ? 'lección' : 'lecciones'}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Pie del Banner: Insignia 3D y Play Overlay */}
-                      <div className="relative z-10 flex items-end justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shadow-md">
-                            {theme.icon}
-                          </div>
-                          <div>
-                            <span className="text-[10px] font-extrabold text-white/80 uppercase tracking-wider block">Módulo Técnico</span>
-                            <span className="text-xs font-black text-white">{course.videosCount} {course.videosCount === 1 ? 'lección' : 'lecciones'}</span>
-                          </div>
-                        </div>
-
-                        <div className="w-9 h-9 rounded-full bg-white/15 border border-white/20 backdrop-blur-md flex items-center justify-center text-white group-hover:bg-slate-500 group-hover:border-slate-400 transition-colors shadow-md">
-                          <Play className="w-4 h-4 fill-current ml-0.5" />
-                        </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {course.isFeatured && (
+                          <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                            <span>Destacado</span>
+                          </span>
+                        )}
+                        {course.isFree ? (
+                          <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                            100% Gratis
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-black text-slate-700 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                            {getFormattedPrice(course.priceSoles || 49.90)}
+                          </span>
+                        )}
                       </div>
                     </div>
 
