@@ -106,3 +106,107 @@ export const loginWithPin = onCall(
     return { token, role, workspace, name: data.name || 'Usuario' };
   }
 );
+
+/**
+ * scanReceipt({ imageBase64, mimeType }) -> ReceiptData
+ *
+ * Lee una foto de boleta/factura con un modelo de visión (Google Gemini) y
+ * devuelve los campos estructurados para autocompletar un gasto. Es el respaldo
+ * para comprobantes SIN QR (los que tienen QR se leen gratis en el teléfono).
+ *
+ * DESPLIEGUE (requiere Blaze):
+ *   1. Consigue una clave gratuita de Gemini en https://aistudio.google.com/apikey
+ *   2. firebase functions:secrets:set GEMINI_API_KEY
+ *   3. firebase deploy --only functions
+ *
+ * Mientras no se despliegue, el cliente simplemente no obtiene datos por IA y
+ * el usuario registra el gasto a mano (nada se rompe).
+ */
+export const scanReceipt = onCall(
+  { secrets: ['GEMINI_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 60 },
+  async (request) => {
+    // Solo sesiones autenticadas (anónimo o por PIN) pueden usarlo.
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Inicia sesión para escanear comprobantes.');
+    }
+    const imageBase64 = String(request.data?.imageBase64 || '');
+    const mimeType = String(request.data?.mimeType || 'image/jpeg');
+    if (!imageBase64 || imageBase64.length < 100) {
+      throw new HttpsError('invalid-argument', 'Imagen no válida.');
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    if (!apiKey) {
+      throw new HttpsError('failed-precondition', 'La lectura por IA no está configurada todavía.');
+    }
+
+    const prompt = [
+      'Eres un asistente contable para una empresa de construcción en Perú.',
+      'Extrae los datos de esta boleta o factura y responde SOLO con un JSON válido,',
+      'sin texto adicional, con estas claves exactas:',
+      '{"proveedor": string, "ruc": string, "fecha": "YYYY-MM-DD", "total": number,',
+      '"igv": number, "moneda": "PEN"|"USD", "serie": string, "tipo": string,',
+      '"categoriaSugerida": "Material"|"Transporte"|"Personal"|"Otro",',
+      '"descripcion": string}.',
+      'Reglas: "total" es el importe final pagado (número, sin símbolo de moneda).',
+      'Si un dato no aparece, usa null. La descripción debe ser breve (proveedor y concepto).'
+    ].join(' ');
+
+    const endpoint =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' +
+      encodeURIComponent(apiKey);
+
+    let resp;
+    try {
+      resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } }
+            ]
+          }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0 }
+        })
+      });
+    } catch (e) {
+      throw new HttpsError('unavailable', 'No se pudo contactar el servicio de IA.');
+    }
+
+    if (!resp.ok) {
+      throw new HttpsError('internal', `El servicio de IA respondió ${resp.status}.`);
+    }
+
+    const json = await resp.json();
+    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    let parsed = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch (_) {
+      // A veces el modelo envuelve el JSON en ```json ... ```
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch (_) { /* vacío */ } }
+    }
+
+    const num = (v) => {
+      const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.]/g, ''));
+      return Number.isFinite(n) ? n : undefined;
+    };
+    const str = (v) => (v === null || v === undefined || v === 'null') ? undefined : String(v);
+
+    return {
+      proveedor: str(parsed.proveedor),
+      ruc: str(parsed.ruc),
+      fecha: str(parsed.fecha),
+      total: num(parsed.total),
+      igv: num(parsed.igv),
+      moneda: str(parsed.moneda) || 'PEN',
+      serie: str(parsed.serie),
+      tipo: str(parsed.tipo),
+      categoriaSugerida: str(parsed.categoriaSugerida),
+      descripcion: str(parsed.descripcion)
+    };
+  }
+);

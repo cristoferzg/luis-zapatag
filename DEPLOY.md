@@ -67,6 +67,19 @@ Detalle completo en `SECURITY.md`.
 - **Con Fase 3:** se define como secreto `ADMIN_PIN` (paso 4), sin tocar código.
 - Recuerda: el PIN demo `602908` usado en pruebas debe reemplazarse.
 
+## (Opcional) Escaneo de comprobantes con IA en Materiales & Gastos
+El botón "Escanear comprobante" ya funciona GRATIS con el **QR** de las boletas/
+facturas electrónicas (no requiere nada). Para que también lea **fotos sin QR**
+con IA, despliega la función `scanReceipt` (requiere Blaze):
+```bash
+# 1) Consigue una clave gratuita de Gemini en https://aistudio.google.com/apikey
+cd functions && npm install && cd ..
+firebase functions:secrets:set GEMINI_API_KEY   # pega tu clave
+firebase deploy --only functions
+```
+Mientras no se despliegue, el QR sigue funcionando y las fotos sin QR se
+registran a mano (nada se rompe).
+
 ## Comandos útiles
 ```bash
 npm run build                        # compilar

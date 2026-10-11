@@ -1,16 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Package, 
-  TrendingDown, 
-  Edit2, 
-  Trash2, 
-  Plus, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Package,
+  TrendingDown,
+  Edit2,
+  Trash2,
+  Plus,
   FileText,
   CheckCircle2,
   ArrowDownToLine,
-  Receipt
+  Receipt,
+  Camera,
+  Loader2,
+  ScanLine
 } from 'lucide-react';
 import { Project, Material, FinanceRecord } from '../types';
+import { scanReceipt } from '../lib/receiptScan';
 
 interface MaterialesYGastosViewProps {
   projects: Project[];
@@ -76,7 +80,43 @@ export default function MaterialesYGastosView({
   // Finances Gastos state
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [date] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Escaneo de comprobantes (QR gratis + IA de visión)
+  const [scanning, setScanning] = useState(false);
+  const [scanNotice, setScanNotice] = useState<{ ok: boolean; msg: string } | null>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
+
+  const handleScanReceipt = async (file: File | null) => {
+    if (!file) return;
+    setScanning(true);
+    setScanNotice(null);
+    try {
+      const result = await scanReceipt(file);
+      const d = result.data;
+      if (result.source === 'none' || (!d.total && !d.proveedor && !d.ruc)) {
+        setScanNotice({ ok: false, msg: 'No se pudieron leer los datos. Ingrésalos a mano o intenta con una foto más nítida.' });
+        return;
+      }
+      // Rellenar el formulario (el usuario revisa y confirma antes de guardar)
+      if (d.descripcion) setDescription(d.descripcion);
+      else if (d.proveedor) setDescription(d.proveedor + (d.serie ? ` — ${d.serie}` : ''));
+      if (typeof d.total === 'number' && d.total > 0) setAmount(String(d.total));
+      if (d.fecha) setDate(d.fecha);
+      if (d.categoriaSugerida) setCategory(d.categoriaSugerida);
+      const via = result.source === 'qr' ? 'QR del comprobante' : 'lectura con IA';
+      setScanNotice({ ok: true, msg: `✓ Datos cargados (${via}). Revisa y pulsa "Agregar Gasto".` });
+    } catch (err: any) {
+      const code = String(err?.code || err?.message || '');
+      const msg = code.includes('failed-precondition')
+        ? 'El QR no se detectó y la lectura por IA aún no está activada. Registra el gasto a mano por ahora.'
+        : 'No se pudo escanear. Revisa la conexión o ingresa el gasto a mano.';
+      setScanNotice({ ok: false, msg });
+    } finally {
+      setScanning(false);
+      if (receiptInputRef.current) receiptInputRef.current.value = '';
+    }
+  };
   const [sourceProject, setSourceProject] = useState('');
   const [category, setCategory] = useState('');
   const [editingGastoId, setEditingGastoId] = useState<string | null>(null);
@@ -656,6 +696,39 @@ export default function MaterialesYGastosView({
             <div>
               <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Total Gastos Operativos</p>
               <p className="text-3xl font-bold text-slate-800">{formatCurrency(totalGastosOperativos)}</p>
+            </div>
+          </div>
+
+          {/* ESCÁNER DE COMPROBANTES: QR gratis + IA de visión */}
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
+            <input
+              ref={receiptInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={e => handleScanReceipt(e.target.files?.[0] || null)}
+            />
+            <button
+              type="button"
+              onClick={() => receiptInputRef.current?.click()}
+              disabled={scanning}
+              className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white font-bold text-sm px-4 py-2.5 rounded-xl transition-colors cursor-pointer shrink-0"
+            >
+              {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+              <span>{scanning ? 'Leyendo…' : 'Escanear comprobante'}</span>
+            </button>
+            <div className="min-w-0 flex-1">
+              {scanNotice ? (
+                <p className={`text-xs font-bold ${scanNotice.ok ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {scanNotice.msg}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                  <ScanLine className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  Toma una foto de la boleta/factura y llenamos los datos por ti (QR gratis, o IA si no tiene QR).
+                </p>
+              )}
             </div>
           </div>
 
