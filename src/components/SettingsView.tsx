@@ -144,7 +144,7 @@ export default function SettingsView({
     setOfficialLetterheadBase64(currentSettings.officialLetterheadBase64 || safeStorage.getItem('innova_letterhead_' + (activeUid || 'guest'), '') || '');
     setContratistaDni(currentSettings.contratistaDni || (isAdmin ? '10728381642' : ''));
     setContratistaDir(currentSettings.contratistaDir || (isAdmin ? 'URB.PPAO MZ. I - LT. 10' : ''));
-    setContratistaPhone(currentSettings.contratistaPhone || (isAdmin ? '966000500' : ''));
+    setContratistaPhone(currentSettings.contratistaPhone || '');
     setContratistaEmail(currentSettings.contratistaEmail || (isAdmin ? 'innovacontratistas@gmail.com' : ''));
     setBancoNombre(currentSettings.bancoNombre || (isAdmin ? 'BCP' : ''));
     setCuentaTitular(currentSettings.cuentaTitular || '');
@@ -789,7 +789,7 @@ export default function SettingsView({
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h2 className="text-base font-bold text-slate-800 flex items-center">
-              <ImageIcon className="w-5 h-5 mr-2 text-indigo-600" />
+              <ImageIcon className="w-5 h-5 mr-2 text-slate-600" />
               Logo de la Empresa
             </h2>
             <p className="text-xs text-slate-500 leading-relaxed">
@@ -817,7 +817,7 @@ export default function SettingsView({
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <div className="w-14 h-14 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                  <div className="w-14 h-14 bg-slate-50 text-slate-500 rounded-2xl flex items-center justify-center mx-auto mb-2">
                     <ImageIcon className="w-7 h-7" />
                   </div>
                   <p className="text-xs font-bold text-slate-700">Sin logotipo cargado</p>
@@ -829,9 +829,9 @@ export default function SettingsView({
                 <button
                   type="button"
                   onClick={handleSetDefaultAdminLogo}
-                  className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs py-2 px-3 rounded-xl transition-colors border border-indigo-200 flex items-center justify-center space-x-2 cursor-pointer shadow-2xs"
+                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition-colors border border-slate-200 flex items-center justify-center space-x-2 cursor-pointer shadow-2xs"
                 >
-                  <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                  <ShieldCheck className="w-4 h-4 text-slate-600" />
                   <span>Usar Logo Oficial de Administrador</span>
                 </button>
 
@@ -876,7 +876,7 @@ export default function SettingsView({
               )}
 
               {logoUploadStatus && !isUploadingLogo && (
-                <p className="mt-2 text-[11px] text-center font-bold text-indigo-700 animate-fadeIn">
+                <p className="mt-2 text-[11px] text-center font-bold text-slate-700 animate-fadeIn">
                   {logoUploadStatus}
                 </p>
               )}
@@ -896,7 +896,7 @@ export default function SettingsView({
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center">
-                  <FileSignature className="w-4 h-4 mr-1.5 text-indigo-600" />
+                  <FileSignature className="w-4 h-4 mr-1.5 text-slate-600" />
                   Membrete Oficial (Hojas A4)
                 </h3>
                 {officialLetterheadBase64 && (
@@ -942,8 +942,8 @@ export default function SettingsView({
                   </div>
                 </div>
               ) : (
-                <label className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/70 hover:bg-indigo-50/30 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all group">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+                <label className="border-2 border-dashed border-slate-200 hover:border-slate-400 bg-slate-50/70 hover:bg-slate-50/30 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all group">
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                     <Upload className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-slate-700 text-center">
@@ -1163,35 +1163,35 @@ export default function SettingsView({
             </div>
 
             {/* Bloque Detracciones (Banco de la Nación) */}
-            <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 space-y-4">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-900 flex items-center">
-                <ShieldCheck className="w-4 h-4 mr-1.5 text-indigo-600" />
+            <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 space-y-4">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center">
+                <ShieldCheck className="w-4 h-4 mr-1.5 text-slate-600" />
                 Cuenta de Detracciones (Banco de la Nación - SPOT)
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-indigo-900 mb-1">
+                  <label className="block text-xs font-semibold text-slate-900 mb-1">
                     Número de Cuenta de Detracciones
                   </label>
                   <input 
                     value={pagoDetracciones} 
                     onChange={e => setPagoDetracciones(e.target.value)} 
                     type="text" 
-                    className="w-full bg-white border border-indigo-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-indigo-500 transition-all" 
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-slate-500 transition-all" 
                     placeholder="Ej. 00-012-345678" 
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-indigo-900 mb-1">
+                  <label className="block text-xs font-semibold text-slate-900 mb-1">
                     CCI Cuenta Detracciones
                   </label>
                   <input 
                     value={pagoCciDetracciones} 
                     onChange={e => setPagoCciDetracciones(e.target.value)} 
                     type="text" 
-                    className="w-full bg-white border border-indigo-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-indigo-500 transition-all" 
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-slate-500 transition-all" 
                     placeholder="Ej. 01801200001234567899" 
                   />
                 </div>
@@ -1199,27 +1199,27 @@ export default function SettingsView({
             </div>
 
             {/* Bloque Billeteras Digitales (Yape / Plin) */}
-            <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 space-y-3">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-purple-900 flex items-center">
-                <CreditCard className="w-4 h-4 mr-1.5 text-purple-600" />
+            <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 space-y-3">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center">
+                <CreditCard className="w-4 h-4 mr-1.5 text-slate-600" />
                 Billeteras Digitales (Yape / Plin)
               </h3>
 
               <div>
-                <label className="block text-xs font-semibold text-purple-900 mb-1">
+                <label className="block text-xs font-semibold text-slate-900 mb-1">
                   Número Telefónico de Yape / Plin
                 </label>
                 <input 
                   value={pagoYape} 
                   onChange={e => setPagoYape(e.target.value)} 
                   type="text" 
-                  className="w-full bg-white border border-purple-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-purple-500 transition-all" 
-                  placeholder="Ej. 966000500 (A nombre de Juan Pérez)" 
+                  className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-slate-500 transition-all" 
+                  placeholder="Ej. 9XX XXX XXX (a nombre del titular de la cuenta)"
                 />
               </div>
 
               <div className="pt-2 flex items-center justify-between">
-                <span className="text-[11px] text-purple-700 italic">
+                <span className="text-[11px] text-slate-700 italic">
                   💡 Estos datos se guardan y sincronizan automáticamente con tus contratos y cotizaciones.
                 </span>
                 <button
@@ -1234,20 +1234,20 @@ export default function SettingsView({
             </div>
 
             {/* Bloque Moneda Principal & Configuración Internacional (Soporte Multipaís) */}
-            <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center space-x-2.5">
-                  <div className="p-2 bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/30">
-                    <Globe className="w-5 h-5 text-indigo-400" />
+                  <div className="p-2 bg-slate-100 text-slate-600 rounded-xl border border-slate-200">
+                    <Globe className="w-5 h-5 text-slate-600" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
                       <span>Moneda Principal & Configuración Internacional</span>
-                      <span className="bg-indigo-500/30 text-indigo-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-indigo-500/40 uppercase">
+                      <span className="bg-slate-100 text-slate-600 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-slate-200 uppercase">
                         {WORLD_CURRENCIES.find(c => c.code === selectedCurrencyCode)?.flag || '🌎'} {selectedCurrencyCode}
                       </span>
                     </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       Soporte para usuarios de todos los países. Define la moneda predeterminada y el símbolo de cotización.
                     </p>
                   </div>
@@ -1256,7 +1256,7 @@ export default function SettingsView({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                     País / Moneda de Trabajo
                   </label>
                   <select
@@ -1267,10 +1267,10 @@ export default function SettingsView({
                       const curr = WORLD_CURRENCIES.find(c => c.code === newCode);
                       if (curr) saveCompanyCurrency(curr);
                     }}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold text-white outline-none focus:border-indigo-400 transition-all cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-slate-400 transition-all cursor-pointer"
                   >
                     {WORLD_CURRENCIES.map(curr => (
-                      <option key={curr.code} value={curr.code} className="bg-slate-900 text-white py-1">
+                      <option key={curr.code} value={curr.code} className="bg-white text-slate-900 py-1">
                         {curr.flag} {curr.country} — {curr.name} ({curr.symbol})
                       </option>
                     ))}
@@ -1278,10 +1278,10 @@ export default function SettingsView({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1.5 uppercase tracking-wider">
+                  <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                     Símbolo Oficial en Presupuestos
                   </label>
-                  <div className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-indigo-400 flex items-center justify-between">
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-slate-700 flex items-center justify-between">
                     <span>{WORLD_CURRENCIES.find(c => c.code === selectedCurrencyCode)?.symbol || 'S/'}</span>
                     <span className="text-slate-400 text-[11px] font-normal">
                       Código ISO: {selectedCurrencyCode}
@@ -1291,63 +1291,63 @@ export default function SettingsView({
               </div>
 
               {/* Vista previa de formato de dinero */}
-              <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-amber-400" />
-                  <span className="text-slate-300 font-medium">Formato de importes en la plataforma:</span>
+                  <Coins className="w-4 h-4 text-amber-500" />
+                  <span className="text-slate-600 font-medium">Formato de importes en la plataforma:</span>
                 </div>
-                <div className="font-mono font-black text-emerald-400 text-sm bg-emerald-950/60 border border-emerald-800/50 px-3.5 py-1 rounded-lg">
+                <div className="font-mono font-black text-emerald-700 text-sm bg-emerald-50 border border-emerald-200 px-3.5 py-1 rounded-lg">
                   {WORLD_CURRENCIES.find(c => c.code === selectedCurrencyCode)?.symbol || 'S/'} 15,850.00
                 </div>
               </div>
             </div>
 
             {/* Versión del Software y Almacenamiento Cloud (Firebase) */}
-            <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-indigo-300 flex items-center">
-                <Sparkles className="w-4 h-4 mr-1.5 text-indigo-400" />
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4 shadow-sm">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500 flex items-center">
+                <Sparkles className="w-4 h-4 mr-1.5 text-slate-400" />
                 Versión del Software y Almacenamiento Central
               </h3>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
                   Versión del Software (Visible para todos los usuarios)
                 </label>
-                <input 
-                  value={softwareVersion} 
-                  onChange={e => setSoftwareVersion(e.target.value)} 
-                  type="text" 
+                <input
+                  value={softwareVersion}
+                  onChange={e => setSoftwareVersion(e.target.value)}
+                  type="text"
                   disabled={!isAdmin}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-mono text-white outline-none focus:border-indigo-400 transition-all disabled:opacity-60" 
-                  placeholder="Ej. v3.9.5 Pro (RNE-2026)" 
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-800 outline-none focus:border-slate-400 transition-all disabled:opacity-60"
+                  placeholder="Ej. v3.9.5 Pro (RNE-2026)"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  {isAdmin 
-                    ? 'Define la versión que se mostrará en el menú lateral y estado del sistema de los usuarios.' 
+                  {isAdmin
+                    ? 'Define la versión que se mostrará en el menú lateral y estado del sistema de los usuarios.'
                     : 'Versión actual del sistema configurada por el Administrador.'}
                 </p>
               </div>
 
               {/* Almacenamiento Cloud Nativo */}
-              <div className="pt-2 border-t border-slate-800 space-y-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Almacenamiento Cloud Directo (Firebase)
                   </h4>
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     Directo y Optimizado
                   </span>
                 </div>
-                
-                <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 space-y-2">
-                  <p className="text-xs text-slate-300 font-medium">
+
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-2">
+                  <p className="text-xs text-slate-600 font-medium">
                     Todas las fotos de obras, planos CAD, contratos y videos tutoriales se suben y transmiten directamente a los servidores seguros en la nube sin depender de cuentas externas ni bloqueos de permisos.
                   </p>
-                  <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-mono pt-1">
+                  <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-mono pt-1 flex-wrap">
                     <span>✓ Servidor centralizado y seguro</span>
-                    <span className="text-slate-600">•</span>
+                    <span className="text-slate-300">•</span>
                     <span>✓ Acceso instantáneo multidispositivo</span>
                   </div>
                 </div>
@@ -1376,15 +1376,15 @@ export default function SettingsView({
         </div>
 
         {/* Direct .exe Download Card / Admin Panel */}
-        <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-6 space-y-4 shadow-md overflow-hidden">
+        <div className="bg-white rounded-2xl p-4 sm:p-6 space-y-4 shadow-sm border border-slate-200 overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start sm:items-center space-x-3">
-              <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl shrink-0 mt-0.5 sm:mt-0">
+              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 shrink-0 mt-0.5 sm:mt-0">
                 <Monitor className="w-6 h-6" />
               </div>
               <div className="min-w-0">
-                <h3 className="font-bold text-sm sm:text-base leading-snug">Descargar Archivo Ejecutable `.exe` para PC Windows</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Instalador directo de escritorio para ejecutar la plataforma sin navegador</p>
+                <h3 className="font-bold text-sm sm:text-base leading-snug text-slate-900">Descargar Archivo Ejecutable `.exe` para PC Windows</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Instalador directo de escritorio para ejecutar la plataforma sin navegador</p>
               </div>
             </div>
             {exeUrl ? (
@@ -1392,26 +1392,26 @@ export default function SettingsView({
                 href={exeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 shrink-0"
+                className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2 shrink-0"
               >
                 <Download className="w-4 h-4" />
                 <span>Descargar Instalador .exe</span>
               </a>
             ) : (
-              <div className="w-full sm:w-auto text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3.5 py-2.5 rounded-xl text-center sm:text-left shrink-0">
+              <div className="w-full sm:w-auto text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3.5 py-2.5 rounded-xl text-center sm:text-left shrink-0">
                 {isAdmin ? '⚠️ Aún no has configurado el enlace del .exe abajo' : '⚠️ El administrador publicará el .exe próximamente'}
               </div>
             )}
           </div>
 
           {isAdmin && (
-            <div className="bg-indigo-950/40 border border-indigo-500/40 rounded-xl p-4 space-y-3 mt-2">
-              <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 mt-2">
+              <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase tracking-wider">
+                <Sparkles className="w-4 h-4 text-slate-400 shrink-0" />
                 <span>Panel de Administrador: Configurar / Subir Enlace del .exe</span>
               </div>
               <form onSubmit={handleSaveExeUrl} className="space-y-2">
-                <label className="block text-[11px] text-slate-300">
+                <label className="block text-[11px] text-slate-500">
                   Pega la URL de descarga directa de tu archivo `.exe` (Google Drive, OneDrive, Mega, GitHub, etc.):
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
@@ -1420,18 +1420,18 @@ export default function SettingsView({
                     value={inputExeUrl}
                     onChange={e => setInputExeUrl(e.target.value)}
                     placeholder="https://ejemplo.com/InnovaContratistas-Setup.exe"
-                    className="w-full sm:flex-1 bg-slate-950 border border-indigo-500/40 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 min-w-0"
+                    className="w-full sm:flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 min-w-0"
                   />
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shrink-0 flex items-center justify-center"
+                    className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shrink-0 flex items-center justify-center"
                   >
                     Guardar Enlace
                   </button>
                 </div>
               </form>
               {exeSavedSuccess && (
-                <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
                   <Check className="w-3 h-3" /> ¡Enlace del .exe guardado y listo para todos los usuarios!
                 </p>
               )}
@@ -1534,9 +1534,9 @@ export default function SettingsView({
             </div>
 
             {restoreStatus && (
-              <div className="col-span-1 md:col-span-2 p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl text-indigo-900 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
+              <div className="col-span-1 md:col-span-2 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-bold flex items-center gap-2.5 animate-fadeIn">
                 {isSyncing || restoringState ? (
-                  <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin shrink-0" />
                 ) : (
                   <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
                 )}
@@ -1548,7 +1548,7 @@ export default function SettingsView({
           <div className="border-t border-slate-100 pt-6 mt-6">
             <div className="p-5 border border-slate-200 bg-slate-50 rounded-2xl space-y-3">
               <h3 className="font-bold text-slate-800 text-sm flex items-center">
-                <Sparkles className="w-4 h-4 mr-2 text-indigo-600 animate-pulse" />
+                <Sparkles className="w-4 h-4 mr-2 text-slate-600 animate-pulse" />
                 Descargar Código Fuente y Archivos del Sistema (.ZIP)
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
@@ -1587,7 +1587,7 @@ export default function SettingsView({
               <div className="border-t border-slate-200/80 pt-5 mt-5 space-y-3.5">
                 <div className="flex items-center justify-between">
                   <h4 className="font-extrabold text-slate-800 text-sm flex items-center">
-                    <Smartphone className="w-4 h-4 mr-2 text-indigo-600" />
+                    <Smartphone className="w-4 h-4 mr-2 text-slate-600" />
                     📱 Instalación Móvil PWA & Generación de APK para Android
                   </h4>
                   <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-full border border-emerald-200">
@@ -1602,7 +1602,7 @@ export default function SettingsView({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Opción 1: PWA Directa */}
                   <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-2">
-                    <div className="flex items-center space-x-2 text-indigo-700 font-bold text-xs">
+                    <div className="flex items-center space-x-2 text-slate-700 font-bold text-xs">
                       <Sparkles className="w-4 h-4 text-amber-500" />
                       <span>Opción 1: PWA (Instalación Directa)</span>
                     </div>
@@ -1623,9 +1623,9 @@ export default function SettingsView({
                   </div>
                 </div>
 
-                <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 text-[11px] text-indigo-900 leading-relaxed">
-                  <div className="font-bold flex items-center gap-1.5 mb-1 text-indigo-950">
-                    <CheckCircle className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5 text-[11px] text-slate-900 leading-relaxed">
+                  <div className="font-bold flex items-center gap-1.5 mb-1 text-slate-950">
+                    <CheckCircle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                     <span>Garantía de Seguridad e Integridad:</span>
                   </div>
                   Tanto la versión Web como la versión en archivo APK descargado se conectan directamente a la **misma base de datos de Firebase (`innovacontratistas`)**. Generar un APK **NO altera ni modifica tus clientes, proyectos o la plataforma web**.

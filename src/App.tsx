@@ -393,13 +393,6 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setCurrentView('asesorias')}>
-              <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl"><BookOpen className="w-6 h-6" /></div>
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase">Asesorías</p>
-                <p className="text-xl font-bold text-indigo-600">Soporte Técnico</p>
-              </div>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
