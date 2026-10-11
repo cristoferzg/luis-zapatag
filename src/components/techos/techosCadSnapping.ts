@@ -3,13 +3,14 @@
 
 import { Node3D, Segment3D, VistaTechoCAD } from './techosCadEngineTypes';
 
-export type TipoSnapCad = 
+export type TipoSnapCad =
   | 'endpoint'
   | 'midpoint'
   | 'intersection'
   | 'perpendicular'
   | 'nearest_edge'
   | 'close_loop'
+  | 'origin'
   | 'grid';
 
 export interface CadSnapResult {
@@ -38,6 +39,7 @@ export interface SnapOptions {
   enableIntersections?: boolean;
   enablePerpendicular?: boolean;
   enableGrid?: boolean;
+  enableOrigin?: boolean;
 }
 
 /**
@@ -158,7 +160,8 @@ export function calculateBestCadSnap(
     enableMidpoints = true,
     enableIntersections = true,
     enablePerpendicular = true,
-    enableGrid = true
+    enableGrid = true,
+    enableOrigin = true
   } = options;
 
   const magneticRadiusM = Math.max(0.35, magneticRadiusPx / Math.max(scale, 1));
@@ -166,6 +169,26 @@ export function calculateBestCadSnap(
 
   const allNodes = Object.values(nodes);
   const allSegments = Object.values(segments);
+
+  // 0. SNAP AL ORIGEN (0,0) — punto de referencia del plano, siempre disponible
+  //    para empezar a dibujar exactamente en el punto cero.
+  if (enableOrigin) {
+    const distOrigin = Math.hypot(worldCursor.x - 0, worldCursor.y - 0);
+    if (distOrigin <= magneticRadiusM) {
+      const origin3D = point2DTo3D({ x: 0, y: 0 }, vista);
+      candidateSnaps.push({
+        x: origin3D.x,
+        y: origin3D.y,
+        z: origin3D.z,
+        projX: 0,
+        projY: 0,
+        tipo: 'origin',
+        label: '⊙ ORIGEN (0, 0)',
+        distanceWorld: distOrigin,
+        distancePx: distOrigin * scale
+      });
+    }
+  }
 
   // 1. EVALUAR SNAPS A NODO / EXTREMO (ENDPOINTS & CLOSING PERIMETER)
   if (enableEndpoints) {
@@ -338,12 +361,13 @@ export function calculateBestCadSnap(
   if (candidateSnaps.length > 0) {
     const priorityWeight: Record<TipoSnapCad, number> = {
       close_loop: 0,
-      intersection: 1,
-      endpoint: 2,
-      midpoint: 3,
-      perpendicular: 4,
-      nearest_edge: 5,
-      grid: 6
+      origin: 1,
+      intersection: 2,
+      endpoint: 3,
+      midpoint: 4,
+      perpendicular: 5,
+      nearest_edge: 6,
+      grid: 7
     };
 
     candidateSnaps.sort((a, b) => {

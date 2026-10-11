@@ -158,6 +158,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // false = "viga suelta" (cada par de clics crea un tramo independiente).
   const [chainMode, setChainMode] = useState<boolean>(true);
 
+  // Modo Ortogonal (Orto 90°): cuando está activo, mientras dibujas desde un
+  // punto de inicio la viga se fuerza a quedar perfectamente horizontal o
+  // vertical (ángulo recto exacto). Es el equivalente al "ORTO/F8" de AutoCAD.
+  const [orthoMode, setOrthoMode] = useState<boolean>(true);
+  // Ángulo en grados del tramo que se está dibujando (para el indicador de 90°).
+  const [drawAngleDeg, setDrawAngleDeg] = useState<number | null>(null);
+
   // Resultado de detección O-Snap activa (Vértices, Medios, Intersecciones, Anclajes, Cierre de Perímetro)
   const [activeSnap, setActiveSnap] = useState<CadSnapResult | null>(null);
 
@@ -418,6 +425,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       } else if (key === 'p' || e.key === '0') {
         e.preventDefault();
         setTool('pan');
+      } else if (key === 'o') {
+        // Alternar modo Orto 90° (trazo recto horizontal/vertical)
+        e.preventDefault();
+        setOrthoMode(prev => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -437,8 +448,25 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     const screenDx = clientX - centerX;
     const screenDy = clientY - centerY;
 
-    const worldX = screenDx / scale;
-    const worldY = vista === 'planta' ? (screenDy / scale) : (-screenDy / scale);
+    let worldX = screenDx / scale;
+    let worldY = vista === 'planta' ? (screenDy / scale) : (-screenDy / scale);
+
+    // Posición 2D del punto de inicio del trazo (si lo hay), según la vista.
+    const startNode = drawingStartNodeId ? nodes[drawingStartNodeId] : null;
+    const startX2D = startNode ? startNode.x : null;
+    const startY2D = startNode ? (vista === 'planta' ? (startNode.z || 0) : startNode.y) : null;
+
+    // MODO ORTO 90°: fuerza el trazo a quedar perfectamente horizontal o
+    // vertical respecto al punto de inicio (ángulo recto exacto).
+    if (orthoMode && startX2D !== null && startY2D !== null) {
+      const dx = worldX - startX2D;
+      const dy = worldY - startY2D;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        worldY = startY2D; // traza horizontal
+      } else {
+        worldX = startX2D; // traza vertical
+      }
+    }
 
     // Motor O-Snap Vectorial Avanzado: evalúa extremos, medios, intersecciones, anclajes y cierre
     const bestSnap = calculateBestCadSnap(
@@ -461,17 +489,28 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       }
     );
 
-    if (bestSnap) {
-      setActiveSnap(bestSnap);
-      return { x: bestSnap.projX, y: bestSnap.projY };
+    const finalPoint = bestSnap
+      ? { x: bestSnap.projX, y: bestSnap.projY }
+      : { x: Math.round(worldX * 100) / 100, y: Math.round(worldY * 100) / 100 };
+
+    // Ángulo del tramo en curso (para el indicador de 90°). 0°/90°/180°/270° = recto.
+    if (startX2D !== null && startY2D !== null) {
+      const adx = finalPoint.x - startX2D;
+      const ady = finalPoint.y - startY2D;
+      if (Math.abs(adx) > 1e-6 || Math.abs(ady) > 1e-6) {
+        let deg = Math.atan2(ady, adx) * 180 / Math.PI;
+        if (deg < 0) deg += 360;
+        setDrawAngleDeg(deg);
+      } else {
+        setDrawAngleDeg(null);
+      }
     } else {
-      setActiveSnap(null);
-      return {
-        x: Math.round(worldX * 100) / 100,
-        y: Math.round(worldY * 100) / 100
-      };
+      setDrawAngleDeg(null);
     }
-  }, [pan, scale, snapGrid, engineState?.snapGridSizeM, vista, nodes, segments, drawingStartNodeId, chainFirstNodeId]);
+
+    setActiveSnap(bestSnap || null);
+    return finalPoint;
+  }, [pan, scale, snapGrid, engineState?.snapGridSizeM, vista, nodes, segments, drawingStartNodeId, chainFirstNodeId, orthoMode]);
 
   // CONTROLADORES DE PAN, ARRASTRE DE NODOS Y MOUSE
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -1264,6 +1303,22 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             )}
           </div>
         )}
+
+        {/* BOTÓN ORTO 90°: fuerza el trazo a horizontal/vertical exacto */}
+        {vista !== '3d' && (
+          <button
+            onClick={() => setOrthoMode(prev => !prev)}
+            className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-black border transition-all cursor-pointer shadow-2xs shrink-0 ${
+              orthoMode
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'
+            }`}
+            title="Orto 90°: obliga a que la viga quede perfectamente recta (horizontal o vertical). Átajo: tecla O"
+          >
+            <span className="text-sm leading-none">⊾</span>
+            <span>90°</span>
+          </button>
+        )}
         </div>
 
         {/* Acciones auxiliares compactas a la derecha */}
@@ -1863,6 +1918,38 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <span className="text-[10px] text-slate-400">Suelta para fijar</span>
           </div>
         )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* INDICADOR DE ÁNGULO Y 90° RECTO AL DIBUJAR UNA VIGA/LÍNEA */}
+        {/* ------------------------------------------------------------- */}
+        {drawingStartNodeId && nodes[drawingStartNodeId] && drawAngleDeg !== null &&
+         activeTool !== 'draw_arc' && activeTool !== 'select' && activeTool !== 'pan' && !draggingNodeId && (() => {
+          const sNode = nodes[drawingStartNodeId];
+          const sx = sNode.x;
+          const sy = vista === 'planta' ? (sNode.z || 0) : sNode.y;
+          const len = Math.hypot(cursorCoords.x - sx, cursorCoords.y - sy);
+          const modAng = ((drawAngleDeg % 90) + 90) % 90;
+          const diff90 = Math.min(modAng, 90 - modAng);
+          const isRightAngle = diff90 <= 1.2;
+          return (
+            <div className="absolute bottom-16 sm:bottom-6 inset-x-3 max-w-xs mx-auto z-40 flex items-center justify-center gap-2 pointer-events-none">
+              <div className={`px-3 py-1.5 rounded-2xl shadow-2xl backdrop-blur-md text-xs font-mono flex items-center gap-2.5 border ${
+                isRightAngle
+                  ? 'bg-emerald-600/95 text-white border-emerald-300'
+                  : 'bg-slate-900/95 text-slate-100 border-slate-600'
+              }`}>
+                <span className="font-black tabular-nums">{len.toFixed(2)} m</span>
+                <span className="opacity-50">•</span>
+                <span className="tabular-nums">{Math.round(drawAngleDeg)}°</span>
+                {isRightAngle && (
+                  <span className="flex items-center gap-1 font-black text-[11px]">
+                    <span className="text-sm leading-none">⊾</span> 90° RECTO
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ------------------------------------------------------------- */}
         {/* BANNER DE PASOS Y EVALUACIÓN DE ARCO PARABÓLICO EN TIEMPO REAL */}

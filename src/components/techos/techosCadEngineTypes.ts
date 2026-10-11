@@ -156,6 +156,7 @@ export type TipoSnapCad =
   | 'perpendicular'
   | 'nearest_edge'
   | 'close_loop'
+  | 'origin'
   | 'grid';
 
 export interface CadSnapResult {
