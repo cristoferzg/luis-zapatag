@@ -86,7 +86,13 @@ export const loginWithPin = onCall(
 
     const uid = docSnap.id;
     const role = data.role === 'admin' ? 'admin' : 'user';
-    const workspace = role === 'admin' ? 'admin' : `user_${uid}`;
+    // workspace MUST equal the `userId` the client stores on each record so the
+    // Phase-3 rule `resource.data.userId == token.workspace` matches. The client
+    // derives its id from `workspace` by stripping any `user_` prefix, and writes
+    // records with that stripped value — and legacy records already use the bare
+    // `usuarios` doc id. So the workspace claim must be the bare doc id (no prefix),
+    // otherwise users get locked out of their own (and existing) data.
+    const workspace = role === 'admin' ? 'admin' : uid;
 
     // Best-effort last-login stamp.
     try {
