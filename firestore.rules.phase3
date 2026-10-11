@@ -93,6 +93,13 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Configuración global de la Academia (p.ej. límite diario de videos):
+    // cualquier sesión la lee; solo el admin la cambia.
+    match /config_academia/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
     // Everything else: deny by default.
     match /{document=**} {
       allow read, write: if false;

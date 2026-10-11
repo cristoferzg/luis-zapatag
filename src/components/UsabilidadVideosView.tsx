@@ -142,21 +142,39 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     });
   };
 
-  // Daily free video limit modal state (configurable free videos per day)
+  // Daily free video limit (configurable free videos per day).
+  // DEFAULT = Ilimitado (999): así ningún usuario queda limitado a "1 al día"
+  // en su propio dispositivo. El valor se sincroniza de forma GLOBAL vía
+  // Firestore (abajo) para que el cambio del admin llegue a todos los alumnos.
   const [dailyFreeLimit, setDailyFreeLimit] = useState<number>(() => {
-    return safeStorage.getItem('innova_admin_daily_limit', 1);
+    return safeStorage.getItem('innova_admin_daily_limit', 999);
   });
+  const [limitSaved, setLimitSaved] = useState<boolean>(false);
+
+  // Configuración GLOBAL de la Academia (un solo documento, legible por todos).
+  const [academiaCfg] = useFirestoreArraySync<{ id: string; dailyFreeLimit?: number }>(
+    'config_academia', undefined, true
+  );
+  useEffect(() => {
+    const cfg = academiaCfg.find(c => c.id === 'global');
+    if (cfg && typeof cfg.dailyFreeLimit === 'number') {
+      setDailyFreeLimit(cfg.dailyFreeLimit);
+      safeStorage.setItem('innova_admin_daily_limit', cfg.dailyFreeLimit);
+    }
+  }, [academiaCfg]);
+
+  // Guarda el límite de forma local (instantáneo) y global (para todos).
+  const saveDailyFreeLimit = (val: number) => {
+    setDailyFreeLimit(val);
+    safeStorage.setItem('innova_admin_daily_limit', val);
+    updateRecord('config_academia', 'global', { dailyFreeLimit: val });
+    setLimitSaved(true);
+    setTimeout(() => setLimitSaved(false), 2500);
+  };
   const [dailyLimitExceededInfo, setDailyLimitExceededInfo] = useState<{
     activeTodayTitle: string;
     activeTodayVideo: TutorialVideo | null;
   } | null>(null);
-  const [dailyQuotaInfo, setDailyQuotaInfo] = useState<{
-    date: string;
-    videoId: string;
-    videoTitle: string;
-  } | null>(() => {
-    return safeStorage.getItem('innova_daily_free_video_quota', null);
-  });
 
   // Admin user access manager modal
   const [showAccessManagerVideo, setShowAccessManagerVideo] = useState<TutorialVideo | null>(null);
@@ -785,13 +803,11 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       if (!viewedVideoIds.includes(video.id)) {
         const updated = [...viewedVideoIds, video.id];
         safeStorage.setItem(trackerKey, updated);
-        const quotaObj = {
+        safeStorage.setItem('innova_daily_free_video_quota', {
           date: todayStr,
           videoId: video.id,
           videoTitle: video.title
-        };
-        safeStorage.setItem('innova_daily_free_video_quota', quotaObj);
-        setDailyQuotaInfo(quotaObj);
+        });
       }
     }
 
@@ -1153,137 +1169,90 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
   return (
     <div className="w-full min-h-full space-y-6 pb-16 select-none max-w-6xl mx-auto px-3 sm:px-4">
-      {/* HEADER DE ACADEMIA TÉCNICA - ESTILO UDEMY PRO */}
-      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800 p-5 sm:p-7 text-white shadow-xl">
-        <div className="absolute -top-24 -right-24 w-80 h-80 bg-slate-500/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-500/20 border border-slate-400/30 text-slate-300 text-[11px] font-black uppercase tracking-wider">
-                <GraduationCap className="w-3.5 h-3.5" />
-                Academia Técnica Innova
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[11px] font-bold">
-                <Star className="w-3 h-3 fill-amber-300" />
-                Acreditación de Taller
-              </span>
-            </div>
-
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white">
-              {currentUser?.name ? `¡Hola, ${currentUser.name}! Continúa tu aprendizaje` : 'Capacitación Profesional en Estructuras y Metalmecánica'}
+      {/* HEADER COMPACTO Y CLARO (mismo estilo limpio de Recursos Técnicos) */}
+      <header className="space-y-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2.5 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+              <GraduationCap className="w-7 h-7 text-slate-700 shrink-0" />
+              Academia Técnica
             </h1>
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-              Lecciones prácticas paso a paso filmadas en taller: domina soldadura, armado de coberturas, forja y lectura de planos.
+            <p className="text-slate-500 text-sm mt-1 max-w-2xl">
+              Lecciones prácticas paso a paso: soldadura, coberturas, forja y lectura de planos.
             </p>
-
-            {/* BARRA DE PROGRESO GLOBAL DEL ESTUDIANTE */}
-            <div className="pt-2 space-y-1.5 max-w-md">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  Progreso completado
-                </span>
-                <span className="font-black text-slate-300">
-                  {activeVideos.filter(v => watchedVideoIds.includes(v.id)).length} de {activeVideos.length} clases ({activeVideos.length > 0 ? Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100) : 0}%)
-                </span>
-              </div>
-              <div className="w-full h-2.5 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/60">
-                <div 
-                  className="h-full bg-gradient-to-r from-slate-500 via-slate-400 to-emerald-400 rounded-full transition-all duration-500"
-                  style={{ 
-                    width: `${activeVideos.length > 0 ? Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100) : 0}%` 
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* ESTADO DE CUPO DIARIO */}
-            {!isAdmin && (
-              <div className="pt-1">
-                {dailyQuotaInfo?.date === new Date().toISOString().split('T')[0] ? (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/30 text-amber-200 text-xs font-bold">
-                    <span>🎁 Clase gratuita de hoy activa:</span>
-                    <span className="text-white font-extrabold max-w-[200px] truncate">{dailyQuotaInfo.videoTitle}</span>
-                    <span className="bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded text-[10px] font-black">1/1 Usada</span>
-                  </div>
-                ) : (
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-xs font-bold">
-                    <span>🎁 Cupo diario gratuito:</span>
-                    <span className="text-white font-extrabold">{dailyFreeLimit} clase(s) disponible(s) para hoy</span>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* BOTONES DE ADMINISTRACIÓN COMPACTOS */}
           {isAdmin && (
-            <div className="flex flex-col gap-2 shrink-0 bg-white/5 border border-white/10 p-3.5 rounded-2xl backdrop-blur-sm sm:w-auto">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-300">
-                Panel Instructor Admin
-              </span>
-              <div className="flex flex-col sm:flex-row md:flex-col gap-2">
-                <button
-                  onClick={handleOpenAddCourseModal}
-                  className="px-3.5 py-2 bg-slate-600 hover:bg-slate-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                >
-                  <FolderPlus className="w-3.5 h-3.5" />
-                  <span>+ Crear Curso</span>
-                </button>
-                <button
-                  onClick={() => handleOpenAddModal(selectedCourseFolder || undefined)}
-                  className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ Agregar Clase</span>
-                </button>
-                <button
-                  onClick={() => setShowCategoryManagerModal(true)}
-                  className="px-3 py-1.5 text-slate-400 hover:text-white font-bold text-[11px] flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                >
-                  <Sliders className="w-3 h-3" />
-                  <span>Categorías</span>
-                </button>
-              </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleOpenAddCourseModal}
+                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              >
+                <FolderPlus className="w-3.5 h-3.5" /><span>Crear Curso</span>
+              </button>
+              <button
+                onClick={() => handleOpenAddModal(selectedCourseFolder || undefined)}
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /><span>Agregar Clase</span>
+              </button>
+              <button
+                onClick={() => setShowCategoryManagerModal(true)}
+                className="px-3 py-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 font-bold text-[11px] rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Sliders className="w-3.5 h-3.5" /><span>Categorías</span>
+              </button>
             </div>
           )}
         </div>
 
-        {/* PESTAÑAS DE NAVEGACIÓN ESTILO UDEMY */}
-        <div className="flex border-t border-slate-800 mt-6 pt-3 space-x-2 sm:space-x-3 overflow-x-auto">
+        {/* Progreso del alumno (línea sutil) */}
+        {activeVideos.length > 0 && (
+          <div className="flex items-center gap-3 max-w-md">
+            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100)}%` }}
+              />
+            </div>
+            <span className="text-[11px] font-bold text-slate-500 shrink-0">
+              {activeVideos.filter(v => watchedVideoIds.includes(v.id)).length} de {activeVideos.length} ({Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100)}%)
+            </span>
+          </div>
+        )}
+
+        {/* Cupo diario: solo se muestra si realmente hay restricción */}
+        {!isAdmin && dailyFreeLimit < 999 && (
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
+            <span>🎁 Cupo diario gratuito: {dailyFreeLimit} clase(s) para hoy</span>
+          </div>
+        )}
+
+        {/* Pestañas con subrayado (estilo Recursos Técnicos) */}
+        <div className="flex gap-5 border-b border-slate-200 overflow-x-auto">
           <button
             onClick={() => { setActiveTab('cursos'); setSelectedCourseFolder(null); }}
-            className={`flex items-center space-x-2 py-2 px-3.5 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
-              activeTab === 'cursos'
-                ? 'bg-slate-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            className={`pb-2.5 px-0.5 font-bold text-sm border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === 'cursos' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <BookOpen className="w-4 h-4" />
             <span>Todos los Cursos ({allCourseItems.length})</span>
           </button>
-
           <button
             onClick={() => { setActiveTab('ofertas'); setSelectedCourseFolder(null); setSelectedCategoryFilter('all'); }}
-            className={`flex items-center space-x-2 py-2 px-3.5 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
-              activeTab === 'ofertas'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            className={`pb-2.5 px-0.5 font-bold text-sm border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+              activeTab === 'ofertas' ? 'border-amber-500 text-amber-700' : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>⭐ Destacadas / Ofertas</span>
+            <Sparkles className="w-4 h-4" />
+            <span>Destacadas / Ofertas</span>
           </button>
-
           {isAdmin && (
             <button
               onClick={() => { setActiveTab('admin'); setSelectedCourseFolder(null); }}
-              className={`flex items-center space-x-2 py-2 px-3.5 font-bold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
-                activeTab === 'admin'
-                  ? 'bg-slate-700 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              className={`pb-2.5 px-0.5 font-bold text-sm border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeTab === 'admin' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
               <Users className="w-4 h-4" />
@@ -1912,20 +1881,19 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 <div className="pt-2">
                   <select
                     value={dailyFreeLimit}
-                    onChange={(e) => {
-                      const val = Number(e.target.value);
-                      setDailyFreeLimit(val);
-                      safeStorage.setItem('innova_admin_daily_limit', val);
-                    }}
+                    onChange={(e) => saveDailyFreeLimit(Number(e.target.value))}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-amber-500 cursor-pointer"
                   >
-                    <option value={1}>1 video gratuito al día (Por defecto)</option>
+                    <option value={999}>Ilimitado (Sin restricciones) — recomendado</option>
+                    <option value={1}>1 video gratuito al día</option>
                     <option value={2}>2 videos gratuitos al día</option>
                     <option value={3}>3 videos gratuitos al día</option>
                     <option value={5}>5 videos gratuitos al día</option>
                     <option value={10}>10 videos gratuitos al día</option>
-                    <option value={999}>Ilimitado (Sin restricciones)</option>
                   </select>
+                  <p className={`text-[11px] mt-2 font-bold flex items-center gap-1.5 ${limitSaved ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {limitSaved ? '✓ Guardado — se aplica a TODOS tus usuarios' : 'El cambio se guarda automáticamente para todos.'}
+                  </p>
                 </div>
               </div>
             </div>
