@@ -162,6 +162,11 @@ export const scanReceipt = onCall(
 
     const anthropic = new Anthropic({ apiKey });
 
+    // PDF va como bloque 'document'; una imagen como bloque 'image'.
+    const fileBlock = mimeType === 'application/pdf'
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: imageBase64 } }
+      : { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } };
+
     let text = '';
     try {
       const msg = await anthropic.messages.create({
@@ -171,7 +176,7 @@ export const scanReceipt = onCall(
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+            fileBlock,
             { type: 'text', text: prompt }
           ]
         }]

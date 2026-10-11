@@ -85,6 +85,7 @@ export default function MaterialesYGastosView({
   // Escaneo de comprobantes (QR gratis + IA de visión)
   const [scanning, setScanning] = useState(false);
   const [scanNotice, setScanNotice] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
   const handleScanReceipt = async (file: File | null) => {
@@ -117,6 +118,24 @@ export default function MaterialesYGastosView({
       if (receiptInputRef.current) receiptInputRef.current.value = '';
     }
   };
+
+  // Pegar comprobante con Ctrl+V (solo en la pestaña de Gastos, ideal en PC)
+  useEffect(() => {
+    if (activeTab !== 'gastos') return;
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const it of Array.from(items)) {
+        if (it.type.startsWith('image/')) {
+          const f = it.getAsFile();
+          if (f) { e.preventDefault(); handleScanReceipt(f); break; }
+        }
+      }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
   const [sourceProject, setSourceProject] = useState('');
   const [category, setCategory] = useState('');
   const [editingGastoId, setEditingGastoId] = useState<string | null>(null);
@@ -699,12 +718,24 @@ export default function MaterialesYGastosView({
             </div>
           </div>
 
-          {/* ESCÁNER DE COMPROBANTES: QR gratis + IA de visión */}
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* ESCÁNER DE COMPROBANTES: QR gratis + IA de visión (foto, archivo o PDF) */}
+          <div
+            onDragOver={e => { e.preventDefault(); if (!dragOver) setDragOver(true); }}
+            onDragLeave={e => { e.preventDefault(); setDragOver(false); }}
+            onDrop={e => {
+              e.preventDefault();
+              setDragOver(false);
+              const f = e.dataTransfer?.files?.[0];
+              if (f) handleScanReceipt(f);
+            }}
+            className={`p-4 rounded-2xl border shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 transition-colors ${
+              dragOver ? 'bg-slate-50 border-slate-400 border-dashed' : 'bg-white border-slate-200'
+            }`}
+          >
             <input
               ref={receiptInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf"
               capture="environment"
               className="hidden"
               onChange={e => handleScanReceipt(e.target.files?.[0] || null)}
@@ -723,10 +754,15 @@ export default function MaterialesYGastosView({
                 <p className={`text-xs font-bold ${scanNotice.ok ? 'text-emerald-600' : 'text-amber-600'}`}>
                   {scanNotice.msg}
                 </p>
+              ) : dragOver ? (
+                <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                  <ScanLine className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  Suelta aquí la imagen o el PDF del comprobante…
+                </p>
               ) : (
                 <p className="text-xs text-slate-500 flex items-center gap-1.5">
                   <ScanLine className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  Toma una foto de la boleta/factura y llenamos los datos por ti (QR gratis, o IA si no tiene QR).
+                  <span>En celular: toma la foto. En PC: elige un archivo, <b>arrástralo aquí</b> o <b>pega con Ctrl+V</b> (imagen o PDF). Llenamos los datos por ti.</span>
                 </p>
               )}
             </div>

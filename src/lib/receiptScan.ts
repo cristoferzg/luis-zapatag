@@ -142,20 +142,45 @@ async function decodeQr(imageData: ImageData): Promise<string | null> {
   }
 }
 
+/** Lee un archivo como base64 (sin el prefijo data:). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.split(',')[1] || '');
+    };
+    reader.onerror = () => reject(new Error('read-error'));
+    reader.readAsDataURL(file);
+  });
+}
+
 /** Llama a la Cloud Function de IA de visión (requiere despliegue). */
-export async function scanReceiptWithAI(dataUrl: string, region = 'us-central1'): Promise<ReceiptData> {
-  const base64 = dataUrl.split(',')[1] || '';
+export async function scanReceiptWithAI(base64: string, mimeType: string, region = 'us-central1'): Promise<ReceiptData> {
   const functions = getFunctions(app, region);
   const callable = httpsCallable<{ imageBase64: string; mimeType: string }, ReceiptData>(functions, 'scanReceipt');
-  const { data } = await callable({ imageBase64: base64, mimeType: 'image/jpeg' });
+  const { data } = await callable({ imageBase64: base64, mimeType });
   return data || {};
 }
 
+const isPdf = (file: File) =>
+  file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+
 /**
- * Escanea un comprobante: primero QR (gratis), si no hay, IA de visión.
- * Lanza error solo si ninguna vía obtuvo datos.
+ * Escanea un comprobante (imagen o PDF): primero QR (gratis, solo imágenes),
+ * si no hay, IA de visión. Lanza error solo si ninguna vía obtuvo datos.
  */
 export async function scanReceipt(file: File): Promise<ScanResult> {
+  // PDF: no tiene QR legible por cámara → va directo a IA (Claude lee el PDF).
+  if (isPdf(file)) {
+    const base64 = await fileToBase64(file);
+    const ai = await scanReceiptWithAI(base64, 'application/pdf');
+    if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc)) {
+      return { source: 'ia', data: ai };
+    }
+    return { source: 'none', data: {} };
+  }
+
   const { imageData, dataUrl } = await fileToImageData(file);
 
   // 1) QR
@@ -168,7 +193,7 @@ export async function scanReceipt(file: File): Promise<ScanResult> {
   }
 
   // 2) IA de visión (fallback)
-  const ai = await scanReceiptWithAI(dataUrl);
+  const ai = await scanReceiptWithAI(dataUrl.split(',')[1] || '', 'image/jpeg');
   if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc)) {
     return { source: 'ia', data: ai };
   }
