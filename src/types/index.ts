@@ -98,17 +98,23 @@ export interface FinanceRecord {
   creatorName?: string;
 }
 
-export interface SystemUser { 
-  id: string; 
-  name: string; 
-  role: string; 
-  pin: string; 
+export interface SystemUser {
+  id: string;
+  name: string;
+  role: string;
+  pin: string;
   email?: string;
   phone?: string;
   photoUrl?: string;
-  lastLogin?: string; 
-  lastLoginTimestamp?: number; 
-  isActive?: boolean; 
+  lastLogin?: string;
+  lastLoginTimestamp?: number;
+  isActive?: boolean;
+  // Workspace owner this user belongs to; preserved across backup/restore so a
+  // restored user keeps access to their own projects/clients/finances.
+  userId?: string;
+  materiales?: Material[];
+  personal?: Worker[];
+  cobros?: Cobro[];
 }
 
 export interface GlobalNotification {

@@ -267,7 +267,9 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
             throw new Error('El archivo JSON no contiene una lista válida de usuarios.');
           }
 
-          // Sanitizar y validar usuarios
+          // Sanitizar y validar usuarios. Conservamos el userId (espacio de
+          // trabajo del usuario) y sus datos para que al restaurar NO pierdan
+          // el acceso a sus proyectos/clientes/finanzas.
           const sanitizedUsers: SystemUser[] = userArray
             .filter((u: any) => u && (u.name || u.pin))
             .map((u: any, idx: number) => ({
@@ -280,8 +282,13 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
               photoUrl: u.photoUrl ? String(u.photoUrl) : undefined,
               lastLogin: u.lastLogin ? String(u.lastLogin) : undefined,
               lastLoginTimestamp: typeof u.lastLoginTimestamp === 'number' ? u.lastLoginTimestamp : undefined,
-              isActive: u.isActive !== false
-            }));
+              isActive: u.isActive !== false,
+              // Preservar el vínculo con su espacio de trabajo y datos existentes.
+              ...(u.userId ? { userId: String(u.userId) } : {}),
+              ...(Array.isArray(u.materiales) ? { materiales: u.materiales } : {}),
+              ...(Array.isArray(u.personal) ? { personal: u.personal } : {}),
+              ...(Array.isArray(u.cobros) ? { cobros: u.cobros } : {})
+            } as SystemUser));
 
           if (sanitizedUsers.length === 0) {
             throw new Error('No se detectaron usuarios válidos en el archivo JSON.');

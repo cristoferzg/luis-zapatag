@@ -217,8 +217,12 @@ export const triggerBackgroundDriveBackup = () => {
 
 export const addRecord = async (collectionName: string, id: string, data: any, userId: string) => {
   try {
-    const { id: _, ...rest } = data;
-    await setDoc(doc(db, collectionName, id), removeUndefined({ ...rest, userId }));
+    // Preserve an explicit userId carried on the record (e.g. when restoring a
+    // backup that already knows each user's workspace). Only fall back to the
+    // caller-provided userId when the record itself doesn't specify one, so a
+    // restore never reassigns users to the wrong (or a generic) workspace.
+    const { id: _, userId: dataUserId, ...rest } = data;
+    await setDoc(doc(db, collectionName, id), removeUndefined({ ...rest, userId: dataUserId || userId }));
     triggerBackgroundDriveBackup();
   } catch (error: any) {
     handleFirestoreError(error, 'create', collectionName);
