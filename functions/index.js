@@ -34,6 +34,7 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import Anthropic from '@anthropic-ai/sdk';
 
 initializeApp();
 const db = getFirestore();
@@ -110,20 +111,27 @@ export const loginWithPin = onCall(
 /**
  * scanReceipt({ imageBase64, mimeType }) -> ReceiptData
  *
- * Lee una foto de boleta/factura con un modelo de visión (Google Gemini) y
+ * Lee una foto de boleta/factura con Claude (modelo de visión de Anthropic) y
  * devuelve los campos estructurados para autocompletar un gasto. Es el respaldo
  * para comprobantes SIN QR (los que tienen QR se leen gratis en el teléfono).
  *
+ * Usa claude-haiku-5-5: el modelo de visión económico y rápido, ideal para
+ * lectura masiva de comprobantes. Para más precisión en fotos difíciles puedes
+ * cambiar RECEIPT_MODEL a 'claude-sonnet-5-5'.
+ *
  * DESPLIEGUE (requiere Blaze):
- *   1. Consigue una clave gratuita de Gemini en https://aistudio.google.com/apikey
- *   2. firebase functions:secrets:set GEMINI_API_KEY
- *   3. firebase deploy --only functions
+ *   1. Consigue una clave de API de Anthropic en https://console.anthropic.com/ (API Keys)
+ *   2. cd functions && npm install && cd ..
+ *   3. firebase functions:secrets:set ANTHROPIC_API_KEY
+ *   4. firebase deploy --only functions
  *
  * Mientras no se despliegue, el cliente simplemente no obtiene datos por IA y
  * el usuario registra el gasto a mano (nada se rompe).
  */
+const RECEIPT_MODEL = 'claude-haiku-5-5';
+
 export const scanReceipt = onCall(
-  { secrets: ['GEMINI_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 60 },
+  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 60 },
   async (request) => {
     // Solo sesiones autenticadas (anónimo o por PIN) pueden usarlo.
     if (!request.auth) {
@@ -135,7 +143,7 @@ export const scanReceipt = onCall(
       throw new HttpsError('invalid-argument', 'Imagen no válida.');
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || '';
+    const apiKey = process.env.ANTHROPIC_API_KEY || '';
     if (!apiKey) {
       throw new HttpsError('failed-precondition', 'La lectura por IA no está configurada todavía.');
     }
@@ -143,7 +151,7 @@ export const scanReceipt = onCall(
     const prompt = [
       'Eres un asistente contable para una empresa de construcción en Perú.',
       'Extrae los datos de esta boleta o factura y responde SOLO con un JSON válido,',
-      'sin texto adicional, con estas claves exactas:',
+      'sin texto adicional ni explicaciones, con estas claves exactas:',
       '{"proveedor": string, "ruc": string, "fecha": "YYYY-MM-DD", "total": number,',
       '"igv": number, "moneda": "PEN"|"USD", "serie": string, "tipo": string,',
       '"categoriaSugerida": "Material"|"Transporte"|"Personal"|"Otro",',
@@ -152,35 +160,31 @@ export const scanReceipt = onCall(
       'Si un dato no aparece, usa null. La descripción debe ser breve (proveedor y concepto).'
     ].join(' ');
 
-    const endpoint =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' +
-      encodeURIComponent(apiKey);
+    const anthropic = new Anthropic({ apiKey });
 
-    let resp;
+    let text = '';
     try {
-      resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: mimeType, data: imageBase64 } }
-            ]
-          }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0 }
-        })
+      const msg = await anthropic.messages.create({
+        model: RECEIPT_MODEL,
+        max_tokens: 1024,
+        output_config: { effort: 'low' },
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
       });
+      const block = (msg.content || []).find((b) => b.type === 'text');
+      text = block ? block.text : '';
     } catch (e) {
+      const status = e?.status || e?.statusCode;
+      if (status === 401) throw new HttpsError('failed-precondition', 'La clave de IA no es válida.');
+      if (status === 429) throw new HttpsError('resource-exhausted', 'Servicio de IA ocupado, intenta de nuevo.');
       throw new HttpsError('unavailable', 'No se pudo contactar el servicio de IA.');
     }
 
-    if (!resp.ok) {
-      throw new HttpsError('internal', `El servicio de IA respondió ${resp.status}.`);
-    }
-
-    const json = await resp.json();
-    const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
     let parsed = {};
     try {
       parsed = JSON.parse(text);
