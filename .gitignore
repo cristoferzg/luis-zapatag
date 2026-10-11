@@ -26,3 +26,6 @@ firebase-debug.*.log
 
 # Cloud Functions deps
 functions/node_modules/
+
+# Build/delivery artifacts (zips)
+*.zip
