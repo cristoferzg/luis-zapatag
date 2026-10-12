@@ -36,6 +36,7 @@ import { calculateBestCadSnap } from './techosCadSnapping';
 import { TechosViewer3D } from './TechosViewer3D';
 import { TechosErrorBoundary } from './TechosErrorBoundary';
 import { TechosNovatosWizardModal } from './TechosNovatosWizardModal';
+import TechosColumnasExactasModal from './TechosColumnasExactasModal';
 import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
@@ -177,6 +178,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
+  const [showColumnasExactas, setShowColumnasExactas] = useState<boolean>(false);
 
 
 
@@ -1323,6 +1325,18 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
         {/* Acciones auxiliares compactas a la derecha */}
         <div className="flex items-center gap-1 shrink-0">
+          {/* BOTÓN COLUMNAS POR MEDIDAS EXACTAS */}
+          {vista !== '3d' && (
+            <button
+              onClick={() => setShowColumnasExactas(true)}
+              className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95 transition-all shrink-0"
+              title="Generar columnas con posición y altura exactas (ideal para columnas de concreto existentes)"
+            >
+              <Columns className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="hidden sm:inline">Columnas</span>
+            </button>
+          )}
+
           {/* BOTÓN ASISTENTE 1-CLIC */}
           <button
             onClick={() => setShowNovatosWizard(true)}
@@ -2324,6 +2338,17 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             onClose={() => setShowNovatosWizard(false)}
             engineState={engineState}
             onChangeVista={handleSetVista}
+          />
+        )}
+
+        {/* ------------------------------------------------------------- */}
+        {/* MODAL: COLUMNAS POR MEDIDAS EXACTAS */}
+        {/* ------------------------------------------------------------- */}
+        {showColumnasExactas && (
+          <TechosColumnasExactasModal
+            engineState={engineState}
+            onClose={() => setShowColumnasExactas(false)}
+            onDone={() => { try { handleSetVista('planta'); } catch (_) { /* no-op */ } }}
           />
         )}
 
