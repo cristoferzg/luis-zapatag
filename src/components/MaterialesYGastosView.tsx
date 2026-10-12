@@ -99,13 +99,24 @@ export default function MaterialesYGastosView({
         setScanNotice({ ok: false, msg: 'No se pudieron leer los datos. Ingrésalos a mano o intenta con una foto más nítida.' });
         return;
       }
-      // Rellenar el formulario (el usuario revisa y confirma antes de guardar)
-      if (d.descripcion) setDescription(d.descripcion);
-      else if (d.proveedor) setDescription(d.proveedor + (d.serie ? ` — ${d.serie}` : ''));
+      // Rellenar el formulario (el usuario revisa y confirma antes de guardar).
+      // La descripción combina el DETALLE de lo comprado + proveedor + método de pago.
+      const parts: string[] = [];
+      if (d.detalle) parts.push(d.detalle);
+      else if (d.descripcion) parts.push(d.descripcion);
+      const firstLower = (parts[0] || '').toLowerCase();
+      if (d.proveedor && !firstLower.includes(d.proveedor.toLowerCase())) parts.push(d.proveedor);
+      if (d.metodoPago) parts.push(`Pago: ${d.metodoPago}${d.nroOperacion ? ` (Op. ${d.nroOperacion})` : ''}`);
+      const desc = parts.join(' — ');
+      if (desc) setDescription(desc);
+      else if (d.serie) setDescription(d.serie);
+
       if (typeof d.total === 'number' && d.total > 0) setAmount(String(d.total));
       if (d.fecha) setDate(d.fecha);
       if (d.categoriaSugerida) setCategory(d.categoriaSugerida);
-      const via = result.source === 'qr' ? 'QR del comprobante' : 'lectura con IA';
+      const via = result.source === 'qr_ia' ? 'QR + IA'
+        : result.source === 'qr' ? 'QR del comprobante'
+        : 'lectura con IA';
       setScanNotice({ ok: true, msg: `✓ Datos cargados (${via}). Revisa y pulsa "Agregar Gasto".` });
     } catch (err: any) {
       const code = String(err?.code || err?.message || '');

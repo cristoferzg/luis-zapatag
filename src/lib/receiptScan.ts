@@ -26,11 +26,34 @@ export interface ReceiptData {
   tipo?: string;        // Factura / Boleta / ...
   categoriaSugerida?: string; // Material / Transporte / ...
   descripcion?: string; // Texto sugerido para el campo "Descripción"
+  detalle?: string;     // Qué se compró (resumen de los ítems del comprobante)
+  metodoPago?: string;  // Efectivo / Yape / Plin / Transferencia BCP / Tarjeta ...
+  nroOperacion?: string; // N° de operación (en pagos por billetera/transferencia)
 }
 
 export interface ScanResult {
-  source: 'qr' | 'ia' | 'none';
+  source: 'qr' | 'ia' | 'qr_ia' | 'none';
   data: ReceiptData;
+}
+
+/**
+ * Combina los datos del QR (montos 100% exactos de SUNAT) con los de la IA
+ * (detalle de lo comprado, método de pago, proveedor legible). El QR manda en
+ * los importes; la IA aporta todo lo que el QR no trae.
+ */
+function mergeQrAndAI(qr: ReceiptData, ai: ReceiptData): ReceiptData {
+  const pick = <T,>(a: T | undefined, b: T | undefined) => (a !== undefined && a !== null && a !== '' ? a : b);
+  return {
+    ...ai,
+    // El QR es la fuente exacta para los importes y la identidad del comprobante.
+    ruc: pick(qr.ruc, ai.ruc),
+    serie: pick(qr.serie, ai.serie),
+    tipo: pick(qr.tipo, ai.tipo),
+    igv: pick(qr.igv, ai.igv),
+    total: pick(qr.total, ai.total),
+    fecha: pick(qr.fecha, ai.fecha),
+    moneda: pick(qr.moneda, ai.moneda)
+  };
 }
 
 const TIPO_COMPROBANTE: Record<string, string> = {
@@ -182,20 +205,40 @@ export async function scanReceipt(file: File): Promise<ScanResult> {
   }
 
   const { imageData, dataUrl } = await fileToImageData(file);
+  const base64 = dataUrl.split(',')[1] || '';
 
-  // 1) QR
+  // 1) QR SUNAT (gratis, en el teléfono): da montos exactos pero no el detalle.
+  let qrData: ReceiptData | null = null;
   const qrText = await decodeQr(imageData);
   if (qrText) {
     const parsed = parseSunatQr(qrText);
     if (parsed && (parsed.total !== undefined || parsed.ruc)) {
-      return { source: 'qr', data: parsed };
+      qrData = parsed;
     }
   }
 
-  // 2) IA de visión (fallback)
-  const ai = await scanReceiptWithAI(dataUrl.split(',')[1] || '', 'image/jpeg');
-  if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc)) {
-    return { source: 'ia', data: ai };
+  // 2) IA de visión: lee el DETALLE de lo comprado y, en billeteras
+  //    (Yape/BCP/Plin), el método de pago y N° de operación. Si la función de
+  //    IA no está desplegada o falla, seguimos con lo que dé el QR.
+  let aiData: ReceiptData | null = null;
+  try {
+    const ai = await scanReceiptWithAI(base64, 'image/jpeg');
+    if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc || ai.detalle || ai.metodoPago)) {
+      aiData = ai;
+    }
+  } catch (_) {
+    // IA no disponible: no rompemos el flujo; usamos el QR si existe.
+  }
+
+  // 3) Combinar según lo que se obtuvo.
+  if (qrData && aiData) {
+    return { source: 'qr_ia', data: mergeQrAndAI(qrData, aiData) };
+  }
+  if (qrData) {
+    return { source: 'qr', data: qrData };
+  }
+  if (aiData) {
+    return { source: 'ia', data: aiData };
   }
 
   return { source: 'none', data: {} };

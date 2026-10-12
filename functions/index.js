@@ -150,14 +150,25 @@ export const scanReceipt = onCall(
 
     const prompt = [
       'Eres un asistente contable para una empresa de construcción en Perú.',
-      'Extrae los datos de esta boleta o factura y responde SOLO con un JSON válido,',
-      'sin texto adicional ni explicaciones, con estas claves exactas:',
+      'La imagen puede ser: (a) una boleta o factura electrónica SUNAT, o',
+      '(b) una captura de pago por billetera digital (Yape, Plin, BCP, Interbank, BBVA, etc.).',
+      'Extrae los datos y responde SOLO con un JSON válido, sin texto adicional ni explicaciones,',
+      'con estas claves exactas:',
       '{"proveedor": string, "ruc": string, "fecha": "YYYY-MM-DD", "total": number,',
       '"igv": number, "moneda": "PEN"|"USD", "serie": string, "tipo": string,',
       '"categoriaSugerida": "Material"|"Transporte"|"Personal"|"Otro",',
+      '"detalle": string, "metodoPago": string, "nroOperacion": string,',
       '"descripcion": string}.',
-      'Reglas: "total" es el importe final pagado (número, sin símbolo de moneda).',
-      'Si un dato no aparece, usa null. La descripción debe ser breve (proveedor y concepto).'
+      'Reglas:',
+      '- "total" es el importe final pagado (número, sin símbolo de moneda).',
+      '- "detalle" es un resumen CORTO de lo que se compró (los productos o servicios del comprobante),',
+      '  por ejemplo "2 planchas galvanizadas + 1 kg soldadura". Si no hay lista de ítems, usa null.',
+      '- "metodoPago": si es una captura de billetera, indica cuál ("Yape", "Plin", "BCP", "Interbank", etc.);',
+      '  si es boleta/factura normal, usa "Efectivo" u "Otro" solo si se ve, sino null.',
+      '- "nroOperacion": número de operación/constancia del pago (billeteras/transferencias). Si no hay, null.',
+      '- En capturas de billetera, "proveedor" es el destinatario del pago y "total" el monto enviado.',
+      '- "descripcion" debe ser breve (proveedor y concepto principal).',
+      'Si un dato no aparece, usa null.'
     ].join(' ');
 
     const anthropic = new Anthropic({ apiKey });
@@ -215,6 +226,9 @@ export const scanReceipt = onCall(
       serie: str(parsed.serie),
       tipo: str(parsed.tipo),
       categoriaSugerida: str(parsed.categoriaSugerida),
+      detalle: str(parsed.detalle),
+      metodoPago: str(parsed.metodoPago),
+      nroOperacion: str(parsed.nroOperacion),
       descripcion: str(parsed.descripcion)
     };
   }
