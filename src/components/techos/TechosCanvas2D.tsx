@@ -1572,7 +1572,32 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                   const dz = (nB.z || 0) - (nA.z || 0);
                   const lengthM = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                  if (vista === 'planta' && seg.rolEstructural === 'columna') {
+                  const esColumnaConcreto = seg.rolEstructural === 'columna_concreto';
+                  if (vista === 'planta' && (seg.rolEstructural === 'columna' || esColumnaConcreto)) {
+                    // Columna de concreto: cuadrado gris grueso con textura (se ve
+                    // como concreto, no como tubo metálico).
+                    if (esColumnaConcreto) {
+                      return (
+                        <g key={seg.id} onClick={(e) => handleSegmentClick(seg.id, e)} className="group cursor-pointer">
+                          <rect x={x1 - 15} y={y1 - 15} width="30" height="30" rx="2"
+                            fill={isSelected ? '#44403c' : '#a8a29e'} stroke={isSelected ? '#f59e0b' : '#57534e'} strokeWidth="2" />
+                          {/* textura de concreto (puntitos) */}
+                          <circle cx={x1 - 5} cy={y1 - 5} r="1.3" fill="#f5f5f4" opacity="0.8" />
+                          <circle cx={x1 + 5} cy={y1 - 3} r="1.1" fill="#f5f5f4" opacity="0.7" />
+                          <circle cx={x1 - 3} cy={y1 + 6} r="1.2" fill="#f5f5f4" opacity="0.7" />
+                          <circle cx={x1 + 6} cy={y1 + 5} r="1" fill="#f5f5f4" opacity="0.6" />
+                          <circle cx={x1} cy={y1} r="1.1" fill="#f5f5f4" opacity="0.6" />
+                          {showDimensions && (
+                            <g transform={`translate(${x1}, ${y1 + 18})`} className="pointer-events-none">
+                              <rect x="-30" y="-7" width="60" height="14" rx="3" fill="#78716c" stroke="#57534e" strokeWidth="1" />
+                              <text x="0" y="3" fill="#ffffff" fontSize="7.5" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                                CONCRETO {lengthM.toFixed(1)}m
+                              </text>
+                            </g>
+                          )}
+                        </g>
+                      );
+                    }
                     if (isRound) {
                       return (
                         <g key={seg.id} onClick={(e) => handleSegmentClick(seg.id, e)} className="group cursor-pointer">
@@ -1659,11 +1684,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                         stroke="transparent" 
                         strokeWidth="18"
                       />
-                      <line 
-                        x1={x1} y1={y1} x2={x2} y2={y2} 
-                        stroke={strokeColor} 
-                        strokeWidth={isSelected ? 5 : 3.5}
-                        strokeLinecap="round"
+                      <line
+                        x1={x1} y1={y1} x2={x2} y2={y2}
+                        stroke={strokeColor}
+                        strokeWidth={esColumnaConcreto ? (isSelected ? 16 : 13) : (isSelected ? 5 : 3.5)}
+                        strokeLinecap={esColumnaConcreto ? 'butt' : 'round'}
                         className="group-hover:stroke-amber-500 transition-colors"
                       />
 

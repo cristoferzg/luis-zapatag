@@ -3566,7 +3566,14 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
 
   // Cálculo en tiempo real de Reporte BOM Presupuestario
   const bomReport = useMemo(() => {
-    return generarReportePresupuestoBom(nodes, segments, coverageZones);
+    // Las columnas de concreto existentes NO se cuentan como acero (ya están
+    // construidas). Se excluyen del despiece/costo de acero, pero siguen
+    // dibujándose y conservan su placa base + pernos (que sí se cotizan, pues
+    // dependen de los nodos, no del tramo).
+    const segmentosAcero = Object.fromEntries(
+      Object.entries(segments).filter(([, s]) => s.rolEstructural !== 'columna_concreto')
+    ) as typeof segments;
+    return generarReportePresupuestoBom(nodes, segmentosAcero, coverageZones);
   }, [nodes, segments, coverageZones]);
 
   // Cálculo de Análisis Estructural segun RNE E.020, E.030, E.090

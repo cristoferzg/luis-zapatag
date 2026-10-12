@@ -1908,6 +1908,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       wireframe: isWire
     });
 
+    // Material de CONCRETO (gris mate, sin brillo metálico) para columnas de
+    // concreto existentes, para que se vean claramente distintas al acero.
+    const concreteMat = new THREE.MeshStandardMaterial({
+      color: 0x9a938c, // Gris concreto
+      metalness: 0.0,
+      roughness: 0.95,
+      wireframe: isWire
+    });
+
     // Contabilizar grado de conectividad por nodo para generar nudos de unión sólidos
     const nodeDegreeMap: Record<string, { count: number; maxProfileWidth: number }> = {};
 
@@ -1942,6 +1951,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         altoM = Math.max(altoM, 0.12);
       }
 
+      // Columna de concreto: sección robusta tipo columna de concreto (25x25 cm).
+      const esConcreto3D = seg.rolEstructural === 'columna_concreto';
+      if (esConcreto3D) {
+        anchoM = 0.25;
+        altoM = 0.25;
+      }
+
       const radiusM = anchoM * 0.5;
 
       // Registrar conectividad y ancho máximo en cada nodo
@@ -1958,7 +1974,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
       let geom: THREE.BufferGeometry;
 
-      if (isRedondo) {
+      if (isRedondo && !esConcreto3D) {
         geom = new THREE.CylinderGeometry(radiusM, radiusM, distance, 16);
         geom.rotateX(Math.PI / 2);
       } else if (isRectangular) {
@@ -1968,7 +1984,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       }
 
       const isSelected = seg.id === activeSelectedSegId;
-      const tubeMat = steelTubeMat.clone();
+      const tubeMat = (esConcreto3D ? concreteMat : steelTubeMat).clone();
       if (isSelected) {
         tubeMat.emissive = new THREE.Color(0x06b6d4);
         tubeMat.emissiveIntensity = 0.9;

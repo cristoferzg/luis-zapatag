@@ -54,6 +54,18 @@ export const ROLES_ESTRUCTURALES_INFO: Record<RolEstructuralSegmento, Estructura
     colorThreeJs: 0x2563eb,
     descripcion: 'Elementos verticales portantes que transmiten las cargas al suelo'
   },
+  columna_concreto: {
+    rol: 'columna_concreto',
+    nombre: 'Columna de Concreto (existente)',
+    nombreCorto: 'Col. Concreto',
+    colorHex: '#78716c', // Gris concreto (stone-500)
+    colorClaseTailwind: 'bg-stone-500',
+    colorBgTailwind: 'bg-stone-100',
+    colorBorderTailwind: 'border-stone-400',
+    colorTextTailwind: 'text-stone-700',
+    colorThreeJs: 0x9a938c,
+    descripcion: 'Columna de concreto ya construida; sirve de apoyo y no se cuenta como acero'
+  },
   cordon_superior: {
     rol: 'cordon_superior',
     nombre: 'Cordón Superior (Arco / Caída)',

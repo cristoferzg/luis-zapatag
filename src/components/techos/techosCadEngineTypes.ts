@@ -109,8 +109,9 @@ export interface Node3D {
   boltDiameter?: string;        // Diámetro de pernos (ej. "5/8\"", "M16")
 }
 
-export type RolEstructuralSegmento = 
+export type RolEstructuralSegmento =
   | 'columna'
+  | 'columna_concreto'
   | 'cordon_superior'
   | 'cordon_inferior'
   | 'diagonal'

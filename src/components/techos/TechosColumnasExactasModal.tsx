@@ -100,7 +100,9 @@ export default function TechosColumnasExactasModal({ engineState, onClose, onDon
         const segId = `col_seg_${stamp}_${idx}`;
         segments[segId] = {
           id: segId, nodeAId: baseId, nodeBId: topId,
-          profileId: profId, rolEstructural: 'columna'
+          profileId: profId,
+          // Concreto existente → rol propio (gris, grueso, excluido del acero).
+          rolEstructural: p.concreto ? 'columna_concreto' : 'columna'
         };
       });
 
