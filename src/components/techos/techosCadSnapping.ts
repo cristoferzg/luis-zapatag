@@ -164,7 +164,12 @@ export function calculateBestCadSnap(
     enableOrigin = true
   } = options;
 
-  const magneticRadiusM = Math.max(0.35, magneticRadiusPx / Math.max(scale, 1));
+  // Tolerancia de imán PRECISA (estilo Herrería): pequeña y con TOPE, para que
+  // el nodo caiga donde está el dedo/cursor y nunca "salte" a un elemento lejano.
+  // Piso de 0.08 m para poder tocar nodos aun con el dedo; tope de ~1.2 celdas de
+  // rejilla (o 0.30 m) para que jamás jale más de una celda.
+  const topeM = Math.max(snapGridSizeM * 1.2, 0.30);
+  const magneticRadiusM = Math.min(topeM, Math.max(0.08, magneticRadiusPx / Math.max(scale, 1)));
   const candidateSnaps: CadSnapResult[] = [];
 
   const allNodes = Object.values(nodes);

@@ -162,7 +162,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Modo Ortogonal (Orto 90°): cuando está activo, mientras dibujas desde un
   // punto de inicio la viga se fuerza a quedar perfectamente horizontal o
   // vertical (ángulo recto exacto). Es el equivalente al "ORTO/F8" de AutoCAD.
-  const [orthoMode, setOrthoMode] = useState<boolean>(true);
+  // Por defecto APAGADO: así el dibujo es libre y preciso (como en Herrería);
+  // el usuario activa Orto con el botón "⊾ 90°" o la tecla O cuando lo necesita.
+  const [orthoMode, setOrthoMode] = useState<boolean>(false);
   // Ángulo en grados del tramo que se está dibujando (para el indicador de 90°).
   const [drawAngleDeg, setDrawAngleDeg] = useState<number | null>(null);
 
@@ -482,9 +484,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       {
         snapEnabled: snapGrid,
         snapGridSizeM: engineState?.snapGridSizeM || 0.25,
-        // Radio magnético más generoso para conectar mejor con nodos/columnas;
-        // mayor en móvil/tablet, donde el dedo es menos preciso que el ratón.
-        magneticRadiusPx: isDesktop ? 42 : 64,
+        // Radio magnético PRECISO (estilo Herrería): pequeño para que el nodo
+        // caiga donde está el dedo/cursor y no salte a un elemento lejano. Un
+        // poco mayor en móvil (dedo menos preciso), pero el motor lo limita con
+        // un tope de ~1 celda de rejilla.
+        magneticRadiusPx: isDesktop ? 16 : 24,
         enableIntersections: true,
         enableMidpoints: true,
         enablePerpendicular: true
