@@ -24,6 +24,26 @@ interface ElementoDef {
   emoji: string;
   campos: CampoDef[];
   calc: (v: Record<string, number>) => ResultadoCalc;
+  // Distribución referencial del acero por diámetro (fracciones que suman 1).
+  aceroDist?: Record<string, number>;
+}
+
+// Peso lineal (kg/m) por diámetro de varilla de acero corrugado.
+const DIAMETROS_KGM: Record<string, number> = {
+  '1/4"': 0.25, '3/8"': 0.56, '1/2"': 0.99, '5/8"': 1.55, '3/4"': 2.24,
+};
+const LARGO_VARILLA_M = 9; // Barra comercial estándar
+
+// Convierte kg de acero + distribución por diámetro en metros y # de varillas de 9 m.
+function desgloseVarillas(aceroKg: number, dist?: Record<string, number>) {
+  const out: Record<string, { kg: number; metros: number; varillas: number }> = {};
+  if (!dist || aceroKg <= 0) return out;
+  for (const [d, frac] of Object.entries(dist)) {
+    const kg = aceroKg * frac;
+    const metros = kg / (DIAMETROS_KGM[d] || 1);
+    out[d] = { kg, metros, varillas: Math.ceil(metros / LARGO_VARILLA_M) };
+  }
+  return out;
 }
 
 // Cuantías de acero referenciales (kg por m³ de concreto) por tipo de elemento.
@@ -40,6 +60,7 @@ const CATALOGO_ELEMENTOS: ElementoDef[] = [
       const vol = v.a * v.b * v.h * v.n;
       return { concretoM3: vol, aceroKg: vol * 55, encofradoM2: 2 * (v.a + v.b) * v.h * v.n };
     },
+    aceroDist: { '1/2"': 1 },
   },
   {
     id: 'columna', nombre: 'Columna', emoji: '🔲',
@@ -53,6 +74,7 @@ const CATALOGO_ELEMENTOS: ElementoDef[] = [
       const vol = v.a * v.b * v.H * v.n;
       return { concretoM3: vol, aceroKg: vol * 120, encofradoM2: 2 * (v.a + v.b) * v.H * v.n };
     },
+    aceroDist: { '1/2"': 0.70, '3/8"': 0.30 },
   },
   {
     id: 'viga', nombre: 'Viga', emoji: '📏',
@@ -66,6 +88,7 @@ const CATALOGO_ELEMENTOS: ElementoDef[] = [
       const vol = v.a * v.h * v.L * v.n;
       return { concretoM3: vol, aceroKg: vol * 110, encofradoM2: (2 * v.h + v.a) * v.L * v.n };
     },
+    aceroDist: { '5/8"': 0.45, '1/2"': 0.25, '3/8"': 0.30 },
   },
   {
     id: 'losa', nombre: 'Losa aligerada', emoji: '🧱',
@@ -84,6 +107,7 @@ const CATALOGO_ELEMENTOS: ElementoDef[] = [
         nota: `${Math.ceil(area * 8.33)} ladrillos de techo aprox.`,
       };
     },
+    aceroDist: { '1/2"': 0.55, '3/8"': 0.25, '1/4"': 0.20 },
   },
   {
     id: 'muro', nombre: 'Muro / Placa', emoji: '🟥',
@@ -97,6 +121,7 @@ const CATALOGO_ELEMENTOS: ElementoDef[] = [
       const vol = v.L * v.H * v.e * v.n;
       return { concretoM3: vol, aceroKg: vol * 80, encofradoM2: 2 * v.L * v.H * v.n };
     },
+    aceroDist: { '3/8"': 0.65, '1/2"': 0.35 },
   },
   {
     id: 'cimiento', nombre: 'Cimiento corrido', emoji: '🟤',
@@ -156,12 +181,21 @@ export default function ConcretoMetradosView() {
 
   const totales = useMemo(() => {
     let concretoM3 = 0, aceroKg = 0, encofradoM2 = 0;
+    const metrosPorDiam: Record<string, number> = {}; // acumula metros por diámetro
     const porItem = items.map(it => {
       const def = CATALOGO_ELEMENTOS.find(e => e.id === it.tipoId)!;
       const r = def.calc(it.valores);
       concretoM3 += r.concretoM3; aceroKg += r.aceroKg; encofradoM2 += r.encofradoM2;
-      return { it, def, r };
+      const varillas = desgloseVarillas(r.aceroKg, def.aceroDist);
+      Object.entries(varillas).forEach(([d, info]) => {
+        metrosPorDiam[d] = (metrosPorDiam[d] || 0) + info.metros;
+      });
+      return { it, def, r, varillas };
     });
+    // Varillas totales de 9 m por diámetro (redondeo al final para no inflar).
+    const varillasTotales = Object.entries(metrosPorDiam)
+      .map(([d, metros]) => ({ d, metros, varillas: Math.ceil(metros / LARGO_VARILLA_M) }))
+      .sort((a, b) => (DIAMETROS_KGM[b.d] || 0) - (DIAMETROS_KGM[a.d] || 0));
     const cementoBolsas = concretoM3 * 9.5;
     const arenaM3 = concretoM3 * 0.54;
     const piedraM3 = concretoM3 * 0.55;
@@ -172,7 +206,7 @@ export default function ConcretoMetradosView() {
       piedraM3 * precios.piedraM3 +
       aceroKg * precios.aceroKg +
       encofradoM2 * precios.encofradoM2;
-    return { porItem, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo };
+    return { porItem, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, varillasTotales };
   }, [items, precios]);
 
   const exportar = () => {
@@ -184,6 +218,9 @@ export default function ConcretoMetradosView() {
     });
     txt += `\n--- TOTALES ---\nConcreto: ${totales.concretoM3.toFixed(2)} m³\nAcero: ${totales.aceroKg.toFixed(1)} kg\nEncofrado: ${totales.encofradoM2.toFixed(2)} m²\n`;
     txt += `Cemento: ${Math.ceil(totales.cementoBolsas)} bolsas | Arena: ${totales.arenaM3.toFixed(2)} m³ | Piedra: ${totales.piedraM3.toFixed(2)} m³ | Agua: ${Math.round(totales.aguaL)} L\n`;
+    if (totales.varillasTotales.length > 0) {
+      txt += `Acero por varillas (9 m): ` + totales.varillasTotales.map(v => `Ø${v.d}: ${v.varillas} var. (${v.metros.toFixed(1)} m)`).join(' | ') + `\n`;
+    }
     txt += `COSTO REFERENCIAL: S/ ${totales.costo.toFixed(2)}\n`;
     const blob = new Blob([txt], { type: 'text/plain' });
     const a = document.createElement('a');
@@ -253,7 +290,7 @@ export default function ConcretoMetradosView() {
         </div>
       ) : (
         <div className="space-y-3">
-          {totales.porItem.map(({ it, def, r }, idx) => (
+          {totales.porItem.map(({ it, def, r, varillas }, idx) => (
             <div key={it.uid} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -280,6 +317,15 @@ export default function ConcretoMetradosView() {
                 <span>🪵 Encofrado: <span className="text-stone-700">{r.encofradoM2.toFixed(2)} m²</span></span>
                 {r.nota && <span className="text-slate-400 font-medium">· {r.nota}</span>}
               </div>
+              {Object.keys(varillas).length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {Object.entries(varillas).map(([d, info]) => (
+                    <span key={d} className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-lg">
+                      Ø {d}: <span className="text-slate-900">{info.varillas} var.</span> <span className="text-slate-400 font-medium">({info.metros.toFixed(1)} m)</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -309,6 +355,23 @@ export default function ConcretoMetradosView() {
               <p className="text-[10px] font-bold uppercase">Costo ref.</p>
             </div>
           </div>
+
+          {/* Acero detallado por varillas (barras de 9 m) */}
+          {totales.varillasTotales.length > 0 && (
+            <div className="mb-4">
+              <p className="text-[11px] font-black uppercase text-stone-300 mb-2">Acero por varillas (barras de 9 m)</p>
+              <div className="flex flex-wrap gap-2">
+                {totales.varillasTotales.map(({ d, varillas, metros }) => (
+                  <div key={d} className="bg-stone-700/60 rounded-xl px-3 py-2 text-center min-w-[88px]">
+                    <p className="text-base font-black">{varillas} <span className="text-xs font-bold">var.</span></p>
+                    <p className="text-[10px] font-bold text-amber-300">Ø {d}</p>
+                    <p className="text-[9px] text-stone-400">{metros.toFixed(1)} m</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <p className="text-[10px] text-stone-400 leading-snug">
             Estimados referenciales (f'c=210, dosificación 1:2:3; cuantías de acero típicas por elemento). Ajusta los precios con el botón "Precios". No reemplaza el cálculo estructural de un ingeniero.
           </p>
