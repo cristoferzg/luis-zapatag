@@ -81,6 +81,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [colHeightSetting] = useState<number>(4.0);
   const [beamElevationSetting] = useState<number>(4.0);
 
+  // PROFUNDIDAD DE TRABAJO (eje Z). En vista "Elevación/Sección" el lienzo solo
+  // controla X (ancho) e Y (altura); la profundidad Z no se puede marcar con el
+  // cursor. Este valor fija a qué profundidad caen los elementos que dibujes en
+  // sección (p. ej. un tijeral al medio del techo). En vista Planta no se usa
+  // (ahí la profundidad la pones con el cursor). Default 0 = comportamiento previo.
+  const [profundidadZSetting, setProfundidadZSetting] = useState<number>(0);
+
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
@@ -386,6 +393,12 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       }
 
       // Deshacer / Rehacer con CTRL
+      // Ctrl+Shift+Z también rehace (estándar en editores), además de Ctrl+Y.
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (engineState?.canRedo) engineState.redo();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (engineState?.canUndo) engineState.undo();
@@ -790,7 +803,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
     // HERRAMIENTA DE ARCO PARABÓLICO (draw_arc)
     if (activeTool === 'draw_arc') {
-      const zVal = vista === 'planta' ? clickCoords.y : 0;
+      const zVal = vista === 'planta' ? clickCoords.y : profundidadZSetting;
       const yVal = vista === 'seccion' ? clickCoords.y : beamElevationSetting;
 
       if (!arcStartPoint) {
@@ -840,9 +853,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     // HERRAMIENTA NODO PUNTUAL (draw_node)
     if (activeTool === 'draw_node') {
       const x = clickCoords.x;
-      const zVal = vista === 'planta' ? clickCoords.y : 0;
+      const zVal = vista === 'planta' ? clickCoords.y : profundidadZSetting;
       const yVal = vista === 'seccion' ? clickCoords.y : 0;
-      const id = engineState.addNode(x, yVal, zVal);
+      const id = engineState.addNode(x, yVal, zVal, false, true);
       engineState.setSelectedElementIds([id]);
       return;
     }
@@ -850,11 +863,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     // HERRAMIENTA COLUMNA VERTICAL (draw_col)
     if (activeTool === 'draw_col') {
       const x = clickCoords.x;
-      const z = vista === 'planta' ? clickCoords.y : 0;
+      const z = vista === 'planta' ? clickCoords.y : profundidadZSetting;
       const h = colHeightSetting;
 
-      const baseNodeId = engineState.addNode(x, 0, z, true);
-      const topNodeId = engineState.addNode(x, h, z, false);
+      const baseNodeId = engineState.addNode(x, 0, z, true, true);
+      const topNodeId = engineState.addNode(x, h, z, false, true);
       engineState.addSegment(baseNodeId, topNodeId, 'columna');
       engineState.setSelectedElementIds([topNodeId]);
       return;
@@ -863,7 +876,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     // HERRAMIENTA TIJERAL PARAMÉTRICO (draw_tijeral)
     if (activeTool === 'draw_tijeral') {
       const x = clickCoords.x;
-      const zVal = vista === 'planta' ? clickCoords.y : 0;
+      const zVal = vista === 'planta' ? clickCoords.y : profundidadZSetting;
       const yVal = vista === 'seccion' ? clickCoords.y : beamElevationSetting;
 
       let targetNodeId = (activeSnap && activeSnap.tipo !== 'grid') ? activeSnap.nodeId : null;
@@ -871,7 +884,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         targetNodeId = engineState.splitSegmentAtPoint(activeSnap.segmentId, activeSnap.x, activeSnap.y, activeSnap.z);
       }
       if (!targetNodeId) {
-        targetNodeId = engineState.addNode(x, yVal, zVal);
+        targetNodeId = engineState.addNode(x, yVal, zVal, false, true);
       }
 
       if (!drawingStartNodeId) {
@@ -910,7 +923,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             activeSnap.z
           );
         } else if (!targetNodeId) {
-          targetNodeId = engineState.addNode(activeSnap.x, activeSnap.y, activeSnap.z);
+          targetNodeId = engineState.addNode(activeSnap.x, activeSnap.y, activeSnap.z, false, true);
         }
 
         if (!targetNodeId) return;
@@ -953,11 +966,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
       // CASO 2: Clic en coordenadas de retícula / espacio libre
       const x = clickCoords.x;
-      const zVal = vista === 'planta' ? clickCoords.y : 0;
+      const zVal = vista === 'planta' ? clickCoords.y : profundidadZSetting;
       const yVal = vista === 'seccion' ? clickCoords.y : beamElevationSetting;
 
       const hadStart = !!drawingStartNodeId;
-      const newNodeId = engineState.addNode(x, yVal, zVal);
+      const newNodeId = engineState.addNode(x, yVal, zVal, false, true);
 
       if (drawingStartNodeId) {
         engineState.addSegment(drawingStartNodeId, newNodeId, rol);
@@ -1085,7 +1098,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
     if (isDrawingSegment) {
       const coords = screenToWorld(e.clientX, e.clientY);
-      const zVal = vista === 'planta' ? coords.y : 0;
+      const zVal = vista === 'planta' ? coords.y : profundidadZSetting;
       const yVal = vista === 'seccion' ? coords.y : beamElevationSetting;
       const anchorNodeId = engineState.splitSegmentAtPoint(segmentId, coords.x, yVal, zVal);
       const rol = getRolFromActiveTool();
@@ -1123,7 +1136,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       startZ = n.z || 0;
     }
 
-    const startId = drawingStartNodeId || engineState.addNode(startX, startY, startZ);
+    const startId = drawingStartNodeId || engineState.addNode(startX, startY, startZ, false, true);
 
     const deltaX = lenM * Math.cos(angRad);
     const deltaY = lenM * Math.sin(angRad);
@@ -1132,7 +1145,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     const endY = vista === 'planta' ? startY : startY + deltaY;
     const endZ = vista === 'planta' ? startZ + deltaY : startZ;
 
-    const endId = engineState.addNode(endX, endY, endZ);
+    const endId = engineState.addNode(endX, endY, endZ, false, true);
     const rol = getRolFromActiveTool();
     engineState.addSegment(startId, endId, rol);
     setDrawingStartNodeId(endId);
@@ -1254,6 +1267,25 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <span className="hidden sm:inline text-[10px] ml-0.5 font-bold">Aluzinc</span>
           </button>
         </div>
+
+        {/* CONTROL DE PROFUNDIDAD (Z) — solo en Elevación/Sección.
+            En esta vista el cursor controla ancho (X) y altura (Y); la profundidad
+            no se puede marcar con el mouse. Aquí fijas a qué profundidad del techo
+            caen los elementos que dibujes (p. ej. un tijeral al medio de la nave). */}
+        {vista === 'seccion' && (
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-300 rounded-xl shrink-0 shadow-2xs"
+            title="Profundidad de trabajo en el eje Z (hacia el fondo del techo). En Planta la pones con el cursor; aquí la fijas para dibujar en elevación.">
+            <span className="text-[10px] font-black text-amber-800 uppercase tracking-wide">Prof. Z</span>
+            <input
+              type="number"
+              step="0.25"
+              value={profundidadZSetting}
+              onChange={e => setProfundidadZSetting(parseFloat(e.target.value) || 0)}
+              className="w-14 px-1.5 py-0.5 rounded-lg border border-amber-300 bg-white text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            <span className="text-[10px] font-bold text-amber-700">m</span>
+          </div>
+        )}
 
         {/* Dropdown de HERRAMIENTA en la barra superior (estilo Herrería):
             selecciona la herramienta activa sin abrir el panel central. Solo

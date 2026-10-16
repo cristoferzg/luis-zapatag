@@ -164,12 +164,16 @@ export function calculateBestCadSnap(
     enableOrigin = true
   } = options;
 
-  // Tolerancia de imán PRECISA (estilo Herrería): pequeña y con TOPE, para que
+  // Tolerancia de imán PRECISA (estilo Herrería): el radio se expresa en píxeles
+  // y se convierte a mundo dividiendo por la escala, por lo que SE ENCOGE al hacer
+  // zoom-in (más precisión) y es más tolerante al alejar. Con TOPE pequeño para que
   // el nodo caiga donde está el dedo/cursor y nunca "salte" a un elemento lejano.
-  // Piso de 0.08 m para poder tocar nodos aun con el dedo; tope de ~1.2 celdas de
-  // rejilla (o 0.30 m) para que jamás jale más de una celda.
-  const topeM = Math.max(snapGridSizeM * 1.2, 0.30);
-  const magneticRadiusM = Math.min(topeM, Math.max(0.08, magneticRadiusPx / Math.max(scale, 1)));
+  //  - hardRadiusM  → snaps "duros" (nodo/extremo, origen, cierre de perímetro):
+  //                   son puntos de conexión intencionales; tope 0.18 m, piso 0.06 m.
+  //  - softRadiusM  → snaps "suaves" (punto medio, intersección, cuerpo de barra):
+  //                   más chico (65%) para que no se peguen cuando solo pasas cerca.
+  const hardRadiusM = Math.min(0.18, Math.max(0.06, magneticRadiusPx / Math.max(scale, 1)));
+  const softRadiusM = hardRadiusM * 0.65;
   const candidateSnaps: CadSnapResult[] = [];
 
   const allNodes = Object.values(nodes);
@@ -179,7 +183,7 @@ export function calculateBestCadSnap(
   //    para empezar a dibujar exactamente en el punto cero.
   if (enableOrigin) {
     const distOrigin = Math.hypot(worldCursor.x - 0, worldCursor.y - 0);
-    if (distOrigin <= magneticRadiusM) {
+    if (distOrigin <= hardRadiusM) {
       const origin3D = point2DTo3D({ x: 0, y: 0 }, vista);
       candidateSnaps.push({
         x: origin3D.x,
@@ -201,7 +205,7 @@ export function calculateBestCadSnap(
       const p2d = nodeTo2D(node, vista);
       const dist = Math.hypot(worldCursor.x - p2d.x, worldCursor.y - p2d.y);
 
-      if (dist <= magneticRadiusM) {
+      if (dist <= hardRadiusM) {
         // ¿Es el nodo que cierra el perímetro del polígono o cercha?
         const isClosing = Boolean(
           drawingStartNodeId &&
@@ -262,7 +266,7 @@ export function calculateBestCadSnap(
 
         if (inter) {
           const dist = Math.hypot(worldCursor.x - inter.x, worldCursor.y - inter.y);
-          if (dist <= magneticRadiusM) {
+          if (dist <= softRadiusM) {
             // Interpolar coordenada 3D
             const zInter = vista === 'planta' ? inter.y : ((nA1.z || 0) + (nA2.z || 0)) / 2;
             const yInter = vista === 'seccion' ? inter.y : ((nA1.y) + (nA2.y)) / 2;
@@ -300,7 +304,7 @@ export function calculateBestCadSnap(
       const midY = (p1.y + p2.y) / 2;
       const dist = Math.hypot(worldCursor.x - midX, worldCursor.y - midY);
 
-      if (dist <= magneticRadiusM) {
+      if (dist <= softRadiusM) {
         const mid3D = {
           x: (n1.x + n2.x) / 2,
           y: (n1.y + n2.y) / 2,
@@ -335,7 +339,7 @@ export function calculateBestCadSnap(
 
       const proj = getPointProjectedOnSegment2D(worldCursor.x, worldCursor.y, p1.x, p1.y, p2.x, p2.y);
 
-      if (proj.isInside && proj.distance <= magneticRadiusM * 0.85) {
+      if (proj.isInside && proj.distance <= softRadiusM) {
         // Interpolar en 3D con el factor t
         const x3D = n1.x + proj.t * (n2.x - n1.x);
         const y3D = n1.y + proj.t * (n2.y - n1.y);
@@ -357,31 +361,28 @@ export function calculateBestCadSnap(
     }
   }
 
-  // JERARQUÍA DE PRIORIDAD CAD:
-  // 1. Cierre de Perímetro (close_loop)
-  // 2. Intersección (intersection)
-  // 3. Vértice / Extremo (endpoint)
-  // 4. Punto Medio (midpoint)
-  // 5. Anclaje a Barra (nearest_edge)
+  // SELECCIÓN ESTILO HERRERÍA: el punto debe caer DONDE ESTÁ EL CURSOR.
+  // Por eso NO se prioriza por tipo sobre la cercanía (eso hacía que el nodo
+  // "saltara" a un punto medio/barra lejana). En su lugar:
+  //   - Los snaps "duros" (cerrar perímetro, nodo/extremo, origen) son puntos de
+  //     conexión intencionales: si hay alguno en rango, gana el MÁS CERCANO de ellos
+  //     (y 'close_loop' siempre por encima para poder cerrar polígonos).
+  //   - Si no hay ninguno duro, gana el snap suave MÁS CERCANO (punto medio /
+  //     intersección / cuerpo de barra).
   if (candidateSnaps.length > 0) {
-    const priorityWeight: Record<TipoSnapCad, number> = {
-      close_loop: 0,
-      origin: 1,
-      intersection: 2,
-      endpoint: 3,
-      midpoint: 4,
-      perpendicular: 5,
-      nearest_edge: 6,
-      grid: 7
-    };
+    const DUROS = new Set<TipoSnapCad>(['close_loop', 'endpoint', 'origin']);
+    const duros = candidateSnaps.filter(c => DUROS.has(c.tipo));
+    const pool = duros.length > 0 ? duros : candidateSnaps;
 
-    candidateSnaps.sort((a, b) => {
-      const weightDiff = priorityWeight[a.tipo] - priorityWeight[b.tipo];
-      if (weightDiff !== 0) return weightDiff;
+    pool.sort((a, b) => {
+      // 'close_loop' (cerrar perímetro) siempre primero dentro de los duros.
+      const closeDiff = (a.tipo === 'close_loop' ? 0 : 1) - (b.tipo === 'close_loop' ? 0 : 1);
+      if (closeDiff !== 0) return closeDiff;
+      // Lo demás: el más cercano al cursor.
       return a.distanceWorld - b.distanceWorld;
     });
 
-    return candidateSnaps[0];
+    return pool[0];
   }
 
   // 5. SNAP A RETÍCULA (GRID SNAP POR DEFECTO SI NO HAY NADA CERCA)

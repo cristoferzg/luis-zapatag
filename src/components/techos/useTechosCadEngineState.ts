@@ -67,7 +67,7 @@ export interface UseTechosCadEngineReturn {
   loadScene: (loadedNodes: Record<string, Node3D>, loadedSegments: Record<string, Segment3D>, loadedZones?: Record<string, CoverageZone3D>) => void;
 
   // Operaciones Vectoriales de Trazado Libre
-  addNode: (x: number, y: number, z?: number, isFixed?: boolean) => string;
+  addNode: (x: number, y: number, z?: number, isFixed?: boolean, exact?: boolean) => string;
   splitSegmentAtPoint: (segmentId: string, x: number, y: number, z?: number, isFixed?: boolean) => string;
   addSegment: (nodeAId: string, nodeBId: string, rolEstructural?: RolEstructuralSegmento, profileId?: string) => string;
   addCoverageZone: (nodeIdsBoundary: string[], coberturaId?: string, pendientePct?: number) => string;
@@ -293,12 +293,15 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   }, [segments, coverageZones, pushHistory]);
 
   // Operación: Agregar Nodo con Snap y Prevención de Duplicados
-  const addNode = useCallback((x: number, y: number, z: number = 0, isFixed: boolean = false): string => {
+  const addNode = useCallback((x: number, y: number, z: number = 0, isFixed: boolean = false, exact: boolean = false): string => {
     let finalX = x;
     let finalY = y;
     let finalZ = z;
 
-    if (snapEnabled && snapGridSizeM > 0) {
+    // `exact` = el punto ya viene con snap/O-snap aplicado desde el lienzo (cae donde
+    // está el cursor). En ese caso NO se re-redondea a la grilla, porque eso hacía que
+    // el nodo "saltara" a la intersección de grilla más cercana al confirmar el clic.
+    if (!exact && snapEnabled && snapGridSizeM > 0) {
       finalX = Math.round(x / snapGridSizeM) * snapGridSizeM;
       finalY = Math.round(y / snapGridSizeM) * snapGridSizeM;
       finalZ = Math.round(z / snapGridSizeM) * snapGridSizeM;
