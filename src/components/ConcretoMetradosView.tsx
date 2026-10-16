@@ -151,22 +151,34 @@ const CATALOGO_ELEMENTOS: ElementoDef[] = [
   },
 ];
 
-interface Instancia { uid: string; tipoId: string; valores: Record<string, number>; }
+interface Instancia { uid: string; tipoId: string; valores: Record<string, number>; nivel: string; }
 
-const nuevaInstancia = (tipoId: string): Instancia => {
+const nuevaInstancia = (tipoId: string, nivel: string): Instancia => {
   const def = CATALOGO_ELEMENTOS.find(e => e.id === tipoId)!;
   const valores: Record<string, number> = {};
   def.campos.forEach(c => { valores[c.key] = c.def; });
-  return { uid: `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, tipoId, valores };
+  return { uid: `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, tipoId, valores, nivel };
 };
+
+const NIVELES_DEFAULT = ['Cimentación', 'Piso 1'];
 
 // Precios unitarios referenciales por defecto (S/). Editables.
 const PRECIOS_DEFAULT = { cementoBolsa: 28, arenaM3: 55, piedraM3: 60, aceroKg: 4.2, encofradoM2: 25 };
 
 export default function ConcretoMetradosView() {
-  const [items, setItems] = useState<Instancia[]>(() =>
-    safeStorage.getItem<Instancia[]>('concreto_metrados_items', []) || []
+  const [niveles, setNiveles] = useState<string[]>(() =>
+    safeStorage.getItem<string[]>('concreto_metrados_niveles', NIVELES_DEFAULT) || NIVELES_DEFAULT
   );
+  const [nivelActivo, setNivelActivo] = useState<string>(() => {
+    const ns = safeStorage.getItem<string[]>('concreto_metrados_niveles', NIVELES_DEFAULT) || NIVELES_DEFAULT;
+    return ns[0] || 'Piso 1';
+  });
+  const [items, setItems] = useState<Instancia[]>(() => {
+    const raw = safeStorage.getItem<Instancia[]>('concreto_metrados_items', []) || [];
+    // Migración: elementos antiguos sin nivel → al primer nivel.
+    const n0 = (safeStorage.getItem<string[]>('concreto_metrados_niveles', NIVELES_DEFAULT) || NIVELES_DEFAULT)[0] || 'Piso 1';
+    return raw.map(i => ({ ...i, nivel: i.nivel || n0 }));
+  });
   const [precios, setPrecios] = useState(() =>
     safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT
   );
@@ -174,9 +186,27 @@ export default function ConcretoMetradosView() {
 
   useEffect(() => { safeStorage.setItem('concreto_metrados_items', items); }, [items]);
   useEffect(() => { safeStorage.setItem('concreto_metrados_precios', precios); }, [precios]);
+  useEffect(() => { safeStorage.setItem('concreto_metrados_niveles', niveles); }, [niveles]);
 
-  const addItem = (tipoId: string) => setItems(prev => [...prev, nuevaInstancia(tipoId)]);
+  const addItem = (tipoId: string) => setItems(prev => [...prev, nuevaInstancia(tipoId, nivelActivo)]);
   const removeItem = (uid: string) => setItems(prev => prev.filter(i => i.uid !== uid));
+
+  const agregarNivel = () => {
+    const base = 'Piso ' + (niveles.filter(n => /^Piso/i.test(n)).length + 1);
+    let nombre = base, k = 1;
+    while (niveles.includes(nombre)) { nombre = `${base} (${++k})`; }
+    setNiveles(prev => [...prev, nombre]);
+    setNivelActivo(nombre);
+  };
+  const eliminarNivel = (nombre: string) => {
+    if (niveles.length <= 1) return;
+    setItems(prev => prev.filter(i => i.nivel !== nombre));
+    setNiveles(prev => {
+      const next = prev.filter(n => n !== nombre);
+      if (nivelActivo === nombre) setNivelActivo(next[0]);
+      return next;
+    });
+  };
   const updateVal = (uid: string, key: string, val: number) =>
     setItems(prev => prev.map(i => i.uid === uid ? { ...i, valores: { ...i.valores, [key]: val } } : i));
 
@@ -197,6 +227,13 @@ export default function ConcretoMetradosView() {
     const varillasTotales = Object.entries(metrosPorDiam)
       .map(([d, metros]) => ({ d, metros, varillas: Math.ceil(metros / LARGO_VARILLA_M) }))
       .sort((a, b) => (DIAMETROS_KGM[b.d] || 0) - (DIAMETROS_KGM[a.d] || 0));
+    // Agrupa por nivel/piso con subtotales de concreto y acero.
+    const porNivel = niveles.map(nivel => {
+      const its = porItem.filter(p => (p.it.nivel || niveles[0]) === nivel);
+      const subConcreto = its.reduce((s, p) => s + p.r.concretoM3, 0);
+      const subAcero = its.reduce((s, p) => s + p.r.aceroKg, 0);
+      return { nivel, its, subConcreto, subAcero };
+    });
     const cementoBolsas = concretoM3 * 9.5;
     const arenaM3 = concretoM3 * 0.54;
     const piedraM3 = concretoM3 * 0.55;
@@ -207,15 +244,20 @@ export default function ConcretoMetradosView() {
       piedraM3 * precios.piedraM3 +
       aceroKg * precios.aceroKg +
       encofradoM2 * precios.encofradoM2;
-    return { porItem, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, varillasTotales };
-  }, [items, precios]);
+    return { porItem, porNivel, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, varillasTotales };
+  }, [items, precios, niveles]);
 
   const exportar = () => {
     let txt = `INNOVA CONTRATISTAS — METRADO DE CONCRETO / OBRA CIVIL\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
     txt += `============================================================\n\n`;
-    totales.porItem.forEach(({ def, it, r }, i) => {
-      const dims = def.campos.map(c => `${c.label.split(' (')[0]}=${it.valores[c.key]}`).join(', ');
-      txt += `${i + 1}. ${def.nombre} (${dims})\n   Concreto: ${r.concretoM3.toFixed(3)} m³ | Acero: ${r.aceroKg.toFixed(1)} kg | Encofrado: ${r.encofradoM2.toFixed(2)} m²${r.nota ? ` | ${r.nota}` : ''}\n`;
+    totales.porNivel.forEach(({ nivel, its, subConcreto, subAcero }) => {
+      if (its.length === 0) return;
+      txt += `### ${nivel.toUpperCase()}\n`;
+      its.forEach(({ def, it, r }, i) => {
+        const dims = def.campos.map(c => `${c.label.split(' (')[0]}=${it.valores[c.key]}`).join(', ');
+        txt += `  ${i + 1}. ${def.nombre} (${dims})\n     Concreto: ${r.concretoM3.toFixed(3)} m³ | Acero: ${r.aceroKg.toFixed(1)} kg | Encofrado: ${r.encofradoM2.toFixed(2)} m²${r.nota ? ` | ${r.nota}` : ''}\n`;
+      });
+      txt += `  Subtotal ${nivel}: ${subConcreto.toFixed(2)} m³ concreto · ${subAcero.toFixed(1)} kg acero\n\n`;
     });
     txt += `\n--- TOTALES ---\nConcreto: ${totales.concretoM3.toFixed(2)} m³\nAcero: ${totales.aceroKg.toFixed(1)} kg\nEncofrado: ${totales.encofradoM2.toFixed(2)} m²\n`;
     txt += `Cemento: ${Math.ceil(totales.cementoBolsas)} bolsas | Arena: ${totales.arenaM3.toFixed(2)} m³ | Piedra: ${totales.piedraM3.toFixed(2)} m³ | Agua: ${Math.round(totales.aguaL)} L\n`;
@@ -269,9 +311,34 @@ export default function ConcretoMetradosView() {
         </div>
       )}
 
+      {/* Selector de NIVEL / PISO */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs">
+        <p className="text-[11px] font-black text-slate-400 uppercase px-1 mb-2">Nivel / Piso activo</p>
+        <div className="flex flex-wrap gap-2 items-center">
+          {niveles.map(n => (
+            <div key={n} className={`group inline-flex items-center gap-1 rounded-xl border text-xs font-bold transition-all ${
+              nivelActivo === n ? 'bg-stone-700 text-white border-stone-700' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+            }`}>
+              <button onClick={() => setNivelActivo(n)} className="pl-3 pr-1.5 py-2 cursor-pointer">{n}</button>
+              {niveles.length > 1 && (
+                <button onClick={() => eliminarNivel(n)} title="Eliminar piso (y sus elementos)"
+                  className={`pr-2 py-2 cursor-pointer ${nivelActivo === n ? 'text-stone-300 hover:text-white' : 'text-slate-300 hover:text-rose-500'}`}>
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+          <button onClick={agregarNivel} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs font-bold cursor-pointer hover:bg-amber-100">
+            <Plus className="w-3.5 h-3.5" /> Piso
+          </button>
+        </div>
+      </div>
+
       {/* Paleta de elementos */}
       <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs">
-        <p className="text-[11px] font-black text-slate-400 uppercase px-1 mb-2">Agregar elemento</p>
+        <p className="text-[11px] font-black text-slate-400 uppercase px-1 mb-2">
+          Agregar elemento <span className="text-stone-500">→ {nivelActivo}</span>
+        </p>
         <div className="flex flex-wrap gap-2">
           {CATALOGO_ELEMENTOS.map(el => (
             <button key={el.id} onClick={() => addItem(el.id)}
@@ -290,48 +357,64 @@ export default function ConcretoMetradosView() {
           <p className="text-xs mt-1">Zapatas, columnas, vigas, losas, muros, cimientos…</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {totales.porItem.map(({ it, def, r, varillas }, idx) => (
-            <div key={it.uid} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
-              <div className="flex items-center justify-between mb-3">
+        <div className="space-y-5">
+          {totales.porNivel.filter(g => g.its.length > 0).map(({ nivel, its, subConcreto, subAcero }) => (
+            <div key={nivel} className="space-y-3">
+              {/* Cabecera de nivel con subtotal */}
+              <div className="flex items-center justify-between gap-3 px-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">{def.emoji}</span>
-                  <span className="text-sm font-black text-slate-800">{idx + 1}. {def.nombre}</span>
+                  <span className="h-6 w-1.5 rounded-full bg-stone-600" />
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">{nivel}</h3>
+                  <span className="text-[10px] font-bold text-slate-400">({its.length})</span>
                 </div>
-                <button onClick={() => removeItem(it.uid)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-400 hover:text-rose-600 cursor-pointer">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex flex-col md:flex-row gap-3 mb-3">
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-2 gap-2 flex-1">
-                  {def.campos.map(c => (
-                    <label key={c.key} className="text-[11px] font-bold text-slate-600">
-                      {c.label}
-                      <input type="number" inputMode="decimal" value={it.valores[c.key]}
-                        onChange={e => updateVal(it.uid, c.key, parseFloat(e.target.value) || 0)}
-                        className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
-                    </label>
-                  ))}
-                </div>
-                <div className="shrink-0 bg-slate-50 border border-slate-100 rounded-xl p-1.5 flex items-center justify-center self-center">
-                  <ConcretoElementoSVG tipoId={it.tipoId} v={it.valores} />
+                <div className="flex items-center gap-2 text-[11px] font-bold">
+                  <span className="bg-stone-100 text-stone-700 border border-stone-200 rounded-lg px-2 py-1">{subConcreto.toFixed(2)} m³</span>
+                  <span className="bg-amber-50 text-amber-800 border border-amber-200 rounded-lg px-2 py-1">{subAcero.toFixed(0)} kg acero</span>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-slate-700 border-t border-slate-100 pt-2.5">
-                <span>🧱 Concreto: <span className="text-stone-700">{r.concretoM3.toFixed(3)} m³</span></span>
-                <span>🔩 Acero: <span className="text-stone-700">{r.aceroKg.toFixed(1)} kg</span></span>
-                <span>🪵 Encofrado: <span className="text-stone-700">{r.encofradoM2.toFixed(2)} m²</span></span>
-                {r.nota && <span className="text-slate-400 font-medium">· {r.nota}</span>}
-              </div>
-              {Object.keys(varillas).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {Object.entries(varillas).map(([d, info]) => (
-                    <span key={d} className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-lg">
-                      Ø {d}: <span className="text-slate-900">{info.varillas} var.</span> <span className="text-slate-400 font-medium">({info.metros.toFixed(1)} m)</span>
-                    </span>
-                  ))}
+              {its.map(({ it, def, r, varillas }, idx) => (
+                <div key={it.uid} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{def.emoji}</span>
+                      <span className="text-sm font-black text-slate-800">{idx + 1}. {def.nombre}</span>
+                    </div>
+                    <button onClick={() => removeItem(it.uid)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-400 hover:text-rose-600 cursor-pointer">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex flex-col md:flex-row gap-3 mb-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-2 gap-2 flex-1">
+                      {def.campos.map(c => (
+                        <label key={c.key} className="text-[11px] font-bold text-slate-600">
+                          {c.label}
+                          <input type="number" inputMode="decimal" value={it.valores[c.key]}
+                            onChange={e => updateVal(it.uid, c.key, parseFloat(e.target.value) || 0)}
+                            className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
+                        </label>
+                      ))}
+                    </div>
+                    <div className="shrink-0 bg-slate-50 border border-slate-100 rounded-xl p-1.5 flex items-center justify-center self-center">
+                      <ConcretoElementoSVG tipoId={it.tipoId} v={it.valores} />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-slate-700 border-t border-slate-100 pt-2.5">
+                    <span>🧱 Concreto: <span className="text-stone-700">{r.concretoM3.toFixed(3)} m³</span></span>
+                    <span>🔩 Acero: <span className="text-stone-700">{r.aceroKg.toFixed(1)} kg</span></span>
+                    <span>🪵 Encofrado: <span className="text-stone-700">{r.encofradoM2.toFixed(2)} m²</span></span>
+                    {r.nota && <span className="text-slate-400 font-medium">· {r.nota}</span>}
+                  </div>
+                  {Object.keys(varillas).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {Object.entries(varillas).map(([d, info]) => (
+                        <span key={d} className="inline-flex items-center gap-1 text-[10px] font-bold bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-lg">
+                          Ø {d}: <span className="text-slate-900">{info.varillas} var.</span> <span className="text-slate-400 font-medium">({info.metros.toFixed(1)} m)</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
           ))}
         </div>
