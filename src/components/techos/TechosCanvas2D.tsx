@@ -2514,33 +2514,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </div>
           </div>
         )}
-        {/* GUÍA DE LIENZO VACÍO: invita a usar el Asistente paramétrico.
-            Se oculta si ya eligieron una herramienta de dibujo, para no tapar
-            los toques/clics destinados a dibujar (sobre todo en móvil). */}
-        {Object.keys(nodes).length === 0 && vista !== '3d' && !isDrawingTool && (
-          <div className="absolute inset-0 z-30 flex items-center justify-center lg:justify-end lg:pr-12 p-4 pointer-events-none">
-            <div className="pointer-events-auto max-w-xs w-full bg-white/95 backdrop-blur-md border border-amber-200 rounded-3xl shadow-2xl p-5 text-center space-y-3">
-              <div className="mx-auto w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-md">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <h3 className="text-sm font-black text-slate-900">Empieza tu techo en 1 paso</h3>
-              <p className="text-[12px] text-slate-500 leading-relaxed">
-                La forma más fácil: elige el tipo de techo e ingresa tus medidas
-                (luz, largo, altura). El sistema lo dibuja y ensambla por ti.
-              </p>
-              <button
-                onClick={() => setShowNovatosWizard(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm shadow-md active:scale-95 transition-all cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Crear techo con medidas</span>
-              </button>
-              <p className="text-[11px] text-slate-400">
-                O usa las herramientas 🔧 para dibujarlo a mano.
-              </p>
-            </div>
-          </div>
-        )}
+        {/* (Removido) El panel flotante "Empieza tu techo en 1 paso" tapaba el
+            lienzo al iniciar un diseño nuevo. El usuario elige libremente: el
+            Asistente paramétrico sigue disponible en el botón "Asistente" de la
+            barra superior, y las herramientas del Panel CAD para dibujar a mano. */}
 
         {/* PANEL FLOTANTE DE HERRAMIENTAS CAD COMPLETO / COLAPSADO */}
         {/* CHIP DE RETÍCULA / SNAP (dock derecho, estilo Herrería): mantiene el
