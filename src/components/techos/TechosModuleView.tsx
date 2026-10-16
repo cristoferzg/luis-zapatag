@@ -98,9 +98,11 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
     const stats: Record<string, { profile: any; count: number; totalLength: number; totalWeight: number; totalCost: number }> = {};
     
     segmentList.forEach((seg: any) => {
+      // Las columnas de concreto NO son acero: se metran como concreto aparte.
+      if (seg.rolEstructural === 'columna_concreto') return;
       const pId = seg.profileId || 'perfil_sq_2x2_15';
       const profile = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === pId) || INVENTARIO_PERFILES_TUBULARES[0];
-      
+
       const nodeA = nodes[seg.nodeAId];
       const nodeB = nodes[seg.nodeBId];
       let length = 0;
@@ -156,6 +158,35 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
 
   const totalStructuralWeight = profileStats.reduce((sum, item) => sum + item.totalWeight, 0);
   const totalStructuralCost = profileStats.reduce((sum, item) => sum + item.totalCost, 0);
+
+  // METRADO DE CONCRETO: columnas marcadas como concreto (rol 'columna_concreto').
+  // Volumen = longitud × sección (asumida 25×25 cm). Materiales aproximados por
+  // m³ de concreto f'c=210 (dosificación referencial 1:2:3).
+  const concretoMetrado = React.useMemo(() => {
+    const seccionM = 0.25; // 25 cm × 25 cm
+    let columnas = 0;
+    let longitudTotalM = 0;
+    segmentList.forEach((seg: any) => {
+      if (seg.rolEstructural !== 'columna_concreto') return;
+      const a = nodes[seg.nodeAId];
+      const b = nodes[seg.nodeBId];
+      if (!a || !b) return;
+      longitudTotalM += Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0));
+      columnas += 1;
+    });
+    const volumenM3 = longitudTotalM * seccionM * seccionM;
+    return {
+      columnas,
+      longitudTotalM,
+      volumenM3,
+      seccionCm: 25,
+      // Dosificación referencial f'c=210 kg/cm² por m³
+      cementoBolsas: volumenM3 * 9.5,
+      arenaM3: volumenM3 * 0.54,
+      piedraM3: volumenM3 * 0.55,
+      aguaL: volumenM3 * 180
+    };
+  }, [segmentList, nodes]);
 
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-6 font-sans select-none">
@@ -220,6 +251,48 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
           </div>
         </div>
       </div>
+
+      {/* METRADO DE CONCRETO (solo si hay columnas de concreto) */}
+      {concretoMetrado.columnas > 0 && (
+        <div className="bg-white border border-stone-300 rounded-2xl shadow-xs overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-stone-200 bg-stone-100/70 flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-stone-500 text-white flex items-center justify-center font-black text-sm shrink-0">
+              {concretoMetrado.columnas}
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-stone-800 uppercase">Metrado de Concreto</h3>
+              <p className="text-[11px] text-stone-500">
+                {concretoMetrado.columnas} columnas de concreto · sección {concretoMetrado.seccionCm}×{concretoMetrado.seccionCm} cm · {concretoMetrado.longitudTotalM.toFixed(2)} m lineales
+              </p>
+            </div>
+          </div>
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
+              <p className="text-lg font-black text-stone-800">{concretoMetrado.volumenM3.toFixed(2)}</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">m³ Concreto</p>
+            </div>
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
+              <p className="text-lg font-black text-stone-800">{Math.ceil(concretoMetrado.cementoBolsas)}</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">Bolsas cemento</p>
+            </div>
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
+              <p className="text-lg font-black text-stone-800">{concretoMetrado.arenaM3.toFixed(2)}</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">m³ Arena</p>
+            </div>
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
+              <p className="text-lg font-black text-stone-800">{concretoMetrado.piedraM3.toFixed(2)}</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">m³ Piedra</p>
+            </div>
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
+              <p className="text-lg font-black text-stone-800">{Math.round(concretoMetrado.aguaL)}</p>
+              <p className="text-[10px] font-bold text-stone-500 uppercase">Litros agua</p>
+            </div>
+          </div>
+          <p className="px-4 pb-3 text-[10px] text-stone-400 leading-snug">
+            Estimado referencial para concreto f'c=210 kg/cm² (dosificación 1:2:3). Sección asumida {concretoMetrado.seccionCm}×{concretoMetrado.seccionCm} cm. No incluye acero de refuerzo ni encofrado.
+          </p>
+        </div>
+      )}
 
       {/* Grid de Tablas de Inspección */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
