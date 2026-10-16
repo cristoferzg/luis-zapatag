@@ -15,6 +15,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Box, Plus, Trash2, Calculator, Download } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
+import ConcretoElementoSVG from './ConcretoElementoSVG';
 
 interface CampoDef { key: string; label: string; def: number; }
 interface ResultadoCalc { concretoM3: number; aceroKg: number; encofradoM2: number; nota?: string; }
@@ -301,15 +302,20 @@ export default function ConcretoMetradosView() {
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                {def.campos.map(c => (
-                  <label key={c.key} className="text-[11px] font-bold text-slate-600">
-                    {c.label}
-                    <input type="number" inputMode="decimal" value={it.valores[c.key]}
-                      onChange={e => updateVal(it.uid, c.key, parseFloat(e.target.value) || 0)}
-                      className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
-                  </label>
-                ))}
+              <div className="flex flex-col md:flex-row gap-3 mb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-2 gap-2 flex-1">
+                  {def.campos.map(c => (
+                    <label key={c.key} className="text-[11px] font-bold text-slate-600">
+                      {c.label}
+                      <input type="number" inputMode="decimal" value={it.valores[c.key]}
+                        onChange={e => updateVal(it.uid, c.key, parseFloat(e.target.value) || 0)}
+                        className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
+                    </label>
+                  ))}
+                </div>
+                <div className="shrink-0 bg-slate-50 border border-slate-100 rounded-xl p-1.5 flex items-center justify-center self-center">
+                  <ConcretoElementoSVG tipoId={it.tipoId} v={it.valores} />
+                </div>
               </div>
               <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-slate-700 border-t border-slate-100 pt-2.5">
                 <span>🧱 Concreto: <span className="text-stone-700">{r.concretoM3.toFixed(3)} m³</span></span>
