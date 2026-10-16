@@ -27,7 +27,8 @@ import {
   Sliders,
   Copy,
   Clipboard,
-  ChevronDown
+  ChevronDown,
+  Image as ImageIcon
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
@@ -87,6 +88,34 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // sección (p. ej. un tijeral al medio del techo). En vista Planta no se usa
   // (ahí la profundidad la pones con el cursor). Default 0 = comportamiento previo.
   const [profundidadZSetting, setProfundidadZSetting] = useState<number>(0);
+
+  // IMAGEN DE REFERENCIA (calcar un plano a mano / foto). Se dibuja como fondo del
+  // lienzo en vista Planta y se mueve/escala junto con el pan/zoom, para poder
+  // trazar encima. El usuario calibra el ancho real (m) y la opacidad.
+  const [refImg, setRefImg] = useState<{ src: string; aspect: number } | null>(null);
+  const [refImgOpacity, setRefImgOpacity] = useState<number>(0.5);
+  const [refImgWidthM, setRefImgWidthM] = useState<number>(10);
+  const [refImgX, setRefImgX] = useState<number>(0);
+  const [refImgY, setRefImgY] = useState<number>(0);
+  const [showRefControls, setShowRefControls] = useState<boolean>(false);
+  const refImgInputRef = useRef<HTMLInputElement>(null);
+
+  const handleRefImgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const src = ev.target?.result as string;
+      const im = new window.Image();
+      im.onload = () => {
+        setRefImg({ src, aspect: im.naturalHeight / Math.max(1, im.naturalWidth) });
+        setShowRefControls(true);
+      };
+      im.src = src;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -1304,6 +1333,23 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           </div>
         )}
 
+        {/* IMAGEN DE REFERENCIA: subir un plano a mano / foto para calcar (solo Planta) */}
+        {vista === 'planta' && (
+          <>
+            <input ref={refImgInputRef} type="file" accept="image/*" onChange={handleRefImgUpload} className="hidden" />
+            <button
+              onClick={() => { if (refImg) { setShowRefControls(s => !s); } else { refImgInputRef.current?.click(); } }}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shrink-0 shadow-2xs cursor-pointer transition-all ${
+                refImg ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+              title="Subir un plano a mano / foto como fondo para calcar el techo"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              <span>{refImg ? 'Plano ref.' : 'Imagen ref.'}</span>
+            </button>
+          </>
+        )}
+
         {/* Dropdown de HERRAMIENTA en la barra superior (estilo Herrería):
             selecciona la herramienta activa sin abrir el panel central. Solo
             en vistas 2D (en 3D no aplica). */}
@@ -1538,6 +1584,20 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               </defs>
 
               <g transform={`translate(${centerTranslateX}, ${centerTranslateY})`}>
+                {/* IMAGEN DE REFERENCIA (plano a mano / foto) — fondo para calcar.
+                    Solo en Planta; se mueve y escala con el lienzo. */}
+                {refImg && vista === 'planta' && (
+                  <image
+                    href={refImg.src}
+                    x={refImgX * scale}
+                    y={refImgY * scale}
+                    width={refImgWidthM * scale}
+                    height={refImgWidthM * refImg.aspect * scale}
+                    opacity={refImgOpacity}
+                    preserveAspectRatio="none"
+                    className="pointer-events-none"
+                  />
+                )}
                 {/* RETÍCULA CAD */}
                 {showGrid && (
                   <rect 
@@ -2518,6 +2578,63 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             lienzo al iniciar un diseño nuevo. El usuario elige libremente: el
             Asistente paramétrico sigue disponible en el botón "Asistente" de la
             barra superior, y las herramientas del Panel CAD para dibujar a mano. */}
+
+        {/* CONTROLES DE LA IMAGEN DE REFERENCIA (calcar un plano a mano) */}
+        {refImg && vista === 'planta' && showRefControls && (
+          <div className="absolute top-3 left-3 z-30 w-56 bg-white/97 backdrop-blur-md rounded-2xl shadow-xl border border-sky-200 p-3 space-y-2.5 pointer-events-auto">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-sky-800 uppercase tracking-wide flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" /> Plano de referencia
+              </span>
+              <button onClick={() => setShowRefControls(false)} className="p-0.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer" title="Ocultar controles">
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
+
+            <label className="block text-[10px] font-bold text-slate-600">
+              Opacidad: {Math.round(refImgOpacity * 100)}%
+              <input type="range" min={0.1} max={1} step={0.05} value={refImgOpacity}
+                onChange={e => setRefImgOpacity(parseFloat(e.target.value))}
+                className="w-full accent-sky-600 cursor-pointer mt-0.5" />
+            </label>
+
+            <label className="block text-[10px] font-bold text-slate-600">
+              Ancho real del plano (m) — calibra la escala
+              <input type="number" step="0.5" value={refImgWidthM}
+                onChange={e => setRefImgWidthM(Math.max(0.5, parseFloat(e.target.value) || 0.5))}
+                className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
+            </label>
+
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-[10px] font-bold text-slate-600">
+                Posición X (m)
+                <input type="number" step="0.25" value={refImgX}
+                  onChange={e => setRefImgX(parseFloat(e.target.value) || 0)}
+                  className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
+              </label>
+              <label className="block text-[10px] font-bold text-slate-600">
+                Posición Z (m)
+                <input type="number" step="0.25" value={refImgY}
+                  onChange={e => setRefImgY(parseFloat(e.target.value) || 0)}
+                  className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
+              </label>
+            </div>
+
+            <div className="flex items-center gap-2 pt-0.5">
+              <button onClick={() => refImgInputRef.current?.click()}
+                className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black cursor-pointer">
+                Cambiar
+              </button>
+              <button onClick={() => { setRefImg(null); setShowRefControls(false); }}
+                className="flex-1 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-black cursor-pointer">
+                Quitar
+              </button>
+            </div>
+            <p className="text-[9px] text-slate-400 leading-tight">
+              Ajusta ancho y posición para alinear el plano con la rejilla, baja la opacidad y dibuja encima con las herramientas.
+            </p>
+          </div>
+        )}
 
         {/* PANEL FLOTANTE DE HERRAMIENTAS CAD COMPLETO / COLAPSADO */}
         {/* CHIP DE RETÍCULA / SNAP (dock derecho, estilo Herrería): mantiene el
