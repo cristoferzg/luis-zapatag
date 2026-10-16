@@ -2092,11 +2092,49 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       n.id.toLowerCase().includes('6ag') ||
       (n.nodeLabel && (n.nodeLabel.includes('HEX') || n.nodeLabel.includes('6AG')))
     );
-    const isDomeRoof = allNodeArray.some(n => 
-      n.id.toLowerCase().includes('dome') || 
+    const isDomeRoof = allNodeArray.some(n =>
+      n.id.toLowerCase().includes('dome') ||
       n.id.toLowerCase().includes('cupula') ||
       (n.nodeLabel && (n.nodeLabel.includes('DOME') || n.nodeLabel.includes('CUPULA')))
     );
+
+    // ENDEREZADO DE CUBIERTA PLANA / UNA AGUA (anti-ondulación).
+    // En techos planos o de una sola agua el perfil superior debe ser una RECTA.
+    // Como se arma tomando el máx. Y por X de 3 roles distintos (cordón/correa/viga),
+    // pequeñas diferencias de altura entre nodos generan micro-escalones que, al
+    // interpolar, ondulan la plancha. Aquí ajustamos una recta por mínimos cuadrados
+    // y, si NO hay cumbrera interior (dos aguas), reemplazamos el perfil por esa recta
+    // (2 puntos) → plancha perfectamente recta. Las cubiertas con cumbrera o las
+    // tipológicas (hip / 6 aguas / cúpula) se respetan intactas.
+    let coberturaProfile = topProfilePoints;
+    if (topProfilePoints.length >= 2 && !isHipRoof && !is6AguasRoof && !isDomeRoof) {
+      const xs = topProfilePoints.map(p => p.x);
+      const ys = topProfilePoints.map(p => p.y);
+      const n = xs.length;
+      const meanX = xs.reduce((a, b) => a + b, 0) / n;
+      const meanY = ys.reduce((a, b) => a + b, 0) / n;
+      let sxx = 0, sxy = 0;
+      for (let i = 0; i < n; i++) { sxx += (xs[i] - meanX) ** 2; sxy += (xs[i] - meanX) * (ys[i] - meanY); }
+      const slope = Math.abs(sxx) > 1e-6 ? sxy / sxx : 0;
+      const intercept = meanY - slope * meanX;
+
+      const yMax = Math.max(...ys);
+      const yMin = Math.min(...ys);
+      const xAtMax = xs[ys.indexOf(yMax)];
+      const minXp = Math.min(...xs);
+      const maxXp = Math.max(...xs);
+      const span = Math.max(0.001, maxXp - minXp);
+      // ¿La altura máxima está en el INTERIOR del tramo y es notoria? → dos aguas.
+      const cumbreraInterior =
+        (xAtMax - minXp) > span * 0.2 && (maxXp - xAtMax) > span * 0.2 && (yMax - yMin) > 0.15;
+
+      if (!cumbreraInterior) {
+        coberturaProfile = [
+          { x: minXp, y: slope * minXp + intercept },
+          { x: maxXp, y: slope * maxXp + intercept },
+        ];
+      }
+    }
 
     let hipParams: any = null;
     if (isHipRoof && allNodeArray.length >= 4) {
@@ -2235,14 +2273,22 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const maxZNode = Math.max(...allNodeArray.map(n => n.z || 0));
 
         const roofGeom = createAdaptiveAluzincGeometry(
-          topProfilePoints,
+          coberturaProfile,
           minZNode,
           maxZNode,
           0.30,
           0.30
         );
 
-        const roofMesh = new THREE.Mesh(roofGeom, [aluzincMatTop, aluzincMatBottom]);
+        // Sombreado plano (flat) para que los dientes del TR-4 se vean NÍTIDOS y
+        // rectos, en vez de suavizarse en ondas "colgadas". Se clona el material
+        // para no afectar las cubiertas curvas (cúpula/hip) que usan el original.
+        const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone();
+        flatTop.flatShading = true; flatTop.needsUpdate = true;
+        const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone();
+        flatBottom.flatShading = true; flatBottom.needsUpdate = true;
+
+        const roofMesh = new THREE.Mesh(roofGeom, [flatTop, flatBottom]);
         roofMesh.name = 'cobertura_malla';
         modeloGroup.add(roofMesh);
 
