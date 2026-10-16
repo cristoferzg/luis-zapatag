@@ -1458,8 +1458,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
           }
         }
 
-        // Si la orientación es Horizontal o Ambos, añadir arriostres y vigas longitudinales en el cordón inferior
-        if (orientacionTijeral === 'horizontal' || orientacionTijeral === 'ambos') {
+        // Si la orientación es Longitudinal o Completa, añadir arriostres y vigas longitudinales en el cordón inferior.
+        // (Acepta tanto los valores nuevos 'longitudinal'/'completo' como los legados 'horizontal'/'ambos'.)
+        if (orientacionTijeral === 'horizontal' || orientacionTijeral === 'ambos' || orientacionTijeral === 'longitudinal' || orientacionTijeral === 'completo') {
           for (let i = 0; i < botNodes.length; i++) {
             const prevBotNode = prevBotNodes[i];
             const currBotNode = botNodes[i];
@@ -1699,8 +1700,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
         }
       }
 
-      // Si la orientación es Horizontal o Ambos, añadir correas longitudinales de refuerzo horizontal en arco inferior
-      if ((orientacionTijeral === 'horizontal' || orientacionTijeral === 'ambos') && f > 0 && prevBotArcNodeIds.length > 0) {
+      // Si la orientación es Longitudinal o Completa, añadir correas longitudinales de refuerzo horizontal en arco inferior.
+      // (Acepta tanto los valores nuevos 'longitudinal'/'completo' como los legados 'horizontal'/'ambos'.)
+      if ((orientacionTijeral === 'horizontal' || orientacionTijeral === 'ambos' || orientacionTijeral === 'longitudinal' || orientacionTijeral === 'completo') && f > 0 && prevBotArcNodeIds.length > 0) {
         for (let i = 0; i < numPuntos + 1; i++) {
           const prevBotNodeId = prevBotArcNodeIds[i];
           const currBotNodeId = botArcNodeIds[i];
