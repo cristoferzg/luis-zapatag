@@ -20,7 +20,7 @@ import { Asesoria } from './components/AsesoriasView';
 import SoporteYAsesoriasView from './components/SoporteYAsesoriasView';
 import MaterialesYGastosView from './components/MaterialesYGastosView';
 import SettingsView from './components/SettingsView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box } from 'lucide-react';
 import DiseñadorView from './components/DiseñadorView';
 import HerreriaModuleView from './components/herreria/HerreriaModuleView';
 import TechosModuleView from './components/techos/TechosModuleView';
@@ -32,6 +32,7 @@ import ProyectosYClientesView from './components/ProyectosYClientesView';
 import PersonalYAsistenciaView from './components/PersonalYAsistenciaView';
 import UsabilidadVideosView, { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
 import { PreciosView } from './components/PreciosView';
+import ConcretoMetradosView from './components/ConcretoMetradosView';
 import { safeStorage } from './lib/storageManager';
 import defaultAdminLogo from './assets/images/logo_innova_oficial_1791000137990.jpg';
 
@@ -1973,6 +1974,7 @@ export default function App() {
       case 'inversion': return <FinanceGenericView type="inversion" title="Inversiones" subtitle="Capital invertido en equipos/negocio" icon={TrendingUp} colorClass="emerald" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="amber" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'precios': return <PreciosView />;
+      case 'concreto': return <ConcretoMetradosView />;
       case 'usuarios': return <UsuariosView usuarios={usuarios} setUsuarios={setUsuarios} isAdmin={isAdmin} />;
       case 'soporte':
       case 'tickets':
@@ -2064,6 +2066,7 @@ export default function App() {
     { id: 'dashboard', label: 'Panel Principal', icon: Activity },
     { id: 'calculator', label: 'Calculadora Estructural', icon: Calculator },
     { id: 'techos', label: 'Techos Metálicos', icon: PenTool },
+    { id: 'concreto', label: 'Metrados Concreto', icon: Box },
     { id: 'herreria', label: 'Herrería', icon: DoorClosed },
     { id: 'projects', label: 'Proyectos & Clientes', icon: Briefcase },
     { id: 'portafolio', label: 'Carpeta Privada', icon: FolderKanban },

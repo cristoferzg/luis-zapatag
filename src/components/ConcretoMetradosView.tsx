@@ -1,0 +1,319 @@
+// =============================================================================
+// Metrados de Concreto / Obra Civil
+//
+// Calculador de metrados para elementos de concreto armado: el usuario agrega
+// elementos (zapata, columna, viga, losa, muro, cimiento, sobrecimiento), pone
+// sus medidas y cantidades, y obtiene automáticamente:
+//   - Volumen de concreto (m³)
+//   - Acero de refuerzo estimado (kg)
+//   - Encofrado (m²)
+// más los materiales (cemento, arena, piedra, agua) y un costo referencial.
+//
+// Es data-driven: agregar un elemento nuevo es solo añadir una entrada a
+// CATALOGO_ELEMENTOS. Autónomo (no depende del CAD de Techos).
+// =============================================================================
+import { useMemo, useState, useEffect } from 'react';
+import { Box, Plus, Trash2, Calculator, Download } from 'lucide-react';
+import { safeStorage } from '../lib/storageManager';
+
+interface CampoDef { key: string; label: string; def: number; }
+interface ResultadoCalc { concretoM3: number; aceroKg: number; encofradoM2: number; nota?: string; }
+interface ElementoDef {
+  id: string;
+  nombre: string;
+  emoji: string;
+  campos: CampoDef[];
+  calc: (v: Record<string, number>) => ResultadoCalc;
+}
+
+// Cuantías de acero referenciales (kg por m³ de concreto) por tipo de elemento.
+const CATALOGO_ELEMENTOS: ElementoDef[] = [
+  {
+    id: 'zapata', nombre: 'Zapata', emoji: '🟫',
+    campos: [
+      { key: 'a', label: 'Ancho (m)', def: 1.0 },
+      { key: 'b', label: 'Largo (m)', def: 1.0 },
+      { key: 'h', label: 'Altura (m)', def: 0.5 },
+      { key: 'n', label: 'Cantidad', def: 1 },
+    ],
+    calc: v => {
+      const vol = v.a * v.b * v.h * v.n;
+      return { concretoM3: vol, aceroKg: vol * 55, encofradoM2: 2 * (v.a + v.b) * v.h * v.n };
+    },
+  },
+  {
+    id: 'columna', nombre: 'Columna', emoji: '🔲',
+    campos: [
+      { key: 'a', label: 'Ancho sección (m)', def: 0.25 },
+      { key: 'b', label: 'Alto sección (m)', def: 0.25 },
+      { key: 'H', label: 'Altura (m)', def: 3.0 },
+      { key: 'n', label: 'Cantidad', def: 1 },
+    ],
+    calc: v => {
+      const vol = v.a * v.b * v.H * v.n;
+      return { concretoM3: vol, aceroKg: vol * 120, encofradoM2: 2 * (v.a + v.b) * v.H * v.n };
+    },
+  },
+  {
+    id: 'viga', nombre: 'Viga', emoji: '📏',
+    campos: [
+      { key: 'a', label: 'Ancho (m)', def: 0.25 },
+      { key: 'h', label: 'Peralte (m)', def: 0.40 },
+      { key: 'L', label: 'Longitud (m)', def: 4.0 },
+      { key: 'n', label: 'Cantidad', def: 1 },
+    ],
+    calc: v => {
+      const vol = v.a * v.h * v.L * v.n;
+      return { concretoM3: vol, aceroKg: vol * 110, encofradoM2: (2 * v.h + v.a) * v.L * v.n };
+    },
+  },
+  {
+    id: 'losa', nombre: 'Losa aligerada', emoji: '🧱',
+    campos: [
+      { key: 'largo', label: 'Largo (m)', def: 4.0 },
+      { key: 'ancho', label: 'Ancho (m)', def: 4.0 },
+      { key: 'e', label: 'Espesor (m)', def: 0.20 },
+      { key: 'n', label: 'Cantidad', def: 1 },
+    ],
+    calc: v => {
+      const area = v.largo * v.ancho * v.n;
+      // Aligerada: ~65% del volumen macizo (el resto son ladrillos de techo).
+      const vol = area * v.e * 0.65;
+      return {
+        concretoM3: vol, aceroKg: vol * 85, encofradoM2: area,
+        nota: `${Math.ceil(area * 8.33)} ladrillos de techo aprox.`,
+      };
+    },
+  },
+  {
+    id: 'muro', nombre: 'Muro / Placa', emoji: '🟥',
+    campos: [
+      { key: 'L', label: 'Longitud (m)', def: 3.0 },
+      { key: 'H', label: 'Altura (m)', def: 2.5 },
+      { key: 'e', label: 'Espesor (m)', def: 0.15 },
+      { key: 'n', label: 'Cantidad', def: 1 },
+    ],
+    calc: v => {
+      const vol = v.L * v.H * v.e * v.n;
+      return { concretoM3: vol, aceroKg: vol * 80, encofradoM2: 2 * v.L * v.H * v.n };
+    },
+  },
+  {
+    id: 'cimiento', nombre: 'Cimiento corrido', emoji: '🟤',
+    campos: [
+      { key: 'L', label: 'Longitud (m)', def: 10.0 },
+      { key: 'a', label: 'Ancho (m)', def: 0.50 },
+      { key: 'h', label: 'Altura (m)', def: 0.60 },
+    ],
+    calc: v => {
+      const vol = v.L * v.a * v.h;
+      // Concreto ciclópeo: sin acero.
+      return { concretoM3: vol, aceroKg: 0, encofradoM2: 0, nota: 'Ciclópeo (incluye 30% piedra grande)' };
+    },
+  },
+  {
+    id: 'sobrecimiento', nombre: 'Sobrecimiento', emoji: '🧱',
+    campos: [
+      { key: 'L', label: 'Longitud (m)', def: 10.0 },
+      { key: 'a', label: 'Ancho (m)', def: 0.15 },
+      { key: 'h', label: 'Altura (m)', def: 0.30 },
+    ],
+    calc: v => {
+      const vol = v.L * v.a * v.h;
+      return { concretoM3: vol, aceroKg: 0, encofradoM2: 2 * v.L * v.h, nota: 'Ciclópeo (25% piedra mediana)' };
+    },
+  },
+];
+
+interface Instancia { uid: string; tipoId: string; valores: Record<string, number>; }
+
+const nuevaInstancia = (tipoId: string): Instancia => {
+  const def = CATALOGO_ELEMENTOS.find(e => e.id === tipoId)!;
+  const valores: Record<string, number> = {};
+  def.campos.forEach(c => { valores[c.key] = c.def; });
+  return { uid: `el_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, tipoId, valores };
+};
+
+// Precios unitarios referenciales por defecto (S/). Editables.
+const PRECIOS_DEFAULT = { cementoBolsa: 28, arenaM3: 55, piedraM3: 60, aceroKg: 4.2, encofradoM2: 25 };
+
+export default function ConcretoMetradosView() {
+  const [items, setItems] = useState<Instancia[]>(() =>
+    safeStorage.getItem<Instancia[]>('concreto_metrados_items', []) || []
+  );
+  const [precios, setPrecios] = useState(() =>
+    safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT
+  );
+  const [showPrecios, setShowPrecios] = useState(false);
+
+  useEffect(() => { safeStorage.setItem('concreto_metrados_items', items); }, [items]);
+  useEffect(() => { safeStorage.setItem('concreto_metrados_precios', precios); }, [precios]);
+
+  const addItem = (tipoId: string) => setItems(prev => [...prev, nuevaInstancia(tipoId)]);
+  const removeItem = (uid: string) => setItems(prev => prev.filter(i => i.uid !== uid));
+  const updateVal = (uid: string, key: string, val: number) =>
+    setItems(prev => prev.map(i => i.uid === uid ? { ...i, valores: { ...i.valores, [key]: val } } : i));
+
+  const totales = useMemo(() => {
+    let concretoM3 = 0, aceroKg = 0, encofradoM2 = 0;
+    const porItem = items.map(it => {
+      const def = CATALOGO_ELEMENTOS.find(e => e.id === it.tipoId)!;
+      const r = def.calc(it.valores);
+      concretoM3 += r.concretoM3; aceroKg += r.aceroKg; encofradoM2 += r.encofradoM2;
+      return { it, def, r };
+    });
+    const cementoBolsas = concretoM3 * 9.5;
+    const arenaM3 = concretoM3 * 0.54;
+    const piedraM3 = concretoM3 * 0.55;
+    const aguaL = concretoM3 * 180;
+    const costo =
+      Math.ceil(cementoBolsas) * precios.cementoBolsa +
+      arenaM3 * precios.arenaM3 +
+      piedraM3 * precios.piedraM3 +
+      aceroKg * precios.aceroKg +
+      encofradoM2 * precios.encofradoM2;
+    return { porItem, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo };
+  }, [items, precios]);
+
+  const exportar = () => {
+    let txt = `INNOVA CONTRATISTAS — METRADO DE CONCRETO / OBRA CIVIL\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
+    txt += `============================================================\n\n`;
+    totales.porItem.forEach(({ def, it, r }, i) => {
+      const dims = def.campos.map(c => `${c.label.split(' (')[0]}=${it.valores[c.key]}`).join(', ');
+      txt += `${i + 1}. ${def.nombre} (${dims})\n   Concreto: ${r.concretoM3.toFixed(3)} m³ | Acero: ${r.aceroKg.toFixed(1)} kg | Encofrado: ${r.encofradoM2.toFixed(2)} m²${r.nota ? ` | ${r.nota}` : ''}\n`;
+    });
+    txt += `\n--- TOTALES ---\nConcreto: ${totales.concretoM3.toFixed(2)} m³\nAcero: ${totales.aceroKg.toFixed(1)} kg\nEncofrado: ${totales.encofradoM2.toFixed(2)} m²\n`;
+    txt += `Cemento: ${Math.ceil(totales.cementoBolsas)} bolsas | Arena: ${totales.arenaM3.toFixed(2)} m³ | Piedra: ${totales.piedraM3.toFixed(2)} m³ | Agua: ${Math.round(totales.aguaL)} L\n`;
+    txt += `COSTO REFERENCIAL: S/ ${totales.costo.toFixed(2)}\n`;
+    const blob = new Blob([txt], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `metrado_concreto_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  return (
+    <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-5 font-sans">
+      {/* Cabecera */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
+            <Box className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-slate-900 uppercase">Metrados de Concreto / Obra Civil</h2>
+            <p className="text-xs text-slate-500">Agrega elementos, pon medidas y obtén concreto, acero, encofrado y costo.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setShowPrecios(s => !s)} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer flex items-center gap-1.5">
+            <Calculator className="w-4 h-4" /> Precios
+          </button>
+          <button onClick={exportar} disabled={items.length === 0} className="px-3 py-2 rounded-xl bg-stone-600 hover:bg-stone-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 disabled:opacity-40">
+            <Download className="w-4 h-4" /> Exportar
+          </button>
+        </div>
+      </div>
+
+      {/* Editor de precios */}
+      {showPrecios && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {([
+            ['cementoBolsa', 'Cemento (S/ bolsa)'], ['arenaM3', 'Arena (S/ m³)'], ['piedraM3', 'Piedra (S/ m³)'],
+            ['aceroKg', 'Acero (S/ kg)'], ['encofradoM2', 'Encofrado (S/ m²)'],
+          ] as [keyof typeof PRECIOS_DEFAULT, string][]).map(([k, label]) => (
+            <label key={k} className="text-[11px] font-bold text-slate-600">
+              {label}
+              <input type="number" value={precios[k]} onChange={e => setPrecios(p => ({ ...p, [k]: parseFloat(e.target.value) || 0 }))}
+                className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Paleta de elementos */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs">
+        <p className="text-[11px] font-black text-slate-400 uppercase px-1 mb-2">Agregar elemento</p>
+        <div className="flex flex-wrap gap-2">
+          {CATALOGO_ELEMENTOS.map(el => (
+            <button key={el.id} onClick={() => addItem(el.id)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-stone-50 hover:bg-stone-100 border border-stone-200 text-stone-700 text-xs font-bold cursor-pointer active:scale-95 transition-all">
+              <span className="text-sm">{el.emoji}</span> {el.nombre} <Plus className="w-3.5 h-3.5 text-stone-400" />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lista de elementos */}
+      {items.length === 0 ? (
+        <div className="bg-white border border-dashed border-slate-300 rounded-2xl p-10 text-center text-slate-400">
+          <Box className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <p className="font-bold text-sm">Agrega elementos de concreto para empezar el metrado</p>
+          <p className="text-xs mt-1">Zapatas, columnas, vigas, losas, muros, cimientos…</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {totales.porItem.map(({ it, def, r }, idx) => (
+            <div key={it.uid} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{def.emoji}</span>
+                  <span className="text-sm font-black text-slate-800">{idx + 1}. {def.nombre}</span>
+                </div>
+                <button onClick={() => removeItem(it.uid)} className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-400 hover:text-rose-600 cursor-pointer">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                {def.campos.map(c => (
+                  <label key={c.key} className="text-[11px] font-bold text-slate-600">
+                    {c.label}
+                    <input type="number" inputMode="decimal" value={it.valores[c.key]}
+                      onChange={e => updateVal(it.uid, c.key, parseFloat(e.target.value) || 0)}
+                      className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
+                  </label>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs font-bold text-slate-700 border-t border-slate-100 pt-2.5">
+                <span>🧱 Concreto: <span className="text-stone-700">{r.concretoM3.toFixed(3)} m³</span></span>
+                <span>🔩 Acero: <span className="text-stone-700">{r.aceroKg.toFixed(1)} kg</span></span>
+                <span>🪵 Encofrado: <span className="text-stone-700">{r.encofradoM2.toFixed(2)} m²</span></span>
+                {r.nota && <span className="text-slate-400 font-medium">· {r.nota}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Totales */}
+      {items.length > 0 && (
+        <div className="bg-stone-800 text-white rounded-2xl p-5 shadow-lg">
+          <h3 className="text-sm font-black uppercase mb-3 text-stone-300">Totales del metrado</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {[
+              ['Concreto', `${totales.concretoM3.toFixed(2)} m³`],
+              ['Acero', `${totales.aceroKg.toFixed(0)} kg`],
+              ['Encofrado', `${totales.encofradoM2.toFixed(1)} m²`],
+              ['Cemento', `${Math.ceil(totales.cementoBolsas)} bolsas`],
+              ['Arena', `${totales.arenaM3.toFixed(2)} m³`],
+              ['Piedra', `${totales.piedraM3.toFixed(2)} m³`],
+              ['Agua', `${Math.round(totales.aguaL)} L`],
+            ].map(([label, val]) => (
+              <div key={label} className="bg-stone-700/60 rounded-xl p-3 text-center">
+                <p className="text-lg font-black">{val}</p>
+                <p className="text-[10px] font-bold text-stone-300 uppercase">{label}</p>
+              </div>
+            ))}
+            <div className="bg-amber-500 text-slate-950 rounded-xl p-3 text-center">
+              <p className="text-lg font-black">S/ {totales.costo.toFixed(0)}</p>
+              <p className="text-[10px] font-bold uppercase">Costo ref.</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-stone-400 leading-snug">
+            Estimados referenciales (f'c=210, dosificación 1:2:3; cuantías de acero típicas por elemento). Ajusta los precios con el botón "Precios". No reemplaza el cálculo estructural de un ingeniero.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
