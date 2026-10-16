@@ -1538,12 +1538,18 @@ export default function App() {
     return true;
   });
   
-  const currentSettings = settings.length > 0 ? settings[0] : { 
-    id: 'settings_' + (activeUid || 'default'), 
-    appName: (!isAdmin && user?.name) ? user.name : (isAdmin ? 'Innova Contratistas' : 'Mi Empresa'), 
-    logoBase64: '', 
-    currency: 'PEN', 
-    theme: 'light' 
+  // IMPORTANTE: el admin lee TODA la colección de settings (de todos los
+  // usuarios). Por eso NO podemos usar settings[0] (sería el de cualquier
+  // usuario y mostraría su logo). Seleccionamos SIEMPRE el documento del
+  // usuario actual por su id/userId; si no existe, usamos el predeterminado.
+  const mySettingsId = 'settings_' + (activeUid || 'default');
+  const myOwnSettings = settings.find(s => s.id === mySettingsId || s.userId === activeUid);
+  const currentSettings = myOwnSettings || {
+    id: mySettingsId,
+    appName: (!isAdmin && user?.name) ? user.name : (isAdmin ? 'Innova Contratistas' : 'Mi Empresa'),
+    logoBase64: '',
+    currency: 'PEN',
+    theme: 'light'
   };
 
   // Automated Daily Backup for Admin

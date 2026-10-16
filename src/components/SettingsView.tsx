@@ -101,10 +101,13 @@ export default function SettingsView({
   globalNotifs = [],
   setGlobalNotifs
 }: SettingsViewProps) {
-  const currentSettings = settings[0] || { 
-    id: activeUid ? ('settings_' + activeUid) : 'settings_default', 
-    appName: isAdmin ? 'Innova Contratistas' : (currentUserName ? `${currentUserName} - Contratista` : 'Mi Empresa'), 
-    logoBase64: '' 
+  // Seleccionar SIEMPRE el documento del usuario actual (no settings[0], que en
+  // el admin sería el de cualquier usuario → mostraría/guardaría su logo).
+  const mySettingsId = activeUid ? ('settings_' + activeUid) : 'settings_default';
+  const currentSettings = settings.find(s => s.id === mySettingsId || s.userId === activeUid) || {
+    id: mySettingsId,
+    appName: isAdmin ? 'Innova Contratistas' : (currentUserName ? `${currentUserName} - Contratista` : 'Mi Empresa'),
+    logoBase64: ''
   };
   
   const [appName, setAppName] = useState(currentSettings.appName || '');
@@ -230,11 +233,12 @@ export default function SettingsView({
       currency: selectedCurrencyCode,
       softwareVersion: softwareVersion.trim(),
       googleDriveFolderUrl: currentSettings.googleDriveFolderUrl || '',
-      notifications: currentSettings.notifications || []
+      notifications: currentSettings.notifications || [],
+      userId: activeUid || 'guest'
     };
 
     if (settings.length > 0) {
-      setSettings(settings.map(s => s.id === currentSettings.id ? updatedSettings : s));
+      setSettings(settings.some(s => s.id === updatedSettings.id) ? settings.map(s => s.id === updatedSettings.id ? updatedSettings : s) : [...settings, updatedSettings]);
     } else {
       setSettings([updatedSettings]);
     }
@@ -308,7 +312,7 @@ export default function SettingsView({
       };
 
       if (settings.length > 0) {
-        setSettings(settings.map(s => s.id === currentSettings.id ? updatedSettings : s));
+        setSettings(settings.some(s => s.id === updatedSettings.id) ? settings.map(s => s.id === updatedSettings.id ? updatedSettings : s) : [...settings, updatedSettings]);
       } else {
         setSettings([updatedSettings]);
       }
@@ -341,7 +345,7 @@ export default function SettingsView({
       userId: activeUid || 'guest'
     };
     if (settings.length > 0) {
-      setSettings(settings.map(s => s.id === currentSettings.id ? updatedSettings : s));
+      setSettings(settings.some(s => s.id === updatedSettings.id) ? settings.map(s => s.id === updatedSettings.id ? updatedSettings : s) : [...settings, updatedSettings]);
     } else {
       setSettings([updatedSettings]);
     }
@@ -359,7 +363,7 @@ export default function SettingsView({
       userId: activeUid || 'admin'
     };
     if (settings.length > 0) {
-      setSettings(settings.map(s => s.id === currentSettings.id ? updatedSettings : s));
+      setSettings(settings.some(s => s.id === updatedSettings.id) ? settings.map(s => s.id === updatedSettings.id ? updatedSettings : s) : [...settings, updatedSettings]);
     } else {
       setSettings([updatedSettings]);
     }
@@ -416,7 +420,7 @@ export default function SettingsView({
           userId: activeUid || 'guest'
         };
         if (settings.length > 0) {
-          setSettings(settings.map(s => s.id === currentSettings.id ? updatedSettings : s));
+          setSettings(settings.some(s => s.id === updatedSettings.id) ? settings.map(s => s.id === updatedSettings.id ? updatedSettings : s) : [...settings, updatedSettings]);
         } else {
           setSettings([updatedSettings]);
         }
@@ -438,7 +442,7 @@ export default function SettingsView({
       userId: activeUid || 'guest'
     };
     if (settings.length > 0) {
-      setSettings(settings.map(s => s.id === currentSettings.id ? updatedSettings : s));
+      setSettings(settings.some(s => s.id === updatedSettings.id) ? settings.map(s => s.id === updatedSettings.id ? updatedSettings : s) : [...settings, updatedSettings]);
     } else {
       setSettings([updatedSettings]);
     }
