@@ -82,6 +82,7 @@ export interface UseTechosCadEngineReturn {
   ) => string[];
   
   updateNodeCoords: (nodeId: string, x: number, y: number, z?: number, saveHistory?: boolean) => void;
+  moveNodeWithColumn: (nodeId: string, x: number, y: number, z: number, vista: 'planta' | 'seccion', saveHistory?: boolean) => void;
   saveHistorySnapshot: () => void;
   updateSegmentProfile: (segmentId: string, profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
   updateMultipleSegmentsProfile: (segmentIds: string[], profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
@@ -504,6 +505,41 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     if (saveHistory) {
       pushHistory(newNodes, segments, coverageZones);
     }
+  }, [nodes, segments, coverageZones, pushHistory]);
+
+  // Mueve un nodo y, si forma parte de una COLUMNA vertical (segmento 'columna' o
+  // 'columna_concreto'), arrastra también el otro extremo para que la columna se
+  // mueva como UNA sola pieza y no se "despiece" (base y tope separados).
+  //  - En PLANTA (X-Z): base y tope comparten posición en planta → se mueven ambos
+  //    en X y Z; la altura (Y) propia de cada uno se conserva.
+  //  - En SECCIÓN (X-Y): se iguala solo la X del otro extremo para mantener la
+  //    columna vertical; la altura la cambia únicamente el nodo que arrastras.
+  const moveNodeWithColumn = useCallback((
+    nodeId: string, x: number, y: number, z: number,
+    vista: 'planta' | 'seccion', saveHistory: boolean = false
+  ) => {
+    const node = nodes[nodeId];
+    if (!node) return;
+    const fx = Number(x.toFixed(3));
+    const fy = Number(y.toFixed(3));
+    const fz = Number(z.toFixed(3));
+    const newNodes: Record<string, Node3D> = { ...nodes, [nodeId]: { ...node, x: fx, y: fy, z: fz } };
+
+    const colSegs = Object.values(segments).filter(s =>
+      (s.rolEstructural === 'columna' || s.rolEstructural === 'columna_concreto') &&
+      (s.nodeAId === nodeId || s.nodeBId === nodeId)
+    );
+    for (const s of colSegs) {
+      const partnerId = s.nodeAId === nodeId ? s.nodeBId : s.nodeAId;
+      const partner = newNodes[partnerId];
+      if (!partner) continue;
+      newNodes[partnerId] = vista === 'planta'
+        ? { ...partner, x: fx, z: fz }
+        : { ...partner, x: fx };
+    }
+
+    setNodes(newNodes);
+    if (saveHistory) pushHistory(newNodes, segments, coverageZones);
   }, [nodes, segments, coverageZones, pushHistory]);
 
   const saveHistorySnapshot = useCallback(() => {
@@ -3665,6 +3701,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     addRectangle,
     addArcBetweenPoints,
     updateNodeCoords,
+    moveNodeWithColumn,
     saveHistorySnapshot,
     updateSegmentProfile,
     updateMultipleSegmentsProfile,

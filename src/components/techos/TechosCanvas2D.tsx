@@ -367,6 +367,23 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     setTool('select');
   }, [draggingNodeId, setTool]);
 
+  // Alternar herramienta: un segundo clic en la herramienta YA activa la apaga
+  // (vuelve a "Seleccionar"). Además, al cambiar de herramienta se limpia cualquier
+  // trazo o medición a medias, para no dejar líneas colgando ni clics "fantasma".
+  const toggleTool = useCallback((tool: ToolModoCad) => {
+    setDrawingStartNodeId(null);
+    setChainFirstNodeId(null);
+    setArcStartPoint(null);
+    setArcEndPoint(null);
+    setMeasureStartPoint(null);
+    setMeasureDistanceM(null);
+    if (tool !== 'select' && activeTool === tool) {
+      setTool('select');
+    } else {
+      setTool(tool);
+    }
+  }, [activeTool, setTool]);
+
   // LISTENER TECLADO: DELETE / BACKSPACE / ESCAPE / ATAJOS HERRAMIENTAS
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -568,9 +585,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       const originalNode = nodes[draggingNodeId];
       if (originalNode) {
         if (vista === 'planta') {
-          engineState.updateNodeCoords(draggingNodeId, coords.x, originalNode.y, coords.y, false);
+          engineState.moveNodeWithColumn(draggingNodeId, coords.x, originalNode.y, coords.y, 'planta', false);
         } else {
-          engineState.updateNodeCoords(draggingNodeId, coords.x, Math.max(0, coords.y), originalNode.z || 0, false);
+          engineState.moveNodeWithColumn(draggingNodeId, coords.x, Math.max(0, coords.y), originalNode.z || 0, 'seccion', false);
         }
       }
       return;
@@ -651,9 +668,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         const originalNode = nodes[draggingNodeId];
         if (originalNode) {
           if (vista === 'planta') {
-            engineState.updateNodeCoords(draggingNodeId, coords.x, originalNode.y, coords.y, false);
+            engineState.moveNodeWithColumn(draggingNodeId, coords.x, originalNode.y, coords.y, 'planta', false);
           } else {
-            engineState.updateNodeCoords(draggingNodeId, coords.x, Math.max(0, coords.y), originalNode.z || 0, false);
+            engineState.moveNodeWithColumn(draggingNodeId, coords.x, Math.max(0, coords.y), originalNode.z || 0, 'seccion', false);
           }
         }
       } else if (isPanning || activeTool === 'pan' || activeTool === 'select') {
@@ -2627,7 +2644,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                     return (
                       <button
                         key={tool.id}
-                        onClick={() => setTool(tool.id as ToolModoCad)}
+                        onClick={() => toggleTool(tool.id as ToolModoCad)}
+                        title={isSelected && tool.id !== 'select' ? 'Clic de nuevo para desactivar' : tool.label}
                         className={`px-2.5 py-1.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                           isSelected
                             ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm font-black'

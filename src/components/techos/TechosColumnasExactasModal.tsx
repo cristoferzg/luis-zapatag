@@ -29,7 +29,18 @@ interface Props {
   onDone?: (cantidad: number) => void;
 }
 
-const nuevaFila = (altura = '3.00'): ColumnaExacta => ({ x: '', z: '', altura, concreto: true });
+// Genera la siguiente fila con valores YA VÁLIDOS (nunca vacíos) y una posición X
+// desplazada +3 m respecto a la última, para que al aumentar el N° de columnas no
+// queden filas en blanco (que disparaban el error "altura mayor que 0") ni se
+// encimen todas en el mismo punto.
+const siguienteFila = (prev: ColumnaExacta[]): ColumnaExacta => {
+  const last = prev[prev.length - 1];
+  const lastX = parseFloat(last?.x ?? '0');
+  const nextX = (Number.isFinite(lastX) ? lastX + 3 : 0).toFixed(2);
+  const z = Number.isFinite(parseFloat(last?.z ?? '')) ? (last!.z) : '0.00';
+  const altura = parseFloat(last?.altura ?? '') > 0 ? (last!.altura) : '3.00';
+  return { x: nextX, z, altura, concreto: last?.concreto ?? true };
+};
 
 export default function TechosColumnasExactasModal({ engineState, onClose, onDone }: Props) {
   const [filas, setFilas] = useState<ColumnaExacta[]>([
@@ -46,8 +57,7 @@ export default function TechosColumnasExactasModal({ engineState, onClose, onDon
     setFilas(prev => {
       const next = [...prev];
       if (cant > next.length) {
-        const alturaBase = next[next.length - 1]?.altura || '3.00';
-        while (next.length < cant) next.push(nuevaFila(alturaBase));
+        while (next.length < cant) next.push(siguienteFila(next));
       } else {
         next.length = cant;
       }
@@ -196,7 +206,7 @@ export default function TechosColumnasExactasModal({ engineState, onClose, onDon
               </button>
             </div>
           ))}
-          <button onClick={() => setFilas(prev => [...prev, nuevaFila(prev[prev.length - 1]?.altura)])}
+          <button onClick={() => setFilas(prev => [...prev, siguienteFila(prev)])}
             className="mt-2 flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 cursor-pointer">
             <Plus className="w-3.5 h-3.5" /> Agregar columna
           </button>
