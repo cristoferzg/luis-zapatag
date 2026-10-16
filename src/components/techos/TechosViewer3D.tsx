@@ -278,6 +278,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const [mostrarPlataforma] = useState(true);
   const [mostrarPernosAnclaje] = useState(true);
   const [mostrarEjesGiroscopio] = useState(true);
+  // Mostrar/ocultar las COLUMNAS DE CONCRETO existentes en el 3D (las que ya
+  // están construidas en obra). Por defecto visibles.
+  const [mostrarConcreto, setMostrarConcreto] = useState(true);
 
   // SIMULADORES ESTRUCTURALES Y AMBIENTALES
   const [simulacionModo, setSimulacionModo] = useState<'ninguno' | 'lluvia' | 'sismo'>('ninguno');
@@ -1925,6 +1928,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       const nB = nodes[seg.nodeBId];
       if (!nA || !nB) return;
 
+      // Ocultar columnas de concreto si el usuario desactivó su visibilidad.
+      if (!mostrarConcreto && seg.rolEstructural === 'columna_concreto') return;
+
       const pA = new THREE.Vector3(nA.x, nA.y, nA.z || 0);
       const pB = new THREE.Vector3(nB.x, nB.y, nB.z || 0);
 
@@ -2315,7 +2321,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     scene.add(rainLines);
     rainLinesRef.current = rainLines;
 
-  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura]);
+  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto]);
 
   // Inicialización de WebGL
   useEffect(() => {
@@ -2660,7 +2666,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     if (sceneRef.current) {
       construirModelo3D(sceneRef.current);
     }
-  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarCobertura, construirModelo3D]);
+  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarCobertura, mostrarConcreto, construirModelo3D]);
 
   // Cambiar modelo de aluzinc
   const handleModeloChange = (modeloId: string) => {
@@ -2832,6 +2838,21 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           >
             <Eye className="w-4 h-4" />
           </button>
+
+          {/* Toggle Columnas de Concreto (solo si existen en la escena) */}
+          {Object.values(segments).some(s => s.rolEstructural === 'columna_concreto') && (
+            <button
+              onClick={() => setMostrarConcreto(v => !v)}
+              className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 ${
+                mostrarConcreto
+                  ? 'bg-stone-500 text-white border-stone-400 font-bold'
+                  : 'bg-slate-50 text-slate-400 border-slate-200'
+              }`}
+              title="Mostrar / Ocultar Columnas de Concreto"
+            >
+              <Box className="w-4 h-4" />
+            </button>
+          )}
 
           <div className="h-4 w-px bg-slate-200 mx-0.5 shrink-0" />
 
