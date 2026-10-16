@@ -233,3 +233,118 @@ export const scanReceipt = onCall(
     };
   }
 );
+
+/**
+ * analyzeRoofPlan({ imageBase64, mimeType }) -> RoofPlanData
+ *
+ * Lee la FOTO de un plano de techo dibujado a mano (papel cuadriculado) y
+ * devuelve la estructura detectada: columnas (puntos) y vigas/tijerales (líneas)
+ * con coordenadas en metros, para dibujar el techo automáticamente en el CAD.
+ * El usuario luego AJUSTA el resultado (la IA propone, no reemplaza al usuario).
+ *
+ * Usa claude-sonnet-5-5: buen razonamiento espacial a costo moderado. Para fotos
+ * difíciles se puede subir a 'claude-opus-5-5'; para abaratar, 'claude-haiku-5-5'.
+ *
+ * Reutiliza el MISMO secreto ANTHROPIC_API_KEY de scanReceipt. Despliegue:
+ *   1. firebase functions:secrets:set ANTHROPIC_API_KEY   (si aún no está)
+ *   2. firebase deploy --only functions
+ * Mientras no se despliegue, el cliente avisa y el usuario dibuja a mano (nada se rompe).
+ */
+const ROOFPLAN_MODEL = 'claude-sonnet-5-5';
+
+export const analyzeRoofPlan = onCall(
+  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Inicia sesión para leer planos con IA.');
+    }
+    const imageBase64 = String(request.data?.imageBase64 || '');
+    const mimeType = String(request.data?.mimeType || 'image/jpeg');
+    if (!imageBase64 || imageBase64.length < 100) {
+      throw new HttpsError('invalid-argument', 'Imagen no válida.');
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY || '';
+    if (!apiKey) {
+      throw new HttpsError('failed-precondition', 'La lectura de planos por IA no está configurada todavía.');
+    }
+
+    const prompt = [
+      'Eres un ingeniero estructural que interpreta planos de techos metálicos dibujados A MANO',
+      'sobre papel cuadriculado (vista en PLANTA, mirando desde arriba).',
+      'En el dibujo: los CUADRADOS/MANCHAS rellenas en las esquinas e intersecciones son COLUMNAS;',
+      'las LÍNEAS rectas que unen columnas son VIGAS o TIJERALES; los números escritos son MEDIDAS en metros.',
+      'Define un sistema de coordenadas con ORIGEN en la esquina inferior-izquierda del plano,',
+      'eje X hacia la derecha (ancho) y eje Z hacia arriba (largo/profundidad), en METROS.',
+      'Usa las medidas escritas para fijar la escala; si no hay medidas claras, estima con la cuadrícula',
+      'y márcalo en "confianza":"baja".',
+      'Responde SOLO con un JSON válido, sin texto adicional ni explicaciones, con estas claves exactas:',
+      '{"anchoM": number, "largoM": number, "alturaColM": number,',
+      '"columnas": [{"x": number, "z": number}],',
+      '"vigas": [{"x1": number, "z1": number, "x2": number, "z2": number, "tipo": "viga"|"tijeral"}],',
+      '"confianza": "alta"|"media"|"baja", "notas": string}.',
+      'Reglas:',
+      '- "columnas": una por cada apoyo detectado, con su posición (x,z) en metros.',
+      '- "vigas": cada línea estructural entre dos puntos; "tipo":"tijeral" si parece una cercha/celosía',
+      '  (líneas con montantes o escalera entre dos cordones), si no "viga".',
+      '- "alturaColM": altura de columnas si el plano lo indica; si no, usa 3.0.',
+      '- Coordenadas redondeadas a 0.05 m. No inventes columnas que no estén dibujadas.',
+      '- "notas": una frase corta en español con lo que asumiste (p. ej. escala o medidas usadas).'
+    ].join(' ');
+
+    const anthropic = new Anthropic({ apiKey });
+    const fileBlock = mimeType === 'application/pdf'
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: imageBase64 } }
+      : { type: 'image', source: { type: 'base64', media_type: mimeType, data: imageBase64 } };
+
+    let text = '';
+    try {
+      const msg = await anthropic.messages.create({
+        model: ROOFPLAN_MODEL,
+        max_tokens: 4096,
+        output_config: { effort: 'medium' },
+        messages: [{ role: 'user', content: [fileBlock, { type: 'text', text: prompt }] }]
+      });
+      const block = (msg.content || []).find((b) => b.type === 'text');
+      text = block ? block.text : '';
+    } catch (e) {
+      const status = e?.status || e?.statusCode;
+      if (status === 401) throw new HttpsError('failed-precondition', 'La clave de IA no es válida.');
+      if (status === 429) throw new HttpsError('resource-exhausted', 'Servicio de IA ocupado, intenta de nuevo.');
+      throw new HttpsError('unavailable', 'No se pudo contactar el servicio de IA.');
+    }
+
+    let parsed = {};
+    try {
+      parsed = JSON.parse(text);
+    } catch (_) {
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) { try { parsed = JSON.parse(m[0]); } catch (_) { /* vacío */ } }
+    }
+
+    const num = (v, def) => {
+      const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+      return Number.isFinite(n) ? n : def;
+    };
+    const columnas = Array.isArray(parsed.columnas) ? parsed.columnas
+      .map((c) => ({ x: num(c?.x, null), z: num(c?.z, null) }))
+      .filter((c) => c.x !== null && c.z !== null) : [];
+    const vigas = Array.isArray(parsed.vigas) ? parsed.vigas
+      .map((v) => ({
+        x1: num(v?.x1, null), z1: num(v?.z1, null),
+        x2: num(v?.x2, null), z2: num(v?.z2, null),
+        tipo: (v?.tipo === 'tijeral' ? 'tijeral' : 'viga')
+      }))
+      .filter((v) => v.x1 !== null && v.z1 !== null && v.x2 !== null && v.z2 !== null) : [];
+
+    return {
+      anchoM: num(parsed.anchoM, 0),
+      largoM: num(parsed.largoM, 0),
+      alturaColM: num(parsed.alturaColM, 3.0),
+      columnas,
+      vigas,
+      confianza: ['alta', 'media', 'baja'].includes(parsed.confianza) ? parsed.confianza : 'media',
+      notas: typeof parsed.notas === 'string' ? parsed.notas : ''
+    };
+  }
+);

@@ -41,6 +41,7 @@ import TechosColumnasExactasModal from './TechosColumnasExactasModal';
 import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
+import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64 } from '../../lib/roofPlanScan';
 import { 
   getSegmentColorHex, 
   TipoTijeral, 
@@ -115,6 +116,46 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  // IA: leer un plano a mano y dibujar columnas/vigas automáticamente (Opción 3).
+  const [iaReading, setIaReading] = useState<boolean>(false);
+  const [iaNotice, setIaNotice] = useState<string | null>(null);
+  const iaInputRef = useRef<HTMLInputElement>(null);
+
+  const handleIaPlanUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !engineState) return;
+    setIaReading(true);
+    setIaNotice('Analizando el plano con IA… (puede tardar unos segundos)');
+    try {
+      const { base64, mimeType } = await fileToBase64(file);
+      const plan = await analyzeRoofPlanWithAI(base64, mimeType);
+      const nCols = plan.columnas?.length || 0;
+      const nVig = plan.vigas?.length || 0;
+      if (nCols === 0 && nVig === 0) {
+        setIaNotice('La IA no detectó columnas ni vigas. Prueba con una foto más nítida y recta del plano.');
+      } else {
+        const { nodes: nN, segments: nS } = buildSceneFromPlan(plan, engineState.activeProfileId);
+        engineState.loadScene(nN, nS, {});
+        setIaNotice(`✓ IA: ${nCols} columnas y ${nVig} barras (confianza ${plan.confianza}). ${plan.notas || ''} Revisa y ajusta con las herramientas.`);
+      }
+    } catch (err: any) {
+      const code = String(err?.code || err?.message || '');
+      if (code.includes('failed-precondition')) {
+        setIaNotice('La lectura por IA aún no está activada. Configura la clave ANTHROPIC_API_KEY y despliega las funciones (firebase deploy --only functions). Mientras tanto, usa "Imagen ref." para calcar.');
+      } else if (code.includes('unauthenticated')) {
+        setIaNotice('Inicia sesión para usar la lectura por IA.');
+      } else if (code.includes('resource-exhausted')) {
+        setIaNotice('El servicio de IA está ocupado. Intenta de nuevo en un momento.');
+      } else {
+        setIaNotice('No se pudo leer el plano por IA. Intenta de nuevo, o usa "Imagen ref." para calcarlo a mano.');
+      }
+    } finally {
+      setIaReading(false);
+      setTimeout(() => setIaNotice(null), 11000);
+    }
   };
 
   useEffect(() => {
@@ -1346,6 +1387,16 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             >
               <ImageIcon className="w-3.5 h-3.5" />
               <span>{refImg ? 'Plano ref.' : 'Imagen ref.'}</span>
+            </button>
+            <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
+            <button
+              onClick={() => iaInputRef.current?.click()}
+              disabled={iaReading}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 shadow-2xs cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-500 hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-wait"
+              title="Leer un plano a mano con IA y dibujar columnas y vigas automáticamente"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{iaReading ? 'Leyendo…' : 'IA: Leer plano'}</span>
             </button>
           </>
         )}
@@ -2633,6 +2684,16 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <p className="text-[9px] text-slate-400 leading-tight">
               Ajusta ancho y posición para alinear el plano con la rejilla, baja la opacidad y dibuja encima con las herramientas.
             </p>
+          </div>
+        )}
+
+        {/* AVISO / RESULTADO DE LA LECTURA DE PLANO POR IA */}
+        {iaNotice && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 max-w-md w-[90%] sm:w-auto pointer-events-auto">
+            <div className="flex items-start gap-2 bg-slate-900/95 text-white rounded-2xl shadow-xl border border-amber-500/40 px-3.5 py-2.5 backdrop-blur-md">
+              <Sparkles className={`w-4 h-4 text-amber-400 shrink-0 mt-0.5 ${iaReading ? 'animate-pulse' : ''}`} />
+              <span className="text-[11px] font-semibold leading-snug">{iaNotice}</span>
+            </div>
           </div>
         )}
 
