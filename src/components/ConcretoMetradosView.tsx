@@ -16,6 +16,8 @@ import { useMemo, useState, useEffect } from 'react';
 import { Box, Plus, Trash2, Calculator, Download } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoElementoSVG from './ConcretoElementoSVG';
+import ConcretoPlanoCad from './ConcretoPlanoCad';
+import { List, PenTool } from 'lucide-react';
 
 interface CampoDef { key: string; label: string; def: number; }
 interface ResultadoCalc { concretoM3: number; aceroKg: number; encofradoM2: number; nota?: string; }
@@ -183,6 +185,9 @@ export default function ConcretoMetradosView() {
     safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT
   );
   const [showPrecios, setShowPrecios] = useState(false);
+  // Modo de trabajo: lista (formulario) o plano CAD 2D.
+  const [modo, setModo] = useState<'lista' | 'cad'>(() => (safeStorage.getItem<'lista' | 'cad'>('concreto_modo', 'lista') || 'lista'));
+  useEffect(() => { safeStorage.setItem('concreto_modo', modo); }, [modo]);
 
   useEffect(() => { safeStorage.setItem('concreto_metrados_items', items); }, [items]);
   useEffect(() => { safeStorage.setItem('concreto_metrados_precios', precios); }, [precios]);
@@ -272,6 +277,42 @@ export default function ConcretoMetradosView() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
+  const ModoToggle = (
+    <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+      <button onClick={() => setModo('lista')}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${modo === 'lista' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+        <List className="w-3.5 h-3.5" /> Lista
+      </button>
+      <button onClick={() => setModo('cad')}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${modo === 'cad' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+        <PenTool className="w-3.5 h-3.5 text-stone-500" /> Plano CAD
+      </button>
+    </div>
+  );
+
+  // MODO CAD: plano de cimentación 2D con metrado automático.
+  if (modo === 'cad') {
+    return (
+      <div className="w-full h-full flex flex-col bg-slate-50 font-sans">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-200">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
+              <Box className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 uppercase leading-tight">Plano de Cimentación (CAD)</h2>
+              <p className="text-[11px] text-slate-500">Dibuja columnas, zapatas, vigas y cimientos; el metrado sale solo.</p>
+            </div>
+          </div>
+          {ModoToggle}
+        </div>
+        <div className="flex-1 min-h-0">
+          <ConcretoPlanoCad />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-5 font-sans">
       {/* Cabecera */}
@@ -285,7 +326,8 @@ export default function ConcretoMetradosView() {
             <p className="text-xs text-slate-500">Agrega elementos, pon medidas y obtén concreto, acero, encofrado y costo.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {ModoToggle}
           <button onClick={() => setShowPrecios(s => !s)} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer flex items-center gap-1.5">
             <Calculator className="w-4 h-4" /> Precios
           </button>
