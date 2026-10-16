@@ -6,9 +6,8 @@ import {
   Building2, 
   X, 
   Trash2, 
-  Box, 
-  Zap, 
-  Columns, 
+  Box,
+  Columns,
   ArrowUpDown, 
   GraduationCap, 
   ArrowUpRight,
@@ -22,7 +21,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 
-import { UseTechosCadEngineReturn, OrientacionTijeral } from './useTechosCadEngineState';
+import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { RolEstructuralSegmento } from './techosCadEngineTypes';
 import { MERCADO_COLORES_PINTURA, TipoTijeral } from './techosCadColors';
@@ -46,12 +45,13 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'activos' | 'seleccion' | 'perfiles' | 'generadores'>('activos');
   const [selectedTrussGen, setSelectedTrussGen] = useState<TipoTijeral>('warren');
-  const [orientacionTijeralGen, setOrientacionTijeralGen] = useState<OrientacionTijeral>('vertical');
 
   // Estado para filtrado de elementos activos
   const [searchActivosTerm, setSearchActivosTerm] = useState('');
   const [filterActivosRol, setFilterActivosRol] = useState<string>('all');
   const [expandedRoles, setExpandedRoles] = useState<Record<string, boolean>>({});
+  // Confirmación en 2 pasos para eliminar un grupo completo (evita borrados por error).
+  const [confirmDelRol, setConfirmDelRol] = useState<string | null>(null);
 
   const toggleExpandRole = (rol: string) => {
     setExpandedRoles(prev => ({ ...prev, [rol]: !prev[rol] }));
@@ -98,12 +98,6 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
   };
 
   // Parámetros de Generación Paramétrica con Strings para evitar bloqueos al borrar números
-  const [spanStr, setSpanStr] = useState<string>('12');
-  const [lengthStr, setLengthStr] = useState<string>('20');
-  const [colHeightStr, setColHeightStr] = useState<string>('4.5');
-  const [slopeStr, setSlopeStr] = useState<string>('20');
-  const [arrowStr, setArrowStr] = useState<string>('2.5');
-  const [numTijeralesGenStr, setNumTijeralesGenStr] = useState<string>('5');
   const [posicionZTijeralStr, setPosicionZTijeralStr] = useState<string>('5.0');
 
   const selectedIds = engineState?.selectedElementIds || [];
@@ -460,7 +454,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
-          Ayudas CAD
+          Tijeral Interno
         </button>
       </div>
 
@@ -605,6 +599,46 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                               </optgroup>
                             ))}
                           </select>
+                        </div>
+
+                        {/* Acciones del Grupo Completo: Seleccionar / Eliminar (sin ir uno por uno) */}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              engineState?.setSelectedElementIds?.(grp.items.map(it => it.seg.id));
+                              setConfirmDelRol(null);
+                            }}
+                            className="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-95"
+                            title={`Seleccionar los ${grp.items.length} elementos de este grupo en el lienzo`}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Seleccionar {grp.items.length}</span>
+                          </button>
+                          {confirmDelRol === grp.rol ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                engineState?.deleteSegmentsByIds?.(grp.items.map(it => it.seg.id));
+                                setConfirmDelRol(null);
+                              }}
+                              className="flex-1 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-95 shadow-xs"
+                              title="Confirmar: borrar todo el grupo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>¿Confirmar borrar?</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDelRol(grp.rol)}
+                              className="flex-1 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-black flex items-center justify-center gap-1 cursor-pointer transition-colors active:scale-95"
+                              title={`Eliminar los ${grp.items.length} elementos de este grupo`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Eliminar grupo</span>
+                            </button>
+                          )}
                         </div>
 
                         {/* Botón para Desplegar Elementos Individuales */}
@@ -1198,138 +1232,34 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               </div>
             )}
 
+            {/* Aviso: la generación de techos completos vive ahora SOLO en el
+                Asistente, para no duplicarla aquí (evita la redundancia). */}
+            <div className="p-3 rounded-2xl bg-sky-50 border border-sky-200 text-[11px] text-sky-900 leading-relaxed">
+              La generación de <strong>techos completos</strong> (Dos Aguas, Un Agua, Parabólico, Mezzanine) está ahora en el botón <strong>✦ Asistente</strong> de la barra superior, para no tenerla duplicada. Aquí solo quedan las herramientas que el Asistente no cubre.
+            </div>
+
             <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200 space-y-3">
               <span className="block font-black text-slate-800 text-xs uppercase tracking-wide">
-                Generadores Paramétricos
+                Tijeral Interno por Profundidad (Z)
               </span>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Ingresa las dimensiones reales y pulsa un modelo para generar la estructura completa en 2D y 3D.
-              </p>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Luz (m):</label>
-                  <input 
-                    type="text"
-                    inputMode="decimal"
-                    value={spanStr} 
-                    onChange={(e) => setSpanStr(e.target.value)} 
-                    className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-mono font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs" 
-                    placeholder="12.0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Largo Nave (m):</label>
-                  <input 
-                    type="text"
-                    inputMode="decimal"
-                    value={lengthStr} 
-                    onChange={(e) => setLengthStr(e.target.value)} 
-                    className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-mono font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs" 
-                    placeholder="20.0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Alt. Columnas (m):</label>
-                  <input 
-                    type="text"
-                    inputMode="decimal"
-                    value={colHeightStr} 
-                    onChange={(e) => setColHeightStr(e.target.value)} 
-                    className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-mono font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs" 
-                    placeholder="4.5"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Pendiente (%):</label>
-                  <input 
-                    type="text"
-                    inputMode="decimal"
-                    value={slopeStr} 
-                    onChange={(e) => setSlopeStr(e.target.value)} 
-                    className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-mono font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs" 
-                    placeholder="20"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Flecha Arco (m) (Para Parabólico):</label>
-                  <input 
-                    type="text"
-                    inputMode="decimal"
-                    value={arrowStr} 
-                    onChange={(e) => setArrowStr(e.target.value)} 
-                    className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-mono font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs" 
-                    placeholder="2.5"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <label className="text-[10px] text-slate-700 font-bold">Cantidad de Tijerales (Pórticos):</label>
-                    <span className="text-[10px] font-mono font-bold text-amber-700">
-                      Separación: {((parseFloat(lengthStr) || 20) / Math.max(1, (parseInt(numTijeralesGenStr) || 5) - 1)).toFixed(2)} m e/e
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <input 
-                      type="number"
-                      min={2}
-                      max={30}
-                      value={numTijeralesGenStr} 
-                      onChange={(e) => setNumTijeralesGenStr(e.target.value)} 
-                      className="w-20 bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-mono font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs" 
-                      placeholder="5"
-                    />
-                    <div className="flex gap-1 flex-1">
-                      {[3, 5, 7, 9].map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setNumTijeralesGenStr(n.toString())}
-                          className={`px-2 py-1 rounded text-[10px] font-mono font-bold cursor-pointer transition-colors border ${
-                            parseInt(numTijeralesGenStr) === n 
-                              ? 'bg-amber-500 text-slate-950 border-amber-500 font-black' 
-                              : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-2">
-                  <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Tipo de Tijeral / Cercha para Generar:</label>
-                  <select 
-                    value={selectedTrussGen} 
-                    onChange={(e) => setSelectedTrussGen(e.target.value as TipoTijeral)} 
-                    className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs cursor-pointer"
-                  >
-                    <option value="warren">Warren (Zig-Zag continuo)</option>
-                    <option value="pratt">Pratt (Montantes verticales y diagonales al centro)</option>
-                    <option value="howe">Howe (Montantes verticales y diagonales a apoyos)</option>
-                    <option value="fink">Fink (Celosía clásica para 2 Aguas)</option>
-                    <option value="parabolico_warren">Parabólico Warren (Curvo)</option>
-                    <option value="parabolico_pratt">Parabólico Pratt (Curvo)</option>
-                    <option value="parabolico_bowstring">Parabólico Bowstring (Tirante recto)</option>
-                    <option value="plano_viga">Viga Celosía de Alma Abierta (Joist)</option>
-                    <option value="simple_arco">Arco Monotubo Simple</option>
-                  </select>
-                </div>
-
-                <div className="col-span-2 mt-1">
-                  <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Distribución / Orientación de Tijerales:</label>
-                  <select 
-                    value={orientacionTijeralGen} 
-                    onChange={(e) => setOrientacionTijeralGen(e.target.value as OrientacionTijeral)} 
-                    className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs cursor-pointer"
-                  >
-                    <option value="vertical">📐 Transversal (Pórticos de carga principales)</option>
-                    <option value="horizontal">📏 Longitudinal (Vigas de amarre y celosías longitudinales)</option>
-                    <option value="perimetral">🧱 Perimetral (Tímpanos y tijerales de aleros/testeros)</option>
-                    <option value="completo">🕸️ Completo (Malla reticulada estructural bidireccional)</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-[10px] text-slate-500 font-bold mb-0.5">Tipo de Tijeral / Cercha:</label>
+                <select
+                  value={selectedTrussGen}
+                  onChange={(e) => setSelectedTrussGen(e.target.value as TipoTijeral)}
+                  className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-900 font-bold text-xs focus:border-amber-500 focus:outline-none shadow-2xs cursor-pointer"
+                >
+                  <option value="warren">Warren (Zig-Zag continuo)</option>
+                  <option value="pratt">Pratt (Montantes verticales y diagonales al centro)</option>
+                  <option value="howe">Howe (Montantes verticales y diagonales a apoyos)</option>
+                  <option value="fink">Fink (Celosía clásica para 2 Aguas)</option>
+                  <option value="parabolico_warren">Parabólico Warren (Curvo)</option>
+                  <option value="parabolico_pratt">Parabólico Pratt (Curvo)</option>
+                  <option value="parabolico_bowstring">Parabólico Bowstring (Tirante recto)</option>
+                  <option value="plano_viga">Viga Celosía de Alma Abierta (Joist)</option>
+                  <option value="simple_arco">Arco Monotubo Simple</option>
+                </select>
               </div>
 
               {/* SECCIÓN DEDICADA: TIJERALES POR DENTRO Y TUBOS DE TEJIDO */}
@@ -1390,67 +1320,6 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-2 pt-1">
-                <button
-                  onClick={() => {
-                    const span = parseFloat(spanStr) || 12;
-                    const len = parseFloat(lengthStr) || 20;
-                    const hCol = parseFloat(colHeightStr) || 4.5;
-                    const slope = parseFloat(slopeStr) || 20;
-                    const nTij = parseInt(numTijeralesGenStr) || 5;
-                    engineState?.generateRoofGable(span, len, hCol, slope, selectedTrussGen, orientacionTijeralGen, nTij);
-                    if (isBottomSheetMobile && onCloseBottomSheetMobile) onCloseBottomSheetMobile();
-                  }}
-                  className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-xl border border-amber-200 text-left px-3 text-xs flex items-center justify-between cursor-pointer active:scale-98 transition-all shadow-2xs"
-                >
-                  <span className="font-extrabold">+ Generar Techo Dos Aguas ({selectedTrussGen.toUpperCase()} - {numTijeralesGenStr} Tijerales)</span>
-                  <Zap className="w-4 h-4 text-amber-600" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    const span = parseFloat(spanStr) || 12;
-                    const len = parseFloat(lengthStr) || 20;
-                    const hCol = parseFloat(colHeightStr) || 4.5;
-                    const nTij = parseInt(numTijeralesGenStr) || 5;
-                    engineState?.generateRoofMonoslope(span, len, hCol, hCol + 1.5, selectedTrussGen, nTij, 0.60, orientacionTijeralGen);
-                    if (isBottomSheetMobile && onCloseBottomSheetMobile) onCloseBottomSheetMobile();
-                  }}
-                  className="w-full py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-900 font-bold rounded-xl border border-sky-200 text-left px-3 text-xs flex items-center justify-between cursor-pointer active:scale-98 transition-all shadow-2xs"
-                >
-                  <span className="font-extrabold">+ Generar Techo Un Agua ({selectedTrussGen.toUpperCase()} - {numTijeralesGenStr} Tijerales)</span>
-                  <Zap className="w-4 h-4 text-sky-600" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    const span = parseFloat(spanStr) || 12;
-                    const len = parseFloat(lengthStr) || 20;
-                    const hCol = parseFloat(colHeightStr) || 4.5;
-                    const arr = parseFloat(arrowStr) || 2.5;
-                    const nTij = parseInt(numTijeralesGenStr) || 5;
-                    engineState?.generateRoofParabolic(span, len, hCol, arr, selectedTrussGen, 0.80, orientacionTijeralGen, nTij);
-                    if (isBottomSheetMobile && onCloseBottomSheetMobile) onCloseBottomSheetMobile();
-                  }}
-                  className="w-full py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold rounded-xl border border-purple-200 text-left px-3 text-xs flex items-center justify-between cursor-pointer active:scale-98 transition-all shadow-2xs"
-                >
-                  <span className="font-extrabold">+ Generar Techo Parabólico ({selectedTrussGen.toUpperCase()} - {numTijeralesGenStr} Tijerales)</span>
-                  <Zap className="w-4 h-4 text-purple-600" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    const span = parseFloat(spanStr) || 12;
-                    const len = parseFloat(lengthStr) || 20;
-                    engineState?.generateMezzanine(len, span, 3.0, 3, 2, false, true, true, selectedTrussGen);
-                    if (isBottomSheetMobile && onCloseBottomSheetMobile) onCloseBottomSheetMobile();
-                  }}
-                  className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold rounded-xl border border-emerald-200 text-left px-3 text-xs flex items-center justify-between cursor-pointer active:scale-98 transition-all shadow-2xs"
-                >
-                  <span className="font-extrabold">+ Generar Entrepiso / Mezzanine</span>
-                  <Zap className="w-4 h-4 text-emerald-600" />
-                </button>
-              </div>
             </div>
           </div>
         )}

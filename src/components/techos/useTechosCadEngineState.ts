@@ -83,6 +83,7 @@ export interface UseTechosCadEngineReturn {
   
   updateNodeCoords: (nodeId: string, x: number, y: number, z?: number, saveHistory?: boolean) => void;
   moveNodeWithColumn: (nodeId: string, x: number, y: number, z: number, vista: 'planta' | 'seccion', saveHistory?: boolean) => void;
+  deleteSegmentsByIds: (segIds: string[]) => void;
   saveHistorySnapshot: () => void;
   updateSegmentProfile: (segmentId: string, profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
   updateMultipleSegmentsProfile: (segmentIds: string[], profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
@@ -769,6 +770,35 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setSelectedElementIds([]);
     pushHistory(newNodes, newSegs, newZones);
   }, [nodes, segments, coverageZones, selectedElementIds, pushHistory]);
+
+  // Eliminar un grupo de segmentos por sus IDs (p. ej. "todas las columnas" desde
+  // el Inspector). Borra los segmentos y, además, los NODOS que queden huérfanos
+  // (sin ningún otro segmento que los use). Los nodos compartidos con otros
+  // elementos se conservan para no romper el resto de la estructura.
+  const deleteSegmentsByIds = useCallback((segIds: string[]) => {
+    if (!segIds || segIds.length === 0) return;
+    const borrar = new Set(segIds);
+    const newSegs: Record<string, Segment3D> = {};
+    Object.values(segments).forEach(s => { if (!borrar.has(s.id)) newSegs[s.id] = s; });
+
+    // Nodos que siguen en uso por algún segmento sobreviviente.
+    const nodosEnUso = new Set<string>();
+    Object.values(newSegs).forEach(s => { nodosEnUso.add(s.nodeAId); nodosEnUso.add(s.nodeBId); });
+
+    // Nodos tocados por los segmentos borrados que ya no usa nadie → se eliminan.
+    const newNodes: Record<string, Node3D> = { ...nodes };
+    segIds.forEach(id => {
+      const s = segments[id];
+      if (!s) return;
+      if (!nodosEnUso.has(s.nodeAId)) delete newNodes[s.nodeAId];
+      if (!nodosEnUso.has(s.nodeBId)) delete newNodes[s.nodeBId];
+    });
+
+    setNodes(newNodes);
+    setSegments(newSegs);
+    setSelectedElementIds([]);
+    pushHistory(newNodes, newSegs, coverageZones);
+  }, [nodes, segments, coverageZones, pushHistory]);
 
   // Limpiar escena (Pantalla completamente vacía)
   const clearScene = useCallback(() => {
@@ -3702,6 +3732,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     addArcBetweenPoints,
     updateNodeCoords,
     moveNodeWithColumn,
+    deleteSegmentsByIds,
     saveHistorySnapshot,
     updateSegmentProfile,
     updateMultipleSegmentsProfile,
