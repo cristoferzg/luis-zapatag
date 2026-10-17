@@ -3477,8 +3477,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
 
     const frames = Math.max(2, Math.round(numEjes || 5));
     const zStep = frames > 1 ? largoM / (frames - 1) : 0;
-    const cumbrera = cumbreraM ?? Math.max(1.2, luzM * 0.18);
-    const flechaInf = flechaInfM ?? Math.max(0.6, luzM * 0.09);
+    // Peralte moderado: cumbrera + flecha ≈ 1.2–1.5 m (antes daba ~2.8 m, demasiado).
+    const cumbrera = cumbreraM ?? Math.max(0.8, luzM * 0.09);
+    const flechaInf = flechaInfM ?? Math.max(0.35, luzM * 0.045);
     const nSub = luzM <= 8 ? 4 : (luzM <= 16 ? 5 : 6); // paneles por agua
     const pts = nSub * 2;                              // nodos a lo ancho (0..pts)
     const mid = nSub;
