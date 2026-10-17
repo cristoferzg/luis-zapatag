@@ -108,6 +108,10 @@ export interface UseTechosCadEngineReturn {
   generateRoofCurvoAutoportante: (luzM: number, largoM?: number, alturaMuroM?: number, flechaM?: number, numEjes?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofMarquesina: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, numEjes?: number) => void;
   generateRoofTijeralCurvo: (luzM?: number, largoM?: number, alturaColM?: number, cumbreraM?: number, flechaInfM?: number, numEjes?: number) => void;
+  // Columnas mixtas (concreto abajo + metal arriba) — solo visual.
+  columnasConcretoBaseM: number;
+  setColumnasConcretoBaseM: (metros: number) => void;        // aplica a TODAS las columnas
+  setSegmentoConcretoBase: (segmentId: string, metros: number) => void; // por columna
   generateMultinivel: (luzM?: number, largoM?: number, numPisos?: number, alturaPisoM?: number, numVanosX?: number, numVanosZ?: number) => void;
   generateRoofMonitor: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, anchoMonitorM?: number, alturaMonitorM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   addInternalTruss: (zPos: number, tipoTijeral?: TipoTijeral, peralteM?: number) => void;
@@ -251,6 +255,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   const [segments, setSegments] = useState<Record<string, Segment3D>>(defaultSegments);
   const [coverageZones, setCoverageZones] = useState<Record<string, CoverageZone3D>>(defaultCoverageZones);
+  // Altura de concreto (encamisado) por defecto para las columnas mixtas (visual).
+  const [columnasConcretoBaseM, setColumnasConcretoBaseMState] = useState<number>(0);
 
   const [activeTool, setActiveTool] = useState<ToolModoCad>('select');
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
@@ -3571,6 +3577,32 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(newNodes, newSegs, newZones);
   }, [activeProfileId, pushHistory]);
 
+  // COLUMNAS MIXTAS (concreto abajo + metal arriba) — solo visual.
+  // Aplica la misma altura de concreto a TODAS las columnas de una vez.
+  const setColumnasConcretoBaseM = useCallback((metros: number) => {
+    const m = Math.max(0, metros || 0);
+    setColumnasConcretoBaseMState(m);
+    setSegments(prev => {
+      const next: Record<string, Segment3D> = {};
+      for (const [id, s] of Object.entries(prev)) {
+        next[id] = (s.rolEstructural === 'columna') ? { ...s, concretoBaseM: m } : s;
+      }
+      pushHistory(nodes, next, coverageZones);
+      return next;
+    });
+  }, [nodes, coverageZones, pushHistory]);
+
+  // Ajuste fino: define el concreto de UNA columna en particular.
+  const setSegmentoConcretoBase = useCallback((segmentId: string, metros: number) => {
+    const m = Math.max(0, metros || 0);
+    setSegments(prev => {
+      if (!prev[segmentId]) return prev;
+      const next = { ...prev, [segmentId]: { ...prev[segmentId], concretoBaseM: m } };
+      pushHistory(nodes, next, coverageZones);
+      return next;
+    });
+  }, [nodes, coverageZones, pushHistory]);
+
   // EDIFICACIÓN MULTINIVEL (2–3 pisos) con estructura metálica: grilla de columnas
   // continuas, vigas de entrepiso en cada nivel y vigas/correas de techo arriba.
   // Base para naves/pabellones de varios niveles (acercándose a una casa metálica).
@@ -4064,6 +4096,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofCurvoAutoportante,
     generateRoofMarquesina,
     generateRoofTijeralCurvo,
+    columnasConcretoBaseM,
+    setColumnasConcretoBaseM,
+    setSegmentoConcretoBase,
     generateMultinivel,
     generateRoofMonitor,
     addInternalTruss,

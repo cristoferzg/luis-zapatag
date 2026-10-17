@@ -2032,6 +2032,32 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         length: distance
       };
       tubesGroup.add(tubeMesh);
+
+      // ENCAMISADO DE CONCRETO (columna mixta): si es columna y tiene definido
+      // concretoBaseM, dibujamos un bloque de concreto desde la base hacia arriba
+      // hasta esa altura; oculta el tubo metálico interior (parte baja = concreto,
+      // parte alta = metal). Es visual (no altera el metrado).
+      const concBaseM = (seg as any).concretoBaseM as number | undefined;
+      if (seg.rolEstructural === 'columna' && concBaseM && concBaseM > 0.01) {
+        const baseP = pA.y <= pB.y ? pA : pB;
+        const topP = pA.y <= pB.y ? pB : pA;
+        const upDir = new THREE.Vector3().subVectors(topP, baseP).normalize();
+        const hConc = Math.min(concBaseM, distance);
+        const concSec = Math.max(0.22, Math.max(anchoM, altoM) + 0.08); // recubrimiento ~4cm/lado
+        const concGeom = new THREE.BoxGeometry(concSec, concSec, hConc);
+        const concColMat = concreteMat.clone();
+        if (isSelected) { concColMat.emissive = new THREE.Color(0x06b6d4); concColMat.emissiveIntensity = 0.5; }
+        const concMesh = new THREE.Mesh(concGeom, concColMat);
+        concMesh.position.copy(baseP.clone().add(upDir.clone().multiplyScalar(hConc / 2)));
+        concMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), upDir);
+        if (!isWire) {
+          const cEdges = new THREE.LineSegments(new THREE.EdgesGeometry(concGeom, 22),
+            new THREE.LineBasicMaterial({ color: modoIluminacion === 'claro' ? 0x57534e : 0x78716c, transparent: true, opacity: 0.5 }));
+          concMesh.add(cEdges);
+        }
+        concMesh.userData = { segmentId: seg.id, rolEstructural: 'columna', esEncamisadoConcreto: true };
+        tubesGroup.add(concMesh);
+      }
     });
 
     // 5. NUDOS DE CONEXIÓN Y ESFERAS DE UNIÓN EN VÉRTICES ESTRUCTURALES (Como en la imagen)

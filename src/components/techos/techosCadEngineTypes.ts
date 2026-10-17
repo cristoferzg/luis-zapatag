@@ -135,6 +135,9 @@ export interface Segment3D {
   rolEstructural: RolEstructuralSegmento;
   anguloRotacionGrados?: number;// Orientación de la sección respecto al eje (0°, 90°)
   selected?: boolean;
+  // Columna mixta: metros de CONCRETO (encamisado) desde la base; el resto es
+  // metal. Solo aplica a columnas. Es visual (no altera el metrado por ahora).
+  concretoBaseM?: number;
 }
 
 export interface CoverageZone3D {

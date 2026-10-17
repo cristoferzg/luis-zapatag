@@ -545,6 +545,31 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               </select>
             </div>
 
+            {/* Columnas mixtas: concreto abajo + metal arriba (aplica a TODAS) */}
+            <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-300 space-y-1.5">
+              <span className="block text-[10px] font-black text-stone-800 uppercase tracking-wide">
+                🏛️ Concreto en columnas (base)
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number" step="0.25" min="0"
+                  value={engineState?.columnasConcretoBaseM ?? 0}
+                  onChange={(e) => engineState?.setColumnasConcretoBaseM(Math.max(0, parseFloat(e.target.value) || 0))}
+                  className="w-20 bg-white border border-stone-300 rounded-lg p-1.5 text-slate-800 font-bold text-xs shadow-2xs focus:border-stone-600 outline-none"
+                />
+                <span className="text-[11px] font-bold text-slate-600">m de concreto · resto metal</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {[0, 1, 2, 2.5].map(v => (
+                  <button key={v} onClick={() => engineState?.setColumnasConcretoBaseM(v)}
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white border border-stone-300 text-stone-700 hover:bg-stone-100 cursor-pointer">
+                    {v === 0 ? 'Todo metal' : `${v} m`}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[9px] text-slate-500 leading-snug">Se ve en 3D (parte baja de concreto, arriba metal). Para una columna puntual, selecciónala y ajústala en la pestaña Selección.</p>
+            </div>
+
             {/* Listado de Grupos de Elementos Activos */}
             {Object.keys(segments).length === 0 ? (
               <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center text-slate-500 space-y-2">
@@ -1085,7 +1110,23 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                   </select>
                 </div>
 
-                <button 
+                {isColumna && (
+                  <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-300 space-y-1.5">
+                    <label className="block text-[10px] font-black text-stone-800 uppercase tracking-wide">🏛️ Concreto en esta columna (base)</label>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number" step="0.25" min="0"
+                        value={selectedSegment.concretoBaseM ?? 0}
+                        onChange={(e) => engineState?.setSegmentoConcretoBase(selectedSegment.id, Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="w-20 bg-white border border-stone-300 rounded-lg p-1.5 text-slate-800 font-bold text-xs shadow-2xs focus:border-stone-600 outline-none"
+                      />
+                      <span className="text-[11px] font-bold text-slate-600">m · resto metal</span>
+                    </div>
+                    <p className="text-[9px] text-slate-500 leading-snug">Solo esta columna. El resto hacia arriba queda metálico.</p>
+                  </div>
+                )}
+
+                <button
                   onClick={() => engineState?.deleteSelectedElements()}
                   className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl border border-rose-200 shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 transition-transform text-xs"
                 >
