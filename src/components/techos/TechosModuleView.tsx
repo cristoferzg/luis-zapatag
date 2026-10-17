@@ -687,7 +687,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   };
 
   // Cargar Plantilla Prediseñada
-  const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina') => {
+  const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina' | 'multinivel') => {
     engineState.clearScene();
     if (tipo === 'dos_aguas') {
       engineState.generateRoofGable(12, 20, 5, 15);
@@ -704,6 +704,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     } else if (tipo === 'marquesina') {
       engineState.generateRoofMarquesina(8, 16, 3.2, 1.2, 5);
       setNombreProyecto('Marquesina Curva 8x16m');
+    } else if (tipo === 'multinivel') {
+      engineState.generateMultinivel(8, 10, 2, 3.0, 2, 2);
+      setNombreProyecto('Edificación Metálica 2 Pisos 8x10m');
     }
     setShowLoadModal(false);
   };
@@ -1196,6 +1199,14 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                   >
                     <div className="font-extrabold text-sm text-slate-900 group-hover:text-amber-700">Marquesina / Nave Curva (Ala) ✨</div>
                     <div className="text-xs text-slate-500 mt-1">Luz: 8.0m | Largo: 16.0m | Altura: 3.2m | Columna central + voladizo curvo</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleCargarPlantilla('multinivel')}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 text-left transition-all group cursor-pointer"
+                  >
+                    <div className="font-extrabold text-sm text-slate-900 group-hover:text-amber-700">Edificación Metálica 2 Pisos 🏢</div>
+                    <div className="text-xs text-slate-500 mt-1">Luz: 8.0m | Largo: 10.0m | 2 pisos × 3.0m | Columnas + entrepiso + techo</div>
                   </button>
                 </div>
               </div>

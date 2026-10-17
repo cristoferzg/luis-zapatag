@@ -107,6 +107,7 @@ export interface UseTechosCadEngineReturn {
   generateRoofButterfly: (luzM: number, largoM?: number, alturaColM?: number, desnivelAlasM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofCurvoAutoportante: (luzM: number, largoM?: number, alturaMuroM?: number, flechaM?: number, numEjes?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofMarquesina: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, numEjes?: number) => void;
+  generateMultinivel: (luzM?: number, largoM?: number, numPisos?: number, alturaPisoM?: number, numVanosX?: number, numVanosZ?: number) => void;
   generateRoofMonitor: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, anchoMonitorM?: number, alturaMonitorM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   addInternalTruss: (zPos: number, tipoTijeral?: TipoTijeral, peralteM?: number) => void;
   generateMezzanine: (largoM: number, anchoM: number, alturaM: number, numSubseccionesX: number, numSubseccionesY: number, esHueco?: boolean, conTijeralesPerimetro?: boolean, conTijeralesInternos?: boolean, tipoTijeral?: TipoTijeral) => void;
@@ -3399,6 +3400,73 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(newNodes, newSegs, coverageZones);
   }, [activeProfileId, pushHistory, coverageZones]);
 
+  // EDIFICACIÓN MULTINIVEL (2–3 pisos) con estructura metálica: grilla de columnas
+  // continuas, vigas de entrepiso en cada nivel y vigas/correas de techo arriba.
+  // Base para naves/pabellones de varios niveles (acercándose a una casa metálica).
+  const generateMultinivel = useCallback((
+    luzM: number = 8,
+    largoM: number = 10,
+    numPisos: number = 2,
+    alturaPisoM: number = 3.0,
+    numVanosX: number = 2,
+    numVanosZ: number = 2
+  ) => {
+    const newNodes: Record<string, Node3D> = {};
+    const newSegs: Record<string, Segment3D> = {};
+
+    const colProf = INVENTARIO_PERFILES_TUBULARES[4]?.id || activeProfileId;
+    const vigaProf = INVENTARIO_PERFILES_TUBULARES[1]?.id || activeProfileId;
+    const correaProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || activeProfileId;
+
+    const nx = Math.max(1, Math.round(numVanosX));
+    const nz = Math.max(1, Math.round(numVanosZ));
+    const pisos = Math.max(1, Math.round(numPisos));
+    const dx = luzM / nx;
+    const dz = largoM / nz;
+    const nid = (ix: number, iz: number, k: number) => `n_ml_${ix}_${iz}_${k}`;
+
+    // Nodos: grilla por nivel 0..pisos
+    for (let ix = 0; ix <= nx; ix++) {
+      for (let iz = 0; iz <= nz; iz++) {
+        for (let k = 0; k <= pisos; k++) {
+          const id = nid(ix, iz, k);
+          newNodes[id] = { id, x: ix * dx, y: k * alturaPisoM, z: iz * dz, isFixedSupport: k === 0, nodeLabel: `N-${ix}${iz}-P${k}` };
+        }
+      }
+    }
+    // Columnas (un segmento por piso, para que se distingan los niveles)
+    for (let ix = 0; ix <= nx; ix++) {
+      for (let iz = 0; iz <= nz; iz++) {
+        for (let k = 1; k <= pisos; k++) {
+          const id = `s_ml_col_${ix}_${iz}_${k}`;
+          newSegs[id] = { id, nodeAId: nid(ix, iz, k - 1), nodeBId: nid(ix, iz, k), profileId: colProf, rolEstructural: 'columna' };
+        }
+      }
+    }
+    // Vigas por nivel (entrepisos y techo)
+    for (let k = 1; k <= pisos; k++) {
+      const esTecho = k === pisos;
+      // Vigas en X (principales)
+      for (let ix = 1; ix <= nx; ix++) {
+        for (let iz = 0; iz <= nz; iz++) {
+          const id = `s_ml_vx_${ix}_${iz}_${k}`;
+          newSegs[id] = { id, nodeAId: nid(ix - 1, iz, k), nodeBId: nid(ix, iz, k), profileId: vigaProf, rolEstructural: 'viga_principal' };
+        }
+      }
+      // Vigas en Z (entrepiso = viga_secundaria; techo = correas para la cobertura)
+      for (let iz = 1; iz <= nz; iz++) {
+        for (let ix = 0; ix <= nx; ix++) {
+          const id = `s_ml_vz_${ix}_${iz}_${k}`;
+          newSegs[id] = { id, nodeAId: nid(ix, iz - 1, k), nodeBId: nid(ix, iz, k), profileId: esTecho ? correaProf : vigaProf, rolEstructural: esTecho ? 'correa' : 'viga_secundaria' };
+        }
+      }
+    }
+
+    setNodes(newNodes);
+    setSegments(newSegs);
+    pushHistory(newNodes, newSegs, coverageZones);
+  }, [activeProfileId, pushHistory, coverageZones]);
+
   // Generador de Techo Industrial con Linterna Cenital / Monitor de Ventilación
   const generateRoofMonitor = useCallback((
     luzM: number,
@@ -3824,6 +3892,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofButterfly,
     generateRoofCurvoAutoportante,
     generateRoofMarquesina,
+    generateMultinivel,
     generateRoofMonitor,
     addInternalTruss,
     generateMezzanine,
