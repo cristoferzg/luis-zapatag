@@ -26,7 +26,8 @@ import {
   Briefcase,
   RefreshCw,
   Search,
-  Users
+  Users,
+  MoreVertical
 } from 'lucide-react';
 
 import useTechosDimensions from './useTechosDimensions';
@@ -485,6 +486,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const [activeCadVista, setActiveCadVista] = useState<VistaTechoCAD>('planta');
   const [showLoadModal, setShowLoadModal] = useState<boolean>(false);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
+  const [showMobileActions, setShowMobileActions] = useState<boolean>(false);
   const [savedDesignsList, setSavedDesignsList] = useState<SavedTechosDesign[]>([]);
   const [showInspector, setShowInspector] = useState<boolean>(true);
 
@@ -735,29 +737,30 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           </div>
         </div>
 
-        {/* Botones de Acción Principal Compactos en Móvil y Escritorio */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5">
-          {/* [ SUBIR ARCHIVO / AUTOCAD ] */}
+        {/* Botones de Acción Principal. En móvil solo "Guardar" + menú "⋯";
+            el resto se oculta para dejar la barra limpia (solo lo esencial). */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5 relative">
+          {/* [ SUBIR ARCHIVO / AUTOCAD ] — solo escritorio */}
           <button
             onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
             title="Subir archivo .DXF (AutoCAD) o .JSON de proyecto"
           >
             <UploadCloud className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="text-[11px] font-bold hidden md:inline">Subir CAD</span>
           </button>
 
-          {/* [ + NUEVO ] */}
+          {/* [ + NUEVO ] — solo escritorio */}
           <button
             onClick={handleNuevo}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
             title="Crear nuevo diseño CAD vacío"
           >
             <Plus className="w-3.5 h-3.5 text-amber-600 shrink-0" />
             <span className="text-[11px] font-bold hidden sm:inline">+ Nuevo</span>
           </button>
 
-          {/* [ GUARDAR ] */}
+          {/* [ GUARDAR ] — siempre visible */}
           <button
             onClick={handleGuardar}
             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
@@ -767,38 +770,72 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <span className="text-[11px] font-bold text-white hidden sm:inline">Guardar</span>
           </button>
 
-          {/* [ CARGAR ] */}
+          {/* [ CARGAR ] — solo escritorio */}
           <button
             onClick={() => {
               loadSavedList();
               setShowLoadModal(true);
             }}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
             title="Cargar plantillas o proyectos guardados"
           >
             <FolderOpen className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <span className="text-[11px] font-bold hidden sm:inline">Cargar</span>
           </button>
 
-          {/* [ EXPORTAR ] */}
+          {/* [ EXPORTAR ] — solo escritorio */}
           <button
             onClick={handleExportar}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
             title="Exportar archivo JSON"
           >
             <Download className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="text-[11px] font-bold hidden md:inline">Exportar</span>
           </button>
 
-          {/* [ AYUDA Y TUTORIAL ] */}
+          {/* [ AYUDA Y TUTORIAL ] — solo escritorio */}
           <button
             onClick={() => setShowTutorialModal(true)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
             title="Manual y Guía de Ayuda"
           >
             <HelpCircle className="w-3.5 h-3.5 text-slate-950 shrink-0" />
             <span className="font-black text-[11px] hidden sm:inline">Ayuda</span>
           </button>
+
+          {/* [ MENÚ ⋯ ] — solo móvil: agrupa las acciones secundarias */}
+          <div className="relative sm:hidden shrink-0">
+            <button
+              onClick={() => setShowMobileActions(v => !v)}
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer"
+              title="Más acciones"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+            {showMobileActions && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMobileActions(false)} />
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5 animate-fadeIn">
+                  {[
+                    { l: 'Subir CAD', I: UploadCloud, on: () => setShowUploadModal(true) },
+                    { l: '+ Nuevo', I: Plus, on: handleNuevo },
+                    { l: 'Cargar', I: FolderOpen, on: () => { loadSavedList(); setShowLoadModal(true); } },
+                    { l: 'Exportar', I: Download, on: handleExportar },
+                    { l: 'Ayuda', I: HelpCircle, on: () => setShowTutorialModal(true) },
+                  ].map(a => {
+                    const Icon = a.I;
+                    return (
+                      <button key={a.l} onClick={() => { a.on(); setShowMobileActions(false); }}
+                        className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                        <Icon className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span>{a.l}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
