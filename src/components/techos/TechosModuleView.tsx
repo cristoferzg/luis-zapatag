@@ -677,13 +677,33 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     if (!window.confirm(`Se enviarán ${bases.size} columnas (con sus zapatas) al CAD de Concreto para diseñar la cimentación.${prev.length ? ' Se agregarán a lo que ya tengas ahí.' : ''}\n\n¿Continuar?`)) return;
     const nuevos: any[] = [];
     let i = 0;
+    const pts: { x: number; z: number }[] = [];
     bases.forEach(({ x, z, H }) => {
       const stamp = `tc_${Date.now()}_${i++}`;
       nuevos.push({ uid: `${stamp}_z`, tipo: 'zapata', x1: x, y1: z, a: 1.0, b: 1.0, h: 0.5 });
       nuevos.push({ uid: `${stamp}_c`, tipo: 'columna', x1: x, y1: z, a: 0.25, b: 0.25, H });
+      pts.push({ x, z });
     });
+    // Vigas de cimentación entre columnas alineadas y adyacentes (grilla).
+    const R = (v: number) => Math.round(v * 100) / 100;
+    const byX = new Map<number, { x: number; z: number }[]>();
+    const byZ = new Map<number, { x: number; z: number }[]>();
+    pts.forEach(pt => {
+      const kx = R(pt.x), kz = R(pt.z);
+      if (!byX.has(kx)) byX.set(kx, []);
+      byX.get(kx)!.push(pt);
+      if (!byZ.has(kz)) byZ.set(kz, []);
+      byZ.get(kz)!.push(pt);
+    });
+    let vi = 0;
+    const addViga = (a: { x: number; z: number }, b: { x: number; z: number }) => {
+      nuevos.push({ uid: `tv_${Date.now()}_${vi++}`, tipo: 'viga', x1: a.x, y1: a.z, x2: b.x, y2: b.z, a: 0.25, h: 0.40 });
+    };
+    byX.forEach(arr => { arr.sort((a, b) => a.z - b.z); for (let k = 1; k < arr.length; k++) addViga(arr[k - 1], arr[k]); });
+    byZ.forEach(arr => { arr.sort((a, b) => a.x - b.x); for (let k = 1; k < arr.length; k++) addViga(arr[k - 1], arr[k]); });
+    const nVigas = nuevos.filter(n => n.tipo === 'viga').length;
     safeStorage.setItem('concreto_plano_elems', [...prev, ...nuevos]);
-    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas.\n\nAbre "Metrados Concreto" → modo "Plano CAD" para ver y completar la cimentación (vigas de cimentación, muros, etc.).`);
+    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas + ${nVigas} vigas de cimentación.\n\nAbre "Metrados Concreto" → modo "Plano CAD". Ahí puedes agregar ENTREPISOS con la nueva herramienta "Losa / Entrepiso", muros y más detalles.`);
   };
 
   // Cargar Plantilla Prediseñada

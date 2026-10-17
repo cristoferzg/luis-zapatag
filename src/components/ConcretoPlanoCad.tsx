@@ -13,7 +13,7 @@ import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, 
 import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
 
-export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento';
+export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento' | 'losa';
 type Herramienta = 'select' | 'pan' | PlanoTipo;
 
 export interface PlanoElem {
@@ -36,6 +36,7 @@ export const META: Record<PlanoTipo, { nombre: string; emoji: string; color: str
   zapata:   { nombre: 'Zapata',           emoji: '🟫', color: '#b45309', esLinea: false, icon: Square },
   viga:     { nombre: 'Viga',             emoji: '📏', color: '#059669', esLinea: true,  icon: Minus },
   cimiento: { nombre: 'Cimiento corrido', emoji: '🟤', color: '#78716c', esLinea: true,  icon: Minus },
+  losa:     { nombre: 'Losa / Entrepiso', emoji: '🟦', color: '#0ea5e9', esLinea: true,  icon: Layers },
 };
 
 const DEFAULTS: Record<PlanoTipo, Omit<PlanoElem, 'uid' | 'tipo' | 'x1' | 'y1' | 'x2' | 'y2'>> = {
@@ -43,6 +44,7 @@ const DEFAULTS: Record<PlanoTipo, Omit<PlanoElem, 'uid' | 'tipo' | 'x1' | 'y1' |
   zapata:   { a: 1.0,  b: 1.0,  h: 0.5 },
   viga:     { a: 0.25, h: 0.40 },
   cimiento: { a: 0.50, h: 0.60 },
+  losa:     { a: 0.20, h: 0.20 },
 };
 
 const PRECIOS_DEFAULT = { cementoBolsa: 28, arenaM3: 55, piedraM3: 60, aceroKg: 4.2, encofradoM2: 25 };
@@ -64,6 +66,13 @@ function calcElem(e: PlanoElem): Resultado {
   if (e.tipo === 'viga') {
     const vol = e.a * (e.h || 0.4) * largo;
     return { concretoM3: vol, aceroKg: vol * 110, encofradoM2: (2 * (e.h || 0.4) + e.a) * largo, dist: { '5/8"': 0.45, '1/2"': 0.25, '3/8"': 0.3 } };
+  }
+  if (e.tipo === 'losa') {
+    // Losa de entrepiso/techo: rectángulo definido por 2 esquinas (x1,y1)-(x2,y2).
+    const area = (e.x2 !== undefined && e.y2 !== undefined) ? Math.abs(e.x2 - e.x1) * Math.abs(e.y2 - e.y1) : 0;
+    const esp = e.h || 0.20;
+    const vol = area * esp;
+    return { concretoM3: vol, aceroKg: vol * 80, encofradoM2: area, dist: { '3/8"': 0.6, '1/2"': 0.4 } };
   }
   // cimiento (ciclópeo, sin acero)
   const vol = e.a * (e.h || 0.6) * largo;
@@ -163,6 +172,7 @@ export default function ConcretoPlanoCad() {
     zapata:   [{ key: 'a', label: 'Ancho (m)' }, { key: 'b', label: 'Largo (m)' }, { key: 'h', label: 'Altura (m)' }],
     viga:     [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Peralte (m)' }],
     cimiento: [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Altura (m)' }],
+    losa:     [{ key: 'h', label: 'Espesor (m)' }],
   };
 
   // Firma de la escena → se usa como key para remontar el visor 3D al cambiar algo.
@@ -212,6 +222,7 @@ export default function ConcretoPlanoCad() {
     { id: 'zapata', label: 'Zapata', icon: Square },
     { id: 'viga', label: 'Viga', icon: Minus },
     { id: 'cimiento', label: 'Cimiento', icon: Minus },
+    { id: 'losa', label: 'Losa / Entrepiso', icon: Layers },
     { id: 'pan', label: 'Mover lienzo', icon: Hand },
   ];
 
@@ -306,6 +317,18 @@ export default function ConcretoPlanoCad() {
               const m = META[e.tipo];
               const p1 = toScreen(e.x1, e.y1);
               const sel = e.uid === selUid;
+              // LOSA: rectángulo relleno entre esquinas (x1,y1)-(x2,y2)
+              if (e.tipo === 'losa' && e.x2 !== undefined && e.y2 !== undefined) {
+                const p2 = toScreen(e.x2, e.y2);
+                const rx = Math.min(p1.sx, p2.sx), ry = Math.min(p1.sy, p2.sy);
+                const rw = Math.abs(p2.sx - p1.sx), rh = Math.abs(p2.sy - p1.sy);
+                return (
+                  <g key={e.uid} onClick={ev => { ev.stopPropagation(); setSelUid(e.uid); }} className="cursor-pointer">
+                    <rect x={rx} y={ry} width={rw} height={rh} fill={m.color} opacity={0.18} stroke={m.color} strokeWidth={sel ? 3 : 1.5} strokeDasharray="6 4" />
+                    {sel && <rect x={rx - 3} y={ry - 3} width={rw + 6} height={rh + 6} fill="none" stroke="#0ea5e9" strokeWidth="2" />}
+                  </g>
+                );
+              }
               if (m.esLinea && e.x2 !== undefined && e.y2 !== undefined) {
                 const p2 = toScreen(e.x2, e.y2);
                 const wPx = Math.max(4, (e.a) * scale);
@@ -327,11 +350,16 @@ export default function ConcretoPlanoCad() {
               );
             })}
 
-            {/* preview de línea pendiente */}
+            {/* preview de línea / rectángulo pendiente */}
             {pending && META[tool as PlanoTipo]?.esLinea && (() => {
               const a = toScreen(pending.x, pending.y);
               const b = toScreen(cursor.x, cursor.y);
-              return <line x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke={META[tool as PlanoTipo].color} strokeWidth="2" strokeDasharray="5 4" opacity={0.7} />;
+              const col = META[tool as PlanoTipo].color;
+              if (tool === 'losa') {
+                const rx = Math.min(a.sx, b.sx), ry = Math.min(a.sy, b.sy);
+                return <rect x={rx} y={ry} width={Math.abs(b.sx - a.sx)} height={Math.abs(b.sy - a.sy)} fill={col} opacity={0.15} stroke={col} strokeWidth="2" strokeDasharray="6 4" />;
+              }
+              return <line x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke={col} strokeWidth="2" strokeDasharray="5 4" opacity={0.7} />;
             })()}
 
             {/* cursor fantasma */}

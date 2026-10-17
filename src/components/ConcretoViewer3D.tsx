@@ -50,6 +50,7 @@ export default function ConcretoViewer3D({ elems }: { elems: PlanoElem[] }) {
       zapata: new THREE.MeshStandardMaterial({ color: 0xbfa38a, roughness: 0.95, metalness: 0.02 }),
       viga: new THREE.MeshStandardMaterial({ color: 0x86b8a3, roughness: 0.85, metalness: 0.03 }),
       cimiento: new THREE.MeshStandardMaterial({ color: 0xada49a, roughness: 0.98, metalness: 0.0 }),
+      losa: new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.9, metalness: 0.02, transparent: true, opacity: 0.75 }),
     };
     const edgeMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.35 });
 
@@ -87,6 +88,13 @@ export default function ConcretoViewer3D({ elems }: { elems: PlanoElem[] }) {
         } else if (e.tipo === 'zapata') {
           addBox(a, h, b, e.x1, h / 2, e.y1, mats.zapata);
           acc(e.x1, e.y1);
+        } else if (e.tipo === 'losa' && e.x2 !== undefined && e.y2 !== undefined) {
+          // Losa / entrepiso: placa plana sobre las vigas (rectángulo por esquinas)
+          const w = Math.abs(e.x2 - e.x1), d = Math.abs(e.y2 - e.y1);
+          const cx = (e.x1 + e.x2) / 2, cz = (e.y1 + e.y2) / 2;
+          const esp = e.h || 0.20;
+          addBox(Math.max(0.1, w), esp, Math.max(0.1, d), cx, vigaElev + esp / 2, cz, mats.losa);
+          acc(e.x1, e.y1); acc(e.x2, e.y2);
         } else if (e.x2 !== undefined && e.y2 !== undefined) {
           const dx = e.x2 - e.x1, dz = e.y2 - e.y1;
           const L = Math.hypot(dx, dz);
