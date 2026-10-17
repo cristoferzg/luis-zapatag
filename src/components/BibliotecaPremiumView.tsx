@@ -340,12 +340,12 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
     setUploadProgress(10);
     setUploadTotalBytes(file.size);
     setUploadBytesTransferred(Math.round(file.size * 0.1));
-    setUploadStatusMsg('Iniciando subida a Firebase Cloud Storage...');
+    setUploadStatusMsg('Iniciando subida a la nube...');
     setUploadError(null);
     setFormFileName(file.name);
 
     try {
-      setUploadStatusMsg('Subiendo archivo a Firebase Cloud Storage...');
+      setUploadStatusMsg('Subiendo archivo a la nube...');
       const cloudUrl = await uploadFileToFirebaseStorage(file, 'biblioteca', (percent, bytes) => {
         setUploadProgress(percent);
         setUploadBytesTransferred(bytes);

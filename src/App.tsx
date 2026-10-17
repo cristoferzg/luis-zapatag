@@ -4,7 +4,7 @@ import {
   Settings, AlertCircle, TrendingUp, TrendingDown, Home, CreditCard, Menu, Plus, 
   Edit2, Trash2, CheckCircle, ArrowRight, 
   FileSignature, Package, 
-  PenTool, Video, ExternalLink, ShieldCheck, FolderKanban
+  PenTool, Video, ExternalLink, ShieldCheck, FolderKanban, X
 } from 'lucide-react';
 import { performAdminBackup } from './lib/backupService';
 import { User } from 'firebase/auth';
@@ -1520,6 +1520,19 @@ export default function App() {
   const [tutoriales, setTutoriales] = useFirestoreArraySync<TutorialVideo>('tutoriales', activeUid, true, isAdmin);
   const [globalNotifs, setGlobalNotifs] = useFirestoreArraySync<GlobalNotification>('notificaciones', 'global', true);
 
+  // Interruptores globales de apartados "en desarrollo": el admin decide qué
+  // secciones se ocultan para los usuarios. Colección global (visible por todos).
+  const [devFlags, setDevFlags] = useFirestoreArraySync<{ id: string; disabledSections: string[] }>('config_flags', 'global', true);
+  const disabledSections: string[] = devFlags[0]?.disabledSections || [];
+  const setDisabledSections = (list: string[]) => {
+    setDevFlags([{ id: 'nav_flags', disabledSections: list }]);
+  };
+  const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
+  // Si un usuario está viendo una sección que el admin ocultó, lo regresamos al panel.
+  useEffect(() => {
+    if (!isAdmin && disabledSections.includes(currentView)) setCurrentView('dashboard');
+  }, [disabledSections.join(','), currentView, isAdmin]);
+
   // Strict isolation fallback: Filter arrays to strictly prevent cross-account leakage.
   // The Admin sees ONLY their own records where userId matches administrative tags ('admin', 'user_admin', 'shared', or 'user').
   // This prevents the admin from seeing ALL users' projects unless they are specifically in the admin workspace.
@@ -2091,9 +2104,11 @@ export default function App() {
     { id: 'settings', label: 'Configuración', icon: Settings },
   ];
   
-  const navItems = isAdmin 
-    ? allNavItems 
-    : allNavItems.filter(item => !item.adminOnly);
+  const navItems = isAdmin
+    // El admin ve todo; las secciones ocultas para usuarios se marcan "en desarrollo".
+    ? allNavItems.map(item => ({ ...item, enDesarrollo: disabledSections.includes(item.id) }))
+    // Los usuarios no ven las secciones solo-admin ni las que estén en desarrollo.
+    : allNavItems.filter(item => !item.adminOnly && !disabledSections.includes(item.id));
 
   const rawDisplayName = isAdmin ? (user?.name || user?.email || 'Administrador') : user?.name;
   const cleanUserName = (rawDisplayName && rawDisplayName.toLowerCase().includes('newton')) ? 'Innova Contratistas' : (rawDisplayName || 'Administrador');
@@ -2101,6 +2116,44 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800">
+      {/* PANEL DE INTERRUPTORES DE APARTADOS (solo admin) */}
+      {isAdmin && showDevPanel && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3" onClick={() => setShowDevPanel(false)}>
+          <div className="bg-white w-full max-w-md max-h-[85vh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Apartados en desarrollo</h3>
+                <p className="text-[11px] text-slate-500">Desactiva los apartados que aún no quieres mostrar a los usuarios. Tú (admin) siempre los ves.</p>
+              </div>
+              <button onClick={() => setShowDevPanel(false)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+              {allNavItems.filter(it => it.id !== 'dashboard' && it.id !== 'settings').map(it => {
+                const off = disabledSections.includes(it.id);
+                return (
+                  <div key={it.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-white">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <it.icon className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span className="text-sm font-bold text-slate-700 truncate">{it.label}</span>
+                    </div>
+                    <button
+                      onClick={() => setDisabledSections(off ? disabledSections.filter(s => s !== it.id) : [...disabledSections, it.id])}
+                      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 cursor-pointer ${off ? 'bg-slate-300' : 'bg-emerald-500'}`}
+                      title={off ? 'Oculto para usuarios' : 'Visible para usuarios'}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${off ? 'left-0.5' : 'left-[22px]'}`} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">{disabledSections.length} oculto(s) para usuarios</span>
+              <button onClick={() => setShowDevPanel(false)} className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold cursor-pointer hover:bg-slate-800">Listo</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={`fixed xl:static inset-y-0 left-0 z-50 ${isSidebarCollapsed ? 'xl:w-20 w-72' : 'w-72'} bg-slate-900 text-slate-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} xl:translate-x-0 transition-transform duration-200 ease-out flex flex-col`}>
         <div className={`p-4 flex items-center ${isSidebarCollapsed ? 'justify-center xl:px-2' : 'justify-between'} border-b border-slate-800`}>
           <div className="flex items-center space-x-2.5 min-w-0 flex-1 mr-2">
@@ -2117,9 +2170,19 @@ export default function App() {
             )}
           </div>
           <div className="flex items-center space-x-1.5 flex-shrink-0">
+            {/* Interruptores de apartados (solo admin) */}
+            {isAdmin && !isSidebarCollapsed && (
+              <button
+                className="text-slate-400 hover:text-amber-300 p-1 rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                onClick={() => setShowDevPanel(true)}
+                title="Habilitar / ocultar apartados en desarrollo"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            )}
             {/* Botón de Colapsar en Escritorio */}
-            <button 
-              className="hidden xl:block text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors cursor-pointer" 
+            <button
+              className="hidden xl:block text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors cursor-pointer"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               title={isSidebarCollapsed ? "Expandir menú" : "Colapsar menú"}
             >
@@ -2128,24 +2191,32 @@ export default function App() {
             <button className="xl:hidden text-slate-400 hover:text-white" onClick={() => setIsMobileMenuOpen(false)}><Menu className="w-5 h-5" /></button>
           </div>
         </div>
-        <div className={`flex-1 overflow-y-auto py-6 ${isSidebarCollapsed ? 'px-2' : 'px-4'} custom-scrollbar`}>
-          <div className="space-y-1.5">
+        <div className={`flex-1 overflow-y-auto py-4 ${isSidebarCollapsed ? 'px-2' : 'px-3'} custom-scrollbar`}>
+          <div className="space-y-0.5">
             {navItems.map(item => {
               const Icon = item.icon;
               const isActive = currentView === item.id;
+              const enDesarrollo = (item as any).enDesarrollo;
               return (
                 <button
                   key={item.id}
                   onClick={() => { setCurrentView(item.id as ViewType); setIsMobileMenuOpen(false); }}
-                  className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-3' : 'px-4 py-3'} rounded-xl transition-colors ${
-                    isActive 
-                      ? 'bg-emerald-500/10 text-emerald-400 font-medium' 
-                      : 'hover:bg-slate-800 hover:text-slate-100'
+                  className={`group w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'pl-3 pr-2.5 py-2'} rounded-lg transition-colors relative ${
+                    isActive
+                      ? 'bg-slate-800 text-white font-semibold'
+                      : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
                   }`}
                   title={item.label}
                 >
-                  <Icon className={`w-5 h-5 ${isSidebarCollapsed ? '' : 'mr-3'} ${isActive ? 'text-emerald-400' : 'text-slate-500'}`} />
-                  {!isSidebarCollapsed && <span className="truncate">{item.label}</span>}
+                  {isActive && !isSidebarCollapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-emerald-400" />}
+                  <Icon className={`w-[18px] h-[18px] ${isSidebarCollapsed ? '' : 'mr-3'} shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                  {!isSidebarCollapsed && <span className="truncate text-[13px]">{item.label}</span>}
+                  {!isSidebarCollapsed && item.badge ? (
+                    <span className="ml-auto text-[10px] font-black bg-rose-500 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">{item.badge}</span>
+                  ) : null}
+                  {!isSidebarCollapsed && enDesarrollo ? (
+                    <span className="ml-auto text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-0.5">EN DESARROLLO</span>
+                  ) : null}
                 </button>
               );            })}
           </div>

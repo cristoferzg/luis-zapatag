@@ -82,14 +82,14 @@ export const OfflineIndicator: React.FC = () => {
         </div>
         <div className="flex-1 flex flex-col gap-1.5">
           <span className="text-slate-200 text-[11px] leading-snug">
-            Base de datos en modo local de resguardo. ¿Deseas intentar conectarte de nuevo a Firebase en vivo?
+            Base de datos en modo local de resguardo. ¿Deseas intentar conectarte de nuevo a la nube?
           </span>
           <div className="mt-1 flex items-center gap-2">
             <button
               onClick={handleReconnect}
               className="bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-slate-950 font-extrabold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-wider transition-all cursor-pointer shadow-sm"
             >
-              Reconectar Firebase
+              Reconectar
             </button>
             <button
               onClick={() => setIsDismissed(true)}

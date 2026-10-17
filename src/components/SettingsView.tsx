@@ -533,7 +533,7 @@ export default function SettingsView({
         const json = JSON.parse(rawContent);
         const effectiveUserId = activeUid || 'shared';
 
-        setRestoreStatus('Subiendo registros directamente a Cloud Firestore...');
+        setRestoreStatus('Subiendo registros a la nube...');
 
         const writePromises: Promise<any>[] = [];
         let writtenCount = 0;
@@ -722,7 +722,7 @@ export default function SettingsView({
         // Deactivate loading state
         setIsSyncing(false);
         setRestoringState(false);
-        const successMessage = `¡Restauración exitosa! Se escribieron ${writtenCount} registros directamente en Cloud Firestore.`;
+        const successMessage = `¡Restauración exitosa! Se escribieron ${writtenCount} registros en la nube.`;
         setRestoreStatus(successMessage);
         alert(successMessage);
 
@@ -733,7 +733,7 @@ export default function SettingsView({
         console.error('Error al restaurar JSON en Firestore:', err);
         setIsSyncing(false);
         setRestoringState(false);
-        const errorMessage = 'Error al restaurar en Firestore: ' + (err?.message || 'Formato no válido');
+        const errorMessage = 'Error al restaurar en la nube: ' + (err?.message || 'Formato no válido');
         setRestoreStatus(errorMessage);
         alert(errorMessage);
         setTimeout(() => {
@@ -1337,7 +1337,7 @@ export default function SettingsView({
                 <div className="flex items-center gap-2 flex-wrap">
                   <CheckCircle className="w-4 h-4 text-emerald-600" />
                   <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                    Almacenamiento Cloud Directo (Firebase)
+                    Almacenamiento en la Nube
                   </h4>
                   <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1532,7 +1532,7 @@ export default function SettingsView({
               </p>
               <label className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 px-4 py-2.5 rounded-xl font-bold text-xs cursor-pointer transition-colors shadow-2xs">
                 <Upload className="w-4 h-4 text-slate-600" />
-                <span>{isSyncing || restoringState ? 'Sincronizando con Cloud Firestore...' : 'Seleccionar y Cargar JSON'}</span>
+                <span>{isSyncing || restoringState ? 'Sincronizando con la nube...' : 'Seleccionar y Cargar JSON'}</span>
                 <input type="file" accept=".json" onChange={handleRestore} disabled={isSyncing || restoringState} className="hidden" />
               </label>
             </div>
@@ -1556,7 +1556,7 @@ export default function SettingsView({
                 Descargar Código Fuente y Archivos del Sistema (.ZIP)
               </h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                El código fuente de la aplicación (HTML, React, Vite, CSS, config) se entrega de forma controlada por el administrador, no desde un botón público dentro de la app. Con el código podrás desplegarlo en un hosting estático (Vercel, Netlify, Firebase Hosting, o tu propio servidor) y enlazarlo con tu dominio personalizado siguiendo la guía siguiente.
+                El código fuente de la aplicación se entrega de forma controlada por el administrador, no desde un botón público dentro de la app. Con el código podrás desplegarlo en tu propio hosting y enlazarlo con tu dominio personalizado siguiendo la guía siguiente.
               </p>
               <p className="text-[11px] text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 mb-4">
                 Nota de seguridad: la descarga automática del código desde la aplicación fue retirada porque exponía todo el proyecto sin autenticación.
@@ -1564,10 +1564,10 @@ export default function SettingsView({
 
               <div className="border-t border-slate-200/80 pt-4 mt-4 space-y-3 text-xs text-slate-600 leading-relaxed">
                 <h4 className="font-extrabold text-slate-800 text-sm flex items-center">
-                  🚀 Guía Paso a Paso para Desplegar en tu propio Firebase
+                  🚀 Guía Paso a Paso para Desplegar en tu propia Nube
                 </h4>
                 <p>
-                  Si deseas publicar la plataforma bajo tu propia cuenta de Firebase y conectar tu propio dominio personalizado, sigue estos sencillos comandos en tu terminal una vez que descomprimas el archivo ZIP:
+                  Si deseas publicar la plataforma bajo tu propia cuenta y conectar tu propio dominio personalizado, sigue estos sencillos comandos en tu terminal una vez que descomprimas el archivo ZIP:
                 </p>
                 <div className="bg-slate-900 text-emerald-400 p-4 rounded-xl font-mono text-[11px] leading-relaxed space-y-2 border border-slate-800">
                   <p className="text-slate-500"># 1. Instalar las herramientas de Firebase globalmente</p>
@@ -1582,7 +1582,7 @@ export default function SettingsView({
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-[11px] text-amber-800 flex items-start gap-2">
                   <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
                   <div>
-                    <strong className="font-extrabold">Nota Importante:</strong> El archivo ZIP ya incluye tu archivo de configuración de Firebase actual con la base de datos Firestore y las reglas de seguridad completamente configuradas. ¡No necesitas re-configurar nada! Al desplegar, tu base de datos permanecerá intacta y se sincronizará en tiempo real con el nuevo hosting.
+                    <strong className="font-extrabold">Nota Importante:</strong> El archivo ZIP ya incluye tu configuración actual con la base de datos en la nube y las reglas de seguridad completamente configuradas. ¡No necesitas re-configurar nada! Al desplegar, tu base de datos permanecerá intacta y se sincronizará en tiempo real con el nuevo hosting.
                   </div>
                 </div>
               </div>
@@ -1600,7 +1600,7 @@ export default function SettingsView({
                 </div>
 
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Puedes utilizar tu plataforma en celulares Android e iPhone de dos formas 100% compatibles con tu base de datos de Firebase:
+                  Puedes utilizar tu plataforma en celulares Android e iPhone de dos formas 100% compatibles con tu base de datos en la nube:
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1632,7 +1632,7 @@ export default function SettingsView({
                     <CheckCircle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
                     <span>Garantía de Seguridad e Integridad:</span>
                   </div>
-                  Tanto la versión Web como la versión en archivo APK descargado se conectan directamente a la **misma base de datos de Firebase (`innovacontratistas`)**. Generar un APK **NO altera ni modifica tus clientes, proyectos o la plataforma web**.
+                  Tanto la versión Web como la versión en archivo APK descargado se conectan directamente a la **misma base de datos central en la nube**. Generar un APK **NO altera ni modifica tus clientes, proyectos o la plataforma web**.
                 </div>
               </div>
             </div>

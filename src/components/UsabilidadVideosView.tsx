@@ -46,7 +46,8 @@ export interface CourseCategory {
   description?: string;
   createdAt?: string;
   isFree?: boolean; // Defaults to true
-  priceSoles?: number; // Soles price if paid
+  priceSoles?: number; // Soles price if paid (precio GENERAL del curso)
+  allowedUserIds?: string[]; // IDs de usuarios con acceso a TODO el curso (se habilita al validar la compra)
   isFeatured?: boolean; // Destacado
 }
 
@@ -430,11 +431,11 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           setUploadProgress(5);
           setUploadTotalBytes(selectedFile.size);
           setUploadBytesTransferred(0);
-          setUploadStatusMsg('Iniciando subida directa a Firebase Cloud Storage...');
+          setUploadStatusMsg('Iniciando subida a la nube...');
           setUploadError(null);
 
           try {
-            setUploadStatusMsg('Subiendo archivo de video a Firebase Cloud Storage...');
+            setUploadStatusMsg('Subiendo archivo de video a la nube...');
             const uploadedUrl = await uploadFileToFirebaseStorage(
               selectedFile,
               'videos',
@@ -442,14 +443,14 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 setUploadProgress(percent);
                 setUploadBytesTransferred(bytesTransferred);
                 setUploadTotalBytes(totalBytes);
-                setUploadStatusMsg(`Subiendo a Firebase Cloud... ${percent}%`);
+                setUploadStatusMsg(`Subiendo a la nube... ${percent}%`);
               }
             );
             finalVideoUrl = uploadedUrl;
             setUploadProgress(100);
           } catch (storageErr: any) {
             console.error('Error al subir video a Firebase Storage:', storageErr);
-            setVideoFormError(`No se pudo subir a Firebase Storage: ${storageErr.message || 'Error de almacenamiento'}.`);
+            setVideoFormError(`No se pudo subir a la nube: ${storageErr.message || 'Error de almacenamiento'}.`);
             setIsProcessingUpload(false);
             return;
           }
@@ -712,7 +713,13 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       return true;
     }
 
-    // Si es de pago, verificar si el colaborador o usuario cuenta con autorización
+    // ACCESO A NIVEL DE CURSO: si el usuario compró el curso completo, se habilitan
+    // TODAS sus clases automáticamente (se agrega al validar la compra).
+    if (currentUser?.id && parentCourse?.allowedUserIds?.includes(currentUser.id)) {
+      return true;
+    }
+
+    // Compatibilidad: acceso individual a una clase suelta.
     if (currentUser?.id && video.allowedUserIds?.includes(currentUser.id)) {
       return true;
     }
@@ -879,7 +886,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           <FileVideo className="w-12 h-12 text-slate-600 mb-2" />
           <p className="font-extrabold text-slate-300 text-xs">Video Local no Disponible</p>
           <p className="text-[10px] text-slate-500 max-w-xs mt-1">
-            Los videos subidos a Firebase Cloud Storage o enlaces externos están siempre disponibles en todos tus dispositivos.
+            Los videos subidos a la nube o enlaces externos están siempre disponibles en todos tus dispositivos.
           </p>
         </div>
       );
@@ -1077,7 +1084,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 </span>
               ) : (
                 <span className="text-[10px] font-black text-slate-900 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200 shadow-2xs">
-                  {getFormattedPrice(video.priceSoles || 39.90)}
+                  {getFormattedPrice(getEffectivePrice(video))}
                 </span>
               )}
             </div>
@@ -1127,7 +1134,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 className="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
               >
                 <Lock className="w-3.5 h-3.5 text-amber-400" />
-                <span className="truncate">Solicitar ({getFormattedPrice(video.priceSoles || 39.90)})</span>
+                <span className="truncate">Solicitar ({getFormattedPrice(getEffectivePrice(video))})</span>
               </button>
             )}
           </div>
@@ -1498,7 +1505,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                                 </span>
                               ) : (
                                 <span className="text-[10px] font-black text-slate-900 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
-                                  {getFormattedPrice(video.priceSoles || 39.90)}
+                                  {getFormattedPrice(getEffectivePrice(video))}
                                 </span>
                               )}
 
@@ -1548,7 +1555,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                               className="py-2 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
                             >
                               <Lock className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Solicitar ({getFormattedPrice(video.priceSoles || 39.90)})</span>
+                              <span>Solicitar ({getFormattedPrice(getEffectivePrice(video))})</span>
                             </button>
                           )}
 
@@ -2335,7 +2342,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                         : 'border-slate-200 hover:bg-slate-50 text-slate-600'
                     }`}
                   >
-                    <span>☁️ Subir Archivo (Firebase)</span>
+                    <span>☁️ Subir Archivo</span>
                     <span className="text-[9px] font-normal text-slate-500">Subir MP4 directo</span>
                   </button>
 
@@ -2376,7 +2383,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     ) : (
                       <div>
                         <p className="text-xs font-extrabold text-slate-700">Haz clic para cargar video</p>
-                        <p className="text-[10px] text-slate-400">MP4, WebM, MOV a Firebase Cloud</p>
+                        <p className="text-[10px] text-slate-400">MP4, WebM, MOV a la nube</p>
                       </div>
                     )}
                   </div>

@@ -1364,7 +1364,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                   Sincronización en la Nube
                 </span>
                 <span className="font-semibold text-emerald-700">
-                  Firebase Cloud Activo
+                  Nube Activa
                 </span>
               </div>
             </div>
