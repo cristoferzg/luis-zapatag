@@ -118,8 +118,8 @@ export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
   { id: 'tr4_040', nombre: 'Aluzinc TR-4 (0.40 mm - Comercial 4 Crestas)', espesorMm: 0.40, tipo: 'aluzinc_tr4', opacidadDefecto: 0.95, colorDefectoHex: 0x0284c7, ribHeightMm: 35, ribCountPerMeter: 4 },
   { id: 'tr4_045', nombre: 'Aluzinc TR-4 (0.45 mm - Industrial Semi-Pesado)', espesorMm: 0.45, tipo: 'aluzinc_tr4', opacidadDefecto: 0.98, colorDefectoHex: 0x0284c7, ribHeightMm: 35, ribCountPerMeter: 4 },
   { id: 'tr4_050', nombre: 'Aluzinc TR-4 (0.50 mm - Industrial Heavy Duty)', espesorMm: 0.50, tipo: 'aluzinc_tr4', opacidadDefecto: 1.0, colorDefectoHex: 0x334155, ribHeightMm: 35, ribCountPerMeter: 4 },
-  { id: 'tr5_050', nombre: 'Aluzinc TR-5 (0.50 mm - 5 Crestas Alta Carga)', espesorMm: 0.50, tipo: 'aluzinc_tr5', opacidadDefecto: 1.0, colorDefectoHex: 0x1e293b, ribHeightMm: 38, ribCountPerMeter: 5.2 },
-  { id: 'tr5_060', nombre: 'Aluzinc TR-5 (0.60 mm - Extra Robusto)', espesorMm: 0.60, tipo: 'aluzinc_tr5', opacidadDefecto: 1.0, colorDefectoHex: 0x475569, ribHeightMm: 38, ribCountPerMeter: 5.2 },
+  { id: 'tr5_050', nombre: 'Aluzinc TR-5 (0.50 mm - 5 Crestas Alta Carga)', espesorMm: 0.50, tipo: 'aluzinc_tr5', opacidadDefecto: 1.0, colorDefectoHex: 0x1e293b, ribHeightMm: 46, ribCountPerMeter: 5.2 },
+  { id: 'tr5_060', nombre: 'Aluzinc TR-5 (0.60 mm - Extra Robusto)', espesorMm: 0.60, tipo: 'aluzinc_tr5', opacidadDefecto: 1.0, colorDefectoHex: 0x475569, ribHeightMm: 48, ribCountPerMeter: 5.2 },
   { id: 'ondulada_025', nombre: 'Calamina Ondulada Zinc (0.25 mm - Económica)', espesorMm: 0.25, tipo: 'calamina_ondulada', opacidadDefecto: 1.0, colorDefectoHex: 0x94a3b8, ribHeightMm: 18, ribCountPerMeter: 8 },
   { id: 'ondulada_030', nombre: 'Calamina Ondulada Zinc (0.30 mm - Reforzada)', espesorMm: 0.30, tipo: 'calamina_ondulada', opacidadDefecto: 1.0, colorDefectoHex: 0x64748b, ribHeightMm: 18, ribCountPerMeter: 8 },
   { id: 'tr4_poly_trans', nombre: 'Policarbonato TR-4 Alveolar Traslúcido (Tragazul 6mm)', espesorMm: 6.0, tipo: 'policarbonato', opacidadDefecto: 0.45, colorDefectoHex: 0x38bdf8, ribHeightMm: 35, ribCountPerMeter: 4 },
@@ -1036,10 +1036,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const phase = ((zPos % period) + period) % period;
     const u = phase / period; // 0.0 a 1.0
 
-    // Geometría trapezoidal con cresta plana de 20%, flancos inclinados de 15% y valles de 50%
-    const riseRatio = 0.15;
-    const crownRatio = 0.20;
-    const fallRatio = 0.15;
+    // Geometría trapezoidal: TR-4 y TR-5 tienen FORMAS distintas.
+    //  • TR-4: cresta ancha y plana (comercial), valles anchos.
+    //  • TR-5: crestas más angostas y altas (flancos más inclinados, 5 crestas),
+    //    perfil más "marcado"/estructural → se ve claramente diferente al TR-4.
+    const esTR5 = tipo === 'aluzinc_tr5';
+    const riseRatio = esTR5 ? 0.22 : 0.15;
+    const crownRatio = esTR5 ? 0.12 : 0.20;
+    const fallRatio = esTR5 ? 0.22 : 0.15;
 
     if (u < riseRatio) {
       // Flanco de subida

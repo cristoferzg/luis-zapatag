@@ -21,7 +21,7 @@ import { Asesoria } from './components/AsesoriasView';
 import SoporteYAsesoriasView from './components/SoporteYAsesoriasView';
 import MaterialesYGastosView from './components/MaterialesYGastosView';
 import SettingsView from './components/SettingsView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench } from 'lucide-react';
 import DiseñadorView from './components/DiseñadorView';
 import HerreriaModuleView from './components/herreria/HerreriaModuleView';
 import TechosModuleView from './components/techos/TechosModuleView';
@@ -34,6 +34,7 @@ import PersonalYAsistenciaView from './components/PersonalYAsistenciaView';
 import UsabilidadVideosView, { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
 import { PreciosView } from './components/PreciosView';
 import ConcretoMetradosView from './components/ConcretoMetradosView';
+import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import defaultAdminLogo from './assets/images/logo_innova_oficial_1791000137990.jpg';
 
@@ -1524,17 +1525,20 @@ export default function App() {
   // Interruptores globales de apartados "en desarrollo": el admin decide qué
   // secciones se ocultan para los usuarios. Colección global (visible por todos).
   const [devFlags, setDevFlags] = useFirestoreArraySync<{ id: string; disabledSections: string[] }>('config_flags', 'global', true);
-  const disabledSections: string[] = devFlags[0]?.disabledSections || [];
+  // Leemos el documento 'nav_flags' por su id (no por posición), para que no se
+  // rompa si la colección global tuviera otros documentos de configuración.
+  const navFlagsDoc = devFlags.find(f => f.id === 'nav_flags');
+  const disabledSections: string[] = navFlagsDoc?.disabledSections || [];
   const setDisabledSections = (list: string[]) => {
-    setDevFlags([{ id: 'nav_flags', disabledSections: list }]);
+    // Preservamos cualquier otro documento de config_flags y solo actualizamos nav_flags.
+    setDevFlags(prev => [
+      { id: 'nav_flags', disabledSections: Array.from(new Set(list)) },
+      ...prev.filter(f => f.id !== 'nav_flags'),
+    ]);
   };
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
   // Contexto para el control de acceso a la IA (admin ilimitado; usuarios por plan).
   useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
-  // Si un usuario está viendo una sección que el admin ocultó, lo regresamos al panel.
-  useEffect(() => {
-    if (!isAdmin && disabledSections.includes(currentView)) setCurrentView('dashboard');
-  }, [disabledSections.join(','), currentView, isAdmin]);
 
   // Strict isolation fallback: Filter arrays to strictly prevent cross-account leakage.
   // The Admin sees ONLY their own records where userId matches administrative tags ('admin', 'user_admin', 'shared', or 'user').
@@ -1912,6 +1916,12 @@ export default function App() {
   };
 
   const renderView = () => {
+    // Si un usuario (no admin) entra a un apartado en desarrollo, mostramos la
+    // pantalla de mantenimiento en vez del módulo real.
+    if (!isAdmin && currentView !== 'dashboard' && disabledSections.includes(currentView)) {
+      const secLabel = allNavItems.find(it => it.id === currentView)?.label;
+      return <MantenimientoView seccion={secLabel} appName={currentSettings?.appName} onVolver={() => setCurrentView('dashboard')} />;
+    }
     switch (currentView) {
       case 'dashboard': return <DashboardView projects={filteredProjects} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} />;
       case 'admin_purchases': return <AdminPurchasesView />;
@@ -2110,8 +2120,9 @@ export default function App() {
   const navItems = isAdmin
     // El admin ve todo; las secciones ocultas para usuarios se marcan "en desarrollo".
     ? allNavItems.map(item => ({ ...item, enDesarrollo: disabledSections.includes(item.id) }))
-    // Los usuarios no ven las secciones solo-admin ni las que estén en desarrollo.
-    : allNavItems.filter(item => !item.adminOnly && !disabledSections.includes(item.id));
+    // Los usuarios no ven las secciones solo-admin; las que están en desarrollo se
+    // muestran con la etiqueta "Mantenimiento" (al entrar ven una pantalla bonita).
+    : allNavItems.filter(item => !item.adminOnly).map(item => ({ ...item, enMantenimiento: disabledSections.includes(item.id) }));
 
   const rawDisplayName = isAdmin ? (user?.name || user?.email || 'Administrador') : user?.name;
   const cleanUserName = (rawDisplayName && rawDisplayName.toLowerCase().includes('newton')) ? 'Innova Contratistas' : (rawDisplayName || 'Administrador');
@@ -2200,6 +2211,7 @@ export default function App() {
               const Icon = item.icon;
               const isActive = currentView === item.id;
               const enDesarrollo = (item as any).enDesarrollo;
+              const enMantenimiento = (item as any).enMantenimiento;
               return (
                 <button
                   key={item.id}
@@ -2219,6 +2231,11 @@ export default function App() {
                   ) : null}
                   {!isSidebarCollapsed && enDesarrollo ? (
                     <span className="ml-auto text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-0.5">EN DESARROLLO</span>
+                  ) : null}
+                  {!isSidebarCollapsed && enMantenimiento ? (
+                    <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-0.5">
+                      <Wrench className="w-2.5 h-2.5" /> MANTENIMIENTO
+                    </span>
                   ) : null}
                 </button>
               );            })}
