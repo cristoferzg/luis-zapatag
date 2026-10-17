@@ -1,538 +1,506 @@
-// Lámina de Plano CAD Arquitectónico y Estructural CM-02 Exclusiva para Techos Metálicos
-// Planos 2D de Elevación y Planta Estructural con cotas, ejes, correas y tijerales RNE
-import React, { useState } from 'react';
-import { Compass, Printer } from 'lucide-react';
+// =============================================================================
+// Lámina de Plano CAD Estructural (CM-02) para Techos Metálicos.
+//
+// A diferencia de la versión anterior (dibujos fijos), ESTA lámina se genera
+// a partir de la GEOMETRÍA REAL del diseño (nodos y segmentos X/Y/Z del motor
+// CAD). Proyecta 3 vistas ortográficas de verdad:
+//   • ELEVACIÓN FRONTAL (pórtico transversal)  →  plano X-Y
+//   • ELEVACIÓN LATERAL (longitudinal)         →  plano Z-Y
+//   • PLANTA DE TECHO                          →  plano X-Z
+// Con cotas automáticas, ejes, cuadro de perfiles reales y modo impresión
+// que aísla la lámina (oculta toda la interfaz de la plataforma).
+// =============================================================================
+import React, { useMemo, useState } from 'react';
+import { Compass, Printer, LayoutGrid } from 'lucide-react';
+import type { Node3D, Segment3D } from './techosCadEngineTypes';
+import type { UseTechosCadEngineReturn } from './useTechosCadEngineState';
+import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 
 interface TechosPlanoCadViewProps {
+  engineState?: UseTechosCadEngineReturn;
+  nombreProyecto?: string;
+  // Compatibilidad hacia atrás (ya no se usa para dibujar).
   design?: any;
 }
 
-export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ design }) => {
-  const [selectedVistaTijeral, setSelectedVistaTijeral] = useState<
-    | 'escalera_vierendeel' 
-    | 'dos_aguas_fink' 
-    | 'dos_aguas_howe' 
-    | 'dos_aguas_pratt' 
-    | 'dientes_sierra' 
-    | 'cuatro_aguas' 
-    | 'seis_aguas' 
-    | 'mansarda' 
-    | 'mariposa' 
-    | 'curvo_autoportante' 
-    | 'monitor' 
-    | 'parabolico' 
-    | 'viga_warren'
-  >('escalera_vierendeel');
-  const [activePlanoTab, setActivePlanoTab] = useState<'ambos' | 'elevacion' | 'planta'>('ambos');
+type VistaTab = 'todas' | 'frontal' | 'lateral' | 'planta';
 
-  const handleImprimirPlano = () => {
-    window.print();
+// Color de cada rol estructural en la lámina (legible en pantalla e impresión).
+const ROL_COLOR: Record<string, string> = {
+  columna: '#1e293b',
+  columna_concreto: '#78716c',
+  cordon_superior: '#d97706',
+  cordon_inferior: '#059669',
+  montante: '#7c3aed',
+  diagonal: '#0891b2',
+  correa: '#0284c7',
+  viga_principal: '#d97706',
+  viga_secundaria: '#059669',
+  tensor_viento: '#10b981',
+  arriostre: '#10b981',
+  piso_deck: '#64748b',
+  baranda: '#64748b',
+  escalera: '#64748b',
+  placa_base: '#f59e0b',
+  cartela: '#94a3b8',
+};
+const ROL_WIDTH: Record<string, number> = {
+  columna: 3.2, columna_concreto: 3.6, cordon_superior: 2.6, cordon_inferior: 2.6,
+  viga_principal: 2.6, viga_secundaria: 2.2, montante: 1.4, diagonal: 1.4,
+  correa: 1.3, tensor_viento: 1, arriostre: 1,
+};
+const ROL_LABEL: Record<string, string> = {
+  columna: 'Columnas', columna_concreto: 'Columnas de concreto',
+  cordon_superior: 'Cordón superior (tijeral)', cordon_inferior: 'Cordón inferior (tijeral)',
+  montante: 'Montantes', diagonal: 'Diagonales / celosía', correa: 'Correas de techo',
+  viga_principal: 'Vigas principales', viga_secundaria: 'Vigas secundarias',
+  tensor_viento: 'Tensores de viento', arriostre: 'Arriostres / cruces',
+  piso_deck: 'Piso / deck', baranda: 'Barandas', escalera: 'Escaleras',
+  placa_base: 'Placas base', cartela: 'Cartelas',
+};
+
+const fmt = (m: number) => (Math.round(m * 100) / 100).toFixed(2);
+const EPS = 0.02;
+
+// Canvas de cada vista (coordenadas internas del SVG).
+const VB_W = 760;
+const VB_H = 360;
+const PAD = 58;
+
+interface ProjSeg { x1: number; y1: number; x2: number; y2: number; rol: string; }
+interface Mapper { X: (h: number) => number; Y: (v: number) => number; scale: number; }
+
+function makeMapper(hMin: number, hMax: number, vMin: number, vMax: number): Mapper {
+  const spanH = Math.max(hMax - hMin, 0.001);
+  const spanV = Math.max(vMax - vMin, 0.001);
+  const availW = VB_W - 2 * PAD;
+  const availH = VB_H - 2 * PAD;
+  const scale = Math.min(availW / spanH, availH / spanV);
+  const drawW = spanH * scale;
+  const drawH = spanV * scale;
+  const offX = PAD + (availW - drawW) / 2;
+  const offY = PAD + (availH - drawH) / 2;
+  return {
+    scale,
+    X: (h: number) => offX + (h - hMin) * scale,
+    Y: (v: number) => offY + (vMax - v) * scale, // eje vertical invertido (arriba = +)
+  };
+}
+
+// Cota horizontal (con marcas de arquitecto en los extremos y etiqueta).
+const CotaH: React.FC<{ xa: number; xb: number; y: number; label: string; color?: string }> = ({ xa, xb, y, label, color = '#1d4ed8' }) => (
+  <g>
+    <line x1={xa} y1={y} x2={xb} y2={y} stroke={color} strokeWidth={0.8} />
+    <line x1={xa} y1={y - 5} x2={xa} y2={y + 5} stroke={color} strokeWidth={0.8} />
+    <line x1={xb} y1={y - 5} x2={xb} y2={y + 5} stroke={color} strokeWidth={0.8} />
+    <line x1={xa - 3} y1={y + 3} x2={xa + 3} y2={y - 3} stroke={color} strokeWidth={1} />
+    <line x1={xb - 3} y1={y + 3} x2={xb + 3} y2={y - 3} stroke={color} strokeWidth={1} />
+    <rect x={(xa + xb) / 2 - 26} y={y - 10} width={52} height={11} fill="#ffffff" />
+    <text x={(xa + xb) / 2} y={y - 1.5} fill={color} fontSize={8.5} fontWeight="bold" textAnchor="middle">{label}</text>
+  </g>
+);
+
+// Cota vertical.
+const CotaV: React.FC<{ ya: number; yb: number; x: number; label: string; color?: string }> = ({ ya, yb, x, label, color = '#1d4ed8' }) => (
+  <g>
+    <line x1={x} y1={ya} x2={x} y2={yb} stroke={color} strokeWidth={0.8} />
+    <line x1={x - 5} y1={ya} x2={x + 5} y2={ya} stroke={color} strokeWidth={0.8} />
+    <line x1={x - 5} y1={yb} x2={x + 5} y2={yb} stroke={color} strokeWidth={0.8} />
+    <line x1={x - 3} y1={ya + 3} x2={x + 3} y2={ya - 3} stroke={color} strokeWidth={1} />
+    <line x1={x - 3} y1={yb + 3} x2={x + 3} y2={yb - 3} stroke={color} strokeWidth={1} />
+    <g transform={`rotate(-90 ${x - 8} ${(ya + yb) / 2})`}>
+      <rect x={x - 8 - 26} y={(ya + yb) / 2 - 6} width={52} height={11} fill="#ffffff" />
+      <text x={x - 8} y={(ya + yb) / 2 + 3} fill={color} fontSize={8.5} fontWeight="bold" textAnchor="middle">{label}</text>
+    </g>
+  </g>
+);
+
+const EjeBubble: React.FC<{ cx: number; cy: number; label: string }> = ({ cx, cy, label }) => (
+  <g>
+    <circle cx={cx} cy={cy} r={8} fill="#ffffff" stroke="#0f172a" strokeWidth={1} />
+    <text x={cx} y={cy + 3} fill="#0f172a" fontSize={8} fontWeight="bold" textAnchor="middle">{label}</text>
+  </g>
+);
+
+export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineState, nombreProyecto, design }) => {
+  const [tab, setTab] = useState<VistaTab>('todas');
+
+  const nodes = engineState?.nodes || {};
+  const segments = engineState?.segments || {};
+
+  // ---- Análisis geométrico del diseño real -------------------------------
+  const info = useMemo(() => {
+    const nArr = Object.values(nodes) as Node3D[];
+    const sArr = Object.values(segments) as Segment3D[];
+    const getN = (id: string) => nodes[id];
+
+    if (sArr.length === 0 || nArr.length === 0) {
+      return { vacio: true } as any;
+    }
+
+    const xs = nArr.map(n => n.x), ys = nArr.map(n => n.y), zs = nArr.map(n => n.z);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+    const luz = maxX - minX;
+    const altura = maxY - minY;
+    const largo = maxZ - minZ;
+
+    // Pórticos (ejes transversales): z únicos de nodos de columna.
+    const colZ = new Set<number>();
+    sArr.forEach(s => {
+      if (s.rolEstructural === 'columna' || s.rolEstructural === 'columna_concreto') {
+        const a = getN(s.nodeAId), b = getN(s.nodeBId);
+        if (a) colZ.add(Math.round(a.z * 100) / 100);
+        if (b) colZ.add(Math.round(b.z * 100) / 100);
+      }
+    });
+    const framesZ = Array.from(colZ).sort((a, b) => a - b);
+    const nPorticos = framesZ.length || 1;
+    const separacion = nPorticos > 1 ? largo / (nPorticos - 1) : 0;
+
+    // Frame transversal con más miembros (el tijeral típico) para la elevación.
+    const zCount: Record<string, number> = {};
+    sArr.forEach(s => {
+      const a = getN(s.nodeAId), b = getN(s.nodeBId);
+      if (!a || !b) return;
+      if (Math.abs(a.z - b.z) < EPS) {
+        const k = (Math.round(a.z * 100) / 100).toFixed(2);
+        zCount[k] = (zCount[k] || 0) + 1;
+      }
+    });
+    let frontZ = framesZ[0] ?? 0;
+    let best = -1;
+    Object.entries(zCount).forEach(([k, c]) => { if (c > best) { best = c; frontZ = parseFloat(k); } });
+
+    // Altura de columna y de cumbrera (para cotas de la elevación).
+    const alturaCol = (() => {
+      const tops = nArr.filter(n => Math.abs(n.x - minX) < EPS || Math.abs(n.x - maxX) < EPS);
+      // el "alero" = y de los nodos superiores de columnas
+      const colTops = sArr.filter(s => s.rolEstructural === 'columna' || s.rolEstructural === 'columna_concreto')
+        .map(s => { const a = getN(s.nodeAId), b = getN(s.nodeBId); return Math.max(a?.y ?? 0, b?.y ?? 0); });
+      return colTops.length ? Math.min(...colTops) : (tops.length ? Math.max(...tops.map(n => n.y)) : altura);
+    })();
+
+    // Perfiles realmente usados, agrupados por rol.
+    const perfMap = new Map<string, Set<string>>();
+    const rolCount: Record<string, number> = {};
+    sArr.forEach(s => {
+      rolCount[s.rolEstructural] = (rolCount[s.rolEstructural] || 0) + 1;
+      if (!perfMap.has(s.rolEstructural)) perfMap.set(s.rolEstructural, new Set());
+      const p = INVENTARIO_PERFILES_TUBULARES.find(pp => pp.id === s.profileId);
+      if (p) perfMap.get(s.rolEstructural)!.add(p.nombre);
+    });
+    const cuadro = Array.from(perfMap.entries()).map(([rol, set]) => ({
+      rol,
+      label: ROL_LABEL[rol] || rol,
+      perfiles: Array.from(set).join(' · ') || '—',
+      cantidad: rolCount[rol] || 0,
+    })).sort((a, b) => (ROL_WIDTH[b.rol] || 0) - (ROL_WIDTH[a.rol] || 0));
+
+    return {
+      vacio: false, nArr, sArr, getN, minX, maxX, minY, maxY, minZ, maxZ,
+      luz, altura, largo, framesZ, nPorticos, separacion, frontZ, alturaCol, cuadro,
+    };
+  }, [nodes, segments]);
+
+  const handleImprimir = () => window.print();
+  const nombreProy = nombreProyecto || design?.nombre || 'ESTRUCTURA DE TECHO Y COBERTURA METÁLICA';
+
+  // --------- Constructores de cada vista (proyección real) ----------------
+  const buildFrontal = () => {
+    const { getN, frontZ, minX, maxX, minY, maxY } = info;
+    const segs: ProjSeg[] = [];
+    info.sArr.forEach((s: Segment3D) => {
+      const a = getN(s.nodeAId), b = getN(s.nodeBId);
+      if (!a || !b) return;
+      // Solo miembros del pórtico transversal elegido (ambos nodos en ese z).
+      if (Math.abs(a.z - frontZ) < EPS && Math.abs(b.z - frontZ) < EPS) {
+        segs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, rol: s.rolEstructural });
+      }
+    });
+    const m = makeMapper(minX, maxX, Math.min(0, minY), maxY);
+    return { segs, m };
   };
 
-  const nombreProy = design?.nombre || 'ESTRUCTURA DE TECHO Y COBERTURA CUBIERTA';
+  const buildLateral = () => {
+    const { getN, minZ, maxZ, minY, maxY } = info;
+    const segs: ProjSeg[] = [];
+    info.sArr.forEach((s: Segment3D) => {
+      const a = getN(s.nodeAId), b = getN(s.nodeBId);
+      if (!a || !b) return;
+      segs.push({ x1: a.z, y1: a.y, x2: b.z, y2: b.y, rol: s.rolEstructural });
+    });
+    const m = makeMapper(minZ, maxZ, Math.min(0, minY), maxY);
+    return { segs, m };
+  };
+
+  const buildPlanta = () => {
+    const { getN, minX, maxX, minZ, maxZ } = info;
+    const segs: ProjSeg[] = [];
+    info.sArr.forEach((s: Segment3D) => {
+      const a = getN(s.nodeAId), b = getN(s.nodeBId);
+      if (!a || !b) return;
+      // Orientación convencional: largo (z) horizontal, luz (x) vertical.
+      segs.push({ x1: a.z, y1: a.x, x2: b.z, y2: b.x, rol: s.rolEstructural });
+    });
+    const m = makeMapper(minZ, maxZ, minX, maxX);
+    return { segs, m };
+  };
+
+  const renderSegs = (segs: ProjSeg[], m: Mapper) =>
+    segs.map((s, i) => (
+      <line key={i}
+        x1={m.X(s.x1)} y1={m.Y(s.y1)} x2={m.X(s.x2)} y2={m.Y(s.y2)}
+        stroke={ROL_COLOR[s.rol] || '#334155'} strokeWidth={ROL_WIDTH[s.rol] || 1.4}
+        strokeLinecap="round"
+      />
+    ));
+
+  // --------- SVG de cada vista -------------------------------------------
+  const SvgFrontal = () => {
+    const { segs, m } = buildFrontal();
+    const { minX, maxX, alturaCol, maxY } = info;
+    const yBase = m.Y(0);
+    return (
+      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full bg-white border border-slate-200 rounded-lg" style={{ height: 'auto' }}>
+        {/* Línea de suelo N.P.T. */}
+        <line x1={PAD - 10} y1={yBase} x2={VB_W - PAD + 10} y2={yBase} stroke="#64748b" strokeWidth={1.2} strokeDasharray="7 4" />
+        <text x={PAD - 8} y={yBase + 13} fill="#64748b" fontSize={8} fontFamily="sans-serif">N.P.T. ±0.00</text>
+        {renderSegs(segs, m)}
+        {/* Cota de luz total (abajo) */}
+        <CotaH xa={m.X(minX)} xb={m.X(maxX)} y={yBase + 30} label={`LUZ = ${fmt(info.luz)} m`} />
+        {/* Cota de altura de columna (izquierda) */}
+        <CotaV ya={m.Y(alturaCol)} yb={m.Y(0)} x={m.X(minX) - 24} label={`H col = ${fmt(alturaCol)} m`} />
+        {/* Cota de altura total a cumbrera (derecha) */}
+        <CotaV ya={m.Y(maxY)} yb={m.Y(0)} x={m.X(maxX) + 30} label={`H total = ${fmt(info.altura)} m`} />
+        {/* Ejes A / B */}
+        <EjeBubble cx={m.X(minX)} cy={yBase + 50} label="A" />
+        <EjeBubble cx={m.X(maxX)} cy={yBase + 50} label="B" />
+      </svg>
+    );
+  };
+
+  const SvgLateral = () => {
+    const { segs, m } = buildLateral();
+    const { minZ, maxZ, framesZ, alturaCol } = info;
+    const yBase = m.Y(0);
+    return (
+      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full bg-white border border-slate-200 rounded-lg" style={{ height: 'auto' }}>
+        <line x1={PAD - 10} y1={yBase} x2={VB_W - PAD + 10} y2={yBase} stroke="#64748b" strokeWidth={1.2} strokeDasharray="7 4" />
+        <text x={PAD - 8} y={yBase + 13} fill="#64748b" fontSize={8} fontFamily="sans-serif">N.P.T. ±0.00</text>
+        {renderSegs(segs, m)}
+        {/* Cota de largo total (abajo) */}
+        <CotaH xa={m.X(minZ)} xb={m.X(maxZ)} y={yBase + 30}
+          label={`LARGO = ${fmt(info.largo)} m${info.nPorticos > 1 ? ` (${info.nPorticos - 1} tramos @ ${fmt(info.separacion)} m)` : ''}`} />
+        {/* Cota de altura (izquierda) */}
+        <CotaV ya={m.Y(alturaCol)} yb={m.Y(0)} x={m.X(minZ) - 24} label={`H = ${fmt(alturaCol)} m`} />
+        {/* Ejes de pórtico 1..n */}
+        {framesZ.map((z: number, i: number) => <EjeBubble key={i} cx={m.X(z)} cy={yBase + 50} label={`${i + 1}`} />)}
+      </svg>
+    );
+  };
+
+  const SvgPlanta = () => {
+    const { segs, m } = buildPlanta();
+    const { minX, maxX, minZ, maxZ, framesZ } = info;
+    // Columnas como cuadritos (proyectadas a z-horizontal, x-vertical).
+    const colPts: { x: number; z: number }[] = [];
+    info.sArr.forEach((s: Segment3D) => {
+      if (s.rolEstructural === 'columna' || s.rolEstructural === 'columna_concreto') {
+        const a = info.getN(s.nodeAId);
+        if (a) colPts.push({ x: a.x, z: a.z });
+      }
+    });
+    return (
+      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full bg-white border border-slate-200 rounded-lg" style={{ height: 'auto' }}>
+        {renderSegs(segs, m)}
+        {/* Columnas (h=z, v=x) */}
+        {colPts.map((p, i) => (
+          <rect key={i} x={m.X(p.z) - 4} y={m.Y(p.x) - 4} width={8} height={8} fill="#1e293b" stroke="#000" strokeWidth={0.5} />
+        ))}
+        {/* Cotas: largo (abajo, horizontal) y luz (izquierda, vertical) */}
+        <CotaH xa={m.X(minZ)} xb={m.X(maxZ)} y={m.Y(minX) + 26} label={`LARGO = ${fmt(info.largo)} m`} />
+        <CotaV ya={m.Y(maxX)} yb={m.Y(minX)} x={m.X(minZ) - 24} label={`LUZ = ${fmt(info.luz)} m`} />
+        {/* Ejes: números (pórticos, z) abajo; letras A/B (x) a la izquierda */}
+        {framesZ.map((z: number, i: number) => <EjeBubble key={i} cx={m.X(z)} cy={m.Y(minX) + 46} label={`${i + 1}`} />)}
+        <EjeBubble cx={m.X(minZ) - 44} cy={m.Y(minX)} label="A" />
+        <EjeBubble cx={m.X(minZ) - 44} cy={m.Y(maxX)} label="B" />
+      </svg>
+    );
+  };
+
+  const Leyenda = () => {
+    const roles = info.vacio ? [] : (info.cuadro as any[]).map(c => c.rol);
+    return (
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[9px] font-sans">
+        {roles.map((r: string) => (
+          <div key={r} className="flex items-center gap-1.5">
+            <span className="inline-block w-5 h-[3px] rounded" style={{ background: ROL_COLOR[r] || '#334155' }} />
+            <span className="text-slate-600 font-semibold">{ROL_LABEL[r] || r}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const Vista: React.FC<{ titulo: string; sub: string; children: React.ReactNode; wide?: boolean }> = ({ titulo, sub, children, wide }) => (
+    <div className={`border border-slate-300 p-3 rounded-xl bg-slate-50/70 ${wide ? 'lg:col-span-2' : ''}`}>
+      <div className="text-[10px] font-black uppercase text-slate-800 mb-2 border-b border-slate-300 pb-1 flex items-center justify-between gap-2">
+        <span>{titulo}</span>
+        <span className="text-amber-700 text-[9px] font-bold whitespace-nowrap">{sub}</span>
+      </div>
+      {children}
+    </div>
+  );
 
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-6 font-sans select-none">
-      {/* BARRA DE IMPRESIÓN Y CONTROLES */}
+      {/* CSS de impresión: oculta TODA la plataforma y deja solo la lámina. */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #techos-plano-lamina, #techos-plano-lamina * { visibility: visible !important; }
+          #techos-plano-lamina {
+            position: absolute; left: 0; top: 0;
+            width: 100% !important; max-width: 100% !important;
+            margin: 0 !important; padding: 0 !important;
+            box-shadow: none !important; border: none !important;
+            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+          }
+          #techos-plano-lamina * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          @page { size: A4 landscape; margin: 8mm; }
+        }
+      `}</style>
+
+      {/* BARRA DE CONTROLES (no se imprime) */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
-            <Compass className="w-5 h-5" />
-          </div>
+          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600"><Compass className="w-5 h-5" /></div>
           <div>
-            <h2 className="text-base font-black text-slate-900">LÁMINA CAD ESTRUCTURAL DE TECHO (CM-02)</h2>
-            <p className="text-xs text-slate-500">Planos 2D de Elevación Frontal y Planta de Techo acotados con ejes y correas.</p>
+            <h2 className="text-base font-black text-slate-900">LÁMINA CAD ESTRUCTURAL (CM-02)</h2>
+            <p className="text-xs text-slate-500">Vistas reales de tu diseño: elevación frontal, lateral y planta, acotadas automáticamente.</p>
           </div>
         </div>
-
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Selector de Vistas de Lámina */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-            <button
-              onClick={() => setActivePlanoTab('ambos')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                activePlanoTab === 'ambos' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Elevación + Planta
-            </button>
-            <button
-              onClick={() => setActivePlanoTab('elevacion')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                activePlanoTab === 'elevacion' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Elevación
-            </button>
-            <button
-              onClick={() => setActivePlanoTab('planta')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                activePlanoTab === 'planta' ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Planta Techo
-            </button>
+            {([['todas', 'Todas'], ['frontal', 'Frontal'], ['lateral', 'Lateral'], ['planta', 'Planta']] as [VistaTab, string][]).map(([k, lbl]) => (
+              <button key={k} onClick={() => setTab(k)}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${tab === k ? 'bg-amber-500 text-slate-950 font-black shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}>
+                {lbl}
+              </button>
+            ))}
           </div>
-
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
-            <span className="text-[10px] font-bold text-slate-500 px-1.5">Tipología:</span>
-            <select
-              value={selectedVistaTijeral}
-              onChange={(e) => setSelectedVistaTijeral(e.target.value as any)}
-              className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 outline-none cursor-pointer"
-            >
-              <option value="escalera_vierendeel">🪜 Tijeral Escalera / Vierendeel</option>
-              <option value="dientes_sierra">🏭 Dientes de Sierra (Sheds)</option>
-              <option value="cuatro_aguas">🏛️ A Cuatro Aguas (Piramidal)</option>
-              <option value="seis_aguas">🏯 A Seis Aguas (Hexagonal)</option>
-              <option value="mansarda">🏚️ Mansarda (Gambrel)</option>
-              <option value="mariposa">🦋 Techo Mariposa (V)</option>
-              <option value="curvo_autoportante">🌈 Curvo Autoportante (Span)</option>
-              <option value="monitor">🏭 Monitor / Linterna Cenital</option>
-              <option value="dos_aguas_fink">🏠 2 Aguas Fink (W)</option>
-              <option value="dos_aguas_pratt">📐 2 Aguas Pratt</option>
-              <option value="dos_aguas_howe">🏛️ 2 Aguas Howe</option>
-              <option value="parabolico">🏟️ Parabólico Warren</option>
-              <option value="viga_warren">🏢 Viga Plana Warren (Joist)</option>
-              <option value="tijeral_longitudinal">🏗️ Tijeral Longitudinal Warren/Pratt</option>
-              <option value="tijeral_perimetral">🏛️ Tijeral Perimetral / Tímpano Fachada</option>
-            </select>
-          </div>
-
-          <button
-            onClick={handleImprimirPlano}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            <span>IMPRIMIR PLANO CAD</span>
+          <button onClick={handleImprimir}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer">
+            <Printer className="w-4 h-4" /><span>IMPRIMIR PLANO</span>
           </button>
         </div>
       </div>
 
-      {/* LÁMINA DE PLANO ESTRUCTURAL CM-02 */}
-      <div className="bg-white text-slate-900 rounded-2xl p-6 sm:p-8 max-w-6xl mx-auto shadow-sm border border-slate-300 font-mono text-xs print:shadow-none print:p-0 print:border-none space-y-6">
-        
-        {/* TITULO DE LÁMINA Y ESPECIFICACIONES TÉCNICAS */}
+      {/* LÁMINA (lo único que se imprime) */}
+      <div id="techos-plano-lamina" className="bg-white text-slate-900 rounded-2xl p-6 sm:p-8 max-w-6xl mx-auto shadow-sm border border-slate-300 font-mono text-xs space-y-6">
+
+        {/* Cartela superior */}
         <div className="border-b-2 border-slate-900 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <h1 className="text-base font-black uppercase text-slate-900">PROYECTO: {nombreProy}</h1>
-            <p className="text-[10px] text-slate-600 font-bold mt-0.5">SISTEMA ESTRUCTURAL DE TIJERALES, CORREAS Y PLANO DE COBERTURA</p>
+            <p className="text-[10px] text-slate-600 font-bold mt-0.5">SISTEMA DE TIJERALES, CORREAS Y COBERTURA — PLANO GENERADO DEL MODELO 3D</p>
           </div>
           <div className="text-left sm:text-right border-l-2 border-slate-900 pl-4">
             <span className="text-xs font-black text-amber-700 block">LÁMINA: CM-02</span>
-            <span className="text-[10px] text-slate-500 block">ESCALA: 1:50 / 1:75</span>
+            <span className="text-[10px] text-slate-500 block">ESCALA GRÁFICA S/C</span>
           </div>
         </div>
 
-        {/* CONTENIDO DIBUJOS CAD 2D */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 border-b-2 border-slate-900 pb-6">
-          
-          {/* DETALLE 1: PLANO DE ELEVACIÓN DE TIJERAL */}
-          {(activePlanoTab === 'ambos' || activePlanoTab === 'elevacion') && (
-            <div className={`border border-slate-300 p-4 rounded-xl bg-slate-50/70 relative ${activePlanoTab === 'elevacion' ? 'lg:col-span-2' : ''}`}>
-              <div className="text-[10px] font-black uppercase text-slate-800 mb-2 border-b border-slate-300 pb-1 flex items-center justify-between">
-                <span>DETALLE 01: ELEVACIÓN FRONTAL TIJERAL T-01 (ESC 1:50)</span>
-                <span className="text-amber-700 text-[9px] font-bold">LUZ = 12.00m • H_COL = 4.50m</span>
-              </div>
-
-              <svg viewBox="0 0 500 250" className="w-full h-56 bg-white border border-slate-200 rounded-lg p-2">
-                {/* Línea de suelo */}
-                <line x1="20" y1="210" x2="480" y2="210" stroke="#64748b" strokeWidth="2" strokeDasharray="6 3" />
-                <text x="25" y="222" fill="#64748b" fontSize="8" fontFamily="sans-serif">N.P.T. ±0.00</text>
-
-                {/* Pedestales de concreto */}
-                <rect x="50" y="195" width="20" height="15" fill="#94a3b8" stroke="#334155" strokeWidth="1" />
-                <rect x="430" y="195" width="20" height="15" fill="#94a3b8" stroke="#334155" strokeWidth="1" />
-
-                {/* Placas base y columnas */}
-                <rect x="55" y="90" width="10" height="105" fill="#1e293b" />
-                <rect x="435" y="90" width="10" height="105" fill="#1e293b" />
-                <rect x="50" y="192" width="20" height="3" fill="#f59e0b" stroke="#000" strokeWidth="0.5" />
-                <rect x="430" y="192" width="20" height="3" fill="#f59e0b" stroke="#000" strokeWidth="0.5" />
-
-                {/* Ejes A y B */}
-                <circle cx="60" cy="235" r="7" fill="#ffffff" stroke="#0f172a" strokeWidth="1" />
-                <text x="60" y="238" fill="#0f172a" fontSize="8" fontWeight="bold" textAnchor="middle">A</text>
-                <circle cx="440" cy="235" r="7" fill="#ffffff" stroke="#0f172a" strokeWidth="1" />
-                <text x="440" y="238" fill="#0f172a" fontSize="8" fontWeight="bold" textAnchor="middle">B</text>
-
-                {/* Cota Altura Columna */}
-                <line x1="40" y1="90" x2="40" y2="195" stroke="#94a3b8" strokeWidth="1" />
-                <text x="35" y="145" fill="#475569" fontSize="8" textAnchor="end">H=4.50m</text>
-
-                {/* RENDERIZADO DEL TIJERAL SEGÚN TIPOLOGÍA */}
-                {selectedVistaTijeral === 'escalera_vierendeel' ? (
-                  /* TIJERAL TIPO ESCALERA / VIERENDEEL (Montantes a 90° sin diagonales) */
-                  <g>
-                    {/* Cordón Inferior */}
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    {/* Cordón Superior Izq y Der */}
-                    <line x1="60" y1="90" x2="250" y2="35" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="250" y1="35" x2="440" y2="90" stroke="#f59e0b" strokeWidth="3" />
-                    {/* Montante Central de Cumbrera */}
-                    <line x1="250" y1="35" x2="250" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    {/* Montantes Intermedios a 90° Perpendiculares (Sin Diagonales) */}
-                    <line x1="107" y1="76" x2="107" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="155" y1="62" x2="155" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="202" y1="49" x2="202" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="298" y1="49" x2="298" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="345" y1="62" x2="345" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="393" y1="76" x2="393" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    
-                    {/* Indicador Rotulado de Vanos Tipo Escalera */}
-                    <text x="250" y="24" fill="#10b981" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      TIJERAL ESCALERA (VIERENDEEL) - MONTANTES A 90°
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'parabolico' ? (
-                  /* Arco Parabólico */
-                  <g>
-                    <path d="M 60 90 Q 250 20 440 90" fill="none" stroke="#f59e0b" strokeWidth="3" />
-                    <path d="M 60 90 Q 250 50 440 90" fill="none" stroke="#10b981" strokeWidth="3" />
-                    <line x1="120" y1="73" x2="120" y2="84" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="180" y1="46" x2="180" y2="65" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="250" y1="20" x2="250" y2="50" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="320" y1="46" x2="320" y2="65" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="380" y1="73" x2="380" y2="84" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="60" y1="90" x2="120" y2="73" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="120" y1="84" x2="180" y2="46" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="180" y1="65" x2="250" y2="20" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="250" y1="50" x2="320" y2="46" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="320" y1="65" x2="380" y2="73" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="380" y1="84" x2="440" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                  </g>
-                ) : selectedVistaTijeral === 'dientes_sierra' ? (
-                  /* Techo Dientes de Sierra (Shed Industrial 3 Módulos) */
-                  <g>
-                    {/* Cordón Inferior Base */}
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    {/* Diente 1 (60 a 186) */}
-                    <line x1="60" y1="90" x2="186" y2="40" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="186" y1="40" x2="186" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <line x1="102" y1="73" x2="102" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="144" y1="56" x2="144" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    {/* Diente 2 (186 a 313) */}
-                    <line x1="186" y1="90" x2="313" y2="40" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="313" y1="40" x2="313" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <line x1="228" y1="73" x2="228" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="270" y1="56" x2="270" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    {/* Diente 3 (313 a 440) */}
-                    <line x1="313" y1="90" x2="440" y2="40" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="440" y1="40" x2="440" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <line x1="355" y1="73" x2="355" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="397" y1="56" x2="397" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <text x="250" y="24" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      TECHO DIENTES DE SIERRA (SHED INDUSTRIAL) - LUZ CENITAL
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'cuatro_aguas' ? (
-                  /* Techo a Cuatro Aguas / Piramidal */
-                  <g>
-                    {/* Cordón Inferior */}
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    {/* Limatesas Diagonales / Faldones */}
-                    <line x1="60" y1="90" x2="180" y2="40" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="180" y1="40" x2="320" y2="40" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="320" y1="40" x2="440" y2="90" stroke="#f59e0b" strokeWidth="3" />
-                    {/* Montantes y Péndulos */}
-                    <line x1="180" y1="40" x2="180" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="250" y1="40" x2="250" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="320" y1="40" x2="320" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="120" y1="65" x2="120" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="380" y1="65" x2="380" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <text x="250" y="24" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      TECHO A CUATRO AGUAS / PIRAMIDAL - 4 CAÍDAS SIMÉTRICAS
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'seis_aguas' ? (
-                  /* Pabellón Hexagonal a Seis Aguas */
-                  <g>
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="250" y2="35" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="440" y1="90" x2="250" y2="35" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="155" y1="62" x2="250" y2="35" stroke="#f59e0b" strokeWidth="2" strokeDasharray="3 2" />
-                    <line x1="345" y1="62" x2="250" y2="35" stroke="#f59e0b" strokeWidth="2" strokeDasharray="3 2" />
-                    <line x1="250" y1="35" x2="250" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <circle cx="250" cy="35" r="4" fill="#f59e0b" />
-                    <text x="250" y="24" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      PABELLÓN HEXAGONAL A SEIS AGUAS - CÚSPIDE CENTRAL Y LIMATESAS RADIALES
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'mansarda' ? (
-                  /* Mansarda / Gambrel */
-                  <g>
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="130" y2="40" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="130" y1="40" x2="250" y2="25" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="250" y1="25" x2="370" y2="40" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="370" y1="40" x2="440" y2="90" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="130" y1="40" x2="130" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="250" y1="25" x2="250" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="370" y1="40" x2="370" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <text x="250" y="16" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      TECHO MANSARDA (GAMBREL) - QUIEBRE INFERIOR DE ALTA PENDIENTE
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'mariposa' ? (
-                  /* Techo Mariposa / V Invertida */
-                  <g>
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="2" />
-                    <line x1="60" y1="35" x2="250" y2="90" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="250" y1="90" x2="440" y2="35" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="60" y1="35" x2="60" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="440" y1="35" x2="440" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="155" y1="62" x2="155" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="345" y1="62" x2="345" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <rect x="242" y="85" width="16" height="10" fill="#3b82f6" rx="2" />
-                    <text x="250" y="24" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      TECHO MARIPOSA (V) - CANALETA CENTRAL COLECTORA DE AGUAS
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'curvo_autoportante' ? (
-                  /* Arco Curvo Autoportante */
-                  <g>
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="2" />
-                    <path d="M 60 90 Q 250 15 440 90" fill="none" stroke="#f59e0b" strokeWidth="4" />
-                    <text x="250" y="22" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      ARCO CURVO AUTOPORTANTE CONTINUO - PERFIL ACANALADO ESTRUCTURAL
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'monitor' ? (
-                  /* Techo Monitor con Linterna Cenital */
-                  <g>
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="190" y2="52" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="310" y1="52" x2="440" y2="90" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="190" y1="52" x2="190" y2="28" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <line x1="310" y1="52" x2="310" y2="28" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <line x1="180" y1="28" x2="250" y2="15" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="250" y1="15" x2="320" y2="28" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="190" y1="52" x2="190" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="310" y1="52" x2="310" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <text x="250" y="10" fill="#f59e0b" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      TECHO CON MONITOR INDUSTRIAL - LOUVERS Y VENTILACIÓN CENITAL
-                    </text>
-                  </g>
-                ) : selectedVistaTijeral === 'viga_warren' ? (
-                  /* Viga Plana Warren (Joist) */
-                  <g>
-                    <line x1="60" y1="55" x2="440" y2="55" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="105" y2="55" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="105" y1="55" x2="150" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="150" y1="90" x2="200" y2="55" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="200" y1="55" x2="250" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="250" y1="90" x2="300" y2="55" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="300" y1="55" x2="350" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="350" y1="90" x2="395" y2="55" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="395" y1="55" x2="440" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                  </g>
-                ) : (selectedVistaTijeral as string) === 'tijeral_longitudinal' ? (
-                  /* TIJERAL LONGITUDINAL (Warren / Pratt entre pórticos) */
-                  <g>
-                    <line x1="60" y1="45" x2="440" y2="45" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    {/* Montantes en ejes de columnas */}
-                    <line x1="60" y1="45" x2="60" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <line x1="155" y1="45" x2="155" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="250" y1="45" x2="250" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    <line x1="345" y1="45" x2="345" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="440" y1="45" x2="440" y2="90" stroke="#8b5cf6" strokeWidth="2.5" />
-                    {/* Diagonales trianguladas Warren longitudinal */}
-                    <line x1="60" y1="90" x2="155" y2="45" stroke="#06b6d4" strokeWidth="2" />
-                    <line x1="155" y1="45" x2="250" y2="90" stroke="#06b6d4" strokeWidth="2" />
-                    <line x1="250" y1="90" x2="345" y2="45" stroke="#06b6d4" strokeWidth="2" />
-                    <line x1="345" y1="45" x2="440" y2="90" stroke="#06b6d4" strokeWidth="2" />
-                    <text x="250" y="24" fill="#06b6d4" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      ELEVACIÓN TIJERAL LONGITUDINAL (ENTRE PÓRTICOS EJE 1-5)
-                    </text>
-                  </g>
-                ) : (selectedVistaTijeral as string) === 'tijeral_perimetral' ? (
-                  /* TIJERAL PERIMETRAL / TÍMPANO DE FACHADA */
-                  <g>
-                    {/* Solera inferior y dintel */}
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="250" y2="35" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="250" y1="35" x2="440" y2="90" stroke="#f59e0b" strokeWidth="3" />
-                    {/* Columnas y montantes de frontón perimetral */}
-                    <line x1="250" y1="35" x2="250" y2="195" stroke="#1e293b" strokeWidth="2.5" />
-                    <line x1="155" y1="62" x2="155" y2="195" stroke="#1e293b" strokeWidth="2" />
-                    <line x1="345" y1="62" x2="345" y2="195" stroke="#1e293b" strokeWidth="2" />
-                    {/* Diagonales perimetrales antivuelco */}
-                    <line x1="60" y1="195" x2="155" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="155" y1="195" x2="60" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="345" y1="195" x2="440" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="440" y1="195" x2="345" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <text x="250" y="24" fill="#10b981" fontSize="8" fontWeight="bold" textAnchor="middle">
-                      TÍMPANO PERIMETRAL DE FACHADA Y ARRIOSTRAMIENTO FRONTAL
-                    </text>
-                  </g>
-                ) : (
-                  /* Techo a Dos Aguas Fink / Howe / Pratt */
-                  <g>
-                    <line x1="60" y1="90" x2="440" y2="90" stroke="#10b981" strokeWidth="3" />
-                    <line x1="60" y1="90" x2="250" y2="35" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="250" y1="35" x2="440" y2="90" stroke="#f59e0b" strokeWidth="3" />
-                    <line x1="250" y1="35" x2="250" y2="90" stroke="#8b5cf6" strokeWidth="2" />
-                    <line x1="110" y1="75" x2="110" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="160" y1="61" x2="160" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="205" y1="48" x2="205" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="295" y1="48" x2="295" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="340" y1="61" x2="340" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="390" y1="75" x2="390" y2="90" stroke="#8b5cf6" strokeWidth="1.5" />
-                    <line x1="60" y1="90" x2="110" y2="75" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="110" y1="90" x2="160" y2="61" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="160" y1="90" x2="205" y2="48" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="205" y1="90" x2="250" y2="35" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="250" y1="35" x2="295" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="295" y1="48" x2="340" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="340" y1="61" x2="390" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                    <line x1="390" y1="75" x2="440" y2="90" stroke="#06b6d4" strokeWidth="1.5" />
-                  </g>
-                )}
-
-                {/* Cota de Luz Total */}
-                <line x1="60" y1="105" x2="440" y2="105" stroke="#3b82f6" strokeWidth="1.5" />
-                <line x1="60" y1="100" x2="60" y2="110" stroke="#3b82f6" strokeWidth="1.5" />
-                <line x1="440" y1="100" x2="440" y2="110" stroke="#3b82f6" strokeWidth="1.5" />
-                <text x="250" y="118" fill="#1d4ed8" fontSize="9" fontWeight="bold" textAnchor="middle">LUZ TOTAL = 12.00 m</text>
-              </svg>
-            </div>
-          )}
-
-          {/* DETALLE 2: PLANO DE PLANTA ESTRUCTURAL DE TECHO */}
-          {(activePlanoTab === 'ambos' || activePlanoTab === 'planta') && (
-            <div className={`border border-slate-300 p-4 rounded-xl bg-slate-50/70 relative ${activePlanoTab === 'planta' ? 'lg:col-span-2' : ''}`}>
-              <div className="text-[10px] font-black uppercase text-slate-800 mb-2 border-b border-slate-300 pb-1 flex items-center justify-between">
-                <span>DETALLE 02: PLANTA ESTRUCTURAL DE TECHO Y CORREAS (ESC 1:75)</span>
-                <span className="text-emerald-700 text-[9px] font-bold">LARGO = 20.00m • 5 PÓRTICOS</span>
-              </div>
-
-              <svg viewBox="0 0 500 250" className="w-full h-56 bg-white border border-slate-200 rounded-lg p-2">
-                {/* Ejes de Pórticos Longitudinales 1, 2, 3, 4, 5 */}
-                {[0, 1, 2, 3, 4].map((idx) => {
-                  const xPos = 60 + idx * 85;
-                  return (
-                    <g key={idx}>
-                      {/* Línea de eje */}
-                      <line x1={xPos} y1="20" x2={xPos} y2="215" stroke="#94a3b8" strokeWidth="1" strokeDasharray="5 3" />
-                      {/* Burbuja de Eje */}
-                      <circle cx={xPos} cy="15" r="7" fill="#ffffff" stroke="#0f172a" strokeWidth="1" />
-                      <text x={xPos} y="18" fill="#0f172a" fontSize="7.5" fontWeight="bold" textAnchor="middle">{idx + 1}</text>
-                      
-                      {/* Viga / Tijeral Transversal en Eje */}
-                      <line x1={xPos} y1="40" x2={xPos} y2="190" stroke="#f59e0b" strokeWidth="3" />
-
-                      {/* Columnas en extremos de eje */}
-                      <rect x={xPos - 5} y="35" width="10" height="10" fill="#1e293b" stroke="#000" strokeWidth="0.5" />
-                      <rect x={xPos - 5} y="185" width="10" height="10" fill="#1e293b" stroke="#000" strokeWidth="0.5" />
-                    </g>
-                  );
-                })}
-
-                {/* Ejes Transversales A y B */}
-                <line x1="40" y1="40" x2="420" y2="40" stroke="#94a3b8" strokeWidth="1" strokeDasharray="5 3" />
-                <circle cx="35" cy="40" r="7" fill="#ffffff" stroke="#0f172a" strokeWidth="1" />
-                <text x="35" y="43" fill="#0f172a" fontSize="7.5" fontWeight="bold" textAnchor="middle">A</text>
-
-                <line x1="40" y1="190" x2="420" y2="190" stroke="#94a3b8" strokeWidth="1" strokeDasharray="5 3" />
-                <circle cx="35" cy="190" r="7" fill="#ffffff" stroke="#0f172a" strokeWidth="1" />
-                <text x="35" y="193" fill="#0f172a" fontSize="7.5" fontWeight="bold" textAnchor="middle">B</text>
-
-                {/* Eje Central de Cumbrera */}
-                <line x1="40" y1="115" x2="420" y2="115" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="6 3" />
-                <text x="425" y="118" fill="#ef4444" fontSize="7" fontWeight="bold">CUMBRERA</text>
-
-                {/* Correas Longitudinales (C 4"x2"x2.0mm @ 0.85m) */}
-                {[55, 70, 85, 100, 130, 145, 160, 175].map((yPurlin, pIdx) => (
-                  <line key={pIdx} x1="60" y1={yPurlin} x2="400" y2={yPurlin} stroke="#0ea5e9" strokeWidth="1.2" strokeDasharray={yPurlin === 115 ? 'none' : 'none'} />
-                ))}
-
-                {/* Arriostramiento en Cruz de San Andrés en los vanos extremos */}
-                {/* Vano 1-2 */}
-                <line x1="60" y1="40" x2="145" y2="115" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-                <line x1="145" y1="40" x2="60" y2="115" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-                <line x1="60" y1="115" x2="145" y2="190" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-                <line x1="145" y1="115" x2="60" y2="190" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-
-                {/* Vano 4-5 */}
-                <line x1="315" y1="40" x2="400" y2="115" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-                <line x1="400" y1="40" x2="315" y2="115" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-                <line x1="315" y1="115" x2="400" y2="190" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-                <line x1="400" y1="115" x2="315" y2="190" stroke="#10b981" strokeWidth="1.2" strokeDasharray="3 2" />
-
-                {/* Cota Longitudinal Total */}
-                <line x1="60" y1="210" x2="400" y2="210" stroke="#3b82f6" strokeWidth="1.5" />
-                <line x1="60" y1="205" x2="60" y2="215" stroke="#3b82f6" strokeWidth="1.5" />
-                <line x1="400" y1="205" x2="400" y2="215" stroke="#3b82f6" strokeWidth="1.5" />
-                <text x="230" y="222" fill="#1d4ed8" fontSize="9" fontWeight="bold" textAnchor="middle">LARGO TOTAL = 20.00 m (4 TRAMOS @ 5.00m)</text>
-
-                {/* Cota Transversal de Ancho */}
-                <line x1="415" y1="40" x2="415" y2="190" stroke="#3b82f6" strokeWidth="1.5" />
-                <line x1="410" y1="40" x2="420" y2="40" stroke="#3b82f6" strokeWidth="1.5" />
-                <line x1="410" y1="190" x2="420" y2="190" stroke="#3b82f6" strokeWidth="1.5" />
-                <text x="430" y="120" fill="#1d4ed8" fontSize="8" fontWeight="bold" transform="rotate(90 430 120)" textAnchor="middle">ANCHO = 12.00m</text>
-              </svg>
-            </div>
-          )}
-
-        </div>
-
-        {/* DETALLE 3 Y ESPECIFICACIONES TÉCNICAS RNE */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* CUADRO DE PERFILES Y METRADOS */}
-          <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-2 text-[10px]">
-            <div className="font-black uppercase text-slate-800 border-b border-slate-300 pb-1 flex items-center justify-between">
-              <span>CUADRO DE ELEMENTOS ESTRUCTURALES Y PERFILES</span>
-              <span className="text-amber-700 font-bold">RNE E.090</span>
-            </div>
-            <div className="space-y-1 font-mono text-[9.5px]">
-              <div className="flex justify-between border-b border-slate-200 pb-0.5">
-                <span className="font-bold">• Columnas Principales (C-01):</span>
-                <span className="text-slate-800">Tubo Cuadrado LAC 100x100x3.2mm</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-0.5">
-                <span className="font-bold">• Cordones Superior/Inferior:</span>
-                <span className="text-slate-800">Tubo Cuadrado LAC 50x50x2.0mm</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-0.5">
-                <span className="font-bold">• Montantes / Celosía 90°:</span>
-                <span className="text-slate-800">Tubo Cuadrado LAC 40x40x2.0mm</span>
-              </div>
-              <div className="flex justify-between border-b border-slate-200 pb-0.5">
-                <span className="font-bold">• Correas de Techo (Girts):</span>
-                <span className="text-slate-800">Perfil C 100x50x15x2.0mm @ 0.85m</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-bold">• Arriostramiento y Cruces:</span>
-                <span className="text-slate-800">Barra Redonda Lisa Ø 1/2" con Templadores</span>
-              </div>
-            </div>
+        {info.vacio ? (
+          <div className="py-16 text-center text-slate-500 font-sans">
+            <LayoutGrid className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+            <p className="font-bold text-slate-700">Aún no hay diseño que dibujar.</p>
+            <p className="text-sm">Crea o genera tu techo en el apartado de Diseño CAD y vuelve aquí: el plano se arma solo con tus medidas reales.</p>
           </div>
-
-          {/* ESPECIFICACIONES TÉCNICAS RNE */}
-          <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-1.5 text-[10px]">
-            <div className="font-black uppercase text-slate-800 border-b border-slate-300 pb-1 flex items-center justify-between">
-              <span>NOTAS TÉCNICAS GENERALES DE CONSTRUCCIÓN</span>
-              <span className="text-emerald-700 font-bold">NORMA RNE PERÚ</span>
+        ) : (
+          <>
+            {/* Ficha de dimensiones reales */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px]">
+              {[
+                ['LUZ', `${fmt(info.luz)} m`],
+                ['LARGO', `${fmt(info.largo)} m`],
+                ['ALTURA TOTAL', `${fmt(info.altura)} m`],
+                ['PÓRTICOS', `${info.nPorticos}${info.separacion ? ` @ ${fmt(info.separacion)} m` : ''}`],
+              ].map(([k, v]) => (
+                <div key={k} className="border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50">
+                  <div className="text-[8.5px] font-bold text-slate-500 uppercase">{k}</div>
+                  <div className="text-[12px] font-black text-slate-900">{v}</div>
+                </div>
+              ))}
             </div>
-            <p>• <strong>ACERO:</strong> Perfiles tubulares ASTM A500 Grado B (Fy = 3200 kg/cm²) y perfiles C ASTM A36.</p>
-            <p>• <strong>SOLDADURA:</strong> Electrodos AWS E-6011 (raíz) y AWS E-7018 (acabado) garganta mínima 4mm continua.</p>
-            <p>• <strong>ANCLAJE:</strong> Placas base 200x200x9.5mm con 4 pernos J-Bolt 5/8" ASTM A307 empotrados 35cm.</p>
-            <p>• <strong>COBERTURA:</strong> Aluzinc TR-4 0.40mm fijado con pernos autoperforantes 12-14x2" y arandelas de neopreno EPDM.</p>
-            <p>• <strong>PINTURA:</strong> 2 manos anticorrosivo epóxico (2.0 mils) + 2 manos esmalte poliuretano.</p>
-          </div>
-        </div>
 
-        {/* FIRMA Y CARTELA */}
-        <div className="flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-500 font-bold gap-2 pt-2 border-t border-slate-200">
-          <div>INNOVA CONTRATISTAS | INGENIERÍA ESTRUCTURAL & METÁLICA PERÚ</div>
-          <div className="text-amber-700 font-black">DIBUJO CAD PARAMÉTRICO V3.5 - COMPATIBILIZADO RNE</div>
-        </div>
+            {/* Leyenda de elementos */}
+            <div className="border border-slate-200 rounded-lg px-3 py-2 bg-white"><Leyenda /></div>
+
+            {/* VISTAS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 border-b-2 border-slate-900 pb-6">
+              {(tab === 'todas' || tab === 'frontal') && (
+                <Vista titulo="ELEVACIÓN FRONTAL (PÓRTICO TRANSVERSAL)" sub={`LUZ ${fmt(info.luz)} m`} wide={tab === 'frontal'}>
+                  <SvgFrontal />
+                </Vista>
+              )}
+              {(tab === 'todas' || tab === 'lateral') && (
+                <Vista titulo="ELEVACIÓN LATERAL (LONGITUDINAL)" sub={`LARGO ${fmt(info.largo)} m`} wide={tab === 'lateral'}>
+                  <SvgLateral />
+                </Vista>
+              )}
+              {(tab === 'todas' || tab === 'planta') && (
+                <Vista titulo="PLANTA DE TECHO Y CORREAS" sub={`${fmt(info.luz)} × ${fmt(info.largo)} m`} wide={tab === 'planta' || tab === 'todas'}>
+                  <SvgPlanta />
+                </Vista>
+              )}
+            </div>
+
+            {/* Cuadro de perfiles reales + notas RNE */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-2 text-[10px]">
+                <div className="font-black uppercase text-slate-800 border-b border-slate-300 pb-1 flex items-center justify-between">
+                  <span>CUADRO DE ELEMENTOS Y PERFILES (DEL DISEÑO)</span>
+                  <span className="text-amber-700 font-bold">RNE E.090</span>
+                </div>
+                <div className="space-y-1 font-mono text-[9.5px]">
+                  {(info.cuadro as any[]).map((c) => (
+                    <div key={c.rol} className="flex justify-between gap-2 border-b border-slate-200 pb-0.5">
+                      <span className="font-bold flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="inline-block w-3 h-[3px] rounded" style={{ background: ROL_COLOR[c.rol] || '#334155' }} />
+                        {c.label} <span className="text-slate-400">({c.cantidad})</span>:
+                      </span>
+                      <span className="text-slate-800 text-right">{c.perfiles}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-1.5 text-[10px]">
+                <div className="font-black uppercase text-slate-800 border-b border-slate-300 pb-1 flex items-center justify-between">
+                  <span>NOTAS TÉCNICAS GENERALES</span>
+                  <span className="text-emerald-700 font-bold">NORMA RNE PERÚ</span>
+                </div>
+                <p>• <strong>ACERO:</strong> Perfiles tubulares ASTM A500 Gr. B (Fy = 3200 kg/cm²) y perfiles C ASTM A36.</p>
+                <p>• <strong>SOLDADURA:</strong> Electrodos AWS E-6011 (raíz) y AWS E-7018 (acabado), garganta mínima 4 mm continua.</p>
+                <p>• <strong>ANCLAJE:</strong> Placas base con pernos de anclaje tipo J, según detalle, empotrados 35 cm.</p>
+                <p>• <strong>COBERTURA:</strong> Aluzinc fijado con pernos autoperforantes 12-14×2" y arandelas de neopreno EPDM.</p>
+                <p>• <strong>PINTURA:</strong> 2 manos anticorrosivo epóxico + 2 manos esmalte poliuretano.</p>
+              </div>
+            </div>
+
+            {/* Pie de lámina */}
+            <div className="flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-500 font-bold gap-2 pt-2 border-t border-slate-200">
+              <div>INNOVA CONTRATISTAS | INGENIERÍA ESTRUCTURAL & METÁLICA</div>
+              <div className="text-amber-700 font-black">PLANO GENERADO AUTOMÁTICAMENTE DEL MODELO 3D</div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 };
 
 export default TechosPlanoCadView;
-

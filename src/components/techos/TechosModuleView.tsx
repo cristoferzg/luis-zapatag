@@ -1034,7 +1034,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
         )}
 
         {activeTab === 'plano' && (
-          <TechosPlanoCadView design={engineState.bomReport as any} />
+          <TechosPlanoCadView engineState={engineState} nombreProyecto={nombreProyecto} />
         )}
 
         {activeTab === 'estructural' && (
