@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs & debug
+*.log
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# Cache
+.cache/
+
+# Cloud Functions deps
+functions/node_modules/
+
+# Build/delivery artifacts (zips)
+*.zip

@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// IMPORTANT DEPLOY ORDER (phase 2):
+//   1. Enable the "Anonymous" sign-in provider in Firebase Console →
+//      Authentication → Sign-in method.
+//   2. Deploy the updated app build (it calls signInAnonymously on load).
+//   3. Verify login + data load correctly in production.
+//   4. THEN deploy these rules:  firebase deploy --only firestore:rules
+//
+// If anything breaks, you can temporarily roll back to the previous open rule
+// (allow read, write: if true;) while diagnosing — but do not leave it open.
+//
+// LIMITATION: With a PIN-only model (no per-user Firebase identities), these
+// rules can only require that the caller is authenticated. They stop anonymous,
+// key-only scraping of the REST API, but they cannot fully isolate one
+// workspace from another, because the client chooses its own userId. Full
+// per-user isolation requires real per-user auth (e.g. email/password) or a
+// Cloud Function that mints a custom token after verifying the PIN (Blaze plan).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Require an authenticated session (anonymous counts) for all access.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
