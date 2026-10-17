@@ -560,6 +560,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const velocityThetaRef = useRef(0);
   const velocityPhiRef = useRef(0);
 
+  // PAN (desplazar el modelo lateralmente, como en Herrería): con botón derecho,
+  // botón central o Shift + arrastre; en móvil con dos dedos. Mueve el "target"
+  // de la cámara en el plano de la pantalla.
+  const isPanningRef = useRef(false);
+  const touchPanRef = useRef<{ x: number; y: number } | null>(null);
+
   // Grabación de video del visor 3D (giro lento + descarga)
   const [isRecording, setIsRecording] = useState<boolean>(false);
 
@@ -578,14 +584,34 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     cameraRef.current.lookAt(target);
   }, []);
 
+  // Desplaza el modelo lateralmente moviendo el "target" en el plano de pantalla.
+  const panCamera = useCallback((deltaX: number, deltaY: number) => {
+    const cam = cameraRef.current;
+    const el = mountRef.current;
+    if (!cam || !el) return;
+    const h = el.clientHeight || 600;
+    const worldPerPx = (2 * cameraRadiusRef.current * Math.tan((cam.fov * Math.PI / 180) / 2)) / h;
+    const dir = new THREE.Vector3();
+    cam.getWorldDirection(dir);
+    const right = new THREE.Vector3().crossVectors(dir, cam.up).normalize();
+    const up = new THREE.Vector3().crossVectors(right, dir).normalize();
+    cameraTargetRef.current
+      .addScaledVector(right, -deltaX * worldPerPx)
+      .addScaledVector(up, deltaY * worldPerPx);
+    updateCameraPos();
+  }, [updateCameraPos]);
+
 
   // Manejadores Pointer Events con captura completa para ratón, lápiz y pantallas táctiles
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingRef.current = true;
+    // Pan con botón derecho (2), botón central (1) o Shift + arrastre; si no, rota.
+    isPanningRef.current = (e.button === 1 || e.button === 2 || e.shiftKey);
     velocityThetaRef.current = 0;
     velocityPhiRef.current = 0;
     previousPointerPosRef.current = { x: e.clientX, y: e.clientY };
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
+    if (mountRef.current) mountRef.current.style.cursor = isPanningRef.current ? 'move' : 'grabbing';
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch {
@@ -620,6 +646,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const deltaY = e.clientY - previousPointerPosRef.current.y;
     previousPointerPosRef.current = { x: e.clientX, y: e.clientY };
 
+    // Modo PAN: desplaza el modelo lateralmente (no rota).
+    if (isPanningRef.current) {
+      panCamera(deltaX, deltaY);
+      return;
+    }
+
     // Sensibilidad suave e inercial calibrada para el giroscopio 3D
     const sensitivity = 0.006;
     velocityThetaRef.current = -deltaX * sensitivity;
@@ -633,7 +665,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     isDraggingRef.current = false;
+    const wasPanning = isPanningRef.current;
+    isPanningRef.current = false;
     touchPinchDistRef.current = null;
+    if (mountRef.current) mountRef.current.style.cursor = 'grab';
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -643,7 +678,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // Detección de clic limpio (desplazamiento < 6 píxeles) para selección por Raycaster
     const dx = e.clientX - pointerDownPosRef.current.x;
     const dy = e.clientY - pointerDownPosRef.current.y;
-    if (Math.hypot(dx, dy) < 6) {
+    if (!wasPanning && Math.hypot(dx, dy) < 6) {
       const container = mountRef.current;
       if (container && cameraRef.current && sceneRef.current) {
         const rect = container.getBoundingClientRect();
@@ -731,6 +766,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       touchPinchDistRef.current = Math.hypot(dx, dy);
+      // Centroide de los dos dedos → para PAN con dos dedos (como Herrería).
+      touchPanRef.current = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      };
     }
   };
 
@@ -743,12 +783,20 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       touchPinchDistRef.current = dist;
       // Proximidad ultra-cercana hasta 0.15 metros sin cortarse
       cameraRadiusRef.current = Math.max(0.15, Math.min(60, cameraRadiusRef.current + delta * 0.04));
+      // PAN con dos dedos: desplaza el modelo según el movimiento del centroide.
+      const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      if (touchPanRef.current) {
+        panCamera(cx - touchPanRef.current.x, cy - touchPanRef.current.y);
+      }
+      touchPanRef.current = { x: cx, y: cy };
       updateCameraPos();
     }
   };
 
   const handleTouchEnd = () => {
     touchPinchDistRef.current = null;
+    touchPanRef.current = null;
   };
 
   // Zoom por rueda de ratón con proximidad ultra-cercana
@@ -2722,6 +2770,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
+        onContextMenu={(e) => e.preventDefault()}
         className="w-full flex-1 cursor-grab active:cursor-grabbing relative touch-none"
       />
 
@@ -3437,7 +3486,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       {!activeSelectedSegId && (
         <div className="absolute bottom-4 left-3 z-20 pointer-events-none hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/80 text-slate-300 border border-slate-700/60 rounded-xl text-[11px] backdrop-blur-xs shadow-md">
           <Wrench className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-          <span>💡 Clic en cualquier tubo del 3D para seleccionarlo y cambiar su perfil</span>
+          <span>💡 Clic en un tubo para seleccionarlo · Arrastra para girar · <b>Clic derecho o Shift+arrastrar</b> para mover el plano</span>
         </div>
       )}
 
