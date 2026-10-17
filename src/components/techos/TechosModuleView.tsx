@@ -651,7 +651,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   };
 
   // Cargar Plantilla Prediseñada
-  const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine') => {
+  const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina') => {
     engineState.clearScene();
     if (tipo === 'dos_aguas') {
       engineState.generateRoofGable(12, 20, 5, 15);
@@ -665,6 +665,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     } else if (tipo === 'mezzanine') {
       engineState.generateMezzanine(15, 10, 3.2, 3, 4);
       setNombreProyecto('Mezzanine Industrial 10x15m');
+    } else if (tipo === 'marquesina') {
+      engineState.generateRoofMarquesina(8, 16, 3.2, 1.2, 5);
+      setNombreProyecto('Marquesina Curva 8x16m');
     }
     setShowLoadModal(false);
   };
@@ -1138,6 +1141,14 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                   >
                     <div className="font-extrabold text-sm text-slate-900 group-hover:text-amber-700">Entrepiso / Mezzanine Metal Deck</div>
                     <div className="text-xs text-slate-500 mt-1">Ancho: 10.0m | Largo: 15.0m | Altura: 3.2m | Vigas IPE/Tubulares</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleCargarPlantilla('marquesina')}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 text-left transition-all group cursor-pointer"
+                  >
+                    <div className="font-extrabold text-sm text-slate-900 group-hover:text-amber-700">Marquesina / Nave Curva (Ala) ✨</div>
+                    <div className="text-xs text-slate-500 mt-1">Luz: 8.0m | Largo: 16.0m | Altura: 3.2m | Columna central + voladizo curvo</div>
                   </button>
                 </div>
               </div>

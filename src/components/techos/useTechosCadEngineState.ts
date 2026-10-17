@@ -106,6 +106,7 @@ export interface UseTechosCadEngineReturn {
   generateRoofLShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofButterfly: (luzM: number, largoM?: number, alturaColM?: number, desnivelAlasM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofCurvoAutoportante: (luzM: number, largoM?: number, alturaMuroM?: number, flechaM?: number, numEjes?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
+  generateRoofMarquesina: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, numEjes?: number) => void;
   generateRoofMonitor: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, anchoMonitorM?: number, alturaMonitorM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   addInternalTruss: (zPos: number, tipoTijeral?: TipoTijeral, peralteM?: number) => void;
   generateMezzanine: (largoM: number, anchoM: number, alturaM: number, numSubseccionesX: number, numSubseccionesY: number, esHueco?: boolean, conTijeralesPerimetro?: boolean, conTijeralesInternos?: boolean, tipoTijeral?: TipoTijeral) => void;
@@ -3331,6 +3332,73 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(newNodes, newSegs, coverageZones);
   }, [activeProfileId, pushHistory, coverageZones]);
 
+  // MARQUESINA / NAVE CURVA EN VOLADIZO (tipo "ala de gaviota"): una fila central
+  // de columnas sostiene una viga curva cuyos bordes se levantan (efecto ala),
+  // con correas longitudinales y riostras de voladizo. Ideal para cocheras,
+  // ingresos, patios techados y marquesinas arquitectónicas curvas.
+  const generateRoofMarquesina = useCallback((
+    luzM: number,
+    largoM: number = 20,
+    alturaColM: number = 3.5,
+    flechaM: number = 1.2,
+    numEjes: number = 5
+  ) => {
+    const newNodes: Record<string, Node3D> = {};
+    const newSegs: Record<string, Segment3D> = {};
+
+    const colProf = INVENTARIO_PERFILES_TUBULARES[4]?.id || activeProfileId;
+    const vigaProf = INVENTARIO_PERFILES_TUBULARES[0]?.id || activeProfileId;
+    const correaProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || activeProfileId;
+
+    const frames = Math.max(2, numEjes || 5);
+    const zStep = frames > 1 ? largoM / (frames - 1) : 0;
+    const pts = luzM <= 8 ? 8 : (luzM <= 14 ? 10 : 12);
+    const cx = luzM / 2;
+    const midI = Math.round(pts / 2);
+
+    const rows: string[][] = Array.from({ length: pts + 1 }, () => []);
+
+    for (let f = 0; f < frames; f++) {
+      const z = f * zStep;
+      const arc: string[] = [];
+      for (let i = 0; i <= pts; i++) {
+        const xn = i / pts;
+        const x = xn * luzM;
+        const t = 2 * xn - 1; // -1..1
+        const y = alturaColM + flechaM * (t * t); // bordes levantados (ala de gaviota)
+        const id = `n_mq_${f}_${i}`;
+        newNodes[id] = { id, x, y, z, nodeLabel: `ALA-${f + 1}-${i}` };
+        arc.push(id);
+        rows[i].push(id);
+      }
+      // Viga curva (cordón superior)
+      for (let i = 0; i < pts; i++) {
+        newSegs[`s_mqv_${f}_${i}`] = { id: `s_mqv_${f}_${i}`, nodeAId: arc[i], nodeBId: arc[i + 1], profileId: vigaProf, rolEstructural: 'cordon_superior' };
+      }
+      // Columna central portante (del suelo al nudo central de la viga)
+      const baseId = `n_mqcb_${f}`;
+      newNodes[baseId] = { id: baseId, x: cx, y: 0, z, isFixedSupport: true, nodeLabel: `COL-BASE-${f + 1}` };
+      newSegs[`s_mqcol_${f}`] = { id: `s_mqcol_${f}`, nodeAId: baseId, nodeBId: arc[midI], profileId: colProf, rolEstructural: 'columna' };
+      // Riostras de voladizo (abanico desde el nudo central hacia ambos lados)
+      const offs = Math.max(1, Math.round(pts * 0.3));
+      const li = Math.max(0, midI - offs);
+      const ri = Math.min(pts, midI + offs);
+      newSegs[`s_mqd_l_${f}`] = { id: `s_mqd_l_${f}`, nodeAId: arc[midI], nodeBId: arc[li], profileId: vigaProf, rolEstructural: 'diagonal' };
+      newSegs[`s_mqd_r_${f}`] = { id: `s_mqd_r_${f}`, nodeAId: arc[midI], nodeBId: arc[ri], profileId: vigaProf, rolEstructural: 'diagonal' };
+    }
+    // Correas longitudinales (conectan los marcos a lo largo)
+    for (let i = 0; i <= pts; i++) {
+      const row = rows[i];
+      for (let f = 0; f < row.length - 1; f++) {
+        newSegs[`s_mqcor_${i}_${f}`] = { id: `s_mqcor_${i}_${f}`, nodeAId: row[f], nodeBId: row[f + 1], profileId: correaProf, rolEstructural: 'correa' };
+      }
+    }
+
+    setNodes(newNodes);
+    setSegments(newSegs);
+    pushHistory(newNodes, newSegs, coverageZones);
+  }, [activeProfileId, pushHistory, coverageZones]);
+
   // Generador de Techo Industrial con Linterna Cenital / Monitor de Ventilación
   const generateRoofMonitor = useCallback((
     luzM: number,
@@ -3755,6 +3823,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofLShaped,
     generateRoofButterfly,
     generateRoofCurvoAutoportante,
+    generateRoofMarquesina,
     generateRoofMonitor,
     addInternalTruss,
     generateMezzanine,
