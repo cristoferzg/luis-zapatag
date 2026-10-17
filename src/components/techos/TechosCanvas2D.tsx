@@ -28,6 +28,7 @@ import {
   Copy,
   Clipboard,
   ChevronDown,
+  MoreHorizontal,
   Image as ImageIcon
 } from 'lucide-react';
 
@@ -806,12 +807,22 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     }
   };
 
-  // RUEDA DE RATÓN PARA ZOOM EN LIENZO CON TECLA O NAVEGACIÓN
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-    setZoom(prevZoom => Math.min(Math.max(prevZoom * zoomFactor, 0.35), 12.0));
-  };
+  // RUEDA DE RATÓN PARA ZOOM EN LIENZO.
+  // IMPORTANTE: en React el onWheel es "passive", así que e.preventDefault() se
+  // ignora y la página/barra se desplazaba al hacer scroll. Por eso enganchamos
+  // un listener NATIVO no-pasivo sobre el lienzo: la rueda SOLO hace zoom y nunca
+  // mueve la interfaz. (Soluciona el bug de "la barra sube y baja con el scroll").
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+      setZoom(prevZoom => Math.min(Math.max(prevZoom * zoomFactor, 0.35), 12.0));
+    };
+    el.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => el.removeEventListener('wheel', onWheelNative);
+  }, []);
 
   // NAVEGACIÓN HORIZONTAL CON RUEDA DE RATÓN EN BARRAS FLOTANTES
   const handleHorizontalWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -1623,7 +1634,6 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         ref={containerRef}
         className={`flex-1 min-h-0 relative overflow-hidden bg-slate-50 touch-none notranslate ${cursorClass}`}
         translate="no"
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -2723,11 +2733,65 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           </div>
         )}
 
+        {/* RIEL DE HERRAMIENTAS (Opción 1): flotante y FIJO (no se mueve con el
+            scroll). Desktop: vertical a la izquierda. Móvil: dock horizontal
+            abajo. Lo secundario (modo de trazo, edición, arco, cruz) va en "Más". */}
+        {engineState && vista !== '3d' && (() => {
+          const railTools: { id: ToolModoCad; label: string; Icon: any }[] = [
+            { id: 'select', label: 'Seleccionar', Icon: MousePointer },
+            { id: 'draw_line', label: 'Viga', Icon: PenTool },
+            { id: 'draw_col', label: 'Columna', Icon: Columns },
+            { id: 'draw_tijeral', label: 'Tijeral', Icon: Layers },
+            { id: 'draw_correa', label: 'Correa', Icon: Grid },
+            { id: 'measure', label: 'Medir', Icon: Ruler },
+          ];
+          const openMas = () => { setShowFloatingToolsPanel(true); setIsToolsPanelCollapsed(false); };
+          if (isDesktop) {
+            return (
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl">
+                {railTools.map(t => {
+                  const A = activeTool === t.id;
+                  const Icon = t.Icon;
+                  return (
+                    <button key={t.id} onClick={() => toggleTool(t.id)} title={A && t.id !== 'select' ? `${t.label} (clic para desactivar)` : t.label}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${A ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>
+                      <Icon className="w-[18px] h-[18px]" />
+                    </button>
+                  );
+                })}
+                <div className="h-px bg-slate-200 mx-1.5 my-0.5" />
+                <button onClick={openMas} title="Más herramientas (modo de trazo, edición, arco, cruz…)"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 cursor-pointer">
+                  <MoreHorizontal className="w-[18px] h-[18px]" />
+                </button>
+              </div>
+            );
+          }
+          return (
+            <div className="absolute left-2 right-2 bottom-2 z-30 flex items-center gap-1 overflow-x-auto scrollbar-none bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl">
+              {railTools.map(t => {
+                const A = activeTool === t.id;
+                const Icon = t.Icon;
+                return (
+                  <button key={t.id} onClick={() => toggleTool(t.id)}
+                    className={`min-w-[52px] h-12 shrink-0 rounded-xl flex flex-col items-center justify-center gap-0.5 cursor-pointer ${A ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>
+                    <Icon className="w-[17px] h-[17px]" />
+                    <span className="text-[8.5px] font-bold">{t.label}</span>
+                  </button>
+                );
+              })}
+              <button onClick={openMas} className="min-w-[52px] h-12 shrink-0 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-500">
+                <MoreHorizontal className="w-[17px] h-[17px]" /><span className="text-[8.5px] font-bold">Más</span>
+              </button>
+            </div>
+          );
+        })()}
+
         {/* PANEL FLOTANTE DE HERRAMIENTAS CAD COMPLETO / COLAPSADO */}
         {/* CHIP DE RETÍCULA / SNAP (dock derecho, estilo Herrería): mantiene el
             ajuste de snap más usado accesible sin abrir el panel central. */}
         {engineState && vista !== '3d' && (
-          <div className="absolute bottom-3 right-3 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto">
+          <div className="absolute bottom-16 sm:bottom-3 right-3 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto">
             <Grid className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="text-[10px] font-bold text-slate-500 hidden sm:inline">Rejilla</span>
             <select
@@ -2745,30 +2809,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         )}
 
         {showFloatingToolsPanel && vista !== '3d' && (
-          isToolsPanelCollapsed ? (
-            /* VERSIÓN COLAPSADA / MINIMIZADA (Súper compacta, arrastrable) */
-            <button
-              onPointerDown={handleToolsPanelPointerDown}
-              onPointerMove={handleToolsPanelPointerMove}
-              onPointerUp={handleToolsPanelPointerUp}
-              onClick={() => setIsToolsPanelCollapsed(false)}
-              className={`absolute z-40 h-12 rounded-2xl border flex items-center justify-center gap-1.5 cursor-grab active:cursor-grabbing shadow-2xl hover:scale-105 active:scale-95 transition-all drag-handle-tools group ${
-                isDrawingTool
-                  ? 'px-3 bg-amber-500 border-amber-400 text-slate-950'
-                  : 'w-12 bg-slate-900 border-amber-500/80 hover:border-amber-400'
-              }`}
-              style={{
-                left: `${floatingToolsPanelPos.x}px`,
-                top: `${floatingToolsPanelPos.y}px`,
-              }}
-              title={isDrawingTool ? `Dibujando: ${TOOL_LABELS[activeTool] || activeTool}. Toca para ver herramientas.` : 'Expandir Herramientas CAD (Arrastrable)'}
-            >
-              <Wrench className={`w-5 h-5 shrink-0 group-hover:rotate-12 transition-transform duration-300 ${isDrawingTool ? 'text-slate-950' : 'text-amber-500'}`} />
-              {isDrawingTool && (
-                <span className="text-[11px] font-black whitespace-nowrap pr-0.5">{TOOL_LABELS[activeTool] || 'Dibujar'}</span>
-              )}
-            </button>
-          ) : (
+          isToolsPanelCollapsed ? null : (
             /* VERSIÓN COMPLETA: arrastrable en escritorio, hoja inferior en móvil */
             <div
               style={
