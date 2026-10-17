@@ -32,7 +32,7 @@ export interface ReceiptData {
 }
 
 export interface ScanResult {
-  source: 'qr' | 'ia' | 'qr_ia' | 'none';
+  source: 'qr' | 'ia' | 'qr_ia' | 'none' | 'sin_ia';
   data: ReceiptData;
 }
 
@@ -192,10 +192,16 @@ const isPdf = (file: File) =>
 /**
  * Escanea un comprobante (imagen o PDF): primero QR (gratis, solo imágenes),
  * si no hay, IA de visión. Lanza error solo si ninguna vía obtuvo datos.
+ *
+ * `allowAI` controla si se permite la lectura por IA (que tiene costo y se
+ * limita por plan). El QR sigue siendo gratis para todos. Si allowAI es false
+ * y no hay QR, se devuelve { source: 'sin_ia' } para que la vista ofrezca un
+ * plan.
  */
-export async function scanReceipt(file: File): Promise<ScanResult> {
+export async function scanReceipt(file: File, allowAI = true): Promise<ScanResult> {
   // PDF: no tiene QR legible por cámara → va directo a IA (Claude lee el PDF).
   if (isPdf(file)) {
+    if (!allowAI) return { source: 'sin_ia', data: {} };
     const base64 = await fileToBase64(file);
     const ai = await scanReceiptWithAI(base64, 'application/pdf');
     if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc)) {
@@ -220,14 +226,18 @@ export async function scanReceipt(file: File): Promise<ScanResult> {
   // 2) IA de visión: lee el DETALLE de lo comprado y, en billeteras
   //    (Yape/BCP/Plin), el método de pago y N° de operación. Si la función de
   //    IA no está desplegada o falla, seguimos con lo que dé el QR.
+  //    Solo se intenta si el usuario tiene plan (allowAI). Si no, con el QR
+  //    (gratis) basta; sin QR se avisa que se requiere plan.
   let aiData: ReceiptData | null = null;
-  try {
-    const ai = await scanReceiptWithAI(base64, 'image/jpeg');
-    if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc || ai.detalle || ai.metodoPago)) {
-      aiData = ai;
+  if (allowAI) {
+    try {
+      const ai = await scanReceiptWithAI(base64, 'image/jpeg');
+      if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc || ai.detalle || ai.metodoPago)) {
+        aiData = ai;
+      }
+    } catch (_) {
+      // IA no disponible: no rompemos el flujo; usamos el QR si existe.
     }
-  } catch (_) {
-    // IA no disponible: no rompemos el flujo; usamos el QR si existe.
   }
 
   // 3) Combinar según lo que se obtuvo.
@@ -240,6 +250,9 @@ export async function scanReceipt(file: File): Promise<ScanResult> {
   if (aiData) {
     return { source: 'ia', data: aiData };
   }
+
+  // Sin QR y sin IA permitida → avisar que se necesita plan de IA.
+  if (!allowAI) return { source: 'sin_ia', data: {} };
 
   return { source: 'none', data: {} };
 }

@@ -14,6 +14,7 @@ import { BibliotecaItem } from './BibliotecaPremiumView';
 import { TutorialVideo, CourseCategory } from './UsabilidadVideosView';
 import { safeStorage } from '../lib/storageManager';
 import { StorageAuditPanel } from './common/StorageAuditPanel';
+import PlanesIAAdminPanel from './PlanesIAAdminPanel';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UploadProgressBar } from './common/UploadProgressBar';
@@ -1468,12 +1469,15 @@ export default function SettingsView({
 
       {/* Apartado de Comunicados / Notificaciones: VISIBLE ÚNICAMENTE PARA EL ADMINISTRADOR */}
       {isAdmin && setGlobalNotifs && (
-        <AdminAnnouncementPanel 
-          notifications={globalNotifs} 
-          setNotifications={setGlobalNotifs} 
-          authorName={currentUserName || 'Administrador Principal'} 
+        <AdminAnnouncementPanel
+          notifications={globalNotifs}
+          setNotifications={setGlobalNotifs}
+          authorName={currentUserName || 'Administrador Principal'}
         />
       )}
+
+      {/* Configuración de los planes de IA (precio y usos): SOLO ADMINISTRADOR */}
+      {isAdmin && <PlanesIAAdminPanel />}
 
       {/* Apartado de Auditoría de Almacenamiento, Caché PWA y Logs: VISIBLE ÚNICAMENTE PARA EL ADMINISTRADOR */}
       {isAdmin && (

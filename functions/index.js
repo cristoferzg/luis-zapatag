@@ -250,7 +250,9 @@ export const scanReceipt = onCall(
  *   2. firebase deploy --only functions
  * Mientras no se despliegue, el cliente avisa y el usuario dibuja a mano (nada se rompe).
  */
-const ROOFPLAN_MODEL = 'claude-sonnet-5-5';
+// Modo económico por defecto (Haiku) para abaratar el costo por plano ~10x.
+// Para más precisión en planos difíciles, cambia a 'claude-sonnet-5-5'.
+const ROOFPLAN_MODEL = 'claude-haiku-5-5';
 
 export const analyzeRoofPlan = onCall(
   { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 120 },

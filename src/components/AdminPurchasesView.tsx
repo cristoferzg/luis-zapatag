@@ -4,6 +4,7 @@ import { Check, X, Eye } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { CourseCategory, TutorialVideo } from './UsabilidadVideosView';
+import { grantAIPlan } from '../lib/aiAccess';
 
 interface Purchase {
   id: string;
@@ -37,6 +38,12 @@ export default function AdminPurchasesView() {
   const grantAccess = async (purchase: Purchase) => {
     const uid = purchase.userId;
     if (!uid) return;
+    // 0) ¿Es un PLAN DE IA? (itemId = 'ai_plan_<planId>') → activa el plan.
+    if (purchase.itemId?.startsWith('ai_plan_')) {
+      const planId = purchase.itemId.replace('ai_plan_', '');
+      await grantAIPlan(uid, planId);
+      return;
+    }
     // 1) ¿El ítem es un CURSO? (por id o por nombre)
     const curso = cursos.find(c => c.id === purchase.itemId || c.name === purchase.itemName);
     if (curso) {

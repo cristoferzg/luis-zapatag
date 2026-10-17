@@ -42,6 +42,8 @@ import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64 } from '../../lib/roofPlanScan';
+import { checkAIAccess, consumeAIUse } from '../../lib/aiAccess';
+import PlanesIAModal from '../PlanesIAModal';
 import { 
   getSegmentColorHex, 
   TipoTijeral, 
@@ -122,6 +124,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [iaReading, setIaReading] = useState<boolean>(false);
   const [iaNotice, setIaNotice] = useState<string | null>(null);
   const iaInputRef = useRef<HTMLInputElement>(null);
+  const [showPlanesIA, setShowPlanesIA] = useState<false | 'sin_plan' | 'agotado'>(false);
+
+  // Antes de abrir el selector de archivo, verifica el acceso a la IA (por plan).
+  const handleIaButtonClick = async () => {
+    const acc = await checkAIAccess();
+    if (!acc.ok) { setShowPlanesIA(acc.motivo || 'sin_plan'); return; }
+    iaInputRef.current?.click();
+  };
 
   const handleIaPlanUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -139,6 +149,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       } else {
         const { nodes: nN, segments: nS } = buildSceneFromPlan(plan, engineState.activeProfileId);
         engineState.loadScene(nN, nS, {});
+        try { await consumeAIUse(); } catch { /* no bloquear por el contador */ }
         setIaNotice(`✓ IA: ${nCols} columnas y ${nVig} barras (confianza ${plan.confianza}). ${plan.notas || ''} Revisa y ajusta con las herramientas.`);
       }
     } catch (err: any) {
@@ -1390,7 +1401,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </button>
             <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
             <button
-              onClick={() => iaInputRef.current?.click()}
+              onClick={handleIaButtonClick}
               disabled={iaReading}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 shadow-2xs cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-500 hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-wait"
               title="Leer un plano a mano con IA y dibujar columnas y vigas automáticamente"
@@ -2686,6 +2697,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </p>
           </div>
         )}
+
+        {/* MODAL DE PLANES DE IA (si el usuario no tiene acceso) */}
+        {showPlanesIA && <PlanesIAModal motivo={showPlanesIA} onClose={() => setShowPlanesIA(false)} />}
 
         {/* AVISO / RESULTADO DE LA LECTURA DE PLANO POR IA */}
         {iaNotice && (

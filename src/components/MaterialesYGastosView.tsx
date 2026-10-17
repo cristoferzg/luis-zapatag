@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { Project, Material, FinanceRecord } from '../types';
 import { scanReceipt } from '../lib/receiptScan';
+import { checkAIAccess, consumeAIUse } from '../lib/aiAccess';
+import PlanesIAModal from './PlanesIAModal';
 
 interface MaterialesYGastosViewProps {
   projects: Project[];
@@ -86,6 +88,7 @@ export default function MaterialesYGastosView({
   const [scanning, setScanning] = useState(false);
   const [scanNotice, setScanNotice] = useState<{ ok: boolean; msg: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showPlanesIA, setShowPlanesIA] = useState<false | 'sin_plan' | 'agotado'>(false);
   const receiptInputRef = useRef<HTMLInputElement>(null);
 
   const handleScanReceipt = async (file: File | null) => {
@@ -93,11 +96,24 @@ export default function MaterialesYGastosView({
     setScanning(true);
     setScanNotice(null);
     try {
-      const result = await scanReceipt(file);
+      // El QR del comprobante es gratis para todos; la lectura por IA (y la
+      // lectura de PDFs) requiere un plan de IA activo. El admin siempre puede.
+      const acc = await checkAIAccess();
+      const result = await scanReceipt(file, acc.ok);
       const d = result.data;
+      // Sin QR y sin plan de IA → ofrecer activar un plan.
+      if (result.source === 'sin_ia') {
+        setShowPlanesIA(acc.motivo || 'sin_plan');
+        setScanNotice({ ok: false, msg: 'La lectura automática con IA requiere un plan activo. El QR del comprobante es gratis; para fotos o PDFs sin QR, activa un plan.' });
+        return;
+      }
       if (result.source === 'none' || (!d.total && !d.proveedor && !d.ruc)) {
         setScanNotice({ ok: false, msg: 'No se pudieron leer los datos. Ingrésalos a mano o intenta con una foto más nítida.' });
         return;
+      }
+      // Si la IA aportó datos, descuenta un uso del plan.
+      if (result.source === 'ia' || result.source === 'qr_ia') {
+        try { await consumeAIUse(); } catch { /* ignore */ }
       }
       // Rellenar el formulario (el usuario revisa y confirma antes de guardar).
       // La descripción combina el DETALLE de lo comprado + proveedor + método de pago.
@@ -852,6 +868,7 @@ export default function MaterialesYGastosView({
         </div>
       </div>
       )}
+      {showPlanesIA && <PlanesIAModal motivo={showPlanesIA} onClose={() => setShowPlanesIA(false)} />}
     </div>
   );
 }

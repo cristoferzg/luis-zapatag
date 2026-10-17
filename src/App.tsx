@@ -13,6 +13,7 @@ import { db } from './lib/firebase';
 import { auth } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { useFirestoreArraySync } from './lib/db';
+import { setAICtx } from './lib/aiAccess';
 import CotizadorRapidoView from './components/CotizadorRapidoView';
 import UsuariosView from './components/UsuariosView';
 import { Ticket } from './components/TicketsView';
@@ -1528,6 +1529,8 @@ export default function App() {
     setDevFlags([{ id: 'nav_flags', disabledSections: list }]);
   };
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
+  // Contexto para el control de acceso a la IA (admin ilimitado; usuarios por plan).
+  useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
   // Si un usuario está viendo una sección que el admin ocultó, lo regresamos al panel.
   useEffect(() => {
     if (!isAdmin && disabledSections.includes(currentView)) setCurrentView('dashboard');
