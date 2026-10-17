@@ -25,6 +25,17 @@ export const PLANES_IA_DEFAULT: AIPlan[] = [
   { id: 'ilimitado', nombre: 'Ilimitado', precioSoles: 29.90, usosMes: 0 },
 ];
 
+// Interruptor maestro: mientras sea `false`, la IA queda SOLO para el admin
+// (pruebas internas) y los usuarios NO la ven ni se les ofrecen planes. Cuando
+// el dueño decida abrirla al público, ponerlo en `true` (ver CLAUDE.md →
+// "PENDIENTE IMPORTANTE — Seguridad de la IA" para implementar reglas + enforcement).
+export const IA_HABILITADA_USUARIOS = false;
+
+/** ¿Se debe mostrar la opción de IA en la interfaz para el usuario actual? */
+export function iaVisibleParaUI(): boolean {
+  return _ctx.isAdmin || IA_HABILITADA_USUARIOS;
+}
+
 export interface AIAccess {
   userId: string;
   planId: string;
@@ -63,7 +74,7 @@ export async function getAIAccess(userId: string): Promise<AIAccess | null> {
   } catch { return null; }
 }
 
-export interface AICheck { ok: boolean; ilimitado?: boolean; restantes?: number; planNombre?: string; motivo?: 'sin_plan' | 'agotado'; }
+export interface AICheck { ok: boolean; ilimitado?: boolean; restantes?: number; planNombre?: string; motivo?: 'sin_plan' | 'agotado' | 'no_disponible'; }
 
 /**
  * Verifica si el usuario actual puede usar la IA. Admin → ilimitado.
@@ -71,6 +82,8 @@ export interface AICheck { ok: boolean; ilimitado?: boolean; restantes?: number;
  */
 export async function checkAIAccess(): Promise<AICheck> {
   if (_ctx.isAdmin) return { ok: true, ilimitado: true, planNombre: 'Administrador' };
+  // La IA aún no está abierta a usuarios: solo el admin la usa (pruebas internas).
+  if (!IA_HABILITADA_USUARIOS) return { ok: false, motivo: 'no_disponible' };
   if (!_ctx.userId) return { ok: false, motivo: 'sin_plan' };
   const a = await getAIAccess(_ctx.userId);
   if (!a || !a.planId) return { ok: false, motivo: 'sin_plan' };

@@ -101,10 +101,15 @@ export default function MaterialesYGastosView({
       const acc = await checkAIAccess();
       const result = await scanReceipt(file, acc.ok);
       const d = result.data;
-      // Sin QR y sin plan de IA → ofrecer activar un plan.
+      // Sin QR y sin IA permitida.
       if (result.source === 'sin_ia') {
-        setShowPlanesIA(acc.motivo || 'sin_plan');
-        setScanNotice({ ok: false, msg: 'La lectura automática con IA requiere un plan activo. El QR del comprobante es gratis; para fotos o PDFs sin QR, activa un plan.' });
+        if (acc.motivo === 'no_disponible') {
+          // IA aún no abierta a usuarios: no se ofrece plan, solo se avisa.
+          setScanNotice({ ok: false, msg: 'No se encontró QR en el comprobante. La lectura automática con IA está en pruebas internas; por ahora ingresa el gasto a mano.' });
+        } else {
+          setShowPlanesIA(acc.motivo === 'agotado' ? 'agotado' : 'sin_plan');
+          setScanNotice({ ok: false, msg: 'La lectura automática con IA requiere un plan activo. El QR del comprobante es gratis; para fotos o PDFs sin QR, activa un plan.' });
+        }
         return;
       }
       if (result.source === 'none' || (!d.total && !d.proveedor && !d.ruc)) {

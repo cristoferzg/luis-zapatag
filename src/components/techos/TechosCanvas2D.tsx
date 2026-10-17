@@ -42,7 +42,7 @@ import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64 } from '../../lib/roofPlanScan';
-import { checkAIAccess, consumeAIUse } from '../../lib/aiAccess';
+import { checkAIAccess, consumeAIUse, iaVisibleParaUI } from '../../lib/aiAccess';
 import PlanesIAModal from '../PlanesIAModal';
 import { 
   getSegmentColorHex, 
@@ -129,7 +129,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Antes de abrir el selector de archivo, verifica el acceso a la IA (por plan).
   const handleIaButtonClick = async () => {
     const acc = await checkAIAccess();
-    if (!acc.ok) { setShowPlanesIA(acc.motivo || 'sin_plan'); return; }
+    if (!acc.ok) {
+      // 'no_disponible' = IA aún no abierta a usuarios → no se ofrece plan.
+      if (acc.motivo === 'agotado') setShowPlanesIA('agotado');
+      else if (acc.motivo === 'sin_plan') setShowPlanesIA('sin_plan');
+      else setIaNotice('La lectura de planos con IA está en pruebas internas. Pronto estará disponible.');
+      return;
+    }
     iaInputRef.current?.click();
   };
 
@@ -1399,16 +1405,22 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <ImageIcon className="w-3.5 h-3.5" />
               <span>{refImg ? 'Plano ref.' : 'Imagen ref.'}</span>
             </button>
-            <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
-            <button
-              onClick={handleIaButtonClick}
-              disabled={iaReading}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 shadow-2xs cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-500 hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-wait"
-              title="Leer un plano a mano con IA y dibujar columnas y vigas automáticamente"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{iaReading ? 'Leyendo…' : 'IA: Leer plano'}</span>
-            </button>
+            {/* IA: Leer plano. Por ahora SOLO visible para el admin (pruebas internas).
+                Cuando se abra al público, ver IA_HABILITADA_USUARIOS en aiAccess.ts. */}
+            {iaVisibleParaUI() && (
+              <>
+                <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
+                <button
+                  onClick={handleIaButtonClick}
+                  disabled={iaReading}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 shadow-2xs cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-500 hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-wait"
+                  title="Leer un plano a mano con IA y dibujar columnas y vigas automáticamente"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{iaReading ? 'Leyendo…' : 'IA: Leer plano'}</span>
+                </button>
+              </>
+            )}
           </>
         )}
 
