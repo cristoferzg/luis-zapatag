@@ -47,6 +47,7 @@ import { TechosInteractiveTutorial } from './TechosInteractiveTutorial';
 import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { safeStorage } from '../../lib/storageManager';
 import { 
   SavedTechosDesign, 
   fetchAllTechosDesigns, 
@@ -650,6 +651,41 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     }
   };
 
+  // PUENTE TECHOS → CONCRETO (Etapa A): toma las posiciones de las columnas del
+  // esqueleto metálico y genera columnas + zapatas en el CAD de Concreto para
+  // diseñar la cimentación que soporta la nave. Se comunican por localStorage.
+  const handleEnviarAConcreto = () => {
+    const nodes: any = engineState.nodes;
+    const segs: any = engineState.segments;
+    const bases = new Map<string, { x: number; z: number; H: number }>();
+    Object.values(segs).forEach((s: any) => {
+      if (s.rolEstructural === 'columna' || s.rolEstructural === 'columna_concreto') {
+        const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
+        if (!a || !b) return;
+        const base = a.y <= b.y ? a : b;
+        const top = a.y <= b.y ? b : a;
+        const key = `${Math.round(base.x * 100)}_${Math.round((base.z || 0) * 100)}`;
+        const H = Math.max(0.3, Math.round(Math.abs(top.y - base.y) * 100) / 100);
+        if (!bases.has(key)) bases.set(key, { x: base.x, z: base.z || 0, H });
+      }
+    });
+    if (bases.size === 0) {
+      alert('No se encontraron columnas en el diseño de techo para enviar a Concreto.');
+      return;
+    }
+    const prev = (safeStorage.getItem<any[]>('concreto_plano_elems', []) || []);
+    if (!window.confirm(`Se enviarán ${bases.size} columnas (con sus zapatas) al CAD de Concreto para diseñar la cimentación.${prev.length ? ' Se agregarán a lo que ya tengas ahí.' : ''}\n\n¿Continuar?`)) return;
+    const nuevos: any[] = [];
+    let i = 0;
+    bases.forEach(({ x, z, H }) => {
+      const stamp = `tc_${Date.now()}_${i++}`;
+      nuevos.push({ uid: `${stamp}_z`, tipo: 'zapata', x1: x, y1: z, a: 1.0, b: 1.0, h: 0.5 });
+      nuevos.push({ uid: `${stamp}_c`, tipo: 'columna', x1: x, y1: z, a: 0.25, b: 0.25, H });
+    });
+    safeStorage.setItem('concreto_plano_elems', [...prev, ...nuevos]);
+    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas.\n\nAbre "Metrados Concreto" → modo "Plano CAD" para ver y completar la cimentación (vigas de cimentación, muros, etc.).`);
+  };
+
   // Cargar Plantilla Prediseñada
   const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina') => {
     engineState.clearScene();
@@ -796,6 +832,16 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <span className="text-[11px] font-bold hidden md:inline">Exportar</span>
           </button>
 
+          {/* [ ENVIAR A CONCRETO ] — puente de cimentación, solo escritorio */}
+          <button
+            onClick={handleEnviarAConcreto}
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
+            title="Enviar las columnas del techo al CAD de Concreto para diseñar la cimentación"
+          >
+            <Box className="w-3.5 h-3.5 text-stone-600 shrink-0" />
+            <span className="text-[11px] font-bold hidden lg:inline">→ Concreto</span>
+          </button>
+
           {/* [ AYUDA Y TUTORIAL ] — solo escritorio */}
           <button
             onClick={() => setShowTutorialModal(true)}
@@ -824,6 +870,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                     { l: '+ Nuevo', I: Plus, on: handleNuevo },
                     { l: 'Cargar', I: FolderOpen, on: () => { loadSavedList(); setShowLoadModal(true); } },
                     { l: 'Exportar', I: Download, on: handleExportar },
+                    { l: '→ Enviar a Concreto', I: Box, on: handleEnviarAConcreto },
                     { l: 'Ayuda', I: HelpCircle, on: () => setShowTutorialModal(true) },
                   ].map(a => {
                     const Icon = a.I;
