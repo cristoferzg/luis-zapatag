@@ -244,6 +244,37 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
             </div>
           </div>
 
+          {/* MATERIAL DE ACABADO (3D): metal, madera, mármol, vidrio… */}
+          <div>
+            <label className="text-[11px] text-slate-600 font-semibold block mb-1">Material / acabado (3D)</label>
+            <select
+              value={piezaSeleccionada.acabadoMaterial || 'acero'}
+              onChange={e => updatePieza({ acabadoMaterial: e.target.value })}
+              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 text-xs font-semibold focus:border-blue-600 cursor-pointer"
+            >
+              <optgroup label="Metales">
+                <option value="acero">Acero</option>
+                <option value="aluminio">Aluminio</option>
+                <option value="inox">Acero inoxidable</option>
+                <option value="laton">Latón</option>
+                <option value="cobre">Cobre</option>
+                <option value="cromo">Cromado</option>
+              </optgroup>
+              <optgroup label="Maderas / tableros">
+                <option value="madera">Madera oscura</option>
+                <option value="madera_clara">Madera clara</option>
+                <option value="mdf">MDF</option>
+                <option value="melamina">Melamina</option>
+              </optgroup>
+              <optgroup label="Otros">
+                <option value="marmol">Mármol</option>
+                <option value="concreto">Concreto</option>
+                <option value="vidrio">Vidrio</option>
+              </optgroup>
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">Cambia solo la apariencia en el 3D (ideal para muebles). No altera la familia estructural ni el precio.</p>
+          </div>
+
           {/* Nombre / Descripción */}
           <div>
             <label className="text-[10px] text-slate-500 font-semibold block mb-1 uppercase tracking-wider">Identificador</label>
@@ -775,6 +806,44 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
             </div>
           );
         })()}
+
+        {/* MATERIAL GENERAL (3D): aplica a TODAS las piezas de un toque */}
+        {piezas.length > 0 && (
+          <div>
+            <label className="text-[11px] text-slate-600 font-semibold block mb-1">Material general (3D)</label>
+            <select
+              defaultValue=""
+              onChange={e => {
+                const m = e.target.value;
+                if (!m) return;
+                onUpdateDesign({ ...design, piezas: piezas.map(p => ({ ...p, acabadoMaterial: m })) });
+              }}
+              className="w-full bg-white border border-slate-300 rounded-lg p-2 text-slate-800 text-xs font-semibold focus:border-blue-600 cursor-pointer"
+            >
+              <option value="">— Aplicar a todas las piezas —</option>
+              <optgroup label="Metales">
+                <option value="acero">Acero</option>
+                <option value="aluminio">Aluminio</option>
+                <option value="inox">Acero inoxidable</option>
+                <option value="laton">Latón</option>
+                <option value="cobre">Cobre</option>
+                <option value="cromo">Cromado</option>
+              </optgroup>
+              <optgroup label="Maderas / tableros">
+                <option value="madera">Madera oscura</option>
+                <option value="madera_clara">Madera clara</option>
+                <option value="mdf">MDF</option>
+                <option value="melamina">Melamina</option>
+              </optgroup>
+              <optgroup label="Otros">
+                <option value="marmol">Mármol</option>
+                <option value="concreto">Concreto</option>
+                <option value="vidrio">Vidrio</option>
+              </optgroup>
+            </select>
+            <p className="text-[10px] text-slate-400 mt-1">Pinta todas las piezas con ese material en el 3D (para muebles, barandas, etc.). Puedes afinar pieza por pieza seleccionándola.</p>
+          </div>
+        )}
 
         {/* Acabado y Pintura */}
         <div className="space-y-2">

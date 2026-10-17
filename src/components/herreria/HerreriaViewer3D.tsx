@@ -502,6 +502,31 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
       wireframe: isWire
     });
 
+    // Catálogo de MATERIALES de acabado (apariencia 3D): permite diseñar muebles
+    // y acabados con madera, mármol, vidrio, aluminio, inox, latón, cobre, MDF,
+    // melamina y concreto, además del acero. Cada pieza puede llevar su propio
+    // material (pz.acabadoMaterial); si no, usa el acero por defecto.
+    const matCatalogo: Record<string, THREE.Material> = {
+      acero: metalMat,
+      aluminio: new THREE.MeshStandardMaterial({ color: 0xd4d7dd, metalness: 0.72, roughness: 0.34, wireframe: isWire }),
+      inox: new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.22, wireframe: isWire }),
+      laton: latonMat,
+      cobre: new THREE.MeshStandardMaterial({ color: 0xb45309, metalness: 0.82, roughness: 0.28, wireframe: isWire }),
+      cromo: cromoMat,
+      madera: new THREE.MeshStandardMaterial({ color: 0x8a5a2b, metalness: 0.0, roughness: 0.72, wireframe: isWire }),
+      madera_clara: new THREE.MeshStandardMaterial({ color: 0xc8a06a, metalness: 0.0, roughness: 0.70, wireframe: isWire }),
+      marmol: new THREE.MeshStandardMaterial({ color: 0xeef0f3, metalness: 0.06, roughness: 0.18, wireframe: isWire }),
+      mdf: new THREE.MeshStandardMaterial({ color: 0xcaa776, metalness: 0.0, roughness: 0.85, wireframe: isWire }),
+      melamina: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.03, roughness: 0.40, wireframe: isWire }),
+      concreto: new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.0, roughness: 0.92, wireframe: isWire }),
+      vidrio: vidrioMat,
+    };
+    const getPieceMat = (pzAny: any): THREE.Material => {
+      const m = pzAny?.acabadoMaterial;
+      if (m && matCatalogo[m]) return matCatalogo[m].clone();
+      return metalMat.clone();
+    };
+
     const modeloGroup = new THREE.Group();
     modeloGroup.name = 'modelo_piezas';
     scene.add(modeloGroup);
@@ -1001,7 +1026,7 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
         geo = new THREE.BoxGeometry(anchoM, finalLength, altoM);
       }
 
-      const pieceMat = metalMat.clone();
+      const pieceMat = getPieceMat(pz);
       const mesh = new THREE.Mesh(geo, pieceMat);
 
       // Contornos nítidos para delimitar claramente cada tubo, marco y barrote

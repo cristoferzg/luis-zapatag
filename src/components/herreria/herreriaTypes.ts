@@ -282,6 +282,10 @@ export interface PiezaCad {
   sideTope?: 'inner' | 'outer';
 
   colorHex?: string;
+  // Material de ACABADO para el render 3D (apariencia): acero (por defecto),
+  // aluminio, inox, laton, cobre, cromo, madera, madera_clara, marmol, mdf,
+  // melamina, concreto, vidrio. No afecta la familia estructural ni el precio.
+  acabadoMaterial?: string;
   cantidad: number;
   grupo?: string; // e.g. 'marco', 'bastidor', 'patas', 'asiento', 'refuerzo'
   bloqueado?: boolean;
