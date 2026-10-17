@@ -198,9 +198,34 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
       cantidad: rolCount[rol] || 0,
     })).sort((a, b) => (ROL_WIDTH[b.rol] || 0) - (ROL_WIDTH[a.rol] || 0));
 
+    // Separación típica entre correas (posiciones X únicas de las correas).
+    const correaXset = new Set<number>();
+    sArr.forEach(s => {
+      if (s.rolEstructural === 'correa') {
+        const a = getN(s.nodeAId), b = getN(s.nodeBId);
+        if (a) correaXset.add(Math.round(a.x * 100) / 100);
+        if (b) correaXset.add(Math.round(b.x * 100) / 100);
+      }
+    });
+    const correaXs = Array.from(correaXset).sort((a, b) => a - b);
+    const nCorreas = correaXs.length;
+    let correaSep = 0;
+    if (correaXs.length > 1) {
+      const diffs = correaXs.slice(1).map((v, i) => v - correaXs[i]).filter(d => d > 0.01);
+      diffs.sort((a, b) => a - b);
+      correaSep = diffs.length ? diffs[Math.floor(diffs.length / 2)] : 0; // mediana
+    }
+
+    // Datos de anclaje (del primer apoyo fijo que los tenga, o estándar).
+    const anclaje = (() => {
+      const base = nArr.find(n => n.isFixedSupport && (n.numPernos || n.boltDiameter));
+      return { numPernos: base?.numPernos || 4, boltDiameter: base?.boltDiameter || '5/8"' };
+    })();
+
     return {
       vacio: false, nArr, sArr, getN, minX, maxX, minY, maxY, minZ, maxZ,
       luz, altura, largo, framesZ, nPorticos, separacion, frontZ, alturaCol, cuadro,
+      correaXs, nCorreas, correaSep, anclaje,
     };
   }, [nodes, segments]);
 
@@ -322,10 +347,82 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
         {/* Cotas: largo (abajo, horizontal) y luz (izquierda, vertical) */}
         <CotaH xa={m.X(minZ)} xb={m.X(maxZ)} y={m.Y(minX) + 26} label={`LARGO = ${fmt(info.largo)} m`} />
         <CotaV ya={m.Y(maxX)} yb={m.Y(minX)} x={m.X(minZ) - 24} label={`LUZ = ${fmt(info.luz)} m`} />
+        {/* Cota de separación entre correas (derecha), si hay más de una */}
+        {info.correaXs.length > 1 && info.correaSep > 0 && (
+          <CotaV
+            ya={m.Y(info.correaXs[0])}
+            yb={m.Y(info.correaXs[1])}
+            x={m.X(maxZ) + 22}
+            color="#0284c7"
+            label={`CORREAS @ ${fmt(info.correaSep)} m`}
+          />
+        )}
         {/* Ejes: números (pórticos, z) abajo; letras A/B (x) a la izquierda */}
         {framesZ.map((z: number, i: number) => <EjeBubble key={i} cx={m.X(z)} cy={m.Y(minX) + 46} label={`${i + 1}`} />)}
         <EjeBubble cx={m.X(minZ) - 44} cy={m.Y(minX)} label="A" />
         <EjeBubble cx={m.X(minZ) - 44} cy={m.Y(maxX)} label="B" />
+      </svg>
+    );
+  };
+
+  // Detalle ampliado de placa base y anclaje (dibujo tipo CAD, sin escala).
+  const SvgPlacaBase = () => {
+    const nP = info.anclaje?.numPernos || 4;
+    const dia = info.anclaje?.boltDiameter || '5/8"';
+    // Reparte los pernos a lo ancho de la placa (vista frontal del anclaje).
+    const plateX = 120, plateW = 160, plateTop = 150;
+    const boltsPerSide = Math.max(1, Math.round(nP / 2));
+    const boltXs: number[] = [];
+    for (let i = 0; i < boltsPerSide; i++) {
+      const t = boltsPerSide === 1 ? 0.5 : i / (boltsPerSide - 1);
+      boltXs.push(plateX + 18 + t * (plateW - 36));
+    }
+    return (
+      <svg viewBox="0 0 400 285" className="w-full bg-white border border-slate-200 rounded-lg" style={{ height: 'auto' }}>
+        {/* Pedestal de concreto con achurado */}
+        <defs>
+          <pattern id="hatchCon" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="7" stroke="#cbd5e1" strokeWidth="1" />
+          </pattern>
+        </defs>
+        <rect x="95" y="165" width="210" height="70" fill="url(#hatchCon)" stroke="#64748b" strokeWidth="1.2" />
+        <text x="311" y="205" fill="#94a3b8" fontSize="7" transform="rotate(90 311 205)" textAnchor="middle">CONCRETO f'c=210</text>
+
+        {/* Grout / mortero de nivelación */}
+        <rect x={plateX} y={plateTop + 8} width={plateW} height="7" fill="#fde68a" stroke="#b45309" strokeWidth="0.6" />
+        <text x={plateX + plateW + 6} y={plateTop + 14} fill="#b45309" fontSize="7">Grout sin retracción 2cm</text>
+
+        {/* Placa base de acero */}
+        <rect x={plateX} y={plateTop} width={plateW} height="8" fill="#334155" stroke="#0f172a" strokeWidth="1" />
+        <text x={plateX - 6} y={plateTop + 7} fill="#0f172a" fontSize="7.5" textAnchor="end">PLACA BASE</text>
+
+        {/* Columna tubular */}
+        <rect x={plateX + plateW / 2 - 16} y="40" width="32" height={plateTop - 40} fill="#1e293b" stroke="#0f172a" strokeWidth="1" />
+        <rect x={plateX + plateW / 2 - 20} y="40" width="40" height="32" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="2 2" />
+        <text x={plateX + plateW / 2} y="34" fill="#0f172a" fontSize="8" textAnchor="middle" fontWeight="bold">COLUMNA</text>
+
+        {/* Cordón de soldadura (triángulos en la unión) */}
+        {[plateX + plateW / 2 - 16, plateX + plateW / 2 + 16].map((xx, i) => (
+          <polygon key={i} points={`${xx},${plateTop} ${xx + (i ? 10 : -10)},${plateTop} ${xx},${plateTop - 10}`} fill="#ef4444" />
+        ))}
+        <text x={plateX + plateW / 2 + 40} y={plateTop - 2} fill="#ef4444" fontSize="7">Soldadura AWS E-7018</text>
+
+        {/* Pernos de anclaje tipo J */}
+        {boltXs.map((bx, i) => (
+          <g key={i}>
+            <line x1={bx} y1={plateTop} x2={bx} y2="225" stroke="#0f172a" strokeWidth="2" />
+            <path d={`M ${bx} 225 q 0 8 -8 8`} fill="none" stroke="#0f172a" strokeWidth="2" />
+            {/* Tuerca + arandela sobre la placa */}
+            <rect x={bx - 4} y={plateTop - 6} width="8" height="6" fill="#475569" stroke="#0f172a" strokeWidth="0.5" />
+          </g>
+        ))}
+        <text x={plateX + plateW / 2} y="268" fill="#0f172a" fontSize="8" textAnchor="middle" fontWeight="bold">{nP} PERNOS DE ANCLAJE Ø {dia} TIPO J (ASTM A307)</text>
+
+        {/* Cota de empotramiento */}
+        <CotaV ya={plateTop + 15} yb={233} x={plateX - 26} label="≥ 35 cm" color="#1d4ed8" />
+        {/* Línea N.P.T. */}
+        <line x1="70" y1="165" x2="330" y2="165" stroke="#64748b" strokeWidth="1" strokeDasharray="6 3" />
+        <text x="70" y="178" fill="#64748b" fontSize="7">N.P.T. ±0.00</text>
       </svg>
     );
   };
@@ -452,8 +549,13 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
                 </Vista>
               )}
               {(tab === 'todas' || tab === 'planta') && (
-                <Vista titulo="PLANTA DE TECHO Y CORREAS" sub={`${fmt(info.luz)} × ${fmt(info.largo)} m`} wide={tab === 'planta' || tab === 'todas'}>
+                <Vista titulo="PLANTA DE TECHO Y CORREAS" sub={`${fmt(info.luz)} × ${fmt(info.largo)} m${info.nCorreas ? ` · ${info.nCorreas} correas` : ''}`} wide={tab === 'planta' || tab === 'todas'}>
                   <SvgPlanta />
+                </Vista>
+              )}
+              {tab === 'todas' && (
+                <Vista titulo="DETALLE: PLACA BASE Y ANCLAJE DE COLUMNA (S/E)" sub={`${info.anclaje?.numPernos || 4} pernos Ø ${info.anclaje?.boltDiameter || '5/8"'}`}>
+                  <SvgPlacaBase />
                 </Vista>
               )}
             </div>
@@ -491,10 +593,47 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
               </div>
             </div>
 
-            {/* Pie de lámina */}
-            <div className="flex flex-col sm:flex-row justify-between items-center text-[10px] text-slate-500 font-bold gap-2 pt-2 border-t border-slate-200">
-              <div>INNOVA CONTRATISTAS | INGENIERÍA ESTRUCTURAL & METÁLICA</div>
-              <div className="text-amber-700 font-black">PLANO GENERADO AUTOMÁTICAMENTE DEL MODELO 3D</div>
+            {/* CARTELA / TÍTULO BLOCK (estilo CAD) */}
+            <div className="border-2 border-slate-900 rounded-md overflow-hidden text-[9px]">
+              <div className="grid grid-cols-2 sm:grid-cols-4">
+                <div className="sm:col-span-2 p-2.5 border-b border-r border-slate-300 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded bg-amber-500 text-slate-950 flex items-center justify-center font-black text-[11px] shrink-0">IC</div>
+                  <div className="leading-tight">
+                    <div className="font-black text-slate-900 text-[11px] uppercase">INNOVA CONTRATISTAS</div>
+                    <div className="text-slate-500 font-semibold">Ingeniería estructural &amp; metálica</div>
+                  </div>
+                </div>
+                <div className="p-2.5 border-b border-r border-slate-300">
+                  <div className="text-slate-400 font-bold uppercase text-[7.5px]">Lámina</div>
+                  <div className="font-black text-amber-700 text-[12px]">CM-02</div>
+                </div>
+                <div className="p-2.5 border-b border-slate-300">
+                  <div className="text-slate-400 font-bold uppercase text-[7.5px]">Escala</div>
+                  <div className="font-bold text-slate-800">Gráfica S/C</div>
+                </div>
+
+                <div className="sm:col-span-2 p-2.5 border-r border-slate-300">
+                  <div className="text-slate-400 font-bold uppercase text-[7.5px]">Proyecto</div>
+                  <div className="font-bold text-slate-800 truncate">{nombreProy}</div>
+                </div>
+                <div className="p-2.5 border-r border-slate-300">
+                  <div className="text-slate-400 font-bold uppercase text-[7.5px]">Fecha</div>
+                  <div className="font-bold text-slate-800">{new Date().toLocaleDateString('es-PE')}</div>
+                </div>
+                <div className="grid grid-cols-2">
+                  <div className="p-2.5 border-r border-slate-300">
+                    <div className="text-slate-400 font-bold uppercase text-[7.5px]">Dibujó</div>
+                    <div className="font-bold text-slate-800">IC-CAD</div>
+                  </div>
+                  <div className="p-2.5">
+                    <div className="text-slate-400 font-bold uppercase text-[7.5px]">Revisó</div>
+                    <div className="font-bold text-slate-400">______</div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-900 text-amber-400 text-[8px] font-black uppercase tracking-wider px-2.5 py-1 text-center">
+                Plano generado automáticamente del modelo 3D — Compatibilizado RNE E.090
+              </div>
             </div>
           </>
         )}
