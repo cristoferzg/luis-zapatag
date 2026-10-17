@@ -943,7 +943,6 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
         if (otherPz.id === pz.id || otherPz.esCurvo || otherPz.esPlancha) return;
         const otherPerfil = PERFILES_CATALOGO.find(p => p.id === otherPz.perfilId) || PERFILES_CATALOGO[0];
         const otherAncho = otherPerfil.anchoMm / 1000;
-        const otherDimension = Math.max(otherPerfil.anchoMm, otherPerfil.altoMm) / 1000;
         const op1 = new THREE.Vector3(otherPz.x1, otherPz.y1, otherPz.z1 || 0);
         const op2 = new THREE.Vector3(otherPz.x2, otherPz.y2, otherPz.z2 || 0);
         const otherDir = new THREE.Vector3().subVectors(op2, op1).normalize();
@@ -952,8 +951,12 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
         const isRoundThis = perfil.categoria === 'tubo_redondo';
         const isRoundOther = otherPerfil.categoria === 'tubo_redondo';
 
-        // Determinar offset de contacto óptimo según geometría
-        let contactOffset = otherDimension / 2;
+        // Determinar offset de contacto óptimo según geometría.
+        // Para perfiles cuadrados/rectangulares coplanares, extender a la mitad
+        // del ANCHO del otro perfil (no al máximo entre ancho/alto): así el tubo
+        // llega justo a la cara exterior del otro y la esquina queda a tope
+        // limpio, sin que un perfil sobresalga "de canto" sobre el otro.
+        let contactOffset = otherAncho / 2;
         if (isRoundThis && !isRoundOther) {
           // Tubo redondo apoyando sobre cara plana de tubo cuadrado
           contactOffset = otherAncho / 2;
