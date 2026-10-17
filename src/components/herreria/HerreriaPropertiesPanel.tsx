@@ -44,6 +44,7 @@ interface HerreriaPropertiesPanelProps {
   onClose: () => void;
   isOpenMobile?: boolean;
   onToggleMobile?: () => void;
+  onSelectElement?: (id: string | null, type: HerreriaSelectedType) => void;
 }
 
 export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = ({
@@ -51,6 +52,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
   onUpdateDesign,
   selectedElementId,
   selectedType: _selectedType,
+  onSelectElement = () => {},
   onClose,
   isOpenMobile = false,
   onToggleMobile: _onToggleMobile
@@ -724,6 +726,55 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
             <span className="text-base font-mono font-bold text-emerald-600">{totalMetrosLineales.toFixed(2)} m</span>
           </div>
         </div>
+
+        {/* GRUPOS DE PIEZAS (ver / seleccionar / eliminar en conjunto, como Techos) */}
+        {piezas.length > 0 && (() => {
+          const LABELS: Record<string, string> = { marco: 'Marco perimetral', relleno: 'Relleno / barrotes', estructura: 'Estructura', arco: 'Arco', panel: 'Panel / chapa' };
+          const COLORS: Record<string, string> = { marco: 'bg-blue-500', relleno: 'bg-emerald-500', estructura: 'bg-amber-500', arco: 'bg-purple-500', panel: 'bg-sky-500' };
+          const counts: Record<string, number> = {};
+          piezas.forEach(p => { const g = (p as any).grupo || 'sueltas'; counts[g] = (counts[g] || 0) + 1; });
+          const grupos = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] text-slate-600 font-bold uppercase tracking-wide">Grupos de piezas</label>
+                <span className="text-[10px] text-slate-400 font-semibold">{grupos.length} grupo(s)</span>
+              </div>
+              <div className="space-y-1.5">
+                {grupos.map(([g, n]) => (
+                  <div key={g} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${COLORS[g] || 'bg-slate-400'}`} />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-slate-800 block truncate">{LABELS[g] || (g === 'sueltas' ? 'Piezas sueltas' : g)}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{n} pieza{n !== 1 ? 's' : ''}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const first = piezas.find(p => ((p as any).grupo || 'sueltas') === g);
+                        if (first) onSelectElement(first.id, 'pieza_cad');
+                      }}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50 cursor-pointer shrink-0"
+                      title="Ver una pieza de este grupo"
+                    >
+                      Ver
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`¿Eliminar las ${n} piezas del grupo "${LABELS[g] || g}"? Esta acción se puede deshacer con Ctrl+Z.`)) {
+                          onUpdateDesign({ ...design, piezas: piezas.filter(p => ((p as any).grupo || 'sueltas') !== g) });
+                        }
+                      }}
+                      className="text-[10px] font-bold text-rose-600 hover:text-rose-800 px-2 py-1 rounded-lg hover:bg-rose-50 cursor-pointer shrink-0"
+                      title="Eliminar todo el grupo"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Acabado y Pintura */}
         <div className="space-y-2">

@@ -488,6 +488,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
               onUpdateDesign={commitDesign}
               selectedElementId={selectedElementId}
               selectedType={selectedType}
+              onSelectElement={(id, type) => { setSelectedElementId(id); setSelectedType(type); }}
               onClose={() => {
                 setSelectedElementId(null);
                 setSelectedType(null);
