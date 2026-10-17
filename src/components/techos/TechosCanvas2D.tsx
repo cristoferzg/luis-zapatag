@@ -2769,6 +2769,21 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           }
           return (
             <div className="absolute left-2 right-2 bottom-2 z-30 flex items-center gap-1 overflow-x-auto scrollbar-none bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl">
+              {/* Rejilla integrada al dock (ya no flota aparte, no se encima) */}
+              <div className="shrink-0 flex flex-col items-center justify-center gap-0.5 px-1 border-r border-slate-200 mr-0.5">
+                <Grid className="w-[15px] h-[15px] text-blue-600" />
+                <select
+                  value={engineState.snapGridSizeM}
+                  onChange={(e) => engineState.setSnapGridSizeM(parseFloat(e.target.value) || 0.25)}
+                  className="text-[9px] font-bold bg-transparent outline-none text-slate-600 w-[44px] text-center cursor-pointer"
+                  title="Paso de rejilla (snap)"
+                >
+                  <option value={0.1}>0.10</option>
+                  <option value={0.25}>0.25</option>
+                  <option value={0.5}>0.50</option>
+                  <option value={1.0}>1.00</option>
+                </select>
+              </div>
               {railTools.map(t => {
                 const A = activeTool === t.id;
                 const Icon = t.Icon;
@@ -2787,11 +2802,16 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           );
         })()}
 
+        {/* Fondo opacado (antirreflejo, estilo Herrería) al abrir "Más" en móvil */}
+        {showFloatingToolsPanel && !isToolsPanelCollapsed && vista !== '3d' && !isDesktop && (
+          <div className="fixed inset-0 z-30 bg-slate-900/20 backdrop-blur-[1px]" onClick={() => setIsToolsPanelCollapsed(true)} />
+        )}
+
         {/* PANEL FLOTANTE DE HERRAMIENTAS CAD COMPLETO / COLAPSADO */}
         {/* CHIP DE RETÍCULA / SNAP (dock derecho, estilo Herrería): mantiene el
             ajuste de snap más usado accesible sin abrir el panel central. */}
         {engineState && vista !== '3d' && (
-          <div className="absolute bottom-16 sm:bottom-3 right-3 z-30 flex items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto">
+          <div className="hidden sm:flex absolute bottom-3 right-3 z-30 items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto">
             <Grid className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="text-[10px] font-bold text-slate-500 hidden sm:inline">Rejilla</span>
             <select
