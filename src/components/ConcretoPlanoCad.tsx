@@ -151,6 +151,17 @@ export default function ConcretoPlanoCad() {
   };
 
   const removeSel = () => { if (selUid) { setElems(prev => prev.filter(e => e.uid !== selUid)); setSelUid(null); } };
+  const updateElem = (uid: string, patch: Partial<PlanoElem>) =>
+    setElems(prev => prev.map(e => e.uid === uid ? { ...e, ...patch } : e));
+
+  const selElem = elems.find(e => e.uid === selUid) || null;
+  // Campos editables por tipo de elemento.
+  const CAMPOS: Record<PlanoTipo, { key: keyof PlanoElem; label: string }[]> = {
+    columna:  [{ key: 'a', label: 'Ancho sección (m)' }, { key: 'b', label: 'Alto sección (m)' }, { key: 'H', label: 'Altura (m)' }],
+    zapata:   [{ key: 'a', label: 'Ancho (m)' }, { key: 'b', label: 'Largo (m)' }, { key: 'h', label: 'Altura (m)' }],
+    viga:     [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Peralte (m)' }],
+    cimiento: [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Altura (m)' }],
+  };
 
   // ---- Metrado total ----
   const totales = useMemo(() => {
@@ -316,8 +327,45 @@ export default function ConcretoPlanoCad() {
           </div>
         </div>
 
-        {/* PANEL DE METRADO */}
+        {/* PANEL DE METRADO + PROPIEDADES */}
         <div className="lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto">
+          {/* Propiedades del elemento seleccionado (editar medidas reales) */}
+          {selElem && (
+            <div className="rounded-2xl border p-3 space-y-2.5" style={{ borderColor: META[selElem.tipo].color + '55', backgroundColor: META[selElem.tipo].color + '0d' }}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wide" style={{ color: META[selElem.tipo].color }}>
+                  {META[selElem.tipo].emoji} {META[selElem.tipo].nombre}
+                </span>
+                <button onClick={removeSel} className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer" title="Eliminar elemento">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {CAMPOS[selElem.tipo].map(c => (
+                  <label key={String(c.key)} className="text-[10px] font-bold text-slate-600">
+                    {c.label}
+                    <input type="number" step="0.05" value={(selElem[c.key] as number) ?? 0}
+                      onChange={e => updateElem(selElem.uid, { [c.key]: Math.max(0, parseFloat(e.target.value) || 0) } as Partial<PlanoElem>)}
+                      className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2"
+                      style={{ boxShadow: 'none' }} />
+                  </label>
+                ))}
+              </div>
+              {META[selElem.tipo].esLinea && selElem.x2 !== undefined && selElem.y2 !== undefined && (
+                <p className="text-[10px] font-bold text-slate-500">
+                  Longitud: <span className="font-mono text-slate-800">{Math.hypot(selElem.x2 - selElem.x1, selElem.y2 - selElem.y1).toFixed(2)} m</span>
+                </p>
+              )}
+              {(() => { const r = calcElem(selElem); return (
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-slate-600 border-t border-slate-200/70 pt-1.5">
+                  <span>🧱 {r.concretoM3.toFixed(3)} m³</span>
+                  <span>🔩 {r.aceroKg.toFixed(1)} kg</span>
+                  <span>🪵 {r.encofradoM2.toFixed(2)} m²</span>
+                </div>
+              ); })()}
+            </div>
+          )}
+
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide">Metrado automático</h3>
           <div className="grid grid-cols-2 gap-2">
             {[['Concreto', `${totales.concretoM3.toFixed(2)} m³`], ['Acero', `${totales.aceroKg.toFixed(0)} kg`], ['Encofrado', `${totales.encofradoM2.toFixed(1)} m²`], ['Cemento', `${Math.ceil(totales.cementoBolsas)} bls`]].map(([l, v]) => (
