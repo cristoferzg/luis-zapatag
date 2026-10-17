@@ -701,6 +701,14 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     return video.priceSoles || 39.90;
   };
 
+  // ¿La clase pertenece a un CURSO DE PAGO? En ese caso el precio es GENERAL del
+  // curso (se muestra una sola vez a nivel de curso); las clases solo indican
+  // que están "incluidas en el curso" y al comprarlas se habilita todo el curso.
+  const isPaidCourseVideo = (video: TutorialVideo): boolean => {
+    const parentCourse = cursosList.find(c => c.name === video.category);
+    return parentCourse?.isFree === false && !!parentCourse.priceSoles;
+  };
+
   const hasAccessToVideo = (video: TutorialVideo): boolean => {
     if (isAdmin) return true;
     
@@ -736,7 +744,9 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     const adminPhone = "+51966000500"; 
     const userIdentifier = currentUser?.name || 'Invitado';
     const effectivePrice = getEffectivePrice(video);
-    const message = `Hola Innova Contratistas, deseo adquirir acceso exclusivo para el curso / clase: "${video.title}" (Curso: ${video.category}).\n\n💵 Inversión: ${getFormattedPrice(effectivePrice)}\n👤 Mi usuario/PIN es: ${userIdentifier}\n\nPor favor habilitar mi acceso para poder ingresar.`;
+    const message = isPaidCourseVideo(video)
+      ? `Hola Innova Contratistas, deseo adquirir el CURSO COMPLETO: "${video.category}" (acceso a todas las clases).\n\n💵 Inversión: ${getFormattedPrice(effectivePrice)}\n👤 Mi usuario/PIN es: ${userIdentifier}\n\nPor favor habilitar mi acceso para poder ingresar.`
+      : `Hola Innova Contratistas, deseo adquirir acceso exclusivo para la clase: "${video.title}" (Curso: ${video.category}).\n\n💵 Inversión: ${getFormattedPrice(effectivePrice)}\n👤 Mi usuario/PIN es: ${userIdentifier}\n\nPor favor habilitar mi acceso para poder ingresar.`;
     const whatsappUrl = `https://wa.me/${adminPhone.replace('+', '')}?text=${encodeURIComponent(message)}`;
     try {
       const a = document.createElement('a');
@@ -1082,6 +1092,10 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
                   Gratis
                 </span>
+              ) : isPaidCourseVideo(video) ? (
+                <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 shadow-2xs">
+                  Incluida en el curso
+                </span>
               ) : (
                 <span className="text-[10px] font-black text-slate-900 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200 shadow-2xs">
                   {getFormattedPrice(getEffectivePrice(video))}
@@ -1134,7 +1148,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 className="w-full py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
               >
                 <Lock className="w-3.5 h-3.5 text-amber-400" />
-                <span className="truncate">Solicitar ({getFormattedPrice(getEffectivePrice(video))})</span>
+                <span className="truncate">{isPaidCourseVideo(video) ? 'Desbloquear curso' : `Solicitar (${getFormattedPrice(getEffectivePrice(video))})`}</span>
               </button>
             )}
           </div>
@@ -1503,6 +1517,10 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                                 <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                                   Gratis
                                 </span>
+                              ) : isPaidCourseVideo(video) ? (
+                                <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                  Incluida en el curso
+                                </span>
                               ) : (
                                 <span className="text-[10px] font-black text-slate-900 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-200">
                                   {getFormattedPrice(getEffectivePrice(video))}
@@ -1555,7 +1573,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                               className="py-2 px-4 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
                             >
                               <Lock className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Solicitar ({getFormattedPrice(getEffectivePrice(video))})</span>
+                              <span>{isPaidCourseVideo(video) ? 'Desbloquear curso' : `Solicitar (${getFormattedPrice(getEffectivePrice(video))})`}</span>
                             </button>
                           )}
 
@@ -2744,8 +2762,17 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 <p className="text-[9px] font-black text-rose-600 uppercase tracking-wider bg-rose-50 border border-rose-100 px-2.5 py-0.5 rounded-full inline-block mb-1">
                   Contenido Premium
                 </p>
-                <h4 className="font-black text-slate-800 text-sm leading-snug">{targetPurchaseVideo.title}</h4>
-                <p className="text-slate-500 text-xs font-bold">Curso: {targetPurchaseVideo.category}</p>
+                {isPaidCourseVideo(targetPurchaseVideo) ? (
+                  <>
+                    <h4 className="font-black text-slate-800 text-sm leading-snug">Curso completo: {targetPurchaseVideo.category}</h4>
+                    <p className="text-slate-500 text-xs font-bold">Incluye todas las clases del curso</p>
+                  </>
+                ) : (
+                  <>
+                    <h4 className="font-black text-slate-800 text-sm leading-snug">{targetPurchaseVideo.title}</h4>
+                    <p className="text-slate-500 text-xs font-bold">Curso: {targetPurchaseVideo.category}</p>
+                  </>
+                )}
                 <p className="text-emerald-600 font-black text-lg mt-1">S/ {getEffectivePrice(targetPurchaseVideo).toFixed(2)}</p>
               </div>
 
