@@ -107,6 +107,7 @@ export interface UseTechosCadEngineReturn {
   generateRoofButterfly: (luzM: number, largoM?: number, alturaColM?: number, desnivelAlasM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofCurvoAutoportante: (luzM: number, largoM?: number, alturaMuroM?: number, flechaM?: number, numEjes?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofMarquesina: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, numEjes?: number) => void;
+  generateRoofTijeralCurvo: (luzM?: number, largoM?: number, alturaColM?: number, cumbreraM?: number, flechaInfM?: number, numEjes?: number) => void;
   generateMultinivel: (luzM?: number, largoM?: number, numPisos?: number, alturaPisoM?: number, numVanosX?: number, numVanosZ?: number) => void;
   generateRoofMonitor: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, anchoMonitorM?: number, alturaMonitorM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   addInternalTruss: (zPos: number, tipoTijeral?: TipoTijeral, peralteM?: number) => void;
@@ -3452,6 +3453,123 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(newNodes, newSegs, coverageZones);
   }, [activeProfileId, pushHistory, coverageZones]);
 
+  // TIJERAL A DOS AGUAS CON CORDÓN INFERIOR CURVO ("arco-tijera"): el cordón
+  // SUPERIOR son dos aguas RECTAS (dos planos inclinados) — por eso el aluzinc
+  // se adapta perfecto — y el cordón INFERIOR es un arco que baja hacia el centro,
+  // dándole el aspecto de "techo curvo" por debajo. Entre ambos va la celosía
+  // (montantes + diagonales). Genera además la COBERTURA de aluzinc sobre los dos
+  // planos rectos para visualizarla puesta. Columnas en los aleros.
+  const generateRoofTijeralCurvo = useCallback((
+    luzM: number = 10,
+    largoM: number = 20,
+    alturaColM: number = 4,
+    cumbreraM?: number,       // altura de la cumbrera sobre el alero (flecha superior)
+    flechaInfM?: number,      // cuánto baja el cordón inferior en el centro
+    numEjes: number = 5
+  ) => {
+    const newNodes: Record<string, Node3D> = {};
+    const newSegs: Record<string, Segment3D> = {};
+
+    const colProf = INVENTARIO_PERFILES_TUBULARES[4]?.id || activeProfileId;
+    const chordProf = INVENTARIO_PERFILES_TUBULARES[0]?.id || activeProfileId;
+    const webProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || activeProfileId;
+    const correaProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || activeProfileId;
+
+    const frames = Math.max(2, Math.round(numEjes || 5));
+    const zStep = frames > 1 ? largoM / (frames - 1) : 0;
+    const cumbrera = cumbreraM ?? Math.max(1.2, luzM * 0.18);
+    const flechaInf = flechaInfM ?? Math.max(0.6, luzM * 0.09);
+    const nSub = luzM <= 8 ? 4 : (luzM <= 16 ? 5 : 6); // paneles por agua
+    const pts = nSub * 2;                              // nodos a lo ancho (0..pts)
+    const mid = nSub;
+
+    // Cordón superior: dos aguas rectas. Cordón inferior: arco que baja al centro.
+    const yTop = (i: number) => alturaColM + cumbrera * (1 - Math.abs(i - mid) / mid);
+    const yBot = (i: number) => { const t = (i - mid) / mid; return alturaColM - flechaInf * (1 - t * t); };
+
+    // Guardamos los nodos del cordón superior por marco para correas y cobertura.
+    const topIds: string[][] = Array.from({ length: frames }, () => []);
+
+    for (let f = 0; f < frames; f++) {
+      const z = f * zStep;
+      const top: string[] = [];
+      const bot: string[] = [];
+      for (let i = 0; i <= pts; i++) {
+        const x = (i / pts) * luzM;
+        const tid = `n_tc_t_${f}_${i}`;
+        newNodes[tid] = { id: tid, x, y: yTop(i), z, isFixedSupport: false, nodeLabel: `SUP-${f + 1}-${i}` };
+        top.push(tid);
+        if (i === 0 || i === pts) {
+          bot.push(tid); // en los aleros el cordón inferior coincide con el superior
+        } else {
+          const bid = `n_tc_b_${f}_${i}`;
+          newNodes[bid] = { id: bid, x, y: yBot(i), z, nodeLabel: `INF-${f + 1}-${i}` };
+          bot.push(bid);
+        }
+      }
+      topIds[f] = top;
+
+      // Cordón superior (dos aguas rectas)
+      for (let i = 0; i < pts; i++) {
+        newSegs[`s_tc_ts_${f}_${i}`] = { id: `s_tc_ts_${f}_${i}`, nodeAId: top[i], nodeBId: top[i + 1], profileId: chordProf, rolEstructural: 'cordon_superior' };
+      }
+      // Cordón inferior (curvo)
+      for (let i = 0; i < pts; i++) {
+        newSegs[`s_tc_bs_${f}_${i}`] = { id: `s_tc_bs_${f}_${i}`, nodeAId: bot[i], nodeBId: bot[i + 1], profileId: chordProf, rolEstructural: 'cordon_inferior' };
+      }
+      // Celosía: montantes (verticales) en los nudos interiores
+      for (let i = 1; i < pts; i++) {
+        newSegs[`s_tc_m_${f}_${i}`] = { id: `s_tc_m_${f}_${i}`, nodeAId: top[i], nodeBId: bot[i], profileId: webProf, rolEstructural: 'montante' };
+      }
+      // Diagonales apuntando hacia el centro (apoyo en cumbrera)
+      for (let i = 0; i < pts; i++) {
+        const a = i < mid ? bot[i] : bot[i + 1];
+        const b = i < mid ? top[i + 1] : top[i];
+        newSegs[`s_tc_d_${f}_${i}`] = { id: `s_tc_d_${f}_${i}`, nodeAId: a, nodeBId: b, profileId: webProf, rolEstructural: 'diagonal' };
+      }
+      // Columnas en los aleros
+      const baseL = `n_tc_cbL_${f}`, baseR = `n_tc_cbR_${f}`;
+      newNodes[baseL] = { id: baseL, x: 0, y: 0, z, isFixedSupport: true, nodeLabel: `COL-IZQ-${f + 1}` };
+      newNodes[baseR] = { id: baseR, x: luzM, y: 0, z, isFixedSupport: true, nodeLabel: `COL-DER-${f + 1}` };
+      newSegs[`s_tc_colL_${f}`] = { id: `s_tc_colL_${f}`, nodeAId: baseL, nodeBId: top[0], profileId: colProf, rolEstructural: 'columna' };
+      newSegs[`s_tc_colR_${f}`] = { id: `s_tc_colR_${f}`, nodeAId: baseR, nodeBId: top[pts], profileId: colProf, rolEstructural: 'columna' };
+    }
+
+    // Correas longitudinales sobre el cordón superior (todas las líneas)
+    for (let i = 0; i <= pts; i++) {
+      for (let f = 0; f < frames - 1; f++) {
+        newSegs[`s_tc_cor_${i}_${f}`] = { id: `s_tc_cor_${i}_${f}`, nodeAId: topIds[f][i], nodeBId: topIds[f + 1][i], profileId: correaProf, rolEstructural: 'correa' };
+      }
+    }
+    // Tensores longitudinales del cordón inferior (nudos interiores)
+    for (let i = 1; i < pts; i++) {
+      for (let f = 0; f < frames - 1; f++) {
+        newSegs[`s_tc_ten_${i}_${f}`] = { id: `s_tc_ten_${i}_${f}`, nodeAId: `n_tc_b_${f}_${i}`, nodeBId: `n_tc_b_${f + 1}_${i}`, profileId: webProf, rolEstructural: 'tensor_viento' };
+      }
+    }
+
+    // COBERTURA DE ALUZINC sobre las dos aguas rectas (una zona por agua, de
+    // alero a cumbrera, a lo largo de toda la nave).
+    const fL = 0, fR = frames - 1;
+    const pend = Math.round((cumbrera / (luzM / 2)) * 100);
+    const zonaIzq: CoverageZone3D = {
+      id: `zone_tc_izq`, nombre: 'Aluzinc — Agua Izquierda',
+      nodeIdsBoundary: [topIds[fL][0], topIds[fL][mid], topIds[fR][mid], topIds[fR][0]],
+      coberturaMaterialId: 'cob_aluzinc_030', pendientePorcentaje: pend, orientacionInclinacionDeg: 0,
+    };
+    const zonaDer: CoverageZone3D = {
+      id: `zone_tc_der`, nombre: 'Aluzinc — Agua Derecha',
+      nodeIdsBoundary: [topIds[fL][mid], topIds[fL][pts], topIds[fR][pts], topIds[fR][mid]],
+      coberturaMaterialId: 'cob_aluzinc_030', pendientePorcentaje: pend, orientacionInclinacionDeg: 180,
+    };
+    const newZones = { [zonaIzq.id]: zonaIzq, [zonaDer.id]: zonaDer };
+
+    setNodes(newNodes);
+    setSegments(newSegs);
+    setCoverageZones(newZones);
+    pushHistory(newNodes, newSegs, newZones);
+  }, [activeProfileId, pushHistory]);
+
   // EDIFICACIÓN MULTINIVEL (2–3 pisos) con estructura metálica: grilla de columnas
   // continuas, vigas de entrepiso en cada nivel y vigas/correas de techo arriba.
   // Base para naves/pabellones de varios niveles (acercándose a una casa metálica).
@@ -3944,6 +4062,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofButterfly,
     generateRoofCurvoAutoportante,
     generateRoofMarquesina,
+    generateRoofTijeralCurvo,
     generateMultinivel,
     generateRoofMonitor,
     addInternalTruss,

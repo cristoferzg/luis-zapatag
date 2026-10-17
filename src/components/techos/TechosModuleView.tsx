@@ -707,7 +707,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   };
 
   // Cargar Plantilla Prediseñada
-  const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina' | 'multinivel') => {
+  const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina' | 'multinivel' | 'tijeral_curvo') => {
     engineState.clearScene();
     if (tipo === 'dos_aguas') {
       engineState.generateRoofGable(12, 20, 5, 15);
@@ -727,6 +727,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     } else if (tipo === 'multinivel') {
       engineState.generateMultinivel(8, 10, 2, 3.0, 2, 2);
       setNombreProyecto('Edificación Metálica 2 Pisos 8x10m');
+    } else if (tipo === 'tijeral_curvo') {
+      engineState.generateRoofTijeralCurvo(10, 20, 4, undefined, undefined, 5);
+      setNombreProyecto('Tijeral 2 Aguas Cordón Curvo 10x20m');
     }
     setShowLoadModal(false);
   };
@@ -1227,6 +1230,14 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                   >
                     <div className="font-extrabold text-sm text-slate-900 group-hover:text-amber-700">Edificación Metálica 2 Pisos 🏢</div>
                     <div className="text-xs text-slate-500 mt-1">Luz: 8.0m | Largo: 10.0m | 2 pisos × 3.0m | Columnas + entrepiso + techo</div>
+                  </button>
+
+                  <button
+                    onClick={() => handleCargarPlantilla('tijeral_curvo')}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/50 text-left transition-all group cursor-pointer"
+                  >
+                    <div className="font-extrabold text-sm text-slate-900 group-hover:text-amber-700">Tijeral 2 Aguas — Cordón Inferior Curvo ✨</div>
+                    <div className="text-xs text-slate-500 mt-1">Luz: 10.0m | Largo: 20.0m | Aguas rectas (aluzinc perfecto) + cordón curvo abajo</div>
                   </button>
                 </div>
               </div>
