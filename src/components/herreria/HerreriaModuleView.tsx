@@ -1,6 +1,6 @@
 // Módulo Principal e Independiente de HERRERÍA para Innova Contratistas Manager
 // Cumple estrictamente todos los lineamientos solicitados para el módulo de Herrería
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   DoorClosed, 
   Plus, 
@@ -14,7 +14,9 @@ import {
   DollarSign, 
   FileText,
   Check,
-  UploadCloud
+  UploadCloud,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import { HerreriaDesign } from './herreriaTypes';
 import { DISENOS_PREDETERMINADOS, crearDisenoVacio, asegurarCad } from './herreriaCatalog';
@@ -76,6 +78,65 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
   const [activeTab, setActiveTab] = useState<HerreriaTab>('cad');
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<HerreriaSelectedType>(null);
+
+  // ---- Historial de DESHACER / REHACER ------------------------------------
+  // Se registra en un solo punto (commitDesign) en vez de en cada edición.
+  const designRef = useRef<HerreriaDesign>(design);
+  designRef.current = design;
+  const undoStackRef = useRef<HerreriaDesign[]>([]);
+  const redoStackRef = useRef<HerreriaDesign[]>([]);
+  const lastPushRef = useRef<number>(0);
+  const [histVer, setHistVer] = useState(0); // refresca el estado activo/inactivo de los botones
+
+  const commitDesign = useCallback((updated: HerreriaDesign) => {
+    const prev = designRef.current;
+    const now = Date.now();
+    const sameLen = (updated.piezas?.length ?? 0) === (prev.piezas?.length ?? 0);
+    // Coalesce: durante un arrastre (misma cantidad de piezas y <500ms) no se
+    // registra cada frame; sí se registra al agregar/quitar piezas o tras una pausa.
+    if (!sameLen || now - lastPushRef.current > 500) {
+      undoStackRef.current.push(prev);
+      if (undoStackRef.current.length > 60) undoStackRef.current.shift();
+      redoStackRef.current = [];
+      lastPushRef.current = now;
+      setHistVer(v => v + 1);
+    }
+    setDesign(updated);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    const prev = undoStackRef.current.pop()!;
+    redoStackRef.current.push(designRef.current);
+    lastPushRef.current = 0;
+    setDesign(prev);
+    setHistVer(v => v + 1);
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+    const next = redoStackRef.current.pop()!;
+    undoStackRef.current.push(designRef.current);
+    lastPushRef.current = 0;
+    setDesign(next);
+    setHistVer(v => v + 1);
+  }, []);
+
+  // Atajos de teclado Ctrl/Cmd+Z (deshacer) y Ctrl+Y / Ctrl+Shift+Z (rehacer)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleUndo(); }
+      else if ((e.ctrlKey || e.metaKey) && ((e.key === 'y' || e.key === 'Y') || (e.shiftKey && (e.key === 'z' || e.key === 'Z')))) { e.preventDefault(); handleRedo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleUndo, handleRedo]);
+
+  const canUndo = undoStackRef.current.length > 0;
+  const canRedo = redoStackRef.current.length > 0;
+  void histVer; // canUndo/canRedo dependen de histVer vía re-render
 
   // Estados de Modales y Mensajes
   const [showSavedNotification, setShowSavedNotification] = useState<boolean>(false);
@@ -229,6 +290,26 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
 
         {/* Botones de Cabecera Solicitados */}
         <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+          {/* [ DESHACER / REHACER ] */}
+          <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg p-0.5 shrink-0">
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className="flex items-center justify-center w-8 h-7 rounded-md text-slate-600 hover:bg-white disabled:opacity-35 disabled:cursor-default active:scale-95 transition-all cursor-pointer"
+              title="Deshacer (Ctrl+Z)"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className="flex items-center justify-center w-8 h-7 rounded-md text-slate-600 hover:bg-white disabled:opacity-35 disabled:cursor-default active:scale-95 transition-all cursor-pointer"
+              title="Rehacer (Ctrl+Y)"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* [ SUBIR CAD / AUTOCAD ] */}
           <button
             onClick={() => setShowUploadModal(true)}
@@ -389,7 +470,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             <div className="flex-1 w-full h-full overflow-hidden relative">
               <HerreriaCanvas2D
                 design={design}
-                onUpdateDesign={setDesign}
+                onUpdateDesign={commitDesign}
                 selectedElementId={selectedElementId}
                 onSelectElement={(id, type) => {
                   setSelectedElementId(id);
@@ -404,7 +485,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             {/* Panel de Propiedades: Lateral en PC / Bottom Sheet en Celular */}
             <HerreriaPropertiesPanel
               design={design}
-              onUpdateDesign={setDesign}
+              onUpdateDesign={commitDesign}
               selectedElementId={selectedElementId}
               selectedType={selectedType}
               onClose={() => {

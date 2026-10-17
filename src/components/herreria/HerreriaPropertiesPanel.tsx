@@ -1,12 +1,16 @@
 // Panel Inspector de Propiedades Paramétricas de HERRERÍA
 // Edición en tiempo real de piezas CAD individuales (PiezaCad), accesorios (AccesorioCad) y modelo global
 import React, { useEffect } from 'react';
-import { 
-  Trash2, 
+import {
+  Trash2,
   Info,
   X,
   RotateCw,
-  Ruler
+  Ruler,
+  ChevronsUp,
+  ChevronsDown,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { 
   HerreriaDesign, 
@@ -151,6 +155,21 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
     onClose();
   };
 
+  // Orden de dibujo (adelante/atrás): el orden del array define quién se dibuja
+  // encima. Al final = al frente; al inicio = al fondo.
+  const reordenarPieza = (modo: 'frente' | 'fondo' | 'subir' | 'bajar') => {
+    if (!piezaSeleccionada) return;
+    const idx = piezas.findIndex(p => p.id === piezaSeleccionada.id);
+    if (idx < 0) return;
+    const arr = [...piezas];
+    const [item] = arr.splice(idx, 1);
+    if (modo === 'frente') arr.push(item);
+    else if (modo === 'fondo') arr.unshift(item);
+    else if (modo === 'subir') arr.splice(Math.min(idx + 1, arr.length), 0, item);
+    else arr.splice(Math.max(idx - 1, 0), 0, item);
+    onUpdateDesign({ ...design, piezas: arr });
+  };
+
   // Actualizar accesorio
   const updateAccesorio = (changes: Partial<AccesorioCad>) => {
     if (!accesorioSeleccionado) return;
@@ -198,6 +217,29 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
             >
               <Trash2 className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* ORDEN DE DIBUJO (adelante / atrás) */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wide mr-0.5">Orden:</span>
+            <div className="flex items-center gap-0.5 bg-slate-100 border border-slate-200 rounded-lg p-0.5">
+              <button onClick={() => reordenarPieza('fondo')} title="Enviar al fondo"
+                className="flex items-center justify-center w-7 h-7 rounded-md text-slate-600 hover:bg-white active:scale-95 transition-all cursor-pointer">
+                <ChevronsDown className="w-4 h-4" />
+              </button>
+              <button onClick={() => reordenarPieza('bajar')} title="Enviar atrás"
+                className="flex items-center justify-center w-7 h-7 rounded-md text-slate-600 hover:bg-white active:scale-95 transition-all cursor-pointer">
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              <button onClick={() => reordenarPieza('subir')} title="Traer adelante"
+                className="flex items-center justify-center w-7 h-7 rounded-md text-slate-600 hover:bg-white active:scale-95 transition-all cursor-pointer">
+                <ChevronUp className="w-4 h-4" />
+              </button>
+              <button onClick={() => reordenarPieza('frente')} title="Traer al frente"
+                className="flex items-center justify-center w-7 h-7 rounded-md text-slate-600 hover:bg-white active:scale-95 transition-all cursor-pointer">
+                <ChevronsUp className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Nombre / Descripción */}
