@@ -3333,10 +3333,12 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(newNodes, newSegs, coverageZones);
   }, [activeProfileId, pushHistory, coverageZones]);
 
-  // MARQUESINA / NAVE CURVA EN VOLADIZO (tipo "ala de gaviota"): una fila central
-  // de columnas sostiene una viga curva cuyos bordes se levantan (efecto ala),
-  // con correas longitudinales y riostras de voladizo. Ideal para cocheras,
-  // ingresos, patios techados y marquesinas arquitectónicas curvas.
+  // MARQUESINA / NAVE CURVA EN VOLADIZO (tipo "ala de gaviota"): cada eje es una
+  // CERCHA CURVA real (cordón superior curvo + cordón inferior ahusado + celosía
+  // de montantes y diagonales). Una fila central de columnas llega al cordón
+  // inferior y dos puntales inclinados triangulan el voladizo. Se amarra con
+  // correas superiores, tensores inferiores y cruces de arriostre en los vanos
+  // extremos. Ideal para cocheras, ingresos, patios techados y marquesinas curvas.
   const generateRoofMarquesina = useCallback((
     luzM: number,
     largoM: number = 20,
@@ -3348,52 +3350,102 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const newSegs: Record<string, Segment3D> = {};
 
     const colProf = INVENTARIO_PERFILES_TUBULARES[4]?.id || activeProfileId;
-    const vigaProf = INVENTARIO_PERFILES_TUBULARES[0]?.id || activeProfileId;
+    const chordProf = INVENTARIO_PERFILES_TUBULARES[0]?.id || activeProfileId;
+    const webProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || activeProfileId;
     const correaProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || activeProfileId;
 
-    const frames = Math.max(2, numEjes || 5);
+    const frames = Math.max(2, Math.round(numEjes || 5));
     const zStep = frames > 1 ? largoM / (frames - 1) : 0;
     const pts = luzM <= 8 ? 8 : (luzM <= 14 ? 10 : 12);
     const cx = luzM / 2;
     const midI = Math.round(pts / 2);
+    const peralte = Math.max(0.5, luzM * 0.07); // canto de la cercha en el centro
 
-    const rows: string[][] = Array.from({ length: pts + 1 }, () => []);
+    // Perfil "ala de gaviota": centro alto (convexo) con las puntas levantadas.
+    const yTop = (xn: number) => {
+      const t = 2 * xn - 1; // -1..1
+      return alturaColM + flechaM * (1 - t * t) + 0.35 * flechaM * Math.pow(t, 4);
+    };
+    // Canto de la cercha: máximo sobre la columna, se afina hacia las puntas.
+    const canto = (xn: number) => peralte * Math.sin(Math.PI * xn);
+
+    const topRows: string[][] = Array.from({ length: pts + 1 }, () => []);
+    const botRows: (string | null)[][] = Array.from({ length: pts + 1 }, () => []);
 
     for (let f = 0; f < frames; f++) {
       const z = f * zStep;
-      const arc: string[] = [];
+      const top: string[] = [];
+      const bot: (string | null)[] = [];
       for (let i = 0; i <= pts; i++) {
         const xn = i / pts;
         const x = xn * luzM;
-        const t = 2 * xn - 1; // -1..1
-        const y = alturaColM + flechaM * (t * t); // bordes levantados (ala de gaviota)
-        const id = `n_mq_${f}_${i}`;
-        newNodes[id] = { id, x, y, z, nodeLabel: `ALA-${f + 1}-${i}` };
-        arc.push(id);
-        rows[i].push(id);
+        const yt = yTop(xn);
+        const tid = `n_mq_t_${f}_${i}`;
+        newNodes[tid] = { id: tid, x, y: yt, z, nodeLabel: `SUP-${f + 1}-${i}` };
+        top.push(tid); topRows[i].push(tid);
+        const d = canto(xn);
+        if (d > 0.08) {
+          const bid = `n_mq_b_${f}_${i}`;
+          newNodes[bid] = { id: bid, x, y: yt - d, z, nodeLabel: `INF-${f + 1}-${i}` };
+          bot.push(bid); botRows[i].push(bid);
+        } else { bot.push(null); botRows[i].push(null); }
       }
-      // Viga curva (cordón superior)
+      // Cordón superior (curvo)
       for (let i = 0; i < pts; i++) {
-        newSegs[`s_mqv_${f}_${i}`] = { id: `s_mqv_${f}_${i}`, nodeAId: arc[i], nodeBId: arc[i + 1], profileId: vigaProf, rolEstructural: 'cordon_superior' };
+        newSegs[`s_mq_ts_${f}_${i}`] = { id: `s_mq_ts_${f}_${i}`, nodeAId: top[i], nodeBId: top[i + 1], profileId: chordProf, rolEstructural: 'cordon_superior' };
       }
-      // Columna central portante (del suelo al nudo central de la viga)
-      const baseId = `n_mqcb_${f}`;
-      newNodes[baseId] = { id: baseId, x: cx, y: 0, z, isFixedSupport: true, nodeLabel: `COL-BASE-${f + 1}` };
-      newSegs[`s_mqcol_${f}`] = { id: `s_mqcol_${f}`, nodeAId: baseId, nodeBId: arc[midI], profileId: colProf, rolEstructural: 'columna' };
-      // Riostras de voladizo (abanico desde el nudo central hacia ambos lados)
-      const offs = Math.max(1, Math.round(pts * 0.3));
+      // Cordón inferior (donde hay canto)
+      for (let i = 0; i < pts; i++) {
+        if (bot[i] && bot[i + 1]) newSegs[`s_mq_bs_${f}_${i}`] = { id: `s_mq_bs_${f}_${i}`, nodeAId: bot[i]!, nodeBId: bot[i + 1]!, profileId: chordProf, rolEstructural: 'cordon_inferior' };
+      }
+      // Celosía: montantes (verticales) + diagonales en zig-zag
+      for (let i = 0; i <= pts; i++) {
+        if (bot[i]) newSegs[`s_mq_m_${f}_${i}`] = { id: `s_mq_m_${f}_${i}`, nodeAId: top[i], nodeBId: bot[i]!, profileId: webProf, rolEstructural: 'montante' };
+      }
+      for (let i = 0; i < pts; i++) {
+        // diagonal que "apunta" hacia el centro (apoyo), formando triángulos
+        const a = i < midI ? bot[i] : bot[i + 1];
+        const b = i < midI ? top[i + 1] : top[i];
+        if (a && b) newSegs[`s_mq_d_${f}_${i}`] = { id: `s_mq_d_${f}_${i}`, nodeAId: a, nodeBId: b, profileId: webProf, rolEstructural: 'diagonal' };
+      }
+      // Columna central portante (del suelo al cordón inferior en el centro)
+      const baseId = `n_mq_cb_${f}`;
+      newNodes[baseId] = { id: baseId, x: cx, y: 0, z, isFixedSupport: true, nodeLabel: `COL-${f + 1}` };
+      const apex = bot[midI] || top[midI];
+      newSegs[`s_mq_col_${f}`] = { id: `s_mq_col_${f}`, nodeAId: baseId, nodeBId: apex, profileId: colProf, rolEstructural: 'columna' };
+      // Puntales inclinados que triangulan el voladizo a ambos lados
+      const offs = Math.max(1, Math.round(pts * 0.28));
       const li = Math.max(0, midI - offs);
       const ri = Math.min(pts, midI + offs);
-      newSegs[`s_mqd_l_${f}`] = { id: `s_mqd_l_${f}`, nodeAId: arc[midI], nodeBId: arc[li], profileId: vigaProf, rolEstructural: 'diagonal' };
-      newSegs[`s_mqd_r_${f}`] = { id: `s_mqd_r_${f}`, nodeAId: arc[midI], nodeBId: arc[ri], profileId: vigaProf, rolEstructural: 'diagonal' };
+      if (bot[li]) newSegs[`s_mq_pl_${f}`] = { id: `s_mq_pl_${f}`, nodeAId: baseId, nodeBId: bot[li]!, profileId: webProf, rolEstructural: 'diagonal' };
+      if (bot[ri]) newSegs[`s_mq_pr_${f}`] = { id: `s_mq_pr_${f}`, nodeAId: baseId, nodeBId: bot[ri]!, profileId: webProf, rolEstructural: 'diagonal' };
     }
-    // Correas longitudinales (conectan los marcos a lo largo)
+
+    // Correas superiores (amarre longitudinal del cordón superior)
     for (let i = 0; i <= pts; i++) {
-      const row = rows[i];
+      const row = topRows[i];
       for (let f = 0; f < row.length - 1; f++) {
-        newSegs[`s_mqcor_${i}_${f}`] = { id: `s_mqcor_${i}_${f}`, nodeAId: row[f], nodeBId: row[f + 1], profileId: correaProf, rolEstructural: 'correa' };
+        newSegs[`s_mq_cor_${i}_${f}`] = { id: `s_mq_cor_${i}_${f}`, nodeAId: row[f], nodeBId: row[f + 1], profileId: correaProf, rolEstructural: 'correa' };
       }
     }
+    // Tensores inferiores (amarre longitudinal del cordón inferior)
+    for (let i = 0; i <= pts; i++) {
+      const row = botRows[i];
+      for (let f = 0; f < row.length - 1; f++) {
+        if (row[f] && row[f + 1]) newSegs[`s_mq_ten_${i}_${f}`] = { id: `s_mq_ten_${i}_${f}`, nodeAId: row[f]!, nodeBId: row[f + 1]!, profileId: webProf, rolEstructural: 'tensor_viento' };
+      }
+    }
+    // Arriostre (cruz de San Andrés) en el panel central del techo, en el primer
+    // y último vano, para estabilidad lateral del conjunto.
+    const la = Math.max(0, midI - 1), lb = Math.min(pts, midI + 1);
+    const bays = frames >= 3 ? [0, frames - 2] : (frames === 2 ? [0] : []);
+    bays.forEach((f, k) => {
+      const A = topRows[la][f], B = topRows[lb][f], C = topRows[la][f + 1], D = topRows[lb][f + 1];
+      if (A && B && C && D) {
+        newSegs[`s_mq_br1_${k}`] = { id: `s_mq_br1_${k}`, nodeAId: A, nodeBId: D, profileId: webProf, rolEstructural: 'arriostre' };
+        newSegs[`s_mq_br2_${k}`] = { id: `s_mq_br2_${k}`, nodeAId: B, nodeBId: C, profileId: webProf, rolEstructural: 'arriostre' };
+      }
+    });
 
     setNodes(newNodes);
     setSegments(newSegs);
