@@ -9,13 +9,14 @@
 // Autónomo: no depende del motor de Techos. Persiste en localStorage.
 // =============================================================================
 import { useRef, useState, useMemo, useEffect } from 'react';
-import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus } from 'lucide-react';
+import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
+import ConcretoViewer3D from './ConcretoViewer3D';
 
-type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento';
+export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento';
 type Herramienta = 'select' | 'pan' | PlanoTipo;
 
-interface PlanoElem {
+export interface PlanoElem {
   uid: string;
   tipo: PlanoTipo;
   x1: number; y1: number;          // coordenadas en planta (m)
@@ -30,7 +31,7 @@ interface PlanoElem {
 const DIAMETROS_KGM: Record<string, number> = { '1/4"': 0.25, '3/8"': 0.56, '1/2"': 0.99, '5/8"': 1.55, '3/4"': 2.24 };
 const LARGO_VARILLA_M = 9;
 
-const META: Record<PlanoTipo, { nombre: string; emoji: string; color: string; esLinea: boolean; icon: any }> = {
+export const META: Record<PlanoTipo, { nombre: string; emoji: string; color: string; esLinea: boolean; icon: any }> = {
   columna:  { nombre: 'Columna',          emoji: '🔲', color: '#2563eb', esLinea: false, icon: Columns },
   zapata:   { nombre: 'Zapata',           emoji: '🟫', color: '#b45309', esLinea: false, icon: Square },
   viga:     { nombre: 'Viga',             emoji: '📏', color: '#059669', esLinea: true,  icon: Minus },
@@ -80,6 +81,7 @@ export default function ConcretoPlanoCad() {
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
   const [pending, setPending] = useState<{ x: number; y: number } | null>(null);
   const [selUid, setSelUid] = useState<string | null>(null);
+  const [vista3d, setVista3d] = useState(false);
 
   const [elems, setElems] = useState<PlanoElem[]>(() => safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || []);
   const [precios] = useState(() => safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT);
@@ -163,6 +165,9 @@ export default function ConcretoPlanoCad() {
     cimiento: [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Altura (m)' }],
   };
 
+  // Firma de la escena → se usa como key para remontar el visor 3D al cambiar algo.
+  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2}`).join('|'), [elems]);
+
   // ---- Metrado total ----
   const totales = useMemo(() => {
     let concretoM3 = 0, aceroKg = 0, encofradoM2 = 0;
@@ -242,13 +247,38 @@ export default function ConcretoPlanoCad() {
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-stone-700 text-white cursor-pointer hover:bg-stone-800 disabled:opacity-40">
           <Download className="w-3.5 h-3.5" /> Exportar
         </button>
-        <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded-lg">
-          <Grid3x3 className="w-3.5 h-3.5" /> {cursor.x.toFixed(2)}, {cursor.y.toFixed(2)} m
-        </span>
+        {!vista3d && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded-lg">
+            <Grid3x3 className="w-3.5 h-3.5" /> {cursor.x.toFixed(2)}, {cursor.y.toFixed(2)} m
+          </span>
+        )}
+        {/* Toggle 2D / 3D */}
+        <div className="ml-auto inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+          <button onClick={() => setVista3d(false)}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${!vista3d ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+            <Layers className="w-3.5 h-3.5" /> 2D
+          </button>
+          <button onClick={() => setVista3d(true)}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${vista3d ? 'bg-stone-700 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+            <Eye className="w-3.5 h-3.5" /> 3D
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
-        {/* LIENZO */}
+        {/* VISTA 3D */}
+        {vista3d ? (
+          <div className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
+            <ConcretoViewer3D key={sig3d} elems={elems} />
+            {elems.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm font-bold">Dibuja en 2D para ver el 3D</div>
+            )}
+            <div className="absolute bottom-3 left-3 text-[10px] font-bold text-slate-500 bg-white/90 rounded-lg px-2 py-1 border border-slate-200 pointer-events-none">
+              Arrastra para girar · rueda para acercar
+            </div>
+          </div>
+        ) : (
+        /* LIENZO 2D */
         <div
           ref={containerRef}
           className={`relative flex-1 min-h-[320px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : 'cursor-crosshair'}`}
@@ -326,6 +356,7 @@ export default function ConcretoPlanoCad() {
             <button onClick={() => setZoom(z => Math.max(0.3, z * 0.87))} className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-xs text-slate-700 cursor-pointer hover:bg-slate-100 flex items-center justify-center"><Minus className="w-4 h-4" /></button>
           </div>
         </div>
+        )}
 
         {/* PANEL DE METRADO + PROPIEDADES */}
         <div className="lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto">
