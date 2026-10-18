@@ -29,3 +29,7 @@ functions/node_modules/
 
 # Build/delivery artifacts (zips)
 *.zip
+
+# Media artifacts (tutoriales/capturas generadas, no son código)
+*.mp4
+*.webm
