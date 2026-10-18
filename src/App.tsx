@@ -290,45 +290,44 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
           <AnnouncementBanner notifications={globalNotifs} isAdmin={isAdmin} />
 
           {userScheduledAsesorias.length > 0 && (
-            <div className="bg-gradient-to-r from-indigo-700 via-blue-600 to-indigo-800 text-white p-6 rounded-3xl shadow-xl border border-indigo-500/80 relative overflow-hidden">
-              <div className="absolute right-0 top-0 transform translate-x-4 -translate-y-4 w-40 h-40 bg-white/10 rounded-full pointer-events-none"></div>
+            <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-sm border border-slate-800 relative overflow-hidden">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
                 <div className="flex items-start space-x-4">
-                  <div className="p-3.5 bg-white/20 rounded-2xl backdrop-blur-md shrink-0 shadow-sm border border-white/20">
-                    <Video className="w-7 h-7 sm:w-8 sm:h-8 text-white animate-pulse" />
+                  <div className="p-3.5 bg-white/10 rounded-xl shrink-0 border border-white/10">
+                    <Video className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
-                        {userScheduledAsesorias[0].status === 'Programada' ? '🟢 Clase / Asesoría Confirmada' : '📌 Asesoría Agendada'}
+                      <span className="bg-white/10 text-slate-100 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-white/10">
+                        {userScheduledAsesorias[0].status === 'Programada' ? 'Clase / Asesoría confirmada' : 'Asesoría agendada'}
                       </span>
                       {userScheduledAsesorias.length > 1 && (
-                        <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        <span className="bg-white/10 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                           +{userScheduledAsesorias.length - 1} más
                         </span>
                       )}
                     </div>
-                    <h2 className="text-lg sm:text-xl font-black tracking-tight">
+                    <h2 className="text-lg sm:text-xl font-bold tracking-tight">
                       {userScheduledAsesorias[0].subject}
                     </h2>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-indigo-100 text-xs mt-1 font-medium">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-300 text-xs mt-1 font-medium">
                       <span>
-                        📅 <strong>{userScheduledAsesorias[0].scheduledDate || 'Fecha próxima'}</strong>
+                        <strong className="font-semibold text-slate-100">{userScheduledAsesorias[0].scheduledDate || 'Fecha próxima'}</strong>
                       </span>
                       {userScheduledAsesorias[0].scheduledTime && (
                         <span>
-                          ⏰ <strong>{userScheduledAsesorias[0].scheduledTime}</strong>
+                          <strong className="font-semibold text-slate-100">{userScheduledAsesorias[0].scheduledTime}</strong>
                         </span>
                       )}
                       {userScheduledAsesorias[0].price !== undefined && Number(userScheduledAsesorias[0].price) > 0 && (
-                        <span className="text-emerald-300 font-bold">
-                          💰 S/. {Number(userScheduledAsesorias[0].price).toFixed(2)}
+                        <span className="text-slate-100 font-semibold">
+                          S/. {Number(userScheduledAsesorias[0].price).toFixed(2)}
                         </span>
                       )}
                     </div>
                     {userScheduledAsesorias[0].adminResponse && (
-                      <p className="text-indigo-100/90 text-xs mt-2 bg-black/15 p-2 rounded-xl border border-white/10 inline-block max-w-xl">
-                        💡 <strong>Indicaciones:</strong> {userScheduledAsesorias[0].adminResponse}
+                      <p className="text-slate-300 text-xs mt-2 bg-black/20 p-2 rounded-lg border border-white/5 inline-block max-w-xl">
+                        <strong className="text-slate-100 font-semibold">Indicaciones:</strong> {userScheduledAsesorias[0].adminResponse}
                       </p>
                     )}
                   </div>
@@ -340,9 +339,9 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
                       href={userScheduledAsesorias[0].meetLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full sm:w-auto bg-white text-indigo-700 hover:bg-indigo-50 font-black px-5 py-3 rounded-2xl transition-all shadow-md text-xs flex items-center justify-center gap-2 cursor-pointer"
+                      className="w-full sm:w-auto bg-white text-slate-900 hover:bg-slate-100 font-bold px-5 py-3 rounded-xl transition-all shadow-sm text-xs flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <Video className="w-4 h-4 text-indigo-600" />
+                      <Video className="w-4 h-4 text-slate-700" />
                       <span>Unirse a Videollamada</span>
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
@@ -350,7 +349,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
                   <button
                     type="button"
                     onClick={() => setCurrentView('asesorias')}
-                    className="w-full sm:w-auto bg-indigo-950/40 hover:bg-indigo-950/60 text-white border border-white/30 font-bold px-4 py-3 rounded-2xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full sm:w-auto bg-white/5 hover:bg-white/10 text-white border border-white/20 font-semibold px-4 py-3 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <span>Ver en Mis Asesorías</span>
                   </button>
@@ -359,21 +358,21 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
             </div>
           )}
 
-          <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center space-x-4">
-              <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl">
+              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl">
                 <CheckCircle className="w-8 h-8" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-emerald-800">Licencia Permanente PRO Activada</h2>
-                <p className="text-sm text-emerald-600 mt-0.5">Acceso completo sin caducidad. Tus proyectos y finanzas son 100% privados.</p>
+                <h2 className="text-xl font-bold text-slate-800">Licencia Permanente PRO Activada</h2>
+                <p className="text-sm text-slate-500 mt-0.5">Acceso completo sin caducidad. Tus proyectos y finanzas son 100% privados.</p>
               </div>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setCurrentView('projects')}>
-              <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><Briefcase className="w-6 h-6" /></div>
+              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl"><Briefcase className="w-6 h-6" /></div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase">Tus Proyectos</p>
                 <p className="text-2xl font-bold text-slate-800">{activeProjectsCount} activos</p>
@@ -381,18 +380,18 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setCurrentView('projects')}>
-              <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><TrendingUp className="w-6 h-6" /></div>
+              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl"><TrendingUp className="w-6 h-6" /></div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase">Ingresos Cobrados</p>
-                <p className="text-xl font-bold text-emerald-600">{formatCurrency(ingresosActivos)}</p>
+                <p className="text-xl font-bold text-slate-800">{formatCurrency(ingresosActivos)}</p>
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setCurrentView('gastos')}>
-              <div className="p-3 bg-rose-100 text-rose-600 rounded-xl"><TrendingDown className="w-6 h-6" /></div>
+              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl"><TrendingDown className="w-6 h-6" /></div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase">Gastos y Egresos</p>
-                <p className="text-xl font-bold text-rose-600">{formatCurrency(egresosActivos)}</p>
+                <p className="text-xl font-bold text-slate-800">{formatCurrency(egresosActivos)}</p>
               </div>
             </div>
 
@@ -401,15 +400,15 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <h3 className="font-bold text-slate-800 text-base flex items-center">
-                <Briefcase className="w-4 h-4 mr-2 text-blue-500" />
+                <Briefcase className="w-4 h-4 mr-2 text-slate-500" />
                 Gestión de Obras
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Crea tus proyectos, asigna presupuestos, añade clientes y lleva el control de cobros sin límites.
               </p>
-              <button 
+              <button
                 onClick={() => setCurrentView('projects')}
-                className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs py-2.5 rounded-xl transition-colors"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl transition-colors"
               >
                 Ir a Proyectos
               </button>
@@ -417,15 +416,15 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <h3 className="font-bold text-slate-800 text-base flex items-center">
-                <TrendingDown className="w-4 h-4 mr-2 text-rose-500" />
+                <TrendingDown className="w-4 h-4 mr-2 text-slate-500" />
                 Gastos e Inversiones
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Registra tus compras operativas, caja familiar y seguimiento de deudas de forma independiente.
               </p>
-              <button 
+              <button
                 onClick={() => setCurrentView('gastos')}
-                className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs py-2.5 rounded-xl transition-colors"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl transition-colors"
               >
                 Ir a Gastos Operativos
               </button>
@@ -433,15 +432,15 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
 
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <h3 className="font-bold text-slate-800 text-base flex items-center">
-                <BookOpen className="w-4 h-4 mr-2 text-indigo-500" />
+                <BookOpen className="w-4 h-4 mr-2 text-slate-500" />
                 Asesorías Técnicas
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
                 ¿Necesitas revisión de planos o cálculo estructural? Solicita una asesoría y recíbela por videollamada.
               </p>
-              <button 
+              <button
                 onClick={() => setCurrentView('asesorias')}
-                className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs py-2.5 rounded-xl transition-colors"
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl transition-colors"
               >
                 Ver Asesorías
               </button>
@@ -455,13 +454,13 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
       <div className="space-y-6">
         <AnnouncementBanner notifications={globalNotifs} isAdmin={isAdmin} setNotifications={setGlobalNotifs} />
 
-        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center space-x-4 shadow-sm mb-6">
-          <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+        <div className="bg-white border border-slate-200 p-4 rounded-xl flex items-center space-x-4 shadow-sm mb-6">
+          <div className="p-2 bg-slate-100 text-slate-700 rounded-lg">
             <CheckCircle className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-md font-bold text-emerald-800">Licencia Permanente PRO</h2>
-            <p className="text-xs text-emerald-600">Sistema activo sin límites de caducidad.</p>
+            <h2 className="text-md font-bold text-slate-800">Licencia Permanente PRO</h2>
+            <p className="text-xs text-slate-500">Sistema activo sin límites de caducidad.</p>
           </div>
         </div>
 
@@ -472,28 +471,28 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
         {/* KPIs Globales */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl shrink-0"><TrendingUp className="w-5 h-5" /></div>
+            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><TrendingUp className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Balance (Liquidez)</p>
               <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(balanceGlobal)}</p>
             </div>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl shrink-0"><ArrowRight className="w-5 h-5" /></div>
+            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><ArrowRight className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Total Ingresos</p>
               <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(ingresosGlobales)}</p>
             </div>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-rose-100 text-rose-600 rounded-xl shrink-0"><TrendingDown className="w-5 h-5" /></div>
+            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><TrendingDown className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Egresos Totales</p>
               <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(egresosGlobales)}</p>
             </div>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-amber-100 text-amber-600 rounded-xl shrink-0"><Home className="w-5 h-5" /></div>
+            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><Home className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Gastos Familia</p>
               <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(egresosFamilia)}</p>
@@ -508,33 +507,33 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
               <h2 className="text-lg font-bold text-slate-800">Flujo: Proyectos Activos</h2>
             </div>
             <div className="space-y-6">
-               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                  <p className="text-xs font-bold text-blue-700 uppercase mb-1">Presupuesto Total (Activos)</p>
-                  <p className="text-xl sm:text-2xl font-black text-blue-900">{formatCurrency(totalPresupuestoActivos)}</p>
-                  <p className="text-xs text-blue-600 mt-2">Por Cobrar: {formatCurrency(totalPorCobrarActivos)}</p>
+               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Presupuesto Total (Activos)</p>
+                  <p className="text-xl sm:text-2xl font-black text-slate-800">{formatCurrency(totalPresupuestoActivos)}</p>
+                  <p className="text-xs text-slate-500 mt-2">Por Cobrar: {formatCurrency(totalPorCobrarActivos)}</p>
                </div>
-               
+
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                   <div className="flex items-center space-x-2 text-emerald-700 mb-2">
+                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                   <div className="flex items-center space-x-2 text-slate-500 mb-2">
                      <TrendingUp className="w-4 h-4"/>
                      <span className="font-bold text-xs uppercase">Ingresos (Cobrado)</span>
                    </div>
-                   <p className="text-lg sm:text-xl font-bold text-emerald-900">{formatCurrency(ingresosActivos)}</p>
+                   <p className="text-lg sm:text-xl font-bold text-slate-800">{formatCurrency(ingresosActivos)}</p>
                  </div>
-                 
-                 <div className="bg-rose-50 p-4 rounded-xl border border-rose-100">
-                   <div className="flex items-center space-x-2 text-rose-700 mb-2">
+
+                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                   <div className="flex items-center space-x-2 text-slate-500 mb-2">
                      <TrendingDown className="w-4 h-4"/>
                      <span className="font-bold text-xs uppercase">Egresos (Gastos)</span>
                    </div>
-                   <p className="text-lg sm:text-xl font-bold text-rose-900">{formatCurrency(egresosActivos)}</p>
+                   <p className="text-lg sm:text-xl font-bold text-slate-800">{formatCurrency(egresosActivos)}</p>
                  </div>
                </div>
 
-               <div className="flex justify-between items-center border-t pt-4">
+               <div className="flex justify-between items-center border-t border-slate-200 pt-4">
                  <span className="font-bold text-slate-600 uppercase tracking-wider text-xs">Balance Actual (Activos)</span>
-                 <span className={`text-lg sm:text-xl font-bold ${balanceActivos >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                 <span className={`text-lg sm:text-xl font-bold ${balanceActivos >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>
                    {formatCurrency(balanceActivos)}
                  </span>
                </div>
@@ -550,27 +549,27 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
             <div className="flex-1 flex flex-col justify-center space-y-8">
               <div>
                 <div className="flex justify-between items-end mb-2">
-                  <div className="flex items-center space-x-2 text-indigo-700">
+                  <div className="flex items-center space-x-2 text-slate-600">
                     <TrendingUp className="w-5 h-5"/>
                     <span className="font-bold uppercase tracking-wider text-sm">Ingresos Totales (Histórico)</span>
                   </div>
-                  <span className="text-2xl font-bold text-indigo-900">{formatCurrency(ingresosGlobales)}</span>
+                  <span className="text-2xl font-bold text-slate-800">{formatCurrency(ingresosGlobales)}</span>
                 </div>
-                <div className="w-full bg-indigo-100 rounded-full h-3">
-                  <div className="bg-indigo-500 h-3 rounded-full" style={{ width: '100%' }}></div>
+                <div className="w-full bg-slate-100 rounded-full h-3">
+                  <div className="bg-slate-800 h-3 rounded-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
-              
+
               <div>
                 <div className="flex justify-between items-end mb-2">
-                  <div className="flex items-center space-x-2 text-rose-700">
+                  <div className="flex items-center space-x-2 text-slate-600">
                     <TrendingDown className="w-5 h-5"/>
                     <span className="font-bold uppercase tracking-wider text-sm">Egresos Totales (Histórico)</span>
                   </div>
-                  <span className="text-2xl font-bold text-rose-900">{formatCurrency(egresosGlobales)}</span>
+                  <span className="text-2xl font-bold text-slate-800">{formatCurrency(egresosGlobales)}</span>
                 </div>
-                <div className="w-full bg-rose-100 rounded-full h-3">
-                  <div className="bg-rose-500 h-3 rounded-full" style={{ width: `${Math.min((egresosGlobales / Math.max(ingresosGlobales, 1)) * 100, 100)}%` }}></div>
+                <div className="w-full bg-slate-100 rounded-full h-3">
+                  <div className="bg-slate-400 h-3 rounded-full" style={{ width: `${Math.min((egresosGlobales / Math.max(ingresosGlobales, 1)) * 100, 100)}%` }}></div>
                 </div>
               </div>
             </div>
@@ -588,7 +587,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-slate-800">Proyectos Activos</h2>
-            <button onClick={() => setCurrentView('projects')} className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center">
+            <button onClick={() => setCurrentView('projects')} className="text-slate-700 hover:text-slate-900 font-medium text-sm flex items-center">
               Ver todos <ArrowRight className="w-4 h-4 ml-1" />
             </button>
           </div>
@@ -611,11 +610,11 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
                       <td className="px-4 py-4 font-medium text-slate-800">{p.name}</td>
                       <td className="px-4 py-4">
                         <div className="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                          <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min(percent, 100)}%` }}></div>
+                          <div className="bg-slate-700 h-2 rounded-full" style={{ width: `${Math.min(percent, 100)}%` }}></div>
                         </div>
                       </td>
                       <td className="px-4 py-4 text-slate-600">{formatCurrency(p.presupuesto)}</td>
-                      <td className="px-4 py-4 text-right font-medium text-emerald-600">{formatCurrency(cobrado)}</td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-800">{formatCurrency(cobrado)}</td>
                     </tr>
                   );
                 })}
