@@ -1460,6 +1460,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                     <HelpCircle className="w-4 h-4 text-purple-600 shrink-0" />
                     <span>Controles y atajos</span>
                   </button>
+                  {(onOpenInteractiveTutorial || onOpenTutorial) && (
+                    <button onClick={() => { setShowCadMore(false); (onOpenInteractiveTutorial || onOpenTutorial)?.(); }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                      <GraduationCap className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Guía / Tutorial</span>
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -1520,26 +1527,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </button>
           )}
 
-          {/* BOTÓN TUTORIAL INTERACTIVO O GENERAL */}
-          {onOpenInteractiveTutorial ? (
-            <button
-              onClick={onOpenInteractiveTutorial}
-              className="p-1 sm:px-2 sm:py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0 active:scale-95"
-              title="Iniciar Tutorial Guiado"
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span className="hidden md:inline">Guía</span>
-            </button>
-          ) : onOpenTutorial ? (
-            <button
-              onClick={onOpenTutorial}
-              className="p-1 sm:px-2 sm:py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all shadow-2xs shrink-0 active:scale-95"
-              title="Ver Guía de Techos Metálicos"
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span className="hidden md:inline">Tutorial</span>
-            </button>
-          ) : null}
+          {/* (El botón "Guía/Tutorial" se movió al menú "⋯ Más" para unificar los
+              accesos de ayuda: queda "Ayuda" en el encabezado y "Guía / Tutorial"
+              + "Controles y atajos" dentro de "⋯ Más".) */}
 
           {/* BOTÓN PANTALLA COMPLETA */}
           <button
@@ -2242,99 +2232,55 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {/* BARRA FLOTANTE DE DIBUJO DE TIJERAL (CATÁLOGO CENTRALIZADO EN ASISTENTE) */}
         {/* ------------------------------------------------------------- */}
         {activeTool === 'draw_tijeral' && !draggingNodeId && (
-          <div className="absolute top-2 inset-x-3 max-w-2xl mx-auto z-40 bg-slate-950/95 text-white px-3.5 py-2 rounded-2xl shadow-2xl border-2 border-emerald-500 backdrop-blur-md text-xs flex flex-wrap items-center justify-between gap-2 animate-in fade-in">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={selectedTrussType}
-                    onChange={(e) => setSelectedTrussType(e.target.value as TipoTijeral)}
-                    className="bg-slate-900 border border-emerald-400/50 rounded-lg px-2 py-0.5 text-[11px] font-black text-emerald-300 outline-none cursor-pointer"
-                  >
-                    <option value="escalera_vierendeel">🪜 Tijeral Escalera (Vierendeel)</option>
-                    <option value="fink">🏠 Fink (2 Aguas)</option>
-                    <option value="pratt">📐 Pratt (Tracción)</option>
-                    <option value="howe">🏛️ Howe (Compresión)</option>
-                    <option value="warren">⚡ Warren (Zig-zag)</option>
-                    <option value="parabolico_warren">🏟️ Parabólico Warren</option>
-                  </select>
-                  <span className="px-1.5 py-0.2 rounded bg-emerald-500 text-slate-950 font-black text-[9px] shrink-0">
-                    2 Clics
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[10px] text-slate-300 font-mono mt-0.5">
-                  <span>H:</span>
-                  <input
-                    type="number"
-                    step="0.05"
-                    min="0.20"
-                    max="2.50"
-                    value={trussHeightSetting}
-                    onChange={(e) => setTrussHeightSetting(Math.max(0.20, parseFloat(e.target.value) || 0.5))}
-                    className="w-12 bg-slate-900 border border-slate-700 rounded px-1 py-0.2 text-emerald-300 font-bold text-center"
-                  />
-                  <span>m • {trussSpacingMode === 'divisiones' ? `${trussDivisionsSetting} espacios` : `c/${trussSpacingSettingM.toFixed(2)}m`}</span>
-                </div>
-              </div>
+          <div className="absolute top-2 inset-x-2 sm:inset-x-3 max-w-2xl mx-auto z-40 bg-slate-950/95 text-white px-2.5 py-1.5 rounded-xl shadow-xl border border-emerald-500 backdrop-blur-md flex flex-wrap items-center gap-x-2 gap-y-1.5 animate-in fade-in">
+            {/* Tipo de tijeral (ocupa el ancho disponible) */}
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <Layers className="w-4 h-4 text-emerald-400 shrink-0 hidden sm:block" />
+              <select
+                value={selectedTrussType}
+                onChange={(e) => setSelectedTrussType(e.target.value as TipoTijeral)}
+                className="min-w-0 flex-1 bg-slate-900 border border-emerald-400/50 rounded-lg px-2 py-1 text-[11px] font-black text-emerald-300 outline-none cursor-pointer"
+              >
+                <option value="escalera_vierendeel">🪜 Tijeral Escalera (Vierendeel)</option>
+                <option value="fink">🏠 Fink (2 Aguas)</option>
+                <option value="pratt">📐 Pratt (Tracción)</option>
+                <option value="howe">🏛️ Howe (Compresión)</option>
+                <option value="warren">⚡ Warren (Zig-zag)</option>
+                <option value="parabolico_warren">🏟️ Parabólico Warren</option>
+              </select>
+              <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black text-[9px] shrink-0">2 clics</span>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Selector Rápido de Espacios o Distancia */}
-              <div className="hidden sm:flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-xl border border-slate-700">
-                {trussSpacingMode === 'divisiones' ? (
-                  <>
-                    <button
-                      onClick={() => setTrussSpacingMode('espaciado')}
-                      className="text-[9.5px] text-emerald-400 font-bold hover:underline cursor-pointer mr-1"
-                      title="Cambiar a espaciado en metros"
-                    >
-                      Espacios:
-                    </button>
-                    {[4, 6, 8, 10].map(d => (
-                      <button
-                        key={d}
-                        onClick={() => setTrussDivisionsSetting(d)}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-colors ${
-                          trussDivisionsSetting === d
-                            ? 'bg-amber-400 text-slate-950 font-black'
-                            : 'text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        {d}
-                      </button>
+            {/* Peralte + espaciado rápido — ahora también visible en MÓVIL, compacto */}
+            <div className="flex items-center gap-1.5 text-[10px] font-mono shrink-0">
+              <span className="text-slate-400">H</span>
+              <input
+                type="number" step="0.05" min="0.20" max="2.50"
+                value={trussHeightSetting}
+                onChange={(e) => setTrussHeightSetting(Math.max(0.20, parseFloat(e.target.value) || 0.5))}
+                className="w-11 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-emerald-300 font-bold text-center"
+              />
+              <span className="text-slate-500">m</span>
+              <span className="w-px h-4 bg-slate-700 mx-0.5" />
+              {/* Toggle de modo (letra) + botones rápidos */}
+              <button
+                onClick={() => setTrussSpacingMode(m => m === 'divisiones' ? 'espaciado' : 'divisiones')}
+                className="text-[9px] text-emerald-400 font-bold cursor-pointer shrink-0"
+                title={trussSpacingMode === 'divisiones' ? 'Modo: número de espacios (toca para cambiar a metros)' : 'Modo: espaciado en metros (toca para cambiar a nº de espacios)'}
+              >
+                {trussSpacingMode === 'divisiones' ? 'Esp.' : 'Dist.'}
+              </button>
+              <div className="flex items-center gap-0.5 bg-slate-900 rounded-lg border border-slate-700 px-1 py-0.5">
+                {trussSpacingMode === 'divisiones'
+                  ? [4, 6, 8, 10].map(d => (
+                      <button key={d} onClick={() => setTrussDivisionsSetting(d)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${trussDivisionsSetting === d ? 'bg-amber-400 text-slate-950 font-black' : 'text-slate-300 hover:text-white'}`}>{d}</button>
+                    ))
+                  : [0.40, 0.50, 0.60, 0.80].map(sp => (
+                      <button key={sp} onClick={() => setTrussSpacingSettingM(sp)}
+                        className={`px-1 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${trussSpacingSettingM === sp ? 'bg-amber-400 text-slate-950 font-black' : 'text-slate-300 hover:text-white'}`}>{sp.toFixed(2)}</button>
                     ))}
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setTrussSpacingMode('divisiones')}
-                      className="text-[9.5px] text-emerald-400 font-bold hover:underline cursor-pointer mr-1"
-                      title="Cambiar a número de espacios"
-                    >
-                      Distancia:
-                    </button>
-                    {[0.40, 0.50, 0.60, 0.80].map(sp => (
-                      <button
-                        key={sp}
-                        onClick={() => setTrussSpacingSettingM(sp)}
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-colors ${
-                          trussSpacingSettingM === sp
-                            ? 'bg-amber-400 text-slate-950 font-black'
-                            : 'text-slate-300 hover:text-white'
-                        }`}
-                      >
-                        {sp.toFixed(2)}m
-                      </button>
-                    ))}
-                  </>
-                )}
               </div>
-
-              {/* (El botón "Asistente" vive en la barra superior; se quitó de aquí
-                  para no duplicarlo.) */}
             </div>
           </div>
         )}

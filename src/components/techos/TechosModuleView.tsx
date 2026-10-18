@@ -499,6 +499,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const [saveModalProjectId, setSaveModalProjectId] = useState<string>('');
   const [saveModalOverwrite, setSaveModalOverwrite] = useState<boolean>(true);
   const [isSavingInProgress, setIsSavingInProgress] = useState<boolean>(false);
+  const [justSaved, setJustSaved] = useState<boolean>(false); // ✓ breve en el botón Guardar
   const [repoSearchTerm, setRepoSearchTerm] = useState<string>('');
   const [repoFilterClient, setRepoFilterClient] = useState<string>('todos');
 
@@ -580,9 +581,57 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
 
   // Abrir modal de guardado inteligente
   const handleGuardar = () => {
-    setSaveModalNombre(nombreProyecto);
-    setSaveModalOverwrite(!!currentEditingDesignId);
-    setShowSaveModal(true);
+    // GUARDADO RÁPIDO: si el plano ya existe (ya se guardó antes) y tiene nombre,
+    // se actualiza directo en un toque, sin reabrir el modal. Para un plano nuevo
+    // (o sin nombre) sí abrimos el modal para nombrarlo y asignar cliente/proyecto.
+    if (currentEditingDesignId && nombreProyecto.trim() && !isSavingInProgress) {
+      handleQuickSave();
+    } else {
+      setSaveModalNombre(nombreProyecto);
+      setSaveModalOverwrite(!!currentEditingDesignId);
+      setShowSaveModal(true);
+    }
+  };
+
+  // Actualiza el plano actual sin abrir el modal (usa el cliente/proyecto ya asignados).
+  const handleQuickSave = async () => {
+    if (!currentEditingDesignId || isSavingInProgress) return;
+    setIsSavingInProgress(true);
+    try {
+      const selectedClient = clients.find(c => c.id === saveModalClientId);
+      const selectedProject = projects.find(p => p.id === saveModalProjectId);
+      const res = await saveOrUpdateTechosDesign(
+        {
+          id: currentEditingDesignId,
+          nombre: nombreProyecto.trim(),
+          authorName: currentUserName,
+          authorRole: isAdmin ? 'Administrador' : 'Colaborador',
+          clientId: selectedClient?.id,
+          clientName: selectedClient?.name,
+          projectId: selectedProject?.id,
+          projectName: selectedProject?.name,
+          nodes: engineState.nodes,
+          segments: engineState.segments,
+          coverageZones: engineState.coverageZones,
+        },
+        true
+      );
+      setCurrentEditingDesignId(res.design.id);
+      setSavedNotificationMsg('✓ Cambios guardados');
+      setShowSavedNotification(true);
+      setJustSaved(true);
+      setTimeout(() => setShowSavedNotification(false), 2200);
+      setTimeout(() => setJustSaved(false), 2200);
+      loadSavedList();
+    } catch (err: any) {
+      console.error('Error en guardado rápido:', err);
+      // Si falla el guardado rápido, caemos al modal para que el usuario reintente.
+      setSaveModalNombre(nombreProyecto);
+      setSaveModalOverwrite(true);
+      setShowSaveModal(true);
+    } finally {
+      setIsSavingInProgress(false);
+    }
   };
 
   // Confirmar guardado (con opción de actualizar o nueva versión y asignación a cliente)
@@ -619,7 +668,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           : `✓ Plano actualizado exitosamente sin duplicados`
       );
       setShowSavedNotification(true);
+      setJustSaved(true);
       setTimeout(() => setShowSavedNotification(false), 3000);
+      setTimeout(() => setJustSaved(false), 2200);
       loadSavedList();
     } catch (err: any) {
       console.error('Error guardando plano:', err);
@@ -825,14 +876,23 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <span className="text-[11px] font-bold hidden sm:inline">+ Nuevo</span>
           </button>
 
-          {/* [ GUARDAR ] — siempre visible */}
+          {/* [ GUARDAR ] — siempre visible. Guardado rápido con estado (spinner / ✓). */}
           <button
             onClick={handleGuardar}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
-            title="Guardar diseño actual"
+            disabled={isSavingInProgress}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-white text-xs font-semibold shadow-xs active:scale-95 transition-all cursor-pointer shrink-0 disabled:opacity-90 ${
+              justSaved ? 'bg-emerald-600' : 'bg-amber-600 hover:bg-amber-700'
+            }`}
+            title={currentEditingDesignId ? 'Guardar cambios (guardado rápido)' : 'Guardar diseño'}
           >
-            <Save className="w-3.5 h-3.5 text-white shrink-0" />
-            <span className="text-[11px] font-bold text-white hidden sm:inline">Guardar</span>
+            {isSavingInProgress
+              ? <RefreshCw className="w-3.5 h-3.5 text-white shrink-0 animate-spin" />
+              : justSaved
+                ? <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+                : <Save className="w-3.5 h-3.5 text-white shrink-0" />}
+            <span className="text-[11px] font-bold text-white hidden sm:inline">
+              {isSavingInProgress ? 'Guardando…' : justSaved ? 'Guardado' : 'Guardar'}
+            </span>
           </button>
 
           {/* [ CARGAR ] — solo escritorio */}
