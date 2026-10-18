@@ -279,23 +279,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
 
 
-  // Dropdown de herramienta en la barra superior (estilo Herrería: acceso
-  // rápido arriba sin tapar el lienzo con el panel central). El menú se
-  // posiciona con `fixed` (medido del botón) para no recortarse dentro de la
-  // barra, que tiene overflow-x-auto.
-  const [showTopToolDropdown, setShowTopToolDropdown] = useState<boolean>(false);
-  const [toolMenuPos, setToolMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const topToolBtnRef = useRef<HTMLButtonElement>(null);
-  const toggleTopToolDropdown = useCallback(() => {
-    setShowTopToolDropdown(prev => {
-      const next = !prev;
-      if (next && topToolBtnRef.current) {
-        const r = topToolBtnRef.current.getBoundingClientRect();
-        setToolMenuPos({ top: r.bottom + 4, left: r.left });
-      }
-      return next;
-    });
-  }, []);
+  // (Se eliminó el dropdown de herramienta de la barra superior: duplicaba el
+  //  selector de herramientas del Panel CAD flotante / rail. Queda uno solo.)
 
   // PANEL FLOTANTE Y ARRASTRABLE DE HERRAMIENTAS CAD DETALLADAS
   const [showFloatingToolsPanel, setShowFloatingToolsPanel] = useState<boolean>(true);
@@ -381,10 +366,6 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Herramientas que dibujan sobre el lienzo (no selección/paneo).
   const DRAWING_TOOLS: ToolModoCad[] = ['draw_line', 'draw_arc', 'draw_col', 'draw_tijeral', 'draw_correa', 'draw_arriostre', 'draw_node', 'measure'];
   const isDrawingTool = DRAWING_TOOLS.includes(activeTool);
-  const TOOL_LABELS: Record<string, string> = {
-    draw_line: 'Viga', draw_arc: 'Arco', draw_col: 'Columna', draw_tijeral: 'Tijeral',
-    draw_correa: 'Correa', draw_arriostre: 'Cruz', draw_node: 'Nodo', measure: 'Medir', select: 'Seleccionar', pan: 'Mover',
-  };
 
   // Al elegir una herramienta de dibujo, colapsa el panel flotante para que no
   // tape el lienzo ni se "coma" los clics destinados a dibujar (móvil, tablet
@@ -1435,61 +1416,6 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           </>
         )}
 
-        {/* Dropdown de HERRAMIENTA en la barra superior (estilo Herrería):
-            selecciona la herramienta activa sin abrir el panel central. Solo
-            en vistas 2D (en 3D no aplica). */}
-        {vista !== '3d' && (
-          <div className="relative shrink-0">
-            <button
-              ref={topToolBtnRef}
-              onClick={toggleTopToolDropdown}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-2xs ${
-                isDrawingTool
-                  ? 'bg-amber-500 text-slate-950 border-amber-500'
-                  : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
-              }`}
-              title="Herramienta de dibujo activa"
-            >
-              <PenTool className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">{TOOL_LABELS[activeTool] || 'Herramienta'}</span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${showTopToolDropdown ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showTopToolDropdown && toolMenuPos && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowTopToolDropdown(false)} />
-                <div
-                  className="fixed z-50 w-44 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 grid grid-cols-2 gap-1"
-                  style={{ top: toolMenuPos.top, left: toolMenuPos.left }}
-                >
-                  {([
-                    { t: 'select', ic: <MousePointer className="w-3.5 h-3.5" /> },
-                    { t: 'draw_line', ic: <PenTool className="w-3.5 h-3.5" /> },
-                    { t: 'draw_arc', ic: <Spline className="w-3.5 h-3.5" /> },
-                    { t: 'draw_col', ic: <Columns className="w-3.5 h-3.5" /> },
-                    { t: 'draw_tijeral', ic: <Wrench className="w-3.5 h-3.5" /> },
-                    { t: 'draw_correa', ic: <Grid className="w-3.5 h-3.5" /> },
-                    { t: 'draw_arriostre', ic: <X className="w-3.5 h-3.5" /> },
-                    { t: 'draw_node', ic: <Crosshair className="w-3.5 h-3.5" /> },
-                    { t: 'measure', ic: <Ruler className="w-3.5 h-3.5" /> },
-                  ] as { t: ToolModoCad; ic: React.ReactNode }[]).map(({ t, ic }) => (
-                    <button
-                      key={t}
-                      onClick={() => { setTool(t); setShowTopToolDropdown(false); }}
-                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-[11px] font-bold transition-colors ${
-                        activeTool === t ? 'bg-amber-500 text-slate-950' : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      {ic}
-                      <span className="truncate">{TOOL_LABELS[t]}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
         {/* BOTÓN ORTO 90°: fuerza el trazo a horizontal/vertical exacto */}
         {vista !== '3d' && (
           <button
@@ -2400,15 +2326,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 )}
               </div>
 
-              {/* Botón Abrir Asistente Completo */}
-              <button
-                onClick={() => setShowNovatosWizard(true)}
-                className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10.5px] cursor-pointer shadow-xs transition-all flex items-center gap-1"
-                title="Abrir Asistente Paramétrico de Techos"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Asistente</span>
-              </button>
+              {/* (El botón "Asistente" vive en la barra superior; se quitó de aquí
+                  para no duplicarlo.) */}
             </div>
           </div>
         )}
