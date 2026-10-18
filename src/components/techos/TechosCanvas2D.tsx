@@ -226,6 +226,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Sumilla de Controles (Widget Flotante Desplegable)
   const [showControlsSumilla, setShowControlsSumilla] = useState<boolean>(false);
+  const [showCadMore, setShowCadMore] = useState<boolean>(false); // menú "⋯ Más" (acciones secundarias)
 
   // Cota Numérica Exacta Modal
   const [showDimensionModal, setShowDimensionModal] = useState<boolean>(false);
@@ -705,7 +706,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     } else if (e.touches.length === 1) {
       const touch = e.touches[0];
       touchPanStartRef.current = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
-      if (!draggingNodeId) {
+      // Con UN dedo solo se panea cuando la herramienta es Mover/Seleccionar
+      // (igual que en PC). Con una herramienta de DIBUJO, el toque COLOCA el
+      // elemento y no debe mover el lienzo ante un micro-movimiento del dedo.
+      if (!draggingNodeId && (activeTool === 'pan' || activeTool === 'select')) {
         setIsPanning(true);
       }
     }
@@ -853,7 +857,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const prevNodeCountRef = useRef<number>(0);
   useEffect(() => {
     const count = Object.keys(nodes).length;
-    if (count > 0 && prevNodeCountRef.current === 0) {
+    // Auto-encuadre solo cuando aparecen VARIOS nodos de golpe (cargar plantilla
+    // o generar un techo). Si el usuario coloca el PRIMER elemento a mano (1-3
+    // nodos), NO reencuadramos para no hacer "saltar" la vista en pleno dibujo.
+    if (count >= 4 && prevNodeCountRef.current === 0) {
       setTimeout(() => {
         handleFitView();
       }, 150);
@@ -1383,37 +1390,12 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           </div>
         )}
 
-        {/* IMAGEN DE REFERENCIA: subir un plano a mano / foto para calcar (solo Planta) */}
-        {vista === 'planta' && (
-          <>
-            <input ref={refImgInputRef} type="file" accept="image/*" onChange={handleRefImgUpload} className="hidden" />
-            <button
-              onClick={() => { if (refImg) { setShowRefControls(s => !s); } else { refImgInputRef.current?.click(); } }}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold border shrink-0 shadow-2xs cursor-pointer transition-all ${
-                refImg ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-              title="Subir un plano a mano / foto como fondo para calcar el techo"
-            >
-              <ImageIcon className="w-3.5 h-3.5" />
-              <span>{refImg ? 'Plano ref.' : 'Imagen ref.'}</span>
-            </button>
-            {/* IA: Leer plano. Por ahora SOLO visible para el admin (pruebas internas).
-                Cuando se abra al público, ver IA_HABILITADA_USUARIOS en aiAccess.ts. */}
-            {iaVisibleParaUI() && (
-              <>
-                <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
-                <button
-                  onClick={handleIaButtonClick}
-                  disabled={iaReading}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 shadow-2xs cursor-pointer bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 border-amber-500 hover:brightness-105 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-wait"
-                  title="Leer un plano a mano con IA y dibujar columnas y vigas automáticamente"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{iaReading ? 'Leyendo…' : 'IA: Leer plano'}</span>
-                </button>
-              </>
-            )}
-          </>
+        {/* Inputs ocultos para "Imagen de referencia" e "IA: Leer plano".
+            Sus acciones viven ahora en el menú "⋯ Más" (derecha) para no saturar
+            la barra; aquí solo se montan los <input> que esos ítems disparan. */}
+        <input ref={refImgInputRef} type="file" accept="image/*" onChange={handleRefImgUpload} className="hidden" />
+        {iaVisibleParaUI() && (
+          <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
         )}
 
         {/* BOTÓN ORTO 90°: fuerza el trazo a horizontal/vertical exacto */}
@@ -1435,17 +1417,53 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
         {/* Acciones auxiliares compactas a la derecha */}
         <div className="flex items-center gap-1 shrink-0">
-          {/* BOTÓN COLUMNAS POR MEDIDAS EXACTAS */}
-          {vista !== '3d' && (
+          {/* MENÚ "⋯ MÁS": agrupa acciones secundarias para no saturar la barra
+              (Imagen ref., IA: Leer plano, Columnas exactas, Controles). */}
+          <div className="relative shrink-0">
             <button
-              onClick={() => setShowColumnasExactas(true)}
-              className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95 transition-all shrink-0"
-              title="Generar columnas con posición y altura exactas (ideal para columnas de concreto existentes)"
+              onClick={() => setShowCadMore(v => !v)}
+              className={`p-1 sm:px-2 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${
+                showCadMore ? 'bg-slate-900 text-white border-slate-900' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
+              }`}
+              title="Más acciones"
             >
-              <Columns className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span className="hidden sm:inline">Columnas</span>
+              <MoreHorizontal className="w-4 h-4 shrink-0" />
+              <span className="hidden md:inline">Más</span>
             </button>
-          )}
+            {showCadMore && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowCadMore(false)} />
+                <div className="absolute right-0 top-full mt-1.5 z-50 w-52 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5">
+                  {vista === 'planta' && (
+                    <button onClick={() => { setShowCadMore(false); if (refImg) { setShowRefControls(s => !s); } else { refImgInputRef.current?.click(); } }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                      <ImageIcon className="w-4 h-4 text-sky-600 shrink-0" />
+                      <span>{refImg ? 'Plano de referencia' : 'Imagen de referencia'}</span>
+                    </button>
+                  )}
+                  {vista === 'planta' && iaVisibleParaUI() && (
+                    <button onClick={() => { setShowCadMore(false); handleIaButtonClick(); }} disabled={iaReading}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer disabled:opacity-60">
+                      <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{iaReading ? 'Leyendo…' : 'IA: Leer plano'}</span>
+                    </button>
+                  )}
+                  {vista !== '3d' && (
+                    <button onClick={() => { setShowCadMore(false); setShowColumnasExactas(true); }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                      <Columns className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Columnas por medidas</span>
+                    </button>
+                  )}
+                  <button onClick={() => { setShowCadMore(false); setShowControlsSumilla(v => !v); }}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                    <HelpCircle className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>Controles y atajos</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* BOTÓN ASISTENTE 1-CLIC */}
           <button
@@ -1483,19 +1501,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <span className="hidden sm:inline">Panel CAD</span>
           </button>
 
-          {/* BOTÓN SUMILLA DE CONTROLES CAD */}
-          <button
-            onClick={() => setShowControlsSumilla(prev => !prev)}
-            className={`p-1 sm:px-2 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${
-              showControlsSumilla 
-                ? 'bg-purple-600 text-white border-purple-600 shadow-sm' 
-                : 'bg-white hover:bg-slate-50 text-slate-600 hover:text-purple-700 border-slate-200'
-            }`}
-            title="Ver sumilla resumida de controles y atajos"
-          >
-            <HelpCircle className="w-3.5 h-3.5 shrink-0" />
-            <span className="hidden md:inline">Controles</span>
-          </button>
+          {/* (El botón "Controles" se movió al menú "⋯ Más" para no duplicar
+              accesos de ayuda; también está disponible desde el banner guía.) */}
 
           {/* BOTÓN PROPIEDADES ESCRITORIO (No invasivo, en la barra de herramientas) */}
           {isDesktop && setShowInspector && (
