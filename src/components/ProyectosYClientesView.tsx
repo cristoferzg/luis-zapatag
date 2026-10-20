@@ -399,7 +399,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
-                <Briefcase className="w-7 h-7 sm:w-8 sm:h-8 mr-3 text-blue-600" />
+                <Briefcase className="w-7 h-7 sm:w-8 sm:h-8 mr-3 text-indigo-600" />
                 Proyectos & Clientes
               </h1>
               <p className="text-slate-500 text-xs sm:text-sm mt-1">Gestión centralizada de obras, cotizaciones y directorio de clientes.</p>
@@ -412,7 +412,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
               onClick={() => setActiveTab('projects')}
               className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px ${
                 activeTab === 'projects'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50 rounded-t-xl'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-xl'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -423,7 +423,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
               onClick={() => setActiveTab('clients')}
               className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px ${
                 activeTab === 'clients'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50 rounded-t-xl'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-xl'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -440,22 +440,22 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
           <form onSubmit={handleProjectSubmit} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
             <div className="md:col-span-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Nombre</label>
-              <input required value={pName} onChange={e => setPName(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Ej. Techo Aluzinc 120m2" />
+              <input required value={pName} onChange={e => setPName(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej. Techo Aluzinc 120m2" />
             </div>
             <div className="md:col-span-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Cliente</label>
-              <select required value={pClient} onChange={e => setPClient(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500">
+              <select required value={pClient} onChange={e => setPClient(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
                 <option value="">Seleccione...</option>
                 {clients.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div className="md:col-span-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Presupuesto (S/)</label>
-              <input required value={pPresupuesto} onChange={e => setPPresupuesto(e.target.value)} onFocus={e => e.target.select()} type="number" min="0" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="0.00" />
+              <input required value={pPresupuesto} onChange={e => setPPresupuesto(e.target.value)} onFocus={e => e.target.select()} type="number" min="0" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="0.00" />
             </div>
             <div className="md:col-span-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Estado</label>
-              <select value={pStatus} onChange={e => setPStatus(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500">
+              <select value={pStatus} onChange={e => setPStatus(e.target.value as any)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
                 <option value="Pendiente">Pendiente</option>
                 <option value="En Progreso">En Progreso</option>
                 <option value="Completado">Completado</option>
@@ -463,7 +463,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
             </div>
             <div className="md:col-span-1">
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Plazo (Aprox)</label>
-              <input value={pPlazoEstimado} onChange={e => setPPlazoEstimado(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Ej: 15 días" />
+              <input value={pPlazoEstimado} onChange={e => setPPlazoEstimado(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej: 15 días" />
             </div>
             <div className="md:col-span-1 flex gap-2">
               {pEditingId && (
@@ -548,7 +548,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </div>
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                       p.status === 'Completado' ? 'bg-emerald-100 text-emerald-700' :
-                      p.status === 'En Progreso' ? 'bg-blue-100 text-blue-700' :
+                      p.status === 'En Progreso' ? 'bg-indigo-100 text-indigo-700' :
                       'bg-amber-100 text-amber-700'
                     }`}>
                       {p.status}
@@ -609,14 +609,14 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                             setAddingCobroId(null);
                           }
                         }} 
-                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editingSpecsId === p.id ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${editingSpecsId === p.id ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
                       >
                         <FileText className="w-4 h-4" />
                         <span className="hidden sm:inline">Especificaciones</span>
                       </button>
                       <button 
                         onClick={() => { setPName(p.name); setPClient(p.client); setPPresupuesto(p.presupuesto.toString()); setPPlazoEstimado(p.plazoEstimado || ''); setPStatus(p.status); setPEditingId(p.id); }} 
-                        className="p-1.5 bg-white border border-slate-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="p-1.5 bg-white border border-slate-200 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
                         title="Editar"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -690,7 +690,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                                 <div className="flex items-center gap-3">
                                   <span className="font-bold text-emerald-600">+{formatCurrency(c.amount)}</span>
                                   <div className="flex space-x-1 border-l border-slate-200 pl-2">
-                                    <button onClick={() => startEditCobro(p.id, c)} className="text-slate-400 hover:text-blue-600 p-1 rounded transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => startEditCobro(p.id, c)} className="text-slate-400 hover:text-indigo-600 p-1 rounded transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
                                     <button onClick={() => handleDeleteCobro(p.id, c.id)} className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                                   </div>
                                 </div>
@@ -704,20 +704,20 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                   
                   {/* Expanded Sections (Especificaciones) */}
                   {editingSpecsId === p.id && (
-                    <div className="p-5 border-t border-blue-100 bg-blue-50/30">
+                    <div className="p-5 border-t border-indigo-100 bg-indigo-50/30">
                       <h4 className="font-bold text-slate-800 text-sm mb-3">Especificaciones Técnicas / Detalles</h4>
                       <p className="text-xs text-slate-500 mb-3">Estos detalles se incluirán automáticamente en el contrato.</p>
                       <textarea 
                         value={specsText} 
                         onChange={(e) => setSpecsText(e.target.value)} 
-                        className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 min-h-[120px]" 
+                        className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 min-h-[120px]" 
                         placeholder="Ej: Materiales a usar, calidades, marcas, espesores, acabados..."
                       />
                       <div className="flex gap-2 mt-3">
                         <button type="button" onClick={() => setEditingSpecsId(null)} className="w-1/3 bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-lg hover:bg-slate-300 transition-colors">
                           Cancelar
                         </button>
-                        <button type="button" onClick={() => handleSaveSpecs(p.id)} className="w-2/3 bg-blue-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <button type="button" onClick={() => handleSaveSpecs(p.id)} className="w-2/3 bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
                           Guardar Especificaciones
                         </button>
                       </div>
@@ -740,19 +740,19 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
         <div className="space-y-6 animate-in fade-in duration-300">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center">
-              <UserPlus className="w-5 h-5 mr-2 text-blue-600" />
+              <UserPlus className="w-5 h-5 mr-2 text-indigo-600" />
               {cEditingId ? 'Editar Cliente' : 'Nuevo Cliente'}
             </h2>
             <form onSubmit={handleClientSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Nombre / Razón Social *</label><input required value={cName} onChange={e => setCName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-blue-500" placeholder="Ej: Juan Pérez o Empresa SAC" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Empresa</label><input value={cCompany} onChange={e => setCCompany(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-blue-500" placeholder="Opcional" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">DNI / RUC</label><input value={cDni} onChange={e => setCDni(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-blue-500" placeholder="Opcional" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Teléfono</label><input value={cPhone} onChange={e => setCPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-blue-500" placeholder="Ej: 987654321" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Email</label><input type="email" value={cEmail} onChange={e => setCEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-blue-500" placeholder="cliente@correo.com" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Dirección</label><input value={cAddress} onChange={e => setCAddress(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-blue-500" placeholder="Dirección física" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Nombre / Razón Social *</label><input required value={cName} onChange={e => setCName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Ej: Juan Pérez o Empresa SAC" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Empresa</label><input value={cCompany} onChange={e => setCCompany(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Opcional" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">DNI / RUC</label><input value={cDni} onChange={e => setCDni(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Opcional" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Teléfono</label><input value={cPhone} onChange={e => setCPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Ej: 987654321" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Email</label><input type="email" value={cEmail} onChange={e => setCEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="cliente@correo.com" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Dirección</label><input value={cAddress} onChange={e => setCAddress(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Dirección física" /></div>
               <div className="md:col-span-2 lg:col-span-3 flex justify-end space-x-3 mt-2">
                 {cEditingId && <button type="button" onClick={() => { setCEditingId(null); setCName(''); setCCompany(''); setCPhone(''); setCEmail(''); setCDni(''); setCAddress(''); }} className="px-6 py-2 rounded-xl text-slate-500 hover:bg-slate-100 font-medium">Cancelar</button>}
-                <button type="submit" className="bg-blue-600 text-white font-medium px-6 py-2 rounded-xl hover:bg-blue-700">{cEditingId ? 'Actualizar Cliente' : 'Guardar Cliente'}</button>
+                <button type="submit" className="bg-indigo-600 text-white font-medium px-6 py-2 rounded-xl hover:bg-indigo-700">{cEditingId ? 'Actualizar Cliente' : 'Guardar Cliente'}</button>
               </div>
             </form>
           </div>
@@ -767,7 +767,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                 value={clientSearchTerm}
                 onChange={(e) => setClientSearchTerm(e.target.value)}
                 placeholder="Buscar por nombre, DNI/RUC, empresa..."
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium outline-none focus:border-blue-500 focus:bg-white transition-all"
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium outline-none focus:border-indigo-500 focus:bg-white transition-all"
               />
               {clientSearchTerm && (
                 <button
@@ -795,7 +795,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     onClick={() => setClientScopeFilter(f.id as any)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
                       clientScopeFilter === f.id
-                        ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-600/30'
+                        ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-blue-600/30'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
@@ -836,7 +836,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <h3 className="text-lg font-bold text-slate-800 leading-tight">{c.name}</h3>
-                          {c.company && <p className="text-blue-600 text-xs font-semibold uppercase tracking-wider mt-1">{c.company}</p>}
+                          {c.company && <p className="text-indigo-600 text-xs font-semibold uppercase tracking-wider mt-1">{c.company}</p>}
                           {isAdmin && (
                             <span className={`inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${
                               isCreatedByAdmin
@@ -847,7 +847,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                             </span>
                           )}
                         </div>
-                        <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg shrink-0 ml-4">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg shrink-0 ml-4">
                           {c.name.charAt(0).toUpperCase()}
                         </div>
                       </div>
@@ -880,7 +880,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </div>
                     
                     <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end space-x-2">
-                      <button onClick={() => handleEditClient(c)} className="flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-blue-600 hover:bg-blue-50 transition-colors font-medium cursor-pointer">
+                      <button onClick={() => handleEditClient(c)} className="flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-indigo-600 hover:bg-indigo-50 transition-colors font-medium cursor-pointer">
                         <Edit2 className="w-4 h-4" />
                         <span>Editar</span>
                       </button>
@@ -1230,7 +1230,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                   {clientProjects.length > 0 && (
                     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                       <div className="font-semibold text-slate-800 flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-blue-600 shrink-0" />
+                        <Briefcase className="w-4 h-4 text-indigo-600 shrink-0" />
                         <span>{clientProjects.length} Obra(s) Asignada(s): {clientProjects.map(p => p.name).join(', ')}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-4 font-mono font-bold">
@@ -1303,11 +1303,11 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-blue-600" />
+                          <FileText className="w-4 h-4 text-indigo-600" />
                           <span>Contratos y Documentos ({clientSavedContracts.length + uploadedDocs.length})</span>
                         </h4>
                         {groupId !== 'sin_cliente' && (
-                          <label className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors">
+                          <label className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors">
                             <Plus className="w-3.5 h-3.5" />
                             <span>Subir Documento</span>
                             <input 
@@ -1323,9 +1323,9 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                       {(clientSavedContracts.length > 0 || uploadedDocs.length > 0) ? (
                         <div className="space-y-2">
                           {clientSavedContracts.map(c => (
-                            <div key={c.id} className="p-2.5 bg-blue-50/50 border border-blue-200 rounded-xl flex items-center justify-between gap-2 text-xs">
+                            <div key={c.id} className="p-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl flex items-center justify-between gap-2 text-xs">
                               <span className="font-bold text-slate-800 truncate">{c.fileName}</span>
-                              <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded">Generado</span>
+                              <span className="text-[10px] bg-indigo-100 text-blue-800 font-bold px-2 py-0.5 rounded">Generado</span>
                             </div>
                           ))}
                           {uploadedDocs.map(docItem => (
@@ -1337,7 +1337,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                                   download={docItem.name}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] rounded-md transition-colors flex items-center gap-1 cursor-pointer"
                                 >
                                   <Download className="w-3 h-3" />
                                   <span>Ver</span>

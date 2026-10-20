@@ -392,7 +392,7 @@ export default function MaterialesYGastosView({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-800 flex items-center">
-              <Package className="w-8 h-8 mr-3 text-blue-600" />
+              <Package className="w-8 h-8 mr-3 text-indigo-600" />
               Materiales & Gastos Operativos
             </h1>
             <p className="text-slate-500 mt-1">Módulo unificado para control de materiales de proyectos, calculadoras estructurales y egresos operativos.</p>
@@ -405,7 +405,7 @@ export default function MaterialesYGastosView({
             onClick={() => setActiveTab('materials')}
             className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px cursor-pointer ${
               activeTab === 'materials'
-                ? 'border-blue-600 text-blue-600 bg-blue-50/50 rounded-t-xl'
+                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -416,7 +416,7 @@ export default function MaterialesYGastosView({
             onClick={() => setActiveTab('gastos')}
             className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px cursor-pointer ${
               activeTab === 'gastos'
-                ? 'border-blue-600 text-blue-600 bg-blue-50/50 rounded-t-xl'
+                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -445,7 +445,7 @@ export default function MaterialesYGastosView({
                 Proyecto Seleccionado
               </label>
               <select 
-                className="w-full bg-slate-50 border-2 border-slate-200 hover:border-blue-400 focus:border-blue-500 rounded-xl px-4 py-2.5 outline-none font-bold text-slate-800 text-sm transition-colors cursor-pointer"
+                className="w-full bg-slate-50 border-2 border-slate-200 hover:border-indigo-400 focus:border-indigo-500 rounded-xl px-4 py-2.5 outline-none font-bold text-slate-800 text-sm transition-colors cursor-pointer"
                 value={selectedProject}
                 onChange={e => { setSelectedProject(e.target.value); setEditingMaterialId(null); }}
               >
@@ -477,7 +477,7 @@ export default function MaterialesYGastosView({
               <div className="flex border-b border-slate-200 mb-6 space-x-6 overflow-x-auto">
                 <button 
                   onClick={() => setActiveMaterialTab('lista')}
-                  className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2 ${activeMaterialTab === 'lista' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2 ${activeMaterialTab === 'lista' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   <Package className="w-4 h-4" />
                   <span>Lista de Materiales e Insumos</span>
@@ -499,25 +499,25 @@ export default function MaterialesYGastosView({
                   {/* FORMULARIO AGREGAR / EDITAR */}
                   <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6">
                     <h2 className="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
-                      <Plus className="w-4 h-4 text-blue-600" />
+                      <Plus className="w-4 h-4 text-indigo-600" />
                       <span>{editingMaterialId ? 'Editar Material' : `Añadir Material a "${project.name}"`}</span>
                     </h2>
                     <form onSubmit={handleMaterialSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="md:col-span-2">
                         <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Nombre del Material o Perfil</label>
-                        <input required value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500 font-medium" placeholder="Ej. Perfil Mampara Serie 3825 o Tubo 2x1" />
+                        <input required value={name} onChange={e => setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 font-medium" placeholder="Ej. Perfil Mampara Serie 3825 o Tubo 2x1" />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Cantidad (Uds / Barras / m²)</label>
-                        <input required type="number" step="0.01" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} onFocus={e => e.target.select()} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500 font-mono" placeholder="Ej. 1" />
+                        <input required type="number" step="0.01" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} onFocus={e => e.target.select()} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 font-mono" placeholder="Ej. 1" />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Precio Unit. (S/)</label>
-                        <input required type="number" step="0.01" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} onFocus={e => e.target.select()} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-blue-500 font-mono" placeholder="Ej. 0.00" />
+                        <input required type="number" step="0.01" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} onFocus={e => e.target.select()} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 font-mono" placeholder="Ej. 0.00" />
                       </div>
                       <div className="md:col-span-4 flex justify-end space-x-3 mt-1">
                         {editingMaterialId && <button type="button" onClick={() => { setEditingMaterialId(null); setName(''); setQuantity(''); setUnitPrice(''); }} className="px-5 py-2 rounded-xl text-slate-500 hover:bg-slate-100 font-bold text-xs cursor-pointer">Cancelar</button>}
-                        <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer">{editingMaterialId ? 'Guardar Cambios' : 'Añadir Material'}</button>
+                        <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-xl text-xs shadow-xs transition-colors cursor-pointer">{editingMaterialId ? 'Guardar Cambios' : 'Añadir Material'}</button>
                       </div>
                     </form>
                   </div>
@@ -526,9 +526,9 @@ export default function MaterialesYGastosView({
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-blue-600" />
+                        <Package className="w-4 h-4 text-indigo-600" />
                         <h3 className="text-sm font-bold text-slate-800">
-                          Insumos del Proyecto: <span className="text-blue-600 font-black">{project.name}</span>
+                          Insumos del Proyecto: <span className="text-indigo-600 font-black">{project.name}</span>
                         </h3>
                       </div>
                       
@@ -570,7 +570,7 @@ export default function MaterialesYGastosView({
                                 <td className="p-3.5 text-right font-mono text-slate-600">{formatCurrency(m.unitPrice || 0)}</td>
                                 <td className="p-3.5 text-right font-mono font-bold text-slate-800">{formatCurrency(subtotal)}</td>
                                 <td className="p-3.5 text-center">
-                                  <button onClick={() => handleEditMaterial(m)} className="text-slate-400 hover:text-blue-500 p-1.5 rounded-lg hover:bg-blue-50 transition-colors mr-1 cursor-pointer" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => handleEditMaterial(m)} className="text-slate-400 hover:text-indigo-500 p-1.5 rounded-lg hover:bg-indigo-50 transition-colors mr-1 cursor-pointer" title="Editar"><Edit2 className="w-3.5 h-3.5" /></button>
                                   <button onClick={() => handleDeleteMaterial(m.id)} className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer" title="Eliminar"><Trash2 className="w-3.5 h-3.5" /></button>
                                 </td>
                               </tr>
@@ -678,7 +678,7 @@ export default function MaterialesYGastosView({
                                 <td className="p-3 text-center">
                                   <button
                                     onClick={() => handleImportGastoToMaterials(g)}
-                                    className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+                                    className="px-2.5 py-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
                                     title="Añadir como material formal al proyecto"
                                   >
                                     + Añadir a Lista
@@ -803,18 +803,18 @@ export default function MaterialesYGastosView({
           <form onSubmit={handleGastoSubmit} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Descripción</label>
-              <input required value={description} onChange={e => setDescription(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Detalle del gasto..." />
+              <input required value={description} onChange={e => setDescription(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Detalle del gasto..." />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Proyecto Asociado</label>
-              <select value={sourceProject} onChange={e => setSourceProject(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500">
+              <select value={sourceProject} onChange={e => setSourceProject(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
                 <option value="">General (Sin proyecto)</option>
                 {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Categoría</label>
-              <select required value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500">
+              <select required value={category} onChange={e => setCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500">
                 <option value="" disabled>Seleccionar...</option>
                 <option value="Material">Material</option>
                 <option value="Personal">Personal</option>
@@ -824,7 +824,7 @@ export default function MaterialesYGastosView({
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Monto (S/)</label>
-              <input required value={amount} onChange={e => setAmount(e.target.value)} type="number" min="0" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500" placeholder="Ej. 0.00" />
+              <input required value={amount} onChange={e => setAmount(e.target.value)} type="number" min="0" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej. 0.00" />
             </div>
             <div>
               <button type="submit" className="w-full flex items-center justify-center bg-slate-800 hover:bg-slate-900 text-white font-medium px-4 py-2 rounded-lg transition-colors cursor-pointer">
@@ -852,7 +852,7 @@ export default function MaterialesYGastosView({
                     <tr key={r.id} className="hover:bg-slate-50 transition-colors">
                       <td className="p-4 text-sm text-slate-500">{r.date}</td>
                       <td className="p-4 font-medium text-slate-800">{r.description}</td>
-                      <td className="p-4 text-sm text-blue-600 font-semibold">{r.sourceProject || 'General'}</td>
+                      <td className="p-4 text-sm text-indigo-600 font-semibold">{r.sourceProject || 'General'}</td>
                       <td className="p-4 text-sm text-slate-600">{r.category || '-'}</td>
                       <td className="p-4 text-right font-semibold text-slate-800">{formatCurrency(r.amount)}</td>
                       <td className="p-4 text-right whitespace-nowrap">
