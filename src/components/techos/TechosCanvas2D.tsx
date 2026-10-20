@@ -591,13 +591,24 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         magneticRadiusPx: isDesktop ? 16 : 24,
         enableIntersections: true,
         enableMidpoints: true,
-        enablePerpendicular: true
+        enablePerpendicular: !orthoMode // ← FIX: Deshabilitar perpendicular cuando ortho está activo
       }
     );
 
-    const finalPoint = bestSnap
+    let finalPoint = bestSnap
       ? { x: bestSnap.projX, y: bestSnap.projY }
       : { x: Math.round(worldX * 100) / 100, y: Math.round(worldY * 100) / 100 };
+
+    // ← FIX: VOLVER A APLICAR ORTHOMODE después del snap para forzarlo
+    if (orthoMode && startX2D !== null && startY2D !== null) {
+      const dx = finalPoint.x - startX2D;
+      const dy = finalPoint.y - startY2D;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        finalPoint.y = startY2D; // fuerza horizontal
+      } else {
+        finalPoint.x = startX2D; // fuerza vertical
+      }
+    }
 
     // Ángulo del tramo en curso (para el indicador de 90°). 0°/90°/180°/270° = recto.
     if (startX2D !== null && startY2D !== null) {

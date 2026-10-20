@@ -107,10 +107,11 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [projectList, setProjectList] = useState<{ id: string; name: string }[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
   const [saveStatusMsg, setSaveStatusMsg] = useState<string>('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
 
   // Cargar proyectos disponibles al montar
   useEffect(() => {
-    const rawProjects = safeStorage.getItem<any[]>('sync_cache_projects_admin', []) || 
+    const rawProjects = safeStorage.getItem<any[]>('sync_cache_projects_admin', []) ||
                         safeStorage.getItem<any[]>('sync_cache_projects_shared', []) || [];
     if (Array.isArray(rawProjects) && rawProjects.length > 0) {
       const pList = rawProjects.map(p => ({ id: p.id, name: p.nombre || p.name || `Proyecto #${p.id}` }));
@@ -120,6 +121,34 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
       }
     }
   }, []);
+
+  // Auto-guardar configuración actual en sessionStorage cuando hay cambios
+  useEffect(() => {
+    if (!isOpen) return;
+    setHasUnsavedChanges(true);
+
+    const autoSaveConfig = {
+      tipo, tipoTijeral, orientacionTijeral, luzStr, largoStr, alturaColStr,
+      flechaStr, pendienteStr, alturaCol2Str, numTijeralesStr, numDientesStr,
+      alturaDienteStr, alturaQuiebreManStr, alturaCumbreraManStr, diametroDomoStr,
+      flechaDomoStr, costillasDomoStr, domoAnillosStr, domoConLinterna,
+      luzAlaLStr, largoAlaLStr, desnivelAlasStr, flechaAutoStr, alturaMuroAutoStr,
+      numEjesAutoStr, anchoMonitorStr, alturaMonitorStr, trussSpacingMode,
+      trussDivisions, trussSpacingM, trussHeightM, customMontanteSpacing,
+      tipoTijeralPerimetral, perimetralBracingEnabled, mezzanineHueco,
+      mezzanineTijeralesPerimetro, mezzanineTijeralesInternos,
+      savedAt: new Date().toISOString()
+    };
+    sessionStorage.setItem('techosWizardSessionConfig', JSON.stringify(autoSaveConfig));
+  }, [isOpen, tipo, tipoTijeral, orientacionTijeral, luzStr, largoStr, alturaColStr,
+      flechaStr, pendienteStr, alturaCol2Str, numTijeralesStr, numDientesStr,
+      alturaDienteStr, alturaQuiebreManStr, alturaCumbreraManStr, diametroDomoStr,
+      flechaDomoStr, costillasDomoStr, domoAnillosStr, domoConLinterna,
+      luzAlaLStr, largoAlaLStr, desnivelAlasStr, flechaAutoStr, alturaMuroAutoStr,
+      numEjesAutoStr, anchoMonitorStr, alturaMonitorStr, trussSpacingMode,
+      trussDivisions, trussSpacingM, trussHeightM, customMontanteSpacing,
+      tipoTijeralPerimetral, perimetralBracingEnabled, mezzanineHueco,
+      mezzanineTijeralesPerimetro, mezzanineTijeralesInternos]);
 
   // Función para guardar configuración actual para el proyecto seleccionado
   const handleSaveProjectConfig = () => {
@@ -402,10 +431,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
       engineState.generateRoofMonitor(luzM, largoM, alturaColM, pendientePct, anchoMonitorM, alturaMonitorM, tipoTijeral, numTijerales, orientacionTijeral);
     } else if (tipo === 'mezzanine') {
       engineState.generateMezzanine(
-        largoM, 
-        luzM, 
-        alturaColM, 
-        trussDivisions || Math.max(2, Math.round(largoM / 4)), 
+        largoM,
+        luzM,
+        alturaColM,
+        trussDivisions || Math.max(2, Math.round(largoM / 4)),
         Math.max(2, Math.round(luzM / 3)),
         mezzanineHueco,
         mezzanineTijeralesPerimetro,
@@ -418,6 +447,20 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
       onChangeVista('seccion');
     }
 
+    setHasUnsavedChanges(false);
+    sessionStorage.removeItem('techosWizardSessionConfig');
+    onClose();
+  };
+
+  const handleCloseWithConfirm = () => {
+    if (hasUnsavedChanges) {
+      const confirmed = window.confirm(
+        '⚠️ Tienes cambios sin guardar en la configuración del techo.\n\n¿Deseas descartar estos cambios y cerrar el asistente?'
+      );
+      if (!confirmed) return;
+    }
+    setHasUnsavedChanges(false);
+    sessionStorage.removeItem('techosWizardSessionConfig');
     onClose();
   };
 
@@ -441,7 +484,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCloseWithConfirm}
             className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
             title="Cerrar asistente"
           >
