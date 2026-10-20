@@ -290,7 +290,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
           <AnnouncementBanner notifications={globalNotifs} isAdmin={isAdmin} />
 
           {userScheduledAsesorias.length > 0 && (
-            <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-sm border border-slate-800 relative overflow-hidden">
+            <div className="bg-indigo-950 text-white p-6 rounded-2xl shadow-sm border border-indigo-900 relative overflow-hidden">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
                 <div className="flex items-start space-x-4">
                   <div className="p-3.5 bg-white/10 rounded-xl shrink-0 border border-white/10">
@@ -358,40 +358,40 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
             </div>
           )}
 
-          <div className="bg-white border border-slate-200 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center space-x-4">
-              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl">
+              <div className="p-3 bg-indigo-100 text-indigo-700 rounded-xl">
                 <CheckCircle className="w-8 h-8" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-800">Licencia Permanente PRO Activada</h2>
-                <p className="text-sm text-slate-500 mt-0.5">Acceso completo sin caducidad. Tus proyectos y finanzas son 100% privados.</p>
+                <h2 className="text-xl font-bold text-indigo-900">Licencia Permanente PRO Activada</h2>
+                <p className="text-sm text-indigo-700 mt-0.5">Acceso completo sin caducidad. Tus proyectos y finanzas son 100% privados.</p>
               </div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setCurrentView('projects')}>
-              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl"><Briefcase className="w-6 h-6" /></div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-indigo-50 transition-colors" onClick={() => setCurrentView('projects')}>
+              <div className="p-3 bg-indigo-100 text-indigo-700 rounded-xl"><Briefcase className="w-6 h-6" /></div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase">Tus Proyectos</p>
                 <p className="text-2xl font-bold text-slate-800">{activeProjectsCount} activos</p>
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setCurrentView('projects')}>
-              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl"><TrendingUp className="w-6 h-6" /></div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-emerald-50 transition-colors" onClick={() => setCurrentView('projects')}>
+              <div className="p-3 bg-emerald-100 text-emerald-700 rounded-xl"><TrendingUp className="w-6 h-6" /></div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase">Ingresos Cobrados</p>
-                <p className="text-xl font-bold text-slate-800">{formatCurrency(ingresosActivos)}</p>
+                <p className="text-xl font-bold text-emerald-700">{formatCurrency(ingresosActivos)}</p>
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => setCurrentView('gastos')}>
-              <div className="p-3 bg-slate-100 text-slate-700 rounded-xl"><TrendingDown className="w-6 h-6" /></div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-amber-50 transition-colors" onClick={() => setCurrentView('gastos')}>
+              <div className="p-3 bg-amber-100 text-amber-700 rounded-xl"><TrendingDown className="w-6 h-6" /></div>
               <div>
                 <p className="text-xs font-bold text-slate-500 uppercase">Gastos y Egresos</p>
-                <p className="text-xl font-bold text-slate-800">{formatCurrency(egresosActivos)}</p>
+                <p className="text-xl font-bold text-amber-700">{formatCurrency(egresosActivos)}</p>
               </div>
             </div>
 
@@ -408,7 +408,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
               </p>
               <button
                 onClick={() => setCurrentView('projects')}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl transition-colors"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2.5 rounded-xl transition-colors"
               >
                 Ir a Proyectos
               </button>
@@ -424,7 +424,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
               </p>
               <button
                 onClick={() => setCurrentView('gastos')}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs py-2.5 rounded-xl transition-colors"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs py-2.5 rounded-xl transition-colors"
               >
                 Ir a Gastos Operativos
               </button>
@@ -440,7 +440,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
               </p>
               <button
                 onClick={() => setCurrentView('asesorias')}
-                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2.5 rounded-xl transition-colors"
+                className="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-semibold text-xs py-2.5 rounded-xl transition-colors"
               >
                 Ver Asesorías
               </button>
@@ -454,13 +454,13 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
       <div className="space-y-6">
         <AnnouncementBanner notifications={globalNotifs} isAdmin={isAdmin} setNotifications={setGlobalNotifs} />
 
-        <div className="bg-white border border-slate-200 p-4 rounded-xl flex items-center space-x-4 shadow-sm mb-6">
-          <div className="p-2 bg-slate-100 text-slate-700 rounded-lg">
+        <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center space-x-4 shadow-sm mb-6">
+          <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
             <CheckCircle className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-md font-bold text-slate-800">Licencia Permanente PRO</h2>
-            <p className="text-xs text-slate-500">Sistema activo sin límites de caducidad.</p>
+            <h2 className="text-md font-bold text-indigo-900">Licencia Permanente PRO</h2>
+            <p className="text-xs text-indigo-700">Sistema activo sin límites de caducidad.</p>
           </div>
         </div>
 
@@ -471,31 +471,31 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
         {/* KPIs Globales */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><TrendingUp className="w-5 h-5" /></div>
+            <div className={`p-3 rounded-xl shrink-0 ${balanceGlobal >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}><TrendingUp className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Balance (Liquidez)</p>
-              <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(balanceGlobal)}</p>
+              <p className={`text-lg sm:text-xl font-bold truncate ${balanceGlobal >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{formatCurrency(balanceGlobal)}</p>
             </div>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><ArrowRight className="w-5 h-5" /></div>
+            <div className="p-3 bg-indigo-100 text-indigo-700 rounded-xl shrink-0"><ArrowRight className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Total Ingresos</p>
-              <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(ingresosGlobales)}</p>
+              <p className="text-lg sm:text-xl font-bold text-indigo-700 truncate">{formatCurrency(ingresosGlobales)}</p>
             </div>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><TrendingDown className="w-5 h-5" /></div>
+            <div className="p-3 bg-amber-100 text-amber-700 rounded-xl shrink-0"><TrendingDown className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Egresos Totales</p>
-              <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(egresosGlobales)}</p>
+              <p className="text-lg sm:text-xl font-bold text-amber-700 truncate">{formatCurrency(egresosGlobales)}</p>
             </div>
           </div>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
-            <div className="p-3 bg-slate-100 text-slate-700 rounded-xl shrink-0"><Home className="w-5 h-5" /></div>
+            <div className="p-3 bg-rose-100 text-rose-700 rounded-xl shrink-0"><Home className="w-5 h-5" /></div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-500 uppercase truncate">Gastos Familia</p>
-              <p className="text-lg sm:text-xl font-bold text-slate-800 truncate">{formatCurrency(egresosFamilia)}</p>
+              <p className="text-lg sm:text-xl font-bold text-rose-700 truncate">{formatCurrency(egresosFamilia)}</p>
             </div>
           </div>
         </div>
@@ -507,33 +507,33 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
               <h2 className="text-lg font-bold text-slate-800">Flujo: Proyectos Activos</h2>
             </div>
             <div className="space-y-6">
-               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+               <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
                   <p className="text-xs font-bold text-slate-500 uppercase mb-1">Presupuesto Total (Activos)</p>
-                  <p className="text-xl sm:text-2xl font-black text-slate-800">{formatCurrency(totalPresupuestoActivos)}</p>
+                  <p className="text-xl sm:text-2xl font-black text-indigo-700">{formatCurrency(totalPresupuestoActivos)}</p>
                   <p className="text-xs text-slate-500 mt-2">Por Cobrar: {formatCurrency(totalPorCobrarActivos)}</p>
                </div>
 
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                   <div className="flex items-center space-x-2 text-slate-500 mb-2">
+                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                   <div className="flex items-center space-x-2 text-emerald-600 mb-2">
                      <TrendingUp className="w-4 h-4"/>
                      <span className="font-bold text-xs uppercase">Ingresos (Cobrado)</span>
                    </div>
-                   <p className="text-lg sm:text-xl font-bold text-slate-800">{formatCurrency(ingresosActivos)}</p>
+                   <p className="text-lg sm:text-xl font-bold text-emerald-700">{formatCurrency(ingresosActivos)}</p>
                  </div>
 
-                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                   <div className="flex items-center space-x-2 text-slate-500 mb-2">
+                 <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                   <div className="flex items-center space-x-2 text-amber-600 mb-2">
                      <TrendingDown className="w-4 h-4"/>
                      <span className="font-bold text-xs uppercase">Egresos (Gastos)</span>
                    </div>
-                   <p className="text-lg sm:text-xl font-bold text-slate-800">{formatCurrency(egresosActivos)}</p>
+                   <p className="text-lg sm:text-xl font-bold text-amber-700">{formatCurrency(egresosActivos)}</p>
                  </div>
                </div>
 
                <div className="flex justify-between items-center border-t border-slate-200 pt-4">
                  <span className="font-bold text-slate-600 uppercase tracking-wider text-xs">Balance Actual (Activos)</span>
-                 <span className={`text-lg sm:text-xl font-bold ${balanceActivos >= 0 ? 'text-slate-800' : 'text-rose-600'}`}>
+                 <span className={`text-lg sm:text-xl font-bold ${balanceActivos >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                    {formatCurrency(balanceActivos)}
                  </span>
                </div>
@@ -549,33 +549,33 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
             <div className="flex-1 flex flex-col justify-center space-y-8">
               <div>
                 <div className="flex justify-between items-end mb-2">
-                  <div className="flex items-center space-x-2 text-slate-600">
+                  <div className="flex items-center space-x-2 text-emerald-600">
                     <TrendingUp className="w-5 h-5"/>
                     <span className="font-bold uppercase tracking-wider text-sm">Ingresos Totales (Histórico)</span>
                   </div>
-                  <span className="text-2xl font-bold text-slate-800">{formatCurrency(ingresosGlobales)}</span>
+                  <span className="text-2xl font-bold text-emerald-700">{formatCurrency(ingresosGlobales)}</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-3">
-                  <div className="bg-slate-800 h-3 rounded-full" style={{ width: '100%' }}></div>
+                <div className="w-full bg-emerald-100 rounded-full h-3">
+                  <div className="bg-emerald-600 h-3 rounded-full" style={{ width: '100%' }}></div>
                 </div>
               </div>
 
               <div>
                 <div className="flex justify-between items-end mb-2">
-                  <div className="flex items-center space-x-2 text-slate-600">
+                  <div className="flex items-center space-x-2 text-amber-600">
                     <TrendingDown className="w-5 h-5"/>
                     <span className="font-bold uppercase tracking-wider text-sm">Egresos Totales (Histórico)</span>
                   </div>
-                  <span className="text-2xl font-bold text-slate-800">{formatCurrency(egresosGlobales)}</span>
+                  <span className="text-2xl font-bold text-amber-700">{formatCurrency(egresosGlobales)}</span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-3">
-                  <div className="bg-slate-400 h-3 rounded-full" style={{ width: `${Math.min((egresosGlobales / Math.max(ingresosGlobales, 1)) * 100, 100)}%` }}></div>
+                <div className="w-full bg-amber-100 rounded-full h-3">
+                  <div className="bg-amber-600 h-3 rounded-full" style={{ width: `${Math.min((egresosGlobales / Math.max(ingresosGlobales, 1)) * 100, 100)}%` }}></div>
                 </div>
               </div>
             </div>
 
             <div className="mt-8 border-t pt-6">
-              <button onClick={() => setCurrentView('finances')} className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold py-3 rounded-xl border border-slate-200 transition-colors flex items-center justify-center space-x-2">
+              <button onClick={() => setCurrentView('finances')} className="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold py-3 rounded-xl border border-indigo-200 transition-colors flex items-center justify-center space-x-2">
                 <span>Ver Reporte de Egresos Completo</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -587,7 +587,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-slate-800">Proyectos Activos</h2>
-            <button onClick={() => setCurrentView('projects')} className="text-slate-700 hover:text-slate-900 font-medium text-sm flex items-center">
+            <button onClick={() => setCurrentView('projects')} className="text-indigo-600 hover:text-indigo-700 font-medium text-sm flex items-center">
               Ver todos <ArrowRight className="w-4 h-4 ml-1" />
             </button>
           </div>
@@ -912,13 +912,21 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    
+
     const [sourceProject, setSourceProject] = useState('');
     const [category, setCategory] = useState('');
     const [frequency, setFrequency] = useState<FinanceRecord['frequency']>('Unico');
     const [editingId, setEditingId] = useState<string | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [addingPaymentTo, setAddingPaymentTo] = useState<string | null>(null);
+
+    const colorMap: { [key: string]: string } = {
+      indigo: 'text-indigo-600',
+      emerald: 'text-emerald-600',
+      rose: 'text-rose-600',
+      amber: 'text-amber-600',
+      slate: 'text-slate-600'
+    };
 
     const getDebtPaymentsTotal = (f: FinanceRecord) => f.type === 'deuda' ? (f.payments?.reduce((s, p) => s + p.amount, 0) || (f.isPaid ? f.amount : 0)) : 0;
     const records = finances.filter(f => f.type === type).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -1044,7 +1052,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
       <div className="space-y-6">
         <header className="mb-8">
           <div className="flex items-center space-x-3 mb-2">
-            <div className={`p-3 rounded-xl bg-white shadow-sm border border-slate-100 text-${colorClass}-500`}>
+            <div className={`p-3 rounded-xl bg-white shadow-sm border border-slate-100 ${colorMap[colorClass]}`}>
               <Icon className="w-6 h-6" />
             </div>
             <h1 className="text-3xl font-bold text-slate-800">{title}</h1>
@@ -1057,7 +1065,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm col-span-1 md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                  <div>
                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Pagado</p>
-                   <p className="text-2xl font-bold text-emerald-600">{formatCurrency(totalPagado)}</p>
+                   <p className="text-2xl font-bold text-slate-800">{formatCurrency(totalPagado)}</p>
                  </div>
                  <div>
                    <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Por Pagar</p>
@@ -1084,22 +1092,22 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
         )}
         
         {type === 'deuda' && liquidez >= 0 && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-xl flex items-center">
-            <Activity className="w-5 h-5 mr-3 flex-shrink-0" />
+          <div className="bg-slate-50 border border-slate-200 text-slate-600 p-4 rounded-xl flex items-center">
+            <Activity className="w-5 h-5 mr-3 flex-shrink-0 text-slate-400" />
             <p className="text-sm font-medium">Liquidez Saludable: Tienes {formatCurrency(liquidez)} disponibles para cubrir deudas u otros gastos.</p>
           </div>
         )}
 
         {type === 'inversion' && (
-          <div className="bg-blue-50 border border-blue-200 text-blue-700 p-4 rounded-xl flex items-center">
-            <TrendingUp className="w-5 h-5 mr-3 flex-shrink-0" />
+          <div className="bg-slate-50 border border-slate-200 text-slate-600 p-4 rounded-xl flex items-center">
+            <TrendingUp className="w-5 h-5 mr-3 flex-shrink-0 text-slate-400" />
             <p className="text-sm font-medium">El capital invertido se extrae de tu liquidez actual. Para evitar pérdidas, asegúrate de recuperar este capital a través de la utilidad de tus proyectos futuros.</p>
           </div>
         )}
 
         {type === 'familia' && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 p-4 rounded-xl flex items-center mb-4">
-            <Home className="w-5 h-5 mr-3 flex-shrink-0" />
+          <div className="bg-slate-50 border border-slate-200 text-slate-600 p-4 rounded-xl flex items-center mb-4">
+            <Home className="w-5 h-5 mr-3 flex-shrink-0 text-slate-400" />
             <p className="text-sm font-medium">Los retiros familiares pueden registrarse de manera independiente (disminuyendo tu liquidez general) o asignarse directamente a la utilidad de un proyecto específico (seleccionándolo en el formulario).</p>
           </div>
         )}
@@ -1237,7 +1245,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                       <div className="mt-3">
                          <button
                            onClick={() => addingPaymentTo === r.id ? setAddingPaymentTo(null) : setAddingPaymentTo(r.id)}
-                           className="w-full text-center p-2 rounded-lg transition-colors font-semibold text-xs uppercase tracking-wide text-blue-600 hover:bg-blue-50 bg-blue-50/50 border border-blue-200"
+                           className="w-full text-center p-2 rounded-lg transition-colors font-semibold text-xs uppercase tracking-wide text-slate-700 hover:bg-slate-100 bg-slate-50 border border-slate-200"
                          >
                            {addingPaymentTo === r.id ? 'Cancelar Pago' : '+ Abonar / Cuota'}
                          </button>
@@ -1245,10 +1253,10 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                     )}
                     
                     {addingPaymentTo === r.id && (
-                      <div className="mt-3 bg-blue-50/30 p-3 rounded-lg border border-blue-100 flex flex-col space-y-2">
+                      <div className="mt-3 bg-slate-50 p-3 rounded-lg border border-slate-200 flex flex-col space-y-2">
                         <label className="text-sm font-medium text-slate-600">Abonar a la deuda:</label>
                         <input type="number" min="0" step="0.01" max={pendingAmount} value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder={`Máx: ${pendingAmount}`} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 transition-all" />
-                        <button onClick={() => handleAddPayment(r.id)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors">
+                        <button onClick={() => handleAddPayment(r.id)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors">
                           Pagar
                         </button>
                       </div>
@@ -1265,7 +1273,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                       <div className="text-xs text-slate-500 mb-1">{r.date}</div>
                       <div className="font-bold text-slate-800">{r.description}</div>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {r.isMonthly && <span className="inline-flex items-center text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Mensual</span>}
+                        {r.isMonthly && <span className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Mensual</span>}
                         {type === 'gastos' && r.category && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">{r.category}</span>}
                         {(type === 'familia' || type === 'gastos') && r.sourceProject && <span className="inline-flex items-center text-[10px] font-bold text-slate-500 px-2 py-0.5 rounded bg-slate-100 border border-slate-200">{r.sourceProject}</span>}
                       </div>
@@ -1341,7 +1349,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                           <td className="p-4 font-medium text-slate-800">
                             <div className="flex items-center">
                               {r.description}
-                              {r.frequency && <span className="inline-flex items-center text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full ml-2 uppercase tracking-wide">{r.frequency}</span>}
+                              {r.frequency && <span className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full ml-2 uppercase tracking-wide">{r.frequency}</span>}
                               {AlertIcon}
                             </div>
                           </td>
@@ -1367,7 +1375,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                             {!isFullyPaid && (
                               <button 
                                 onClick={() => addingPaymentTo === r.id ? setAddingPaymentTo(null) : setAddingPaymentTo(r.id)}
-                                className={`p-2 rounded-lg transition-colors mr-1 font-semibold text-[11px] uppercase tracking-wide text-blue-600 hover:bg-blue-50 bg-blue-50/50 border border-blue-200`}
+                                className={`p-2 rounded-lg transition-colors mr-1 font-semibold text-[11px] uppercase tracking-wide text-slate-700 hover:bg-slate-100 bg-slate-50 border border-slate-200`}
                               >
                                 {addingPaymentTo === r.id ? 'Cancelar Pago' : '+ Abonar / Cuota'}
                               </button>
@@ -1378,12 +1386,12 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                           </td>
                         </tr>
                         {addingPaymentTo === r.id && (
-                          <tr className="bg-blue-50/30">
+                          <tr className="bg-slate-50">
                             <td colSpan={5} className="p-4">
                               <div className="flex items-center space-x-3 justify-end">
                                 <label className="text-sm font-medium text-slate-600">Abonar a la deuda:</label>
                                 <input type="number" min="0" step="0.01" max={pendingAmount} value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} placeholder={`Máx: ${pendingAmount}`} className="w-32 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 transition-all" />
-                                <button onClick={() => handleAddPayment(r.id)} className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition-colors">
+                                <button onClick={() => handleAddPayment(r.id)} className="bg-slate-900 hover:bg-slate-800 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition-colors">
                                   Pagar
                                 </button>
                               </div>
@@ -1400,7 +1408,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
                       <td className="p-4 font-medium text-slate-800">
                         <div className="flex items-center">
                           {r.description}
-                          {r.isMonthly && <span className="inline-flex items-center text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full ml-2 uppercase tracking-wide">Mensual</span>}
+                          {r.isMonthly && <span className="inline-flex items-center text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full ml-2 uppercase tracking-wide">Mensual</span>}
                         </div>
                       </td>
                       {type === 'gastos' && (
@@ -2000,10 +2008,10 @@ export default function App() {
             isAdmin={isAdmin}
           />
         );
-      case 'finances': return <FinanceGenericView type="inversion" title="Finanzas" subtitle="" icon={TrendingUp} colorClass="emerald" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
-      case 'familia': return <FinanceGenericView type="familia" title="Finanzas Familiares" subtitle="Control de gastos personales" icon={Home} colorClass="indigo" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
+      case 'finances': return <FinanceGenericView type="inversion" title="Finanzas" subtitle="" icon={TrendingUp} colorClass="indigo" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
+      case 'familia': return <FinanceGenericView type="familia" title="Finanzas Familiares" subtitle="Control de gastos personales" icon={Home} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'inversion': return <FinanceGenericView type="inversion" title="Inversiones" subtitle="Capital invertido en equipos/negocio" icon={TrendingUp} colorClass="emerald" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
-      case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="amber" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
+      case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'precios': return <PreciosView />;
       case 'concreto': return <ConcretoMetradosView />;
       case 'usuarios': return <UsuariosView usuarios={usuarios} setUsuarios={setUsuarios} isAdmin={isAdmin} />;
