@@ -12,15 +12,16 @@ import {
   ChevronUp,
   ChevronDown
 } from 'lucide-react';
-import { 
-  HerreriaDesign, 
-  PiezaCad, 
-  AccesorioCad, 
+import {
+  HerreriaDesign,
+  PiezaCad,
+  AccesorioCad,
   MaterialFamilia,
   TipoCorteCad,
   TipoRellenoPanel
 } from './herreriaTypes';
-import { PERFILES_CATALOGO, getNormaAcabadoPerfil } from './herreriaCatalog';
+import { PERFILES_CATALOGO } from './herreriaCatalog';
+import { HerreriaPerfilesSelector } from './HerreriaPerfilesSelector';
 
 export type HerreriaSelectedType = 
   | 'pieza_cad'
@@ -287,43 +288,11 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
           </div>
 
           {/* Perfil Comercial */}
-          <div>
-            <label className="text-[10px] text-slate-500 font-semibold block mb-1 uppercase tracking-wider">Perfil</label>
-            <select
-              value={piezaSeleccionada.perfilId}
-              onChange={e => updatePieza({ perfilId: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-800 text-xs focus:border-blue-400 focus:outline-none font-medium"
-            >
-              <optgroup label="📦 PERFILES LAC (ASTM A500 Negro Estructural)">
-                {PERFILES_CATALOGO.filter(p => getNormaAcabadoPerfil(p) === 'LAC').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} ({p.dimensiones})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="🛡️ PERFILES GALVANIZADOS (ASTM A500 Galv)">
-                {PERFILES_CATALOGO.filter(p => getNormaAcabadoPerfil(p) === 'GALVANIZADO').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} ({p.dimensiones})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="❄️ PERFILES LAF / LAB (Laminado en Frío / Cerrajería Ligera)">
-                {PERFILES_CATALOGO.filter(p => getNormaAcabadoPerfil(p) === 'LAF').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} ({p.dimensiones})
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="📐 PERFILES ESTRUCTURALES ASTM (A36 / Vigas / Ángulos / Platinas)">
-                {PERFILES_CATALOGO.filter(p => getNormaAcabadoPerfil(p) === 'ASTM').map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre} ({p.dimensiones})
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </div>
+          <HerreriaPerfilesSelector
+            selectedProfileId={piezaSeleccionada.perfilId}
+            onSelectProfile={(newProfileId) => updatePieza({ perfilId: newProfileId })}
+            title="Seleccionar Perfil Metálico"
+          />
 
           {/* ========================================================
               GIRO Y ORIENTACIÓN DE SECCIÓN DE PERFIL METÁLICO (ANCHO vs ALTO)
