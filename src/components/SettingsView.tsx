@@ -19,7 +19,6 @@ import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UploadProgressBar } from './common/UploadProgressBar';
-import defaultAdminLogo from '../assets/images/logo_innova_oficial_1791000137990.jpg';
 
 export interface CurrencyOption {
   code: string;
@@ -108,7 +107,7 @@ export default function SettingsView({
   const mySettingsId = activeUid ? ('settings_' + activeUid) : 'settings_default';
   const currentSettings = settings.find(s => s.id === mySettingsId || s.userId === activeUid) || {
     id: mySettingsId,
-    appName: isAdmin ? 'Innova Contratistas' : (currentUserName ? `${currentUserName} - Contratista` : 'Mi Empresa'),
+    appName: '',
     logoBase64: ''
   };
   
@@ -144,14 +143,14 @@ export default function SettingsView({
   const [softwareVersion, setSoftwareVersion] = useState(currentSettings.softwareVersion || 'v3.9.5 Pro RNE-2026');
 
   useEffect(() => {
-    setAppName(currentSettings.appName || (isAdmin ? 'Innova Contratistas' : (currentUserName || 'Mi Empresa')));
+    setAppName(currentSettings.appName || '');
     setLogoBase64(currentSettings.logoBase64 || safeStorage.getItem('innova_logo_' + (activeUid || 'guest'), ''));
     setOfficialLetterheadBase64(currentSettings.officialLetterheadBase64 || safeStorage.getItem('innova_letterhead_' + (activeUid || 'guest'), '') || '');
-    setContratistaDni(currentSettings.contratistaDni || (isAdmin ? '10728381642' : ''));
-    setContratistaDir(currentSettings.contratistaDir || (isAdmin ? 'URB.PPAO MZ. I - LT. 10' : ''));
+    setContratistaDni(currentSettings.contratistaDni || '');
+    setContratistaDir(currentSettings.contratistaDir || '');
     setContratistaPhone(currentSettings.contratistaPhone || '');
-    setContratistaEmail(currentSettings.contratistaEmail || (isAdmin ? 'innovacontratistas@gmail.com' : ''));
-    setBancoNombre(currentSettings.bancoNombre || (isAdmin ? 'BCP' : ''));
+    setContratistaEmail(currentSettings.contratistaEmail || '');
+    setBancoNombre(currentSettings.bancoNombre || '');
     setCuentaTitular(currentSettings.cuentaTitular || '');
     setPagoCtaBcp(currentSettings.pagoCtaBcp || '');
     setPagoCciBcp(currentSettings.pagoCciBcp || '');
@@ -352,26 +351,6 @@ export default function SettingsView({
       setSettings([updatedSettings]);
     }
     setDoc(doc(db, 'settings', updatedSettings.id), updatedSettings, { merge: true }).catch(() => {});
-  };
-
-  const handleSetDefaultAdminLogo = async () => {
-    if (!isAdmin) return;
-    setLogoBase64(defaultAdminLogo);
-    safeStorage.setItem('innova_logo_' + (activeUid || 'admin'), defaultAdminLogo);
-    const updatedSettings: SystemConfig = {
-      ...currentSettings,
-      id: currentSettings.id || (activeUid ? ('settings_' + activeUid) : 'settings_admin'),
-      logoBase64: defaultAdminLogo,
-      userId: activeUid || 'admin'
-    };
-    if (settings.length > 0) {
-      setSettings(settings.some(s => s.id === updatedSettings.id) ? settings.map(s => s.id === updatedSettings.id ? updatedSettings : s) : [...settings, updatedSettings]);
-    } else {
-      setSettings([updatedSettings]);
-    }
-    await setDoc(doc(db, 'settings', updatedSettings.id), updatedSettings, { merge: true }).catch(() => {});
-    setLogoUploadStatus('¡Logo Oficial de Administrador aplicado a tu cuenta!');
-    setTimeout(() => setLogoUploadStatus(null), 3000);
   };
 
   const compressAndReadLetterhead = (file: File): Promise<string> => {
@@ -832,16 +811,6 @@ export default function SettingsView({
               )}
 
               <div className="mt-4 w-full space-y-2">
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleSetDefaultAdminLogo}
-                    className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition-colors border border-slate-200 flex items-center justify-center space-x-2 cursor-pointer shadow-2xs"
-                  >
-                    <ShieldCheck className="w-4 h-4 text-slate-600" />
-                    <span>Usar Logo Oficial de Administrador</span>
-                  </button>
-                )}
 
                 <label className="w-full cursor-pointer block">
                   <div className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-2.5 px-4 rounded-xl text-center transition-colors shadow-2xs flex items-center justify-center space-x-2">
@@ -988,20 +957,18 @@ export default function SettingsView({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {isAdmin && (
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                    Nombre Comercial / Razón Social *
-                  </label>
-                  <input
-                    value={appName}
-                    onChange={e => setAppName(e.target.value)}
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
-                    placeholder="Ej. ESTRUCTURAS & METALMECÁNICA PERÚ S.A.C."
-                  />
-                </div>
-              )}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
+                  Nombre Comercial / Razón Social *
+                </label>
+                <input
+                  value={appName}
+                  onChange={e => setAppName(e.target.value)}
+                  type="text"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                  placeholder="Ej. ESTRUCTURAS & METALMECÁNICA PERÚ S.A.C."
+                />
+              </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">

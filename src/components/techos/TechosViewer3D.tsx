@@ -3404,6 +3404,29 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                 </select>
               </div>
 
+              {/* Análisis de Riesgo del Perfil Seleccionado */}
+              {tempChosenProfileId && tempChosenProfileId !== seg.profileId && (() => {
+                const newProf = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === tempChosenProfileId);
+                const isDowngrade = newProf && currentProf && newProf.pesoLinealKgM < currentProf.pesoLinealKgM;
+                const isVigaPrincipal = seg.rolEstructural === 'viga_principal' || seg.rolEstructural === 'cordon_superior';
+                const showRiskAlert = isDowngrade && isVigaPrincipal;
+
+                return showRiskAlert ? (
+                  <div className="p-2.5 rounded-xl bg-red-950/90 border-2 border-red-600/80 text-red-300 text-[11px] font-bold flex items-start gap-2 animate-pulse">
+                    <span className="text-base leading-none mt-0.5">⚠️</span>
+                    <div className="flex-1">
+                      <div className="text-red-200 font-black uppercase tracking-wider">RIESGO ALTO</div>
+                      <p className="text-red-400 text-[10px] font-normal mt-1">Perfil insuficiente para viga principal: {newProf?.pesoLinealKgM || 0} kg/m vs actual {currentProf.pesoLinealKgM} kg/m</p>
+                    </div>
+                  </div>
+                ) : isDowngrade ? (
+                  <div className="p-2 rounded-xl bg-yellow-950/80 border border-yellow-600/60 text-yellow-300 text-[10px] font-bold flex items-center gap-2">
+                    <span>⚡</span>
+                    <span>Perfil más ligero: {newProf?.pesoLinealKgM || 0} kg/m (actual: {currentProf.pesoLinealKgM} kg/m)</span>
+                  </div>
+                ) : null;
+              })()}
+
               {/* Banner de Confirmación / Toast */}
               {feedbackMsg && (
                 <div className="p-2 rounded-xl bg-emerald-950/90 border border-emerald-500/80 text-emerald-300 text-[11px] font-bold flex items-center gap-1.5 animate-in fade-in duration-150">
