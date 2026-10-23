@@ -673,9 +673,9 @@ function ContratosSubView({
 
         <div className="w-full flex justify-center overflow-x-auto py-2">
           {/* Contenedor A4 Profesional Hoja de Papel */}
-          <div 
+          <div
             id="contract-a4-print-wrapper"
-            className="a4-page bg-white shadow-2xl relative text-slate-900 mx-auto border border-slate-200 shrink-0"
+            className="a4-page bg-white shadow-2xl relative text-slate-900 mx-auto border border-slate-200 shrink-0 min-w-[210mm]"
             style={{
               width: '210mm',
               minHeight: '297mm',

@@ -114,7 +114,7 @@ export default function SettingsView({
   
   const [appName, setAppName] = useState(currentSettings.appName || '');
   const [logoBase64, setLogoBase64] = useState(
-    currentSettings.logoBase64 || safeStorage.getItem('innova_logo_' + (activeUid || 'guest'), '') || (isAdmin ? defaultAdminLogo : '')
+    currentSettings.logoBase64 || safeStorage.getItem('innova_logo_' + (activeUid || 'guest'), '')
   );
   const [officialLetterheadBase64, setOfficialLetterheadBase64] = useState(
     currentSettings.officialLetterheadBase64 || safeStorage.getItem('innova_letterhead_' + (activeUid || 'guest'), '') || ''
@@ -145,7 +145,7 @@ export default function SettingsView({
 
   useEffect(() => {
     setAppName(currentSettings.appName || (isAdmin ? 'Innova Contratistas' : (currentUserName || 'Mi Empresa')));
-    setLogoBase64(currentSettings.logoBase64 || safeStorage.getItem('innova_logo_' + (activeUid || 'guest'), '') || (isAdmin ? defaultAdminLogo : ''));
+    setLogoBase64(currentSettings.logoBase64 || safeStorage.getItem('innova_logo_' + (activeUid || 'guest'), ''));
     setOfficialLetterheadBase64(currentSettings.officialLetterheadBase64 || safeStorage.getItem('innova_letterhead_' + (activeUid || 'guest'), '') || '');
     setContratistaDni(currentSettings.contratistaDni || (isAdmin ? '10728381642' : ''));
     setContratistaDir(currentSettings.contratistaDir || (isAdmin ? 'URB.PPAO MZ. I - LT. 10' : ''));
@@ -832,14 +832,16 @@ export default function SettingsView({
               )}
 
               <div className="mt-4 w-full space-y-2">
-                <button
-                  type="button"
-                  onClick={handleSetDefaultAdminLogo}
-                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition-colors border border-slate-200 flex items-center justify-center space-x-2 cursor-pointer shadow-2xs"
-                >
-                  <ShieldCheck className="w-4 h-4 text-slate-600" />
-                  <span>Usar Logo Oficial de Administrador</span>
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={handleSetDefaultAdminLogo}
+                    className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs py-2 px-3 rounded-xl transition-colors border border-slate-200 flex items-center justify-center space-x-2 cursor-pointer shadow-2xs"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-slate-600" />
+                    <span>Usar Logo Oficial de Administrador</span>
+                  </button>
+                )}
 
                 <label className="w-full cursor-pointer block">
                   <div className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-2.5 px-4 rounded-xl text-center transition-colors shadow-2xs flex items-center justify-center space-x-2">
@@ -986,18 +988,20 @@ export default function SettingsView({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                  Nombre Comercial / Razón Social *
-                </label>
-                <input 
-                  value={appName} 
-                  onChange={e => setAppName(e.target.value)} 
-                  type="text" 
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" 
-                  placeholder="Ej. ESTRUCTURAS & METALMECÁNICA PERÚ S.A.C." 
-                />
-              </div>
+              {isAdmin && (
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
+                    Nombre Comercial / Razón Social *
+                  </label>
+                  <input
+                    value={appName}
+                    onChange={e => setAppName(e.target.value)}
+                    type="text"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                    placeholder="Ej. ESTRUCTURAS & METALMECÁNICA PERÚ S.A.C."
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
