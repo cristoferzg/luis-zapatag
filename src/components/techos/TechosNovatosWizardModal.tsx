@@ -2,14 +2,14 @@
 // Permite ingresar medidas reales exactas (Luz, Largo, Altura de Columnas, Flechas, Pendientes)
 // con total libertad de edición y sin bloqueos al borrar números
 import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, 
-  X, 
-  ArrowRight, 
-  Info, 
-  CheckCircle2, 
-  Lightbulb, 
-  ShieldCheck, 
+import {
+  Sparkles,
+  X,
+  ArrowRight,
+  Info,
+  CheckCircle2,
+  Lightbulb,
+  ShieldCheck,
   Ruler,
   Save
 } from 'lucide-react';
@@ -17,6 +17,7 @@ import { UseTechosCadEngineReturn, OrientacionTijeral } from './useTechosCadEngi
 import { VistaTechoCAD } from './techosCadEngineTypes';
 import { TipoTijeral, CATALOGO_TIJERALES_INFO } from './techosCadColors';
 import { safeStorage } from '../../lib/storageManager';
+import { calculateE090Requirements } from '../../lib/e090StructuralAnalysis';
 
 interface TechosNovatosWizardModalProps {
   isOpen: boolean;
@@ -108,6 +109,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [selectedProjectId, setSelectedProjectId] = useState<string>(projectId || '');
   const [saveStatusMsg, setSaveStatusMsg] = useState<string>('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+
+  // Estados para análisis E.090
+  const [selectedBeamProfile, setSelectedBeamProfile] = useState<string>('');
+  const [showE090Analysis, setShowE090Analysis] = useState<boolean>(false);
 
   // Cargar proyectos disponibles al montar
   useEffect(() => {
@@ -2180,6 +2185,94 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* PASO 5: ANÁLISIS E.090 Y SELECCIÓN DE PERFILES */}
+          <div className="bg-red-50/80 border border-red-200 rounded-2xl p-3.5 sm:p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-red-600 text-white font-black text-[10px] flex items-center justify-center shrink-0 flex-col">5</div>
+              <div className="flex-1">
+                <h3 className="text-xs font-black uppercase text-red-900 tracking-wider">Análisis E.090 - Perfiles Estructurales</h3>
+                <p className="text-[10px] text-red-700 mt-0.5">Valida perfiles contra Norma E.090 Peruana de Diseño en Acero</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowE090Analysis(!showE090Analysis)}
+                className="px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] cursor-pointer transition-colors"
+              >
+                {showE090Analysis ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
+
+            {showE090Analysis && (() => {
+              const analysis = calculateE090Requirements(tipo, luzM, largoM, alturaColM);
+              return (
+                <div className="space-y-3 bg-white/60 p-3 rounded-xl border border-red-200">
+                  {/* Requisitos de Cálculo */}
+                  <div className="grid grid-cols-3 gap-2 text-[10px]">
+                    <div className="bg-red-50 p-2 rounded-lg border border-red-200">
+                      <span className="text-red-700 block font-bold">Momento Requerido</span>
+                      <strong className="text-red-900">{analysis.requiredMomentCapacity.toFixed(2)} Tm</strong>
+                    </div>
+                    <div className="bg-red-50 p-2 rounded-lg border border-red-200">
+                      <span className="text-red-700 block font-bold">Cortante Requerido</span>
+                      <strong className="text-red-900">{analysis.requiredShearCapacity.toFixed(2)} T</strong>
+                    </div>
+                    <div className="bg-red-50 p-2 rounded-lg border border-red-200">
+                      <span className="text-red-700 block font-bold">Flecha Máxima</span>
+                      <strong className="text-red-900">{analysis.maxDeflection.toFixed(3)} m</strong>
+                    </div>
+                  </div>
+
+                  {/* Perfiles Recomendados */}
+                  <div>
+                    <label className="text-[10px] font-bold text-red-900 block mb-2">Perfiles Compatibles (ordenados por peso):</label>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {analysis.recommendedProfiles.length > 0 ? (
+                        analysis.recommendedProfiles.map((prof) => (
+                          <button
+                            key={prof.id}
+                            type="button"
+                            onClick={() => setSelectedBeamProfile(prof.id)}
+                            className={`w-full p-2 rounded-lg text-left text-xs border-2 transition-all cursor-pointer ${
+                              selectedBeamProfile === prof.id
+                                ? 'border-red-600 bg-red-100 ring-1 ring-red-400'
+                                : 'border-red-200 bg-white hover:bg-red-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <strong className="text-red-900">{prof.codigoComercial}</strong>
+                              <span className="text-[9px] font-mono bg-red-100 px-1.5 py-0.5 rounded text-red-900 font-bold">{prof.weight.toFixed(2)} kg/m</span>
+                            </div>
+                            <div className="text-[9px] text-red-700 flex flex-wrap gap-2">
+                              <span>M: {prof.momentCapacity.toFixed(1)} Tm</span>
+                              <span>Q: {prof.shearCapacity.toFixed(1)} T</span>
+                              <span className={prof.deflection <= analysis.maxDeflection ? 'text-emerald-700 font-bold' : 'text-red-600 font-bold'}>
+                                f: {prof.deflection.toFixed(3)}m
+                              </span>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-[10px] text-red-600 italic py-3 text-center">
+                          No hay perfiles estándar que cumplan E.090 para esta luz. Considera aumentar altura de columnas o reducir luz.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info Adicional */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[9px] text-amber-900">
+                    <div className="flex gap-1.5 items-start">
+                      <Info className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-700" />
+                      <span>
+                        <strong>Nota E.090:</strong> Se aplica factor de carga 1.5 + seguridad por tipo. Deflexión máxima L/300. Los perfiles mostrados cumplen momento, cortante y flecha según Norma E.090 Peruana.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* EXPLICACIÓN DIDÁCTICA AUTOMÁTICA */}
