@@ -401,18 +401,17 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const handleGenerarEstructura = () => {
     if (!engineState) return;
 
-    const divisionsParam = trussSpacingMode === 'divisiones' ? trussDivisions : undefined;
     const spacingParam = trussSpacingMode === 'espaciado' ? (parseFloat(customMontanteSpacing) || trussSpacingM) : undefined;
 
     if (tipo === 'parabolico') {
       const peralteArco = trussHeightM || Math.max(0.50, Math.min(1.20, Number((luzM / 18).toFixed(2))));
       engineState.generateRoofParabolic(luzM, largoM, alturaColM, flechaM, tipoTijeral, peralteArco, orientacionTijeral, numTijerales, undefined, spacingParam, perimetralBracingEnabled, tipoTijeralPerimetral);
     } else if (tipo === 'dos_aguas') {
-      engineState.generateRoofGable(luzM, largoM, alturaColM, pendientePct, tipoTijeral, orientacionTijeral, numTijerales, undefined, divisionsParam, spacingParam, trussHeightM, perimetralBracingEnabled, tipoTijeralPerimetral);
+      engineState.generateRoofGable(luzM, largoM, alturaColM, pendientePct, tipoTijeral, orientacionTijeral, numTijerales, undefined, trussDivisions, spacingParam, trussHeightM, perimetralBracingEnabled, tipoTijeralPerimetral);
     } else if (tipo === 'una_agua') {
       engineState.generateRoofMonoslope(luzM, largoM, alturaColM, alturaCol2M, tipoTijeral, numTijerales, trussHeightM || 0.60, orientacionTijeral, undefined, spacingParam, perimetralBracingEnabled, tipoTijeralPerimetral);
     } else if (tipo === 'dientes_sierra') {
-      engineState.generateRoofSawtooth(luzM, largoM, alturaColM, numDientes, alturaDienteM, tipoTijeral, numTijerales, divisionsParam, spacingParam, trussHeightM, orientacionTijeral);
+      engineState.generateRoofSawtooth(luzM, largoM, alturaColM, numDientes, alturaDienteM, tipoTijeral, numTijerales, trussDivisions, spacingParam, trussHeightM, orientacionTijeral);
     } else if (tipo === 'cuatro_aguas') {
       engineState.generateRoofHip(luzM, largoM, alturaColM, alturaCumbreraHipM, tipoTijeral, numTijerales, spacingParam, orientacionTijeral);
     } else if (tipo === 'seis_aguas') {

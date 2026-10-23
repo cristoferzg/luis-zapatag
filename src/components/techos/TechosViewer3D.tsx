@@ -552,8 +552,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const pointerDownPosRef = useRef({ x: 0, y: 0 });
   const touchPinchDistRef = useRef<number | null>(null);
   const cameraRadiusRef = useRef(16);
-  const cameraAngleThetaRef = useRef(0.65);
-  const cameraAnglePhiRef = useRef(0.48);
+  const cameraAngleThetaRef = useRef(0.0);
+  const cameraAnglePhiRef = useRef(0.35);
   const cameraTargetRef = useRef(new THREE.Vector3(6, 3.5, 6));
 
   // Inertia Damping Velocity for Smooth Orbit Gyroscope
