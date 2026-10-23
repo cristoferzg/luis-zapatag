@@ -15,6 +15,7 @@ import { TutorialVideo, CourseCategory } from './UsabilidadVideosView';
 import { safeStorage } from '../lib/storageManager';
 import { StorageAuditPanel } from './common/StorageAuditPanel';
 import PlanesIAAdminPanel from './PlanesIAAdminPanel';
+import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UploadProgressBar } from './common/UploadProgressBar';
@@ -1478,6 +1479,9 @@ export default function SettingsView({
 
       {/* Configuración de los planes de IA (precio y usos): SOLO ADMINISTRADOR */}
       {isAdmin && <PlanesIAAdminPanel />}
+
+      {/* Catálogos de Costos: SOLO ADMINISTRADOR */}
+      {isAdmin && <CostsCatalogView isAdmin={isAdmin} />}
 
       {/* Apartado de Auditoría de Almacenamiento, Caché PWA y Logs: VISIBLE ÚNICAMENTE PARA EL ADMINISTRADOR */}
       {isAdmin && (
