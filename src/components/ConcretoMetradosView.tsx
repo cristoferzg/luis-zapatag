@@ -18,6 +18,14 @@ import { safeStorage } from '../lib/storageManager';
 import ConcretoElementoSVG from './ConcretoElementoSVG';
 import ConcretoPlanoCad from './ConcretoPlanoCad';
 import { List, PenTool } from 'lucide-react';
+import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
+import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
+import {
+  SistemaNivel, TechoSnapshot, calcSistema, sistemaVacio,
+  KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO,
+} from './concreto/obraPisos';
+import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
+import { AdminCatalogosMateriales } from './concreto/AdminCatalogosMateriales';
 
 interface CampoDef { key: string; label: string; def: number; }
 interface ResultadoCalc { concretoM3: number; aceroKg: number; encofradoM2: number; nota?: string; }
@@ -167,7 +175,7 @@ const NIVELES_DEFAULT = ['Cimentación', 'Piso 1'];
 // Precios unitarios referenciales por defecto (S/). Editables.
 const PRECIOS_DEFAULT = { cementoBolsa: 28, arenaM3: 55, piedraM3: 60, aceroKg: 4.2, encofradoM2: 25 };
 
-export default function ConcretoMetradosView() {
+export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: () => void } = {}) {
   const [niveles, setNiveles] = useState<string[]>(() =>
     safeStorage.getItem<string[]>('concreto_metrados_niveles', NIVELES_DEFAULT) || NIVELES_DEFAULT
   );
@@ -193,6 +201,24 @@ export default function ConcretoMetradosView() {
   useEffect(() => { safeStorage.setItem('concreto_metrados_precios', precios); }, [precios]);
   useEffect(() => { safeStorage.setItem('concreto_metrados_niveles', niveles); }, [niveles]);
 
+  // Sistema de cada piso: muros (drywall/ladrillo), techos metálicos y tanque.
+  const [sistemas, setSistemas] = useState<Record<string, SistemaNivel>>(() =>
+    safeStorage.getItem<Record<string, SistemaNivel>>(KEY_SISTEMAS_NIVEL, {}) || {}
+  );
+  const [catDrywall, setCatDrywall] = useState<DrywallItem[]>(() =>
+    safeStorage.getItem<DrywallItem[]>(KEY_CAT_DRYWALL, DRYWALL_DEFAULTS) || DRYWALL_DEFAULTS
+  );
+  const [catLadrillo, setCatLadrillo] = useState<LadrilloItem[]>(() =>
+    safeStorage.getItem<LadrilloItem[]>(KEY_CAT_LADRILLO, LADRILLO_DEFAULTS) || LADRILLO_DEFAULTS
+  );
+  // Biblioteca de techos enviados desde el módulo Techos (solo lectura aquí).
+  const [techosLib] = useState<TechoSnapshot[]>(() =>
+    safeStorage.getItem<TechoSnapshot[]>(KEY_TECHOS_DISPONIBLES, []) || []
+  );
+  useEffect(() => { safeStorage.setItem(KEY_SISTEMAS_NIVEL, sistemas); }, [sistemas]);
+  useEffect(() => { safeStorage.setItem(KEY_CAT_DRYWALL, catDrywall); }, [catDrywall]);
+  useEffect(() => { safeStorage.setItem(KEY_CAT_LADRILLO, catLadrillo); }, [catLadrillo]);
+
   const addItem = (tipoId: string) => setItems(prev => [...prev, nuevaInstancia(tipoId, nivelActivo)]);
   const removeItem = (uid: string) => setItems(prev => prev.filter(i => i.uid !== uid));
 
@@ -206,6 +232,7 @@ export default function ConcretoMetradosView() {
   const eliminarNivel = (nombre: string) => {
     if (niveles.length <= 1) return;
     setItems(prev => prev.filter(i => i.nivel !== nombre));
+    setSistemas(prev => { const { [nombre]: _omit, ...rest } = prev; return rest; });
     setNiveles(prev => {
       const next = prev.filter(n => n !== nombre);
       if (nivelActivo === nombre) setNivelActivo(next[0]);
@@ -237,8 +264,10 @@ export default function ConcretoMetradosView() {
       const its = porItem.filter(p => (p.it.nivel || niveles[0]) === nivel);
       const subConcreto = its.reduce((s, p) => s + p.r.concretoM3, 0);
       const subAcero = its.reduce((s, p) => s + p.r.aceroKg, 0);
-      return { nivel, its, subConcreto, subAcero };
+      const sistema = calcSistema(sistemas[nivel], catDrywall, catLadrillo, techosLib);
+      return { nivel, its, subConcreto, subAcero, sistema };
     });
+    const costoSistemas = porNivel.reduce((s, n) => s + n.sistema.costo, 0);
     const cementoBolsas = concretoM3 * 9.5;
     const arenaM3 = concretoM3 * 0.54;
     const piedraM3 = concretoM3 * 0.55;
@@ -249,15 +278,23 @@ export default function ConcretoMetradosView() {
       piedraM3 * precios.piedraM3 +
       aceroKg * precios.aceroKg +
       encofradoM2 * precios.encofradoM2;
-    return { porItem, porNivel, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, varillasTotales };
-  }, [items, precios, niveles]);
+    return { porItem, porNivel, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, costoSistemas, costoTotal: costo + costoSistemas, varillasTotales };
+  }, [items, precios, niveles, sistemas, catDrywall, catLadrillo, techosLib]);
 
   const exportar = () => {
     let txt = `INNOVA CONTRATISTAS — METRADO DE CONCRETO / OBRA CIVIL\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
     txt += `============================================================\n\n`;
-    totales.porNivel.forEach(({ nivel, its, subConcreto, subAcero }) => {
-      if (its.length === 0) return;
+    totales.porNivel.forEach(({ nivel, its, subConcreto, subAcero, sistema }) => {
+      if (its.length === 0 && sistema.costo === 0 && sistema.muros.length === 0 && !sistema.tanque && sistema.techos.length === 0) return;
       txt += `### ${nivel.toUpperCase()}\n`;
+      sistema.muros.forEach(({ m, r }) => {
+        txt += `  Muro ${m.tipo === 'drywall' ? 'drywall' : 'ladrillo'}: ${r.nombre} · ${m.areaM2} m²${m.tipo === 'drywall' ? ` x ${m.caras} cara(s)` : ''} → ${m.tipo === 'drywall' ? `${r.unidades.toFixed(1)} m² placa` : `${r.unidades} ladrillos`} · S/ ${r.costo.toFixed(2)}\n`;
+      });
+      sistema.techos.forEach(t => { txt += `  Techo metálico: ${t.nombre} · ${t.pesoAceroKg.toFixed(0)} kg acero · costo directo S/ ${t.costoDirectoSoles.toFixed(2)}\n`; });
+      if (sistema.tanque) {
+        const k = sistema.tanque;
+        txt += `  Soporte de tanque: ${k.metrosPerfil.toFixed(1)} m de perfil (${k.barras6m} barras 6 m) · S/ ${k.costoAcero.toFixed(2)}${k.ladrillos ? ` | Sobrepecho ${k.areaSobrepechoM2.toFixed(1)} m² (${k.ladrillos} ladrillos) · S/ ${k.costoSobrepecho.toFixed(2)}` : ''} | Carga ${k.cargaTotalKg.toFixed(0)} kg\n`;
+      }
       its.forEach(({ def, it, r }, i) => {
         const dims = def.campos.map(c => `${c.label.split(' (')[0]}=${it.valores[c.key]}`).join(', ');
         txt += `  ${i + 1}. ${def.nombre} (${dims})\n     Concreto: ${r.concretoM3.toFixed(3)} m³ | Acero: ${r.aceroKg.toFixed(1)} kg | Encofrado: ${r.encofradoM2.toFixed(2)} m²${r.nota ? ` | ${r.nota}` : ''}\n`;
@@ -269,7 +306,9 @@ export default function ConcretoMetradosView() {
     if (totales.varillasTotales.length > 0) {
       txt += `Acero por varillas (9 m): ` + totales.varillasTotales.map(v => `Ø${v.d}: ${v.varillas} var. (${v.metros.toFixed(1)} m)`).join(' | ') + `\n`;
     }
-    txt += `COSTO REFERENCIAL: S/ ${totales.costo.toFixed(2)}\n`;
+    txt += `Costo concreto/acero/encofrado: S/ ${totales.costo.toFixed(2)}\n`;
+    txt += `Costo muros, techos metálicos y tanques: S/ ${totales.costoSistemas.toFixed(2)}\n`;
+    txt += `COSTO REFERENCIAL TOTAL: S/ ${totales.costoTotal.toFixed(2)}\n`;
     const blob = new Blob([txt], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -331,7 +370,7 @@ export default function ConcretoMetradosView() {
           <button onClick={() => setShowPrecios(s => !s)} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer flex items-center gap-1.5">
             <Calculator className="w-4 h-4" /> Precios
           </button>
-          <button onClick={exportar} disabled={items.length === 0} className="px-3 py-2 rounded-xl bg-stone-600 hover:bg-stone-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 disabled:opacity-40">
+          <button onClick={exportar} disabled={items.length === 0 && totales.costoSistemas === 0} className="px-3 py-2 rounded-xl bg-stone-600 hover:bg-stone-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 disabled:opacity-40">
             <Download className="w-4 h-4" /> Exportar
           </button>
         </div>
@@ -351,6 +390,9 @@ export default function ConcretoMetradosView() {
             </label>
           ))}
         </div>
+      )}
+      {showPrecios && (
+        <AdminCatalogosMateriales drywall={catDrywall} ladrillo={catLadrillo} onDrywall={setCatDrywall} onLadrillo={setCatLadrillo} />
       )}
 
       {/* Selector de NIVEL / PISO */}
@@ -375,6 +417,17 @@ export default function ConcretoMetradosView() {
           </button>
         </div>
       </div>
+
+      <SistemaPisoPanel
+        nivel={nivelActivo}
+        sistema={sistemas[nivelActivo] || sistemaVacio()}
+        calc={totales.porNivel.find(n => n.nivel === nivelActivo)?.sistema || calcSistema(undefined, catDrywall, catLadrillo, techosLib)}
+        drywall={catDrywall}
+        ladrillo={catLadrillo}
+        techosLib={techosLib}
+        onChange={s => setSistemas(prev => ({ ...prev, [nivelActivo]: s }))}
+        onIrATechos={onIrATechos}
+      />
 
       {/* Paleta de elementos */}
       <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs">
@@ -463,7 +516,7 @@ export default function ConcretoMetradosView() {
       )}
 
       {/* Totales */}
-      {items.length > 0 && (
+      {(items.length > 0 || totales.costoSistemas > 0) && (
         <div className="bg-stone-800 text-white rounded-2xl p-5 shadow-lg">
           <h3 className="text-sm font-black uppercase mb-3 text-stone-300">Totales del metrado</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -482,8 +535,29 @@ export default function ConcretoMetradosView() {
               </div>
             ))}
             <div className="bg-amber-500 text-slate-950 rounded-xl p-3 text-center">
-              <p className="text-lg font-black">S/ {totales.costo.toFixed(0)}</p>
-              <p className="text-[10px] font-bold uppercase">Costo ref.</p>
+              <p className="text-lg font-black">S/ {totales.costoTotal.toFixed(0)}</p>
+              <p className="text-[10px] font-bold uppercase">Costo ref. total</p>
+            </div>
+          </div>
+
+          {/* Costo por piso: concreto + muros + techo metálico + tanque */}
+          <div className="mb-4">
+            <p className="text-[11px] font-black uppercase text-stone-300 mb-2">Costo por piso</p>
+            <div className="space-y-1.5">
+              {totales.porNivel.map(n => {
+                const conc = n.its.reduce((s, p) => s + p.r.concretoM3, 0);
+                return (
+                  <div key={n.nivel} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-stone-700/60 rounded-xl px-3 py-2 text-xs">
+                    <span className="font-black">{n.nivel}</span>
+                    <span className="text-stone-300">
+                      {conc.toFixed(2)} m³ concreto
+                      {n.sistema.costoMuros > 0 && <> · muros S/ {n.sistema.costoMuros.toFixed(0)}</>}
+                      {n.sistema.costoTechos > 0 && <> · techo metálico S/ {n.sistema.costoTechos.toFixed(0)}</>}
+                      {n.sistema.costoTanque > 0 && <> · tanque S/ {n.sistema.costoTanque.toFixed(0)}</>}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -504,7 +578,7 @@ export default function ConcretoMetradosView() {
           )}
 
           <p className="text-[10px] text-stone-400 leading-snug">
-            Estimados referenciales (f'c=210, dosificación 1:2:3; cuantías de acero típicas por elemento). Ajusta los precios con el botón "Precios". No reemplaza el cálculo estructural de un ingeniero.
+            Estimados referenciales (f'c=210, dosificación 1:2:3; cuantías de acero típicas por elemento). Ajusta los precios (concreto, drywall y ladrillo) con el botón "Precios". El costo del techo metálico es el costo directo calculado en Techos. No reemplaza el cálculo estructural de un ingeniero.
           </p>
         </div>
       )}

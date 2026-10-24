@@ -289,7 +289,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
         </div>
 
         {/* Botones de Cabecera Solicitados */}
-        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+        <div className="flex items-center flex-wrap gap-1 sm:gap-2">
           {/* [ DESHACER / REHACER ] */}
           <div className="flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-lg p-0.5 shrink-0">
             <button
@@ -313,7 +313,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ SUBIR CAD / AUTOCAD ] */}
           <button
             onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
             title="Subir archivo .DXF (AutoCAD) o .JSON de proyecto"
           >
             <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
@@ -323,7 +323,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ + NUEVO ] */}
           <button
             onClick={handleNuevo}
-            className="flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all cursor-pointer"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all cursor-pointer"
             title="Crear nuevo diseño de herrería"
           >
             <Plus className="w-3.5 h-3.5 text-blue-600" />
@@ -333,7 +333,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ GUARDAR ] */}
           <button
             onClick={handleGuardar}
-            className="flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm active:scale-95 transition-all"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm active:scale-95 transition-all"
             title="Guardar diseño actual"
           >
             {showSavedNotification ? <Check className="w-3.5 h-3.5 text-white" /> : <Save className="w-3.5 h-3.5" />}
@@ -346,7 +346,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
               loadSavedList();
               setShowLoadModal(true);
             }}
-            className="flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
             title="Cargar diseño guardado"
           >
             <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
@@ -356,7 +356,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ EXPORTAR ] */}
           <button
             onClick={handleExportar}
-            className="flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
             title="Exportar archivo JSON"
           >
             <Download className="w-3.5 h-3.5 text-emerald-600" />
@@ -366,7 +366,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ AYUDA ] */}
           <button
             onClick={() => setShowHelpModal(true)}
-            className="flex items-center gap-1 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
             title="Guía de uso y atajos"
           >
             <HelpCircle className="w-3.5 h-3.5 text-purple-600" />

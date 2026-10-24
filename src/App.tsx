@@ -2013,7 +2013,7 @@ export default function App() {
       case 'inversion': return <FinanceGenericView type="inversion" title="Inversiones" subtitle="Capital invertido en equipos/negocio" icon={TrendingUp} colorClass="emerald" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'precios': return <PreciosView />;
-      case 'concreto': return <ConcretoMetradosView />;
+      case 'concreto': return <ConcretoMetradosView onIrATechos={() => setCurrentView('techos')} />;
       case 'usuarios': return <UsuariosView usuarios={usuarios} setUsuarios={setUsuarios} isAdmin={isAdmin} />;
       case 'soporte':
       case 'tickets':

@@ -1,5 +1,6 @@
 // Módulo Exclusivo para Techos Metálicos, Mezzanine y Cubiertas Estructurales - Innova Contratistas
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Building2, 
   Save, 
@@ -488,6 +489,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const [showLoadModal, setShowLoadModal] = useState<boolean>(false);
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
   const [showMobileActions, setShowMobileActions] = useState<boolean>(false);
+  // La barra tiene overflow-x-auto, que recortaría un menú absoluto: se ubica fijo bajo el botón.
+  const [mobileActionsPos, setMobileActionsPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const [savedDesignsList, setSavedDesignsList] = useState<SavedTechosDesign[]>([]);
   const [showInspector, setShowInspector] = useState<boolean>(true);
 
@@ -757,6 +760,31 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas + ${nVigas} vigas de cimentación.\n\nAbre "Metrados Concreto" → modo "Plano CAD". Ahí puedes agregar ENTREPISOS con la nueva herramienta "Losa / Entrepiso", muros y más detalles.`);
   };
 
+  // PUENTE TECHOS → OBRA POR PISOS: guarda un resumen del presupuesto del techo
+  // para que Concreto lo asigne a un piso (Piso 1, Piso 2, azotea…).
+  const handleEnviarAObraPisos = () => {
+    const bom: any = engineState.bomReport;
+    const pesoAceroKg = (bom?.despiecePerfiles || []).reduce((a: number, p: any) => a + (p.totalPesoAceroKg || 0), 0);
+    if (!bom || pesoAceroKg <= 0) {
+      alert('El diseño no tiene perfiles todavía. Dibuja o carga un techo antes de enviarlo a la obra.');
+      return;
+    }
+    const areaCoberturaM2 = (bom.resumenCoberturas || []).reduce((a: number, c: any) => a + (c.areaRealSuperficieM2 || 0), 0);
+    const lib = safeStorage.getItem<any[]>('obra_techos_disponibles', []) || [];
+    const nombre = nombreProyecto.trim() || 'Techo metálico';
+    const snap = {
+      id: `techo_${Date.now()}`,
+      nombre,
+      fecha: new Date().toLocaleDateString('es-PE'),
+      pesoAceroKg,
+      areaCoberturaM2,
+      costoDirectoSoles: bom.costoDirectoTotalSoles || 0,
+      precioVentaSoles: bom.precioVentaFinalSoles || 0,
+    };
+    safeStorage.setItem('obra_techos_disponibles', [...lib, snap]);
+    alert(`✓ "${nombre}" enviado a la obra.\n\nAbre "Metrados Concreto", elige el piso y en "Techo / estructura metálica en este piso" vincúlalo.`);
+  };
+
   // Cargar Plantilla Prediseñada
   const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina' | 'multinivel' | 'tijeral_curvo') => {
     engineState.clearScene();
@@ -928,6 +956,16 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <span className="text-[11px] font-bold hidden lg:inline">→ Concreto</span>
           </button>
 
+          {/* [ ENVIAR A OBRA POR PISOS ] — solo escritorio */}
+          <button
+            onClick={handleEnviarAObraPisos}
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
+            title="Enviar el presupuesto de este techo a un piso de la obra (Metrados Concreto)"
+          >
+            <Layers className="w-3.5 h-3.5 text-stone-600 shrink-0" />
+            <span className="text-[11px] font-bold hidden lg:inline">→ Obra por pisos</span>
+          </button>
+
           {/* [ AYUDA Y TUTORIAL ] — solo escritorio */}
           <button
             onClick={() => setShowTutorialModal(true)}
@@ -941,22 +979,27 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           {/* [ MENÚ ⋯ ] — solo móvil: agrupa las acciones secundarias */}
           <div className="relative sm:hidden shrink-0">
             <button
-              onClick={() => setShowMobileActions(v => !v)}
+              onClick={e => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setMobileActionsPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+                setShowMobileActions(v => !v);
+              }}
               className="flex items-center justify-center w-8 h-8 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer"
               title="Más acciones"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
-            {showMobileActions && (
+            {showMobileActions && createPortal(
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowMobileActions(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-50 w-44 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5 animate-fadeIn">
+                <div className="fixed inset-0 z-[90]" onClick={() => setShowMobileActions(false)} />
+                <div style={mobileActionsPos} className="fixed z-[100] w-48 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5 animate-fadeIn">
                   {[
                     { l: 'Subir CAD', I: UploadCloud, on: () => setShowUploadModal(true) },
                     { l: '+ Nuevo', I: Plus, on: handleNuevo },
                     { l: 'Cargar', I: FolderOpen, on: () => { loadSavedList(); setShowLoadModal(true); } },
                     { l: 'Exportar', I: Download, on: handleExportar },
                     { l: '→ Enviar a Concreto', I: Box, on: handleEnviarAConcreto },
+                    { l: '→ Obra por pisos', I: Layers, on: handleEnviarAObraPisos },
                     { l: 'Ayuda', I: HelpCircle, on: () => setShowTutorialModal(true) },
                   ].map(a => {
                     const Icon = a.I;
@@ -969,7 +1012,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                     );
                   })}
                 </div>
-              </>
+              </>,
+              document.body
             )}
           </div>
         </div>
