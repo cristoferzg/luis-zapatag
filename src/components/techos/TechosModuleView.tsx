@@ -756,8 +756,28 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     byX.forEach(arr => { arr.sort((a, b) => a.z - b.z); for (let k = 1; k < arr.length; k++) addViga(arr[k - 1], arr[k]); });
     byZ.forEach(arr => { arr.sort((a, b) => a.x - b.x); for (let k = 1; k < arr.length; k++) addViga(arr[k - 1], arr[k]); });
     const nVigas = nuevos.filter(n => n.tipo === 'viga').length;
+
+    // Muros de ladrillo en el perímetro (entre columnas exteriores contiguas).
+    let nMuros = 0;
+    if (pts.length >= 2 && window.confirm('¿Crear también muros de ladrillo en el perímetro (entre las columnas exteriores)?\n\nLuego puedes cambiarlos a drywall, borrarlos o ajustar su alto en el Plano CAD.')) {
+      const xs = pts.map(p => R(p.x)), zs = pts.map(p => R(p.z));
+      const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
+      const niveles = safeStorage.getItem<string[]>('concreto_metrados_niveles', ['Cimentación', 'Piso 1']) || ['Cimentación', 'Piso 1'];
+      const piso = niveles.find(n => !/cimentaci/i.test(n)) || 'Piso 1';
+      const altoMuro = Math.min(3, Math.max(2.2, Math.max(...Array.from(bases.values()).map(b => b.H))));
+      const addMuro = (a: { x: number; z: number }, b: { x: number; z: number }) => {
+        nuevos.push({ uid: `tm_${Date.now()}_${nMuros++}`, tipo: 'muro', x1: a.x, y1: a.z, x2: b.x, y2: b.z, a: 0.15, H: altoMuro, nivel: piso, material: 'ladrillo', materialId: 'ladrillo_kingkong_18' });
+      };
+      const tramos = (arr: { x: number; z: number }[], key: 'x' | 'z') => {
+        const o = [...arr].sort((p, q) => p[key] - q[key]);
+        for (let k = 1; k < o.length; k++) addMuro(o[k - 1], o[k]);
+      };
+      byX.forEach((arr, kx) => { if (kx === minX || kx === maxX) tramos(arr, 'z'); });
+      byZ.forEach((arr, kz) => { if (kz === minZ || kz === maxZ) tramos(arr, 'x'); });
+    }
+
     safeStorage.setItem('concreto_plano_elems', [...prev, ...nuevos]);
-    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas + ${nVigas} vigas de cimentación.\n\nAbre "Metrados Concreto" → modo "Plano CAD". Ahí puedes agregar ENTREPISOS con la nueva herramienta "Losa / Entrepiso", muros y más detalles.`);
+    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas + ${nVigas} vigas de cimentación${nMuros ? ` + ${nMuros} muros de ladrillo en el perímetro` : ''}.\n\nAbre "Metrados Concreto" → modo "Plano CAD". Con la herramienta "Muro" puedes dibujar más muros de ladrillo o drywall por piso.`);
   };
 
   // PUENTE TECHOS → OBRA POR PISOS: guarda un resumen del presupuesto del techo

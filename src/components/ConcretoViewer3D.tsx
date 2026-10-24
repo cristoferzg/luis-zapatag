@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { PlanoElem } from './ConcretoPlanoCad';
 
-export default function ConcretoViewer3D({ elems }: { elems: PlanoElem[] }) {
+export default function ConcretoViewer3D({ elems, bases = {} }: { elems: PlanoElem[]; bases?: Record<string, number> }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const elemsRef = useRef(elems);
   elemsRef.current = elems;
@@ -51,6 +51,8 @@ export default function ConcretoViewer3D({ elems }: { elems: PlanoElem[] }) {
       viga: new THREE.MeshStandardMaterial({ color: 0x86b8a3, roughness: 0.85, metalness: 0.03 }),
       cimiento: new THREE.MeshStandardMaterial({ color: 0xada49a, roughness: 0.98, metalness: 0.0 }),
       losa: new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.9, metalness: 0.02, transparent: true, opacity: 0.75 }),
+      ladrillo: new THREE.MeshStandardMaterial({ color: 0xf0a37a, roughness: 0.95, metalness: 0 }),
+      drywall: new THREE.MeshStandardMaterial({ color: 0xe8ecf1, roughness: 0.9, metalness: 0 }),
     };
     const edgeMat = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.35 });
 
@@ -100,7 +102,11 @@ export default function ConcretoViewer3D({ elems }: { elems: PlanoElem[] }) {
           const L = Math.hypot(dx, dz);
           const cx = (e.x1 + e.x2) / 2, cz = (e.y1 + e.y2) / 2;
           const rotY = -Math.atan2(dz, dx);
-          if (e.tipo === 'viga') {
+          if (e.tipo === 'muro') {
+            const H = e.H || 2.6;
+            const base = bases[e.nivel || ''] || 0;
+            addBox(L, H, a, cx, base + H / 2, cz, e.material === 'drywall' ? mats.drywall : mats.ladrillo, rotY);
+          } else if (e.tipo === 'viga') {
             addBox(L, h, a, cx, vigaElev - h / 2, cz, mats.viga, rotY);
           } else { // cimiento (ras de piso)
             addBox(L, h, a, cx, h / 2, cz, mats.cimiento, rotY);

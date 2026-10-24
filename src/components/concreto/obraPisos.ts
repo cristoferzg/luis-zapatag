@@ -4,6 +4,7 @@
 import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
+import type { PlanoElem } from '../ConcretoPlanoCad';
 
 export const KEY_TECHOS_DISPONIBLES = 'obra_techos_disponibles';
 export const KEY_SISTEMAS_NIVEL = 'concreto_sistemas_nivel';
@@ -23,6 +24,7 @@ export interface TechoSnapshot {
 
 export interface MuroCapa {
   id: string;
+  deCad?: boolean; // dibujado en el Plano CAD (se edita allá)
   tipo: 'drywall' | 'ladrillo';
   materialId: string;
   areaM2: number;
@@ -64,6 +66,27 @@ export function tanqueDefault(): SoporteTanque {
     capacidadL: 1100, alturaM: 1.5, perfilId: p.id, precioMetro: p.costoMetroSol,
     sobrepecho: true, sobrepechoLadrilloId: 'ladrillo_pandereta', sobrepechoAlturaM: 1.0,
   };
+}
+
+export const ALTURA_PISO_M = 3;
+
+// Muro dibujado en el plano → capa de muro (área = largo × alto). Drywall a 2 caras.
+export function muroDesdePlano(e: PlanoElem): MuroCapa {
+  const largo = e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0;
+  const tipo = e.material || 'ladrillo';
+  return { id: `cad_${e.uid}`, deCad: true, tipo, materialId: e.materialId || '', areaM2: largo * (e.H || 2.6), caras: 2 };
+}
+
+// Cota de arranque de cada piso para el 3D (Cimentación y Piso 1 en 0).
+export function basesDeNiveles(niveles: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  let k = 0;
+  niveles.forEach(n => {
+    if (/cimentaci/i.test(n)) { out[n] = 0; return; }
+    out[n] = k * ALTURA_PISO_M;
+    k++;
+  });
+  return out;
 }
 
 export interface CalcMuro { unidades: number; pesoKg: number; costo: number; nombre: string; }
@@ -115,9 +138,9 @@ export interface CalcSistema {
   costoMuros: number; costoTechos: number; costoTanque: number; costo: number; pesoKg: number;
 }
 
-export function calcSistema(s: SistemaNivel | undefined, dry: DrywallItem[], lad: LadrilloItem[], techosLib: TechoSnapshot[]): CalcSistema {
+export function calcSistema(s: SistemaNivel | undefined, dry: DrywallItem[], lad: LadrilloItem[], techosLib: TechoSnapshot[], murosCad: MuroCapa[] = []): CalcSistema {
   const sis = s || sistemaVacio();
-  const muros = sis.muros.map(m => ({ m, r: calcMuro(m, dry, lad) }));
+  const muros = [...murosCad, ...sis.muros].map(m => ({ m, r: calcMuro(m, dry, lad) }));
   const techos = sis.techoIds.map(id => techosLib.find(t => t.id === id)).filter((t): t is TechoSnapshot => !!t);
   const tanque = sis.tanque ? calcTanque(sis.tanque, lad) : undefined;
   const costoMuros = muros.reduce((a, x) => a + x.r.costo, 0);

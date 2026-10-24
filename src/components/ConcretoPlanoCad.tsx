@@ -18,11 +18,14 @@
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize } from 'lucide-react';
+import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall } from 'lucide-react';
+import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
+import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
+import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, calcMuro, muroDesdePlano, basesDeNiveles } from './concreto/obraPisos';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
 
-export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento' | 'losa';
+export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento' | 'losa' | 'muro';
 type Herramienta = 'select' | 'pan' | PlanoTipo;
 
 export interface PlanoElem {
@@ -33,7 +36,10 @@ export interface PlanoElem {
   a: number;                       // ancho sección (m)
   b?: number;                      // alto sección (columnas/zapatas) (m)
   h?: number;                      // peralte/altura (m)
-  H?: number;                      // altura de columna (m)
+  H?: number;                      // altura de columna / muro (m)
+  nivel?: string;                  // muro: piso al que pertenece
+  material?: 'ladrillo' | 'drywall';
+  materialId?: string;
 }
 
 // Peso lineal (kg/m) por diámetro de varilla de acero corrugado.
@@ -46,7 +52,9 @@ export const META: Record<PlanoTipo, { nombre: string; emoji: string; color: str
   viga:     { nombre: 'Viga',             emoji: '📏', color: '#059669', esLinea: true,  icon: Minus },
   cimiento: { nombre: 'Cimiento corrido', emoji: '🟤', color: '#78716c', esLinea: true,  icon: Minus },
   losa:     { nombre: 'Losa / Entrepiso', emoji: '🟦', color: '#0ea5e9', esLinea: true,  icon: Layers },
+  muro:     { nombre: 'Muro',             emoji: '🧱', color: '#f97316', esLinea: true,  icon: BrickWall },
 };
+export const COLOR_MURO = { ladrillo: '#fb923c', drywall: '#94a3b8' } as const;
 
 const DEFAULTS: Record<PlanoTipo, Omit<PlanoElem, 'uid' | 'tipo' | 'x1' | 'y1' | 'x2' | 'y2'>> = {
   columna:  { a: 0.25, b: 0.25, H: 3.0 },
@@ -54,6 +62,7 @@ const DEFAULTS: Record<PlanoTipo, Omit<PlanoElem, 'uid' | 'tipo' | 'x1' | 'y1' |
   viga:     { a: 0.25, h: 0.40 },
   cimiento: { a: 0.50, h: 0.60 },
   losa:     { a: 0.20, h: 0.20 },
+  muro:     { a: 0.15, H: 2.6 },
 };
 
 const PRECIOS_DEFAULT = { cementoBolsa: 28, arenaM3: 55, piedraM3: 60, aceroKg: 4.2, encofradoM2: 25 };
@@ -104,6 +113,7 @@ function calcElem(e: PlanoElem): Resultado {
     const vol = area * esp;
     return { concretoM3: vol, aceroKg: vol * 80, encofradoM2: area, dist: { '3/8"': 0.6, '1/2"': 0.4 } };
   }
+  if (e.tipo === 'muro') return { concretoM3: 0, aceroKg: 0, encofradoM2: 0 };
   // cimiento (ciclópeo, sin acero)
   const vol = e.a * (e.h || 0.6) * largo;
   return { concretoM3: vol, aceroKg: 0, encofradoM2: 0 };
@@ -125,6 +135,13 @@ export default function ConcretoPlanoCad() {
 
   const [elems, setElems] = useState<PlanoElem[]>(() => safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || []);
   const [precios] = useState(() => safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT);
+  // Pisos (los mismos de la vista Lista) y material de muro a dibujar.
+  const [niveles] = useState<string[]>(() => safeStorage.getItem<string[]>('concreto_metrados_niveles', ['Cimentación', 'Piso 1']) || ['Cimentación', 'Piso 1']);
+  const pisos = niveles.filter(n => !/cimentaci/i.test(n));
+  const [nivelMuro, setNivelMuro] = useState<string>(() => pisos[0] || 'Piso 1');
+  const [catDrywall] = useState<DrywallItem[]>(() => safeStorage.getItem<DrywallItem[]>(KEY_CAT_DRYWALL, DRYWALL_DEFAULTS) || DRYWALL_DEFAULTS);
+  const [catLadrillo] = useState<LadrilloItem[]>(() => safeStorage.getItem<LadrilloItem[]>(KEY_CAT_LADRILLO, LADRILLO_DEFAULTS) || LADRILLO_DEFAULTS);
+  const [materialMuro, setMaterialMuro] = useState<{ material: 'ladrillo' | 'drywall'; materialId: string }>({ material: 'ladrillo', materialId: LADRILLO_DEFAULTS[0].id });
 
   const elemsRef = useRef(elems);
   elemsRef.current = elems;
@@ -241,7 +258,8 @@ export default function ConcretoPlanoCad() {
   };
   const addLine = (tipo: PlanoTipo, x1: number, y1: number, x2: number, y2: number) => {
     const d = DEFAULTS[tipo];
-    commit(prev => [...prev, { uid: `pc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, tipo, x1, y1, x2, y2, ...d }]);
+    const extra = tipo === 'muro' ? { nivel: nivelMuro, ...materialMuro } : {};
+    commit(prev => [...prev, { uid: `pc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, tipo, x1, y1, x2, y2, ...d, ...extra }]);
   };
 
   // Mueve un nodo (y TODOS los extremos coincidentes) de una coord a otra.
@@ -358,10 +376,26 @@ export default function ConcretoPlanoCad() {
     viga:     [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Peralte (m)' }],
     cimiento: [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Altura (m)' }],
     losa:     [{ key: 'h', label: 'Espesor (m)' }],
+    muro:     [{ key: 'a', label: 'Espesor (m)' }, { key: 'H', label: 'Alto (m)' }],
   };
 
   // Firma de la escena → se usa como key para remontar el visor 3D al cambiar algo.
-  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2}`).join('|'), [elems]);
+  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2},${e.nivel},${e.material}`).join('|'), [elems]);
+  const bases3d = useMemo(() => basesDeNiveles(niveles), [niveles]);
+
+  // Muros del piso activo: metrado y costo con los precios del usuario.
+  const murosPiso = useMemo(() => {
+    const lista = elems.filter(e => e.tipo === 'muro' && (e.nivel || pisos[0]) === nivelMuro)
+      .map(e => { const m = muroDesdePlano(e); return { e, m, r: calcMuro(m, catDrywall, catLadrillo) }; });
+    return {
+      lista,
+      areaLadrillo: lista.filter(x => x.m.tipo === 'ladrillo').reduce((s, x) => s + x.m.areaM2, 0),
+      ladrillos: lista.filter(x => x.m.tipo === 'ladrillo').reduce((s, x) => s + x.r.unidades, 0),
+      areaDrywall: lista.filter(x => x.m.tipo === 'drywall').reduce((s, x) => s + x.m.areaM2, 0),
+      placaM2: lista.filter(x => x.m.tipo === 'drywall').reduce((s, x) => s + x.r.unidades, 0),
+      costo: lista.reduce((s, x) => s + x.r.costo, 0),
+    };
+  }, [elems, nivelMuro, catDrywall, catLadrillo]);
 
   // ---- Metrado total ----
   const totales = useMemo(() => {
@@ -369,6 +403,7 @@ export default function ConcretoPlanoCad() {
     const metrosDiam: Record<string, number> = {};
     const porTipo: Record<string, { n: number; concreto: number; acero: number }> = {};
     elems.forEach(e => {
+      if (e.tipo === 'muro') return;
       const r = calcElem(e);
       concretoM3 += r.concretoM3; aceroKg += r.aceroKg; encofradoM2 += r.encofradoM2;
       if (r.dist) for (const [d, frac] of Object.entries(r.dist)) {
@@ -395,6 +430,17 @@ export default function ConcretoPlanoCad() {
     txt += `\n--- TOTALES ---\nConcreto: ${totales.concretoM3.toFixed(2)} m³ | Acero: ${totales.aceroKg.toFixed(0)} kg | Encofrado: ${totales.encofradoM2.toFixed(1)} m²\n`;
     txt += `Cemento: ${Math.ceil(totales.cementoBolsas)} bolsas | Arena: ${totales.arenaM3.toFixed(2)} m³ | Piedra: ${totales.piedraM3.toFixed(2)} m³ | Agua: ${Math.round(totales.aguaL)} L\n`;
     txt += `COSTO REFERENCIAL: S/ ${totales.costo.toFixed(2)}\n`;
+    const muros = elems.filter(e => e.tipo === 'muro');
+    if (muros.length) {
+      txt += `\n--- MUROS POR PISO ---\n`;
+      [...new Set(muros.map(e => e.nivel || pisos[0] || 'Piso 1'))].forEach(n => {
+        txt += `${n}:\n`;
+        muros.filter(e => (e.nivel || pisos[0] || 'Piso 1') === n).forEach(e => {
+          const m = muroDesdePlano(e); const r = calcMuro(m, catDrywall, catLadrillo);
+          txt += `  ${r.nombre} · ${m.areaM2.toFixed(2)} m² · ${m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² placa`} · S/ ${r.costo.toFixed(2)}\n`;
+        });
+      });
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
     a.download = `plano_cimentacion_${new Date().toISOString().slice(0, 10)}.txt`;
@@ -408,6 +454,7 @@ export default function ConcretoPlanoCad() {
     { id: 'viga', label: 'Viga', icon: Minus },
     { id: 'cimiento', label: 'Cimiento', icon: Minus },
     { id: 'losa', label: 'Losa / Entrepiso', icon: Layers },
+    { id: 'muro', label: 'Muro', icon: BrickWall },
     { id: 'pan', label: 'Mover lienzo', icon: Hand },
   ];
 
@@ -433,6 +480,24 @@ export default function ConcretoPlanoCad() {
             </button>
           );
         })}
+        <div className="h-5 w-px bg-slate-200 mx-1" />
+        {/* Piso activo para muros + material del próximo muro */}
+        <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
+          Piso
+          <select value={nivelMuro} onChange={e => setNivelMuro(e.target.value)}
+            className="px-2 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none">
+            {(pisos.length ? pisos : ['Piso 1']).map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        {tool === 'muro' && (
+          <select
+            value={`${materialMuro.material}:${materialMuro.materialId}`}
+            onChange={e => { const [material, materialId] = e.target.value.split(':') as ['ladrillo' | 'drywall', string]; setMaterialMuro({ material, materialId }); }}
+            className="px-2 py-1.5 rounded-xl bg-orange-50 text-xs font-bold text-orange-800 cursor-pointer focus:outline-none max-w-[200px]">
+            <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>
+            <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
+          </select>
+        )}
         <div className="h-5 w-px bg-slate-200 mx-1" />
         {/* Deshacer / Rehacer */}
         <button onClick={undo} disabled={!canUndo} title="Deshacer (Ctrl+Z)"
@@ -483,7 +548,7 @@ export default function ConcretoPlanoCad() {
         {/* VISTA 3D */}
         {vista3d ? (
           <div className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
-            <ConcretoViewer3D key={sig3d} elems={elems} />
+            <ConcretoViewer3D key={sig3d} elems={elems} bases={bases3d} />
             {elems.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm font-bold">Dibuja en 2D para ver el 3D</div>
             )}
@@ -527,9 +592,22 @@ export default function ConcretoPlanoCad() {
                 const rx = Math.min(p1.sx, p2.sx), ry = Math.min(p1.sy, p2.sy);
                 const rw = Math.abs(p2.sx - p1.sx), rh = Math.abs(p2.sy - p1.sy);
                 return (
-                  <g key={e.uid} onClick={ev => { ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
+                  <g key={e.uid} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
                     <rect x={rx} y={ry} width={rw} height={rh} fill={m.color} opacity={0.18} stroke={m.color} strokeWidth={sel ? 3 : 1.5} strokeDasharray="6 4" />
                     {(sel || con) && <rect x={rx - 3} y={ry - 3} width={rw + 6} height={rh + 6} fill="none" stroke="#0ea5e9" strokeWidth="2" />}
+                  </g>
+                );
+              }
+              if (e.tipo === 'muro' && e.x2 !== undefined && e.y2 !== undefined) {
+                const p2 = toScreen(e.x2, e.y2);
+                const wPx = Math.max(5, e.a * scale);
+                const otroPiso = (e.nivel || pisos[0]) !== nivelMuro;
+                const col = COLOR_MURO[e.material || 'ladrillo'];
+                return (
+                  <g key={e.uid} opacity={otroPiso ? 0.22 : 1} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); if (otroPiso && e.nivel) setNivelMuro(e.nivel); } }} className="cursor-pointer">
+                    <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={col} strokeWidth={wPx} strokeLinecap="butt" />
+                    {e.material !== 'drywall' && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#fff7ed" strokeWidth={Math.max(1, wPx * 0.18)} strokeDasharray="7 5" />}
+                    {(sel || con) && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#0ea5e9" strokeWidth={wPx + 4} opacity={0.35} />}
                   </g>
                 );
               }
@@ -537,7 +615,7 @@ export default function ConcretoPlanoCad() {
                 const p2 = toScreen(e.x2, e.y2);
                 const wPx = Math.max(4, (e.a) * scale);
                 return (
-                  <g key={e.uid} onClick={ev => { ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
+                  <g key={e.uid} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
                     <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={m.color} strokeWidth={wPx} strokeLinecap="round" opacity={0.85} />
                     {(sel || con) && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#0ea5e9" strokeWidth={wPx + 4} strokeLinecap="round" opacity={0.35} />}
                   </g>
@@ -546,7 +624,7 @@ export default function ConcretoPlanoCad() {
               // punto (columna / zapata)
               const sPx = Math.max(10, (e.a) * scale);
               return (
-                <g key={e.uid} onClick={ev => { ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
+                <g key={e.uid} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
                   {(sel || con) && <rect x={p1.sx - sPx / 2 - 3} y={p1.sy - sPx / 2 - 3} width={sPx + 6} height={sPx + 6} rx="3" fill="none" stroke="#0ea5e9" strokeWidth="2.5" />}
                   <rect x={p1.sx - sPx / 2} y={p1.sy - sPx / 2} width={sPx} height={sPx} rx="2" fill={m.color} opacity={e.tipo === 'zapata' ? 0.35 : 0.9} stroke={m.color} strokeWidth="1.5" />
                   {e.tipo === 'zapata' && <rect x={p1.sx - 5} y={p1.sy - 5} width={10} height={10} rx="1" fill={META.columna.color} />}
@@ -599,7 +677,7 @@ export default function ConcretoPlanoCad() {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center text-slate-400 max-w-xs px-4">
                 <p className="font-bold text-sm">Dibuja tu plano de cimentación</p>
-                <p className="text-xs mt-1">Elige <b>Columna</b> o <b>Zapata</b> y haz clic para colocarlas. Para <b>Viga</b>, <b>Cimiento</b> o <b>Losa</b>, haz clic en el inicio y luego en el fin.</p>
+                <p className="text-xs mt-1">Elige <b>Columna</b> o <b>Zapata</b> y haz clic para colocarlas. Para <b>Viga</b>, <b>Cimiento</b>, <b>Losa</b> o <b>Muro</b>, haz clic en el inicio y luego en el fin.</p>
                 <p className="text-[11px] mt-2 text-slate-400">Con <b>Seleccionar</b> puedes arrastrar los <b>nodos</b> (puntos) y todo lo conectado se mueve junto.</p>
               </div>
             </div>
@@ -644,12 +722,36 @@ export default function ConcretoPlanoCad() {
                   </label>
                 ))}
               </div>
+              {selElem.tipo === 'muro' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="col-span-2 text-[10px] font-bold text-slate-600">Material
+                    <select value={`${selElem.material || 'ladrillo'}:${selElem.materialId || ''}`}
+                      onChange={e => { const [material, materialId] = e.target.value.split(':') as ['ladrillo' | 'drywall', string]; updateElem(selElem.uid, { material, materialId }); }}
+                      className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                      <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>
+                      <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
+                    </select>
+                  </label>
+                  <label className="col-span-2 text-[10px] font-bold text-slate-600">Piso
+                    <select value={selElem.nivel || pisos[0]} onChange={e => { updateElem(selElem.uid, { nivel: e.target.value }); setNivelMuro(e.target.value); }}
+                      className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                      {(pisos.length ? pisos : ['Piso 1']).map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
+                </div>
+              )}
               {META[selElem.tipo].esLinea && selElem.x2 !== undefined && selElem.y2 !== undefined && (
                 <p className="text-[10px] font-bold text-slate-500">
                   Longitud: <span className="font-mono text-slate-800">{Math.hypot(selElem.x2 - selElem.x1, selElem.y2 - selElem.y1).toFixed(2)} m</span>
                 </p>
               )}
-              {(() => { const r = calcElem(selElem); return (
+              {selElem.tipo === 'muro' ? (() => { const m = muroDesdePlano(selElem); const r = calcMuro(m, catDrywall, catLadrillo); return (
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-slate-600 pt-1.5">
+                  <span>{m.areaM2.toFixed(2)} m² de muro</span>
+                  <span>{m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² de placa`}</span>
+                  <span>{r.costo > 0 ? `S/ ${r.costo.toFixed(2)}` : 'Sin precio (botón Precios)'}</span>
+                </div>
+              ); })() : (() => { const r = calcElem(selElem); return (
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-slate-600 border-t border-slate-200/70 pt-1.5">
                   <span>🧱 {r.concretoM3.toFixed(3)} m³</span>
                   <span>🔩 {r.aceroKg.toFixed(1)} kg</span>
@@ -686,6 +788,15 @@ export default function ConcretoPlanoCad() {
             <p className="text-lg font-black">S/ {totales.costo.toFixed(0)}</p>
             <p className="text-[10px] font-bold uppercase">Costo referencial</p>
           </div>
+
+          {murosPiso.lista.length > 0 && (
+            <div className="rounded-xl bg-orange-50/60 p-2.5 space-y-1">
+              <p className="text-[10px] font-black text-orange-700 uppercase">Muros · {nivelMuro}</p>
+              {murosPiso.areaLadrillo > 0 && <p className="text-[11px] font-bold text-slate-700">Ladrillo: {murosPiso.areaLadrillo.toFixed(1)} m² · {murosPiso.ladrillos.toLocaleString('es-PE')} und.</p>}
+              {murosPiso.areaDrywall > 0 && <p className="text-[11px] font-bold text-slate-700">Drywall: {murosPiso.areaDrywall.toFixed(1)} m² · {murosPiso.placaM2.toFixed(1)} m² placa</p>}
+              <p className="text-[11px] font-black text-slate-800">{murosPiso.costo > 0 ? `S/ ${murosPiso.costo.toFixed(2)}` : 'Ingresa precios en la vista Lista → Precios'}</p>
+            </div>
+          )}
 
           {Object.keys(totales.porTipo).length > 0 && (
             <div className="space-y-1.5">

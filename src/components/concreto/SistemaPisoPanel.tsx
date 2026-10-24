@@ -35,6 +35,13 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, tech
   });
   const setTanque = (patch: Partial<SoporteTanque>) => sistema.tanque && onChange({ ...sistema, tanque: { ...sistema.tanque, ...patch } });
   const techosLibres = techosLib.filter(t => !sistema.techoIds.includes(t.id));
+  // Muros dibujados en el Plano CAD: una fila por material.
+  const gruposCad = Object.values(calc.muros.filter(x => x.m.deCad).reduce((acc, { m, r }) => {
+    const key = `${m.tipo}:${m.materialId}`;
+    const g = acc[key] ||= { key, tipo: m.tipo, nombre: r.nombre, n: 0, area: 0, unidades: 0, costo: 0 };
+    g.n++; g.area += m.areaM2; g.unidades += r.unidades; g.costo += r.costo;
+    return acc;
+  }, {} as Record<string, { key: string; tipo: MuroCapa['tipo']; nombre: string; n: number; area: number; unidades: number; costo: number }>));
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-xs space-y-4">
@@ -53,7 +60,16 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, tech
           </div>
         </div>
         {calc.muros.length === 0 && <p className="text-xs text-slate-400 italic">Sin muros en este piso. Agrega drywall o ladrillo.</p>}
-        {calc.muros.map(({ m, r }) => (
+        {gruposCad.map(g => (
+          <div key={g.key} className="rounded-xl bg-orange-50/60 px-3 py-2 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-700 truncate">{g.nombre} <span className="text-[10px] font-semibold text-orange-600">· {g.n} {g.n === 1 ? 'muro dibujado' : 'muros dibujados'} en el plano</span></p>
+              <p className="text-[11px] text-slate-500">{g.area.toFixed(1)} m² · {g.tipo === 'drywall' ? `${g.unidades.toFixed(1)} m² de placa` : `${g.unidades.toLocaleString('es-PE')} ladrillos`}</p>
+            </div>
+            <span className="text-xs font-bold text-slate-800 shrink-0">{g.costo > 0 ? S(g.costo) : 'Sin precio'}</span>
+          </div>
+        ))}
+        {calc.muros.filter(x => !x.m.deCad).map(({ m, r }) => (
           <div key={m.id} className="rounded-xl bg-slate-50 p-3">
             <div className="flex items-center justify-between gap-2 -mt-1 mb-1">
               <span className="text-[10px] font-bold uppercase text-slate-500">{m.tipo === 'drywall' ? 'Muro de drywall' : 'Muro de ladrillo'}</span>

@@ -16,12 +16,12 @@ import { useMemo, useState, useEffect } from 'react';
 import { Box, Plus, Trash2, Calculator, Download } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoElementoSVG from './ConcretoElementoSVG';
-import ConcretoPlanoCad from './ConcretoPlanoCad';
+import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
 import { List, PenTool } from 'lucide-react';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import {
-  SistemaNivel, TechoSnapshot, calcSistema, sistemaVacio,
+  SistemaNivel, TechoSnapshot, MuroCapa, calcSistema, sistemaVacio, muroDesdePlano,
   KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO,
 } from './concreto/obraPisos';
 import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
@@ -215,6 +215,18 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   const [techosLib] = useState<TechoSnapshot[]>(() =>
     safeStorage.getItem<TechoSnapshot[]>(KEY_TECHOS_DISPONIBLES, []) || []
   );
+  // Muros dibujados en el Plano CAD, agrupados por piso (se releen al volver a Lista).
+  const murosCad = useMemo(() => {
+    const out: Record<string, MuroCapa[]> = {};
+    if (modo !== 'lista') return out;
+    const elems = safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || [];
+    const primerPiso = niveles.find(n => !/cimentaci/i.test(n)) || niveles[0];
+    elems.filter(e => e.tipo === 'muro').forEach(e => {
+      const n = e.nivel || primerPiso;
+      (out[n] ||= []).push(muroDesdePlano(e));
+    });
+    return out;
+  }, [modo, niveles]);
   useEffect(() => { safeStorage.setItem(KEY_SISTEMAS_NIVEL, sistemas); }, [sistemas]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_DRYWALL, catDrywall); }, [catDrywall]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_LADRILLO, catLadrillo); }, [catLadrillo]);
@@ -264,7 +276,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       const its = porItem.filter(p => (p.it.nivel || niveles[0]) === nivel);
       const subConcreto = its.reduce((s, p) => s + p.r.concretoM3, 0);
       const subAcero = its.reduce((s, p) => s + p.r.aceroKg, 0);
-      const sistema = calcSistema(sistemas[nivel], catDrywall, catLadrillo, techosLib);
+      const sistema = calcSistema(sistemas[nivel], catDrywall, catLadrillo, techosLib, murosCad[nivel]);
       return { nivel, its, subConcreto, subAcero, sistema };
     });
     const costoSistemas = porNivel.reduce((s, n) => s + n.sistema.costo, 0);
@@ -279,7 +291,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       aceroKg * precios.aceroKg +
       encofradoM2 * precios.encofradoM2;
     return { porItem, porNivel, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, costoSistemas, costoTotal: costo + costoSistemas, varillasTotales };
-  }, [items, precios, niveles, sistemas, catDrywall, catLadrillo, techosLib]);
+  }, [items, precios, niveles, sistemas, catDrywall, catLadrillo, techosLib, murosCad]);
 
   const exportar = () => {
     let txt = `INNOVA CONTRATISTAS — METRADO DE CONCRETO / OBRA CIVIL\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
