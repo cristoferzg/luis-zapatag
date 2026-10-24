@@ -10,16 +10,16 @@ interface Props {
   onLadrillo: (c: LadrilloItem[]) => void;
 }
 
-const inputCls = 'w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400';
+const inputCls = 'w-full px-2.5 py-2 rounded-lg bg-slate-50 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200';
 const num = (v: string) => Math.max(0, parseFloat(v) || 0);
 
 export function AdminCatalogosMateriales({ drywall, ladrillo, onDrywall, onLadrillo }: Props) {
   const [tab, setTab] = useState<'drywall' | 'ladrillo'>('drywall');
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
+    <div className="bg-white rounded-2xl p-4 shadow-xs space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[11px] font-black text-slate-400 uppercase">Precios de muros (tus proveedores)</p>
-        <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+        <div className="inline-flex p-0.5 bg-slate-100 rounded-xl">
           {(['drywall', 'ladrillo'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${tab === t ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
@@ -32,7 +32,7 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onDrywall, onLadri
       {tab === 'drywall' ? (
         <div className="space-y-2">
           {drywall.map(d => (
-            <div key={d.id} className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2 items-end border-b border-slate-100 pb-2">
+            <div key={d.id} className="grid grid-cols-1 sm:grid-cols-[1fr_140px] gap-2 items-end pb-2">
               <div>
                 <p className="text-xs font-bold text-slate-800">{d.tipo}</p>
                 <p className="text-[10px] text-slate-500">{d.espesor} mm · {d.pesoM2} kg/m²</p>
@@ -48,7 +48,7 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onDrywall, onLadri
       ) : (
         <div className="space-y-2">
           {ladrillo.map(l => (
-            <div key={l.id} className="grid grid-cols-2 sm:grid-cols-[1fr_140px_110px] gap-2 items-end border-b border-slate-100 pb-2">
+            <div key={l.id} className="grid grid-cols-2 sm:grid-cols-[1fr_140px_110px] gap-2 items-end pb-2">
               <div className="col-span-2 sm:col-span-1">
                 <p className="text-xs font-bold text-slate-800">{l.tipo}</p>
                 <p className="text-[10px] text-slate-500">{l.dimensiones} · {l.pesoUnitario} kg/u · {l.uso}</p>
