@@ -12,6 +12,7 @@ import html2pdf from 'html2pdf.js';
 import { Project, Client, SystemConfig } from '../types';
 import defaultAdminLogo from '../assets/images/logo_innova_oficial_1791000137990.jpg';
 import { safeStorage } from '../lib/storageManager';
+import { prepararArchivoCarpeta } from '../lib/carpetaArchivos';
 
 interface ContratosYEPPViewProps {
   projects: Project[];
@@ -310,6 +311,7 @@ function ContratosSubView({
       }
     };
     
+    let pdfBlob: Blob | null = null;
     try {
       // Use html2pdf worker chain to dynamically append clean "Página X de Y" page numbers without any redundant text/footer data
       const worker = html2pdf().set(opt).from(contratoRef.current);
@@ -329,12 +331,34 @@ function ContratosSubView({
       }
       
       pdf.save(`Contrato_${(proyectoNombre || 'Obra').replace(/\s+/g, '_')}.pdf`);
+      pdfBlob = pdf.output('blob');
     } catch (err) {
       console.warn('Fallback standard PDF download:', err);
       html2pdf().set(opt).from(contratoRef.current).save();
     }
 
-    // Automatically save contract record to client's Carpeta Privada
+    // Guarda el PDF en la Carpeta Privada del cliente (se sincroniza en la nube).
+    const nombreCliente = clienteNombre.trim();
+    if (pdfBlob && setClients && nombreCliente) {
+      const fileName = `Contrato_${(proyectoNombre || 'Obra').replace(/\s+/g, '_')}_${nombreCliente.replace(/\s+/g, '_')}.pdf`;
+      const existente = clients.find(c => c.name.toLowerCase().trim() === nombreCliente.toLowerCase());
+      const clienteId = existente?.id || 'cli-' + Date.now();
+      try {
+        const archivo = await prepararArchivoCarpeta(new File([pdfBlob], fileName, { type: 'application/pdf' }), 'contract', clienteId);
+        setClients(prev => prev.some(c => c.id === clienteId)
+          ? prev.map(c => c.id === clienteId ? { ...c, files: [archivo, ...(c.files || [])] } : c)
+          : [...prev, { id: clienteId, name: nombreCliente, dni: clienteDni, address: clienteDireccion, company: clienteEmpresa, files: [archivo] }]);
+        setCloudNotice(`✅ Contrato guardado en la Carpeta Privada de ${nombreCliente}`);
+        setTimeout(() => setCloudNotice(null), 3500);
+        return;
+      } catch (err: any) {
+        alert(`El PDF se descargó, pero no se pudo guardar en la Carpeta Privada: ${err?.message || err}`);
+      }
+    } else if (!nombreCliente) {
+      alert('El PDF se descargó. Para guardarlo en la Carpeta Privada, escribe el nombre del cliente.');
+    }
+
+    // Respaldo: si no se pudo subir el PDF, al menos queda la ficha local.
     try {
       const existingContracts = safeStorage.getItem<any[]>('innova_client_contracts', []) || [];
       const newContractRecord = {

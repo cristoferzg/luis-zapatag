@@ -21,9 +21,10 @@ import {
   FolderOpen,
   ShieldCheck
 } from 'lucide-react';
-import { Project, Client, FinanceRecord, SystemUser } from '../types';
+import { Project, Client, ClientFile, FinanceRecord, SystemUser } from '../types';
 import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, deleteTechosDesign } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
+import { prepararArchivoCarpeta, migrarArchivosPesados } from '../lib/carpetaArchivos';
 
 interface ProyectosYClientesViewProps {
   projects: Project[];
@@ -232,34 +233,34 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
   const [cEditingId, setCEditingId] = useState<string | null>(null);
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
+  const [subiendoArchivo, setSubiendoArchivo] = useState<'photo' | 'contract' | null>(null);
+
   const handleClientFileUpload = async (clientId: string, e: React.ChangeEvent<HTMLInputElement>, fileType: 'photo' | 'contract' | 'document') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const dataUrl = uploadEvent.target?.result as string;
-      if (!dataUrl) return;
-
-      const newFileItem = {
-        id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        name: file.name,
-        type: fileType,
-        dataUrl,
-        uploadedAt: new Date().toLocaleDateString('es-PE') + ' ' + new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
-        size: (file.size / 1024).toFixed(1) + ' KB'
-      };
-
-      setClients(prev => prev.map(c => {
-        if (c.id === clientId) {
-          const files = c.files || [];
-          return { ...c, files: [newFileItem, ...files] };
-        }
-        return c;
-      }));
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    const input = e.target;
+    const selected = Array.from(input.files || []);
+    input.value = '';
+    if (selected.length === 0 || subiendoArchivo) return;
+    const cliente = clients.find(c => c.id === clientId);
+    if (!cliente) {
+      alert('Esta carpeta no pertenece a un cliente registrado. Crea el cliente primero para poder guardar archivos.');
+      return;
+    }
+    setSubiendoArchivo(fileType === 'photo' ? 'photo' : 'contract');
+    const nuevos: ClientFile[] = [];
+    const errores: string[] = [];
+    for (const file of selected) {
+      try {
+        nuevos.push(await prepararArchivoCarpeta(file, fileType, clientId));
+      } catch (err: any) {
+        errores.push(err?.message || `No se pudo guardar "${file.name}".`);
+      }
+    }
+    const previos = await migrarArchivosPesados(cliente.files || [], clientId);
+    if (nuevos.length > 0 || previos.some((f, i) => f !== (cliente.files || [])[i])) {
+      setClients(prev => prev.map(c => c.id === clientId ? { ...c, files: [...nuevos, ...previos] } : c));
+    }
+    setSubiendoArchivo(null);
+    if (errores.length) alert(errores.join('\n'));
   };
 
   const handleRemoveClientFile = (clientId: string, fileId: string) => {
@@ -1309,10 +1310,12 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                         {groupId !== 'sin_cliente' && (
                           <label className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors">
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Subir Documento</span>
+                            <span>{subiendoArchivo === 'contract' ? 'Subiendo…' : 'Subir Documento'}</span>
                             <input 
                               type="file" 
-                              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,image/*" 
+                              multiple
+                              disabled={subiendoArchivo !== null}
+                              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.dwg,.dxf,image/*" 
                               className="hidden" 
                               onChange={(e) => handleClientFileUpload(groupId, e, 'contract')} 
                             />
@@ -1371,9 +1374,11 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                         {groupId !== 'sin_cliente' && (
                           <label className="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors">
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Subir Foto</span>
+                            <span>{subiendoArchivo === 'photo' ? 'Subiendo…' : 'Subir Foto'}</span>
                             <input 
                               type="file" 
+                              multiple
+                              disabled={subiendoArchivo !== null}
                               accept="image/*" 
                               className="hidden" 
                               onChange={(e) => handleClientFileUpload(groupId, e, 'photo')} 
@@ -1397,7 +1402,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                                 e.stopPropagation();
                                 handleRemoveClientFile(groupId, photo.id);
                               }}
-                              className="absolute top-1.5 right-1.5 p-1 bg-rose-600/90 hover:bg-rose-700 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shadow-xs"
+                              className="absolute top-1.5 right-1.5 p-1 bg-rose-600/90 hover:bg-rose-700 text-white rounded-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer shadow-xs"
                               title="Eliminar foto"
                             >
                               <Trash2 className="w-3 h-3" />
