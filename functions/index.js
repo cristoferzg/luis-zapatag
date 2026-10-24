@@ -108,6 +108,87 @@ export const loginWithPin = onCall(
   }
 );
 
+
+// =============================================================================
+// COBRO DE CRÉDITOS DE IA (server-side, a prueba de trampas).
+//
+// Cada función de IA cuesta créditos. El admin es ilimitado. Cada usuario tiene
+// un doc ai_access/<workspace> con su plan (mensual o anual) y su saldo:
+//   creditosMes  → se recargan cada mes mientras el plan esté vigente
+//   creditosExtra → recargas compradas; no vencen
+// Sin documento = plan Gratis (unos pocos créditos al mes para probar).
+// Las reglas de Firestore impiden que el cliente escriba ai_access, por eso el
+// descuento se hace AQUÍ, dentro de una transacción.
+// =============================================================================
+const COSTO_CREDITOS = { boleta: 1, croquis: 10 };
+const CREDITOS_GRATIS_DEFAULT = 15;
+// Igual que PLANES_IA_DEFAULT del cliente (src/lib/aiAccess.ts).
+const PLANES_DEFAULT = [
+  { id: 'gratis', creditosMes: 15 },
+  { id: 'maestro', creditosMes: 200 },
+  { id: 'taller', creditosMes: 600 },
+  { id: 'empresa', creditosMes: 2000 },
+];
+const mesActual = () => new Date().toISOString().slice(0, 7);
+
+async function cobrarUsoIA(request, accion) {
+  const token = request.auth?.token || {};
+  if (token.role === 'admin') return async () => {};
+  const ws = String(token.workspace || '').replace(/^user_/, '');
+  if (!ws) throw new HttpsError('permission-denied', 'SIN_PLAN');
+  const costo = COSTO_CREDITOS[accion] || 1;
+  const ref = db.collection('ai_access').doc(ws);
+  const cfgSnap = await db.collection('config_ia').doc('planes').get();
+  const cfg = cfgSnap.exists ? cfgSnap.data() : {};
+  const guardados = Array.isArray(cfg?.planes) ? cfg.planes : [];
+  const planes = guardados.length && guardados.every((p) => Number.isFinite(p?.creditosMes)) ? guardados : PLANES_DEFAULT;
+  const gratis = planes.find((p) => p.id === 'gratis');
+  const creditosGratis = Number.isFinite(gratis?.creditosMes) ? gratis.creditosMes : CREDITOS_GRATIS_DEFAULT;
+
+  let descontado = { mes: 0, extra: 0 };
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const a = snap.exists ? snap.data() : { userId: ws, planId: 'gratis', creditosRestantes: creditosGratis, creditosExtra: 0, mes: mesActual() };
+    const vencido = a.venceEl && new Date(a.venceEl).getTime() < Date.now();
+    const planId = vencido ? 'gratis' : (a.planId || 'gratis');
+    const plan = planes.find((p) => p.id === planId);
+    const recargaMes = planId === 'gratis' ? creditosGratis : (plan?.creditosMes ?? a.creditosMesPlan ?? 0);
+    let restantes = Number(a.creditosRestantes) || 0;
+    let extra = Number(a.creditosExtra) || 0;
+    if (a.mes !== mesActual() || vencido) restantes = recargaMes; // recarga mensual
+    if (restantes + extra < costo) {
+      tx.set(ref, { ...a, planId, creditosRestantes: restantes, mes: mesActual() }, { merge: true });
+      throw new HttpsError('resource-exhausted', 'SIN_CREDITOS');
+    }
+    const deMes = Math.min(restantes, costo);
+    descontado = { mes: deMes, extra: costo - deMes };
+    tx.set(ref, {
+      ...a, userId: ws, planId,
+      creditosRestantes: restantes - deMes,
+      creditosExtra: extra - descontado.extra,
+      mes: mesActual(),
+      usosTotales: (Number(a.usosTotales) || 0) + 1,
+      ultimoUso: new Date().toISOString(),
+    }, { merge: true });
+  });
+
+  // Devuelve los créditos si la IA falla (el usuario no paga por un error).
+  return async () => {
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return;
+        const a = snap.data();
+        tx.set(ref, {
+          creditosRestantes: (Number(a.creditosRestantes) || 0) + descontado.mes,
+          creditosExtra: (Number(a.creditosExtra) || 0) + descontado.extra,
+          usosTotales: Math.max(0, (Number(a.usosTotales) || 0) - 1),
+        }, { merge: true });
+      });
+    } catch (_) { /* ignore */ }
+  };
+}
+
 /**
  * scanReceipt({ imageBase64, mimeType }) -> ReceiptData
  *
@@ -171,6 +252,7 @@ export const scanReceipt = onCall(
       'Si un dato no aparece, usa null.'
     ].join(' ');
 
+    const devolver = await cobrarUsoIA(request, 'boleta');
     const anthropic = new Anthropic({ apiKey });
 
     // PDF va como bloque 'document'; una imagen como bloque 'image'.
@@ -182,7 +264,7 @@ export const scanReceipt = onCall(
     try {
       const msg = await anthropic.messages.create({
         model: RECEIPT_MODEL,
-        max_tokens: 1024,
+        max_tokens: 2048,
         output_config: { effort: 'low' },
         messages: [{
           role: 'user',
@@ -195,6 +277,7 @@ export const scanReceipt = onCall(
       const block = (msg.content || []).find((b) => b.type === 'text');
       text = block ? block.text : '';
     } catch (e) {
+      await devolver();
       const status = e?.status || e?.statusCode;
       if (status === 401) throw new HttpsError('failed-precondition', 'La clave de IA no es válida.');
       if (status === 429) throw new HttpsError('resource-exhausted', 'Servicio de IA ocupado, intenta de nuevo.');
@@ -215,6 +298,9 @@ export const scanReceipt = onCall(
       return Number.isFinite(n) ? n : undefined;
     };
     const str = (v) => (v === null || v === undefined || v === 'null') ? undefined : String(v);
+
+    // Si no se pudo leer nada, no se cobra.
+    if (!num(parsed.total) && !str(parsed.proveedor) && !str(parsed.ruc)) await devolver();
 
     return {
       proveedor: str(parsed.proveedor),
@@ -294,6 +380,7 @@ export const analyzeRoofPlan = onCall(
       '- "notas": una frase corta en español con lo que asumiste (p. ej. escala o medidas usadas).'
     ].join(' ');
 
+    const devolver = await cobrarUsoIA(request, 'croquis');
     const anthropic = new Anthropic({ apiKey });
     const fileBlock = mimeType === 'application/pdf'
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: imageBase64 } }
@@ -310,6 +397,7 @@ export const analyzeRoofPlan = onCall(
       const block = (msg.content || []).find((b) => b.type === 'text');
       text = block ? block.text : '';
     } catch (e) {
+      await devolver();
       const status = e?.status || e?.statusCode;
       if (status === 401) throw new HttpsError('failed-precondition', 'La clave de IA no es válida.');
       if (status === 429) throw new HttpsError('resource-exhausted', 'Servicio de IA ocupado, intenta de nuevo.');
@@ -338,6 +426,8 @@ export const analyzeRoofPlan = onCall(
         tipo: (v?.tipo === 'tijeral' ? 'tijeral' : 'viga')
       }))
       .filter((v) => v.x1 !== null && v.z1 !== null && v.x2 !== null && v.z2 !== null) : [];
+
+    if (!columnas.length && !vigas.length) await devolver();
 
     return {
       anchoM: num(parsed.anchoM, 0),

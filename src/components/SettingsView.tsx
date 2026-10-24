@@ -15,6 +15,7 @@ import { TutorialVideo, CourseCategory } from './UsabilidadVideosView';
 import { safeStorage } from '../lib/storageManager';
 import { StorageAuditPanel } from './common/StorageAuditPanel';
 import PlanesIAAdminPanel from './PlanesIAAdminPanel';
+import MisCreditosCard from './MisCreditosCard';
 import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -1449,7 +1450,7 @@ export default function SettingsView({
       )}
 
       {/* Configuración de los planes de IA (precio y usos): SOLO ADMINISTRADOR */}
-      {isAdmin && <PlanesIAAdminPanel />}
+      {isAdmin ? <PlanesIAAdminPanel /> : <MisCreditosCard />}
 
       {/* Catálogos de Costos: SOLO ADMINISTRADOR */}
       {isAdmin && <CostsCatalogView isAdmin={isAdmin} />}

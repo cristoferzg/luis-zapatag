@@ -1,37 +1,59 @@
 // =============================================================================
-// Control de acceso a las funciones de IA por PLANES (monetización).
+// Acceso a las funciones inteligentes por CRÉDITOS (monetización).
 //
-//  - El ADMIN siempre tiene acceso ilimitado (para probar y atender).
-//  - Los usuarios activan un plan (Básico / Pro / Ilimitado) para usar la IA.
-//  - Al validar la compra en "Validar Compras", se habilita el plan y se cargan
-//    los usos del mes. Cada uso de IA descuenta del saldo (protege el gasto).
+//  - Cada acción cuesta créditos (boleta = 1, plano a mano = 10).
+//  - Cada plan trae créditos que se recargan cada mes (pago mensual, o anual
+//    para Empresa). Si se acaban, el usuario compra una RECARGA de créditos
+//    (no vence) o sube de plan.
+//  - Todos empiezan con el plan Gratis (unos créditos al mes para probar).
+//  - El ADMIN siempre es ilimitado.
 //
-// Config de planes (precios y límites) editable por el admin en Configuración.
-// Estado por usuario en la colección global 'ai_access' (doc id = userId).
+// El DESCUENTO lo hace la Cloud Function (servidor) dentro de una transacción;
+// las reglas de Firestore no dejan que el cliente escriba 'ai_access'. Aquí
+// solo se LEE el saldo para mostrarlo y ofrecer planes antes de intentar.
+// Nunca se muestra en la interfaz qué proveedor o modelo hay detrás.
 // =============================================================================
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from './firebase';
 
+export const COSTO_CREDITOS = { boleta: 1, croquis: 10 } as const;
+export type AccionIA = keyof typeof COSTO_CREDITOS;
+
 export interface AIPlan {
   id: string;
   nombre: string;
-  precioSoles: number;
-  usosMes: number; // 0 = ilimitado
+  precioSoles: number;        // por mes
+  precioAnualSoles?: number;  // pago anual (si el plan lo permite)
+  creditosMes: number;
+  usuarios?: number;          // cuentas incluidas (Empresa)
+  destacado?: boolean;
+  beneficios?: string[];
 }
 
+export interface PackCreditos { id: string; creditos: number; precioSoles: number }
+
 export const PLANES_IA_DEFAULT: AIPlan[] = [
-  { id: 'basico', nombre: 'Básico', precioSoles: 9.90, usosMes: 15 },
-  { id: 'pro', nombre: 'Pro', precioSoles: 19.90, usosMes: 50 },
-  { id: 'ilimitado', nombre: 'Ilimitado', precioSoles: 29.90, usosMes: 0 },
+  { id: 'gratis', nombre: 'Gratis', precioSoles: 0, creditosMes: 15,
+    beneficios: ['Prueba la lectura de boletas', '1 plano a mano al mes'] },
+  { id: 'maestro', nombre: 'Maestro', precioSoles: 19.90, creditosMes: 200,
+    beneficios: ['Registra tus gastos con una foto', 'Hasta 20 planos a mano al mes', 'Recargas cuando las necesites'] },
+  { id: 'taller', nombre: 'Taller Pro', precioSoles: 49.90, creditosMes: 600, destacado: true,
+    beneficios: ['Para el taller que cotiza todos los días', 'Hasta 60 planos a mano al mes', 'Atención prioritaria por WhatsApp'] },
+  { id: 'empresa', nombre: 'Empresa', precioSoles: 149.90, precioAnualSoles: 1499, creditosMes: 2000, usuarios: 3,
+    beneficios: ['Hasta 3 usuarios del equipo', 'Hasta 200 planos a mano al mes', 'Pago anual: 2 meses gratis'] },
 ];
 
-// Interruptor maestro: mientras sea `false`, la IA queda SOLO para el admin
-// (pruebas internas) y los usuarios NO la ven ni se les ofrecen planes. Cuando
-// el dueño decida abrirla al público, ponerlo en `true` (ver CLAUDE.md →
-// "PENDIENTE IMPORTANTE — Seguridad de la IA" para implementar reglas + enforcement).
-export const IA_HABILITADA_USUARIOS = false;
+export const PACKS_CREDITOS_DEFAULT: PackCreditos[] = [
+  { id: 'p50', creditos: 50, precioSoles: 7.90 },
+  { id: 'p150', creditos: 150, precioSoles: 19.90 },
+  { id: 'p500', creditos: 500, precioSoles: 54.90 },
+];
 
-/** ¿Se debe mostrar la opción de IA en la interfaz para el usuario actual? */
+// Interruptor maestro: con `true` los usuarios ven las funciones inteligentes
+// y los planes. El cobro real lo hace el servidor (ver functions/index.js).
+export const IA_HABILITADA_USUARIOS = true;
+
+/** ¿Se debe mostrar la opción en la interfaz para el usuario actual? */
 export function iaVisibleParaUI(): boolean {
   return _ctx.isAdmin || IA_HABILITADA_USUARIOS;
 }
@@ -39,9 +61,13 @@ export function iaVisibleParaUI(): boolean {
 export interface AIAccess {
   userId: string;
   planId: string;
-  usosRestantes: number; // si el plan es ilimitado, se ignora
-  ilimitado?: boolean;
-  mes: string; // 'YYYY-MM' del período vigente
+  periodo?: 'mensual' | 'anual';
+  venceEl?: string;          // ISO; al vencer vuelve a Gratis
+  creditosRestantes: number; // del mes
+  creditosMesPlan?: number;  // créditos mensuales del plan al activarlo (respaldo)
+  creditosExtra?: number;    // recargas compradas (no vencen)
+  mes: string;               // 'YYYY-MM' del saldo vigente
+  usosTotales?: number;
 }
 
 // Contexto del usuario actual (lo setea App en cada render para no pasar props).
@@ -51,22 +77,26 @@ export function getAICtx() { return _ctx; }
 
 const mesActual = () => new Date().toISOString().slice(0, 7);
 
-/** Lee la config global de planes (o devuelve los de por defecto). */
-export async function getPlanesIA(): Promise<AIPlan[]> {
+/** Config global de planes y recargas (o los de por defecto). */
+export async function getConfigIA(): Promise<{ planes: AIPlan[]; packs: PackCreditos[] }> {
   try {
     const s = await getDoc(doc(db, 'config_ia', 'planes'));
     const data = s.exists() ? (s.data() as any) : null;
-    if (data?.planes && Array.isArray(data.planes) && data.planes.length) return data.planes as AIPlan[];
+    const planes = Array.isArray(data?.planes) && data.planes.length && data.planes.every((p: any) => typeof p.creditosMes === 'number')
+      ? data.planes as AIPlan[] : PLANES_IA_DEFAULT;
+    const packs = Array.isArray(data?.packs) && data.packs.length ? data.packs as PackCreditos[] : PACKS_CREDITOS_DEFAULT;
+    return { planes, packs };
   } catch { /* usar defaults */ }
-  return PLANES_IA_DEFAULT;
+  return { planes: PLANES_IA_DEFAULT, packs: PACKS_CREDITOS_DEFAULT };
+}
+export async function getPlanesIA(): Promise<AIPlan[]> { return (await getConfigIA()).planes; }
+
+/** Guarda la config (solo admin; las reglas lo exigen). */
+export async function setConfigIA(planes: AIPlan[], packs: PackCreditos[]): Promise<void> {
+  await setDoc(doc(db, 'config_ia', 'planes'), JSON.parse(JSON.stringify({ planes, packs })));
 }
 
-/** Guarda la config de planes (solo admin). */
-export async function setPlanesIA(planes: AIPlan[]): Promise<void> {
-  await setDoc(doc(db, 'config_ia', 'planes'), { planes });
-}
-
-/** Estado de acceso a IA de un usuario. */
+/** Estado de créditos de un usuario (null = nunca usó: plan Gratis). */
 export async function getAIAccess(userId: string): Promise<AIAccess | null> {
   try {
     const s = await getDoc(doc(db, 'ai_access', userId));
@@ -74,68 +104,102 @@ export async function getAIAccess(userId: string): Promise<AIAccess | null> {
   } catch { return null; }
 }
 
-export interface AICheck { ok: boolean; ilimitado?: boolean; restantes?: number; planNombre?: string; motivo?: 'sin_plan' | 'agotado' | 'no_disponible'; }
-
-/**
- * Verifica si el usuario actual puede usar la IA. Admin → ilimitado.
- * Hace reset mensual automático de los usos.
- */
-export async function checkAIAccess(): Promise<AICheck> {
-  if (_ctx.isAdmin) return { ok: true, ilimitado: true, planNombre: 'Administrador' };
-  // La IA aún no está abierta a usuarios: solo el admin la usa (pruebas internas).
-  if (!IA_HABILITADA_USUARIOS) return { ok: false, motivo: 'no_disponible' };
-  if (!_ctx.userId) return { ok: false, motivo: 'sin_plan' };
-  const a = await getAIAccess(_ctx.userId);
-  if (!a || !a.planId) return { ok: false, motivo: 'sin_plan' };
-  if (a.ilimitado) return { ok: true, ilimitado: true, planNombre: a.planId };
-  // Reset mensual: si cambió el mes, se recarga el límite del plan.
-  if (a.mes !== mesActual()) {
-    const planes = await getPlanesIA();
-    const plan = planes.find(p => p.id === a.planId);
-    const recarga = plan ? plan.usosMes : 0;
-    const reset: AIAccess = { ...a, usosRestantes: recarga, mes: mesActual() };
-    try { await setDoc(doc(db, 'ai_access', _ctx.userId), reset); } catch { /* ignore */ }
-    return recarga > 0 ? { ok: true, restantes: recarga, planNombre: a.planId } : { ok: false, motivo: 'agotado' };
-  }
-  if (a.usosRestantes > 0) return { ok: true, restantes: a.usosRestantes, planNombre: a.planId };
-  return { ok: false, motivo: 'agotado', planNombre: a.planId };
+export interface AICheck {
+  ok: boolean;
+  ilimitado?: boolean;
+  restantes?: number;        // créditos disponibles (mes + extra)
+  planId?: string;
+  planNombre?: string;
+  motivo?: 'sin_plan' | 'agotado' | 'no_disponible';
 }
 
-/** Descuenta un uso de IA tras una operación exitosa (no aplica a admin ni ilimitado). */
-export async function consumeAIUse(): Promise<void> {
-  if (_ctx.isAdmin || !_ctx.userId) return;
-  const a = await getAIAccess(_ctx.userId);
-  if (!a || a.ilimitado) return;
-  const next: AIAccess = {
-    ...a,
-    usosRestantes: Math.max(0, (a.mes === mesActual() ? a.usosRestantes : a.usosRestantes) - 1),
-    mes: mesActual(),
-  };
-  try { await setDoc(doc(db, 'ai_access', _ctx.userId), next); } catch { /* ignore */ }
+/** Saldo efectivo como lo calcula el servidor (recarga mensual / vencimiento). */
+export function saldoEfectivo(a: AIAccess | null, planes: AIPlan[]): { planId: string; mes: number; extra: number } {
+  const gratis = planes.find(p => p.id === 'gratis')?.creditosMes ?? 15;
+  if (!a) return { planId: 'gratis', mes: gratis, extra: 0 };
+  const vencido = !!a.venceEl && new Date(a.venceEl).getTime() < Date.now();
+  const planId = vencido ? 'gratis' : (a.planId || 'gratis');
+  const recarga = planId === 'gratis' ? gratis : (planes.find(p => p.id === planId)?.creditosMes ?? 0);
+  const mes = a.mes !== mesActual() || vencido ? recarga : (a.creditosRestantes || 0);
+  return { planId, mes, extra: a.creditosExtra || 0 };
+}
+
+/**
+ * ¿Alcanzan los créditos para esta acción? Solo LEE: el cobro lo hace el
+ * servidor. Sirve para mostrar los planes antes de subir la foto.
+ */
+export async function checkAIAccess(accion: AccionIA = 'boleta'): Promise<AICheck> {
+  if (_ctx.isAdmin) return { ok: true, ilimitado: true, planNombre: 'Administrador' };
+  if (!IA_HABILITADA_USUARIOS) return { ok: false, motivo: 'no_disponible' };
+  if (!_ctx.userId) return { ok: false, motivo: 'sin_plan' };
+  const [a, { planes }] = await Promise.all([getAIAccess(_ctx.userId), getConfigIA()]);
+  const s = saldoEfectivo(a, planes);
+  const total = s.mes + s.extra;
+  const planNombre = planes.find(p => p.id === s.planId)?.nombre;
+  if (total >= COSTO_CREDITOS[accion]) return { ok: true, restantes: total, planId: s.planId, planNombre };
+  return { ok: false, motivo: 'agotado', restantes: total, planId: s.planId, planNombre };
+}
+
+/** ¿El error que devolvió el servidor es por falta de créditos/plan? */
+export function motivoErrorIA(err: any): 'agotado' | 'sin_plan' | null {
+  const t = `${err?.message || ''} ${err?.details || ''}`;
+  if (t.includes('SIN_CREDITOS')) return 'agotado';
+  if (t.includes('SIN_PLAN')) return 'sin_plan';
+  return null;
 }
 
 /** Activa (o renueva) el plan de un usuario. Lo usa el admin al validar la compra. */
-export async function grantAIPlan(userId: string, planId: string, planes?: AIPlan[]): Promise<void> {
-  const list = planes || await getPlanesIA();
-  const plan = list.find(p => p.id === planId);
+export async function grantAIPlan(userId: string, planId: string, periodo: 'mensual' | 'anual' = 'mensual'): Promise<void> {
+  const { planes } = await getConfigIA();
+  const plan = planes.find(p => p.id === planId);
   if (!plan) return;
+  const previo = await getAIAccess(userId);
+  const vence = new Date();
+  vence.setMonth(vence.getMonth() + (periodo === 'anual' ? 12 : 1));
   const access: AIAccess = {
     userId,
     planId: plan.id,
-    ilimitado: plan.usosMes === 0,
-    usosRestantes: plan.usosMes,
+    periodo,
+    venceEl: vence.toISOString(),
+    creditosRestantes: plan.creditosMes,
+    creditosMesPlan: plan.creditosMes,
+    creditosExtra: previo?.creditosExtra || 0,
     mes: mesActual(),
+    usosTotales: previo?.usosTotales || 0,
   };
   await setDoc(doc(db, 'ai_access', userId), access);
 }
 
-/** Crea una solicitud de compra de plan (queda pendiente para que el admin valide). */
-export async function solicitarPlanIA(userId: string, userName: string, plan: AIPlan): Promise<void> {
+/** Suma una recarga de créditos (no vence). Lo usa el admin al validar la compra. */
+export async function grantCreditos(userId: string, creditos: number): Promise<void> {
+  const previo = await getAIAccess(userId);
+  const base: AIAccess = previo || { userId, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: 0 };
+  await setDoc(doc(db, 'ai_access', userId), { ...base, creditosExtra: (base.creditosExtra || 0) + creditos });
+}
+
+/** Solicitud de compra de un plan (queda pendiente para que el admin valide). */
+export async function solicitarPlanIA(userId: string, userName: string, plan: AIPlan, periodo: 'mensual' | 'anual' = 'mensual'): Promise<void> {
+  const precio = periodo === 'anual' ? plan.precioAnualSoles : plan.precioSoles;
   await addDoc(collection(db, 'purchases'), {
     userId,
     userName: userName || '',
-    itemId: `ai_plan_${plan.id}`,
-    itemName: `Plan IA ${plan.nombre}`,
+    itemId: `ai_plan_${plan.id}${periodo === 'anual' ? '__anual' : ''}`,
+    itemName: `Plan ${plan.nombre} (${periodo})`,
+    amount: precio || 0,
+    status: 'pendiente',
+    voucherUrl: '',
+    createdAt: new Date().toISOString(),
+  });
+}
+
+/** Solicitud de compra de una recarga de créditos. */
+export async function solicitarCreditos(userId: string, userName: string, pack: PackCreditos): Promise<void> {
+  await addDoc(collection(db, 'purchases'), {
+    userId,
+    userName: userName || '',
+    itemId: `ai_creditos_${pack.creditos}`,
+    itemName: `Recarga de ${pack.creditos} créditos`,
+    amount: pack.precioSoles,
     status: 'pendiente',
     voucherUrl: '',
     createdAt: new Date().toISOString(),

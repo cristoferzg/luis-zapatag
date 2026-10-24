@@ -4,7 +4,7 @@ import { Check, X, Eye } from 'lucide-react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { CourseCategory, TutorialVideo } from './UsabilidadVideosView';
-import { grantAIPlan } from '../lib/aiAccess';
+import { grantAIPlan, grantCreditos } from '../lib/aiAccess';
 
 interface Purchase {
   id: string;
@@ -41,8 +41,14 @@ export default function AdminPurchasesView() {
     if (!uid) return;
     // 0) ¿Es un PLAN DE IA? (itemId = 'ai_plan_<planId>') → activa el plan.
     if (purchase.itemId?.startsWith('ai_plan_')) {
-      const planId = purchase.itemId.replace('ai_plan_', '');
-      await grantAIPlan(uid, planId);
+      const [planId, periodo] = purchase.itemId.replace('ai_plan_', '').split('__');
+      await grantAIPlan(uid, planId, periodo === 'anual' ? 'anual' : 'mensual');
+      return;
+    }
+    // 0b) ¿Es una RECARGA de créditos? (itemId = 'ai_creditos_<n>')
+    if (purchase.itemId?.startsWith('ai_creditos_')) {
+      const n = parseInt(purchase.itemId.replace('ai_creditos_', ''), 10);
+      if (n > 0) await grantCreditos(uid, n);
       return;
     }
     // 1) ¿El ítem es un CURSO? (por id o por nombre)

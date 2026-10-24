@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Project, Material, FinanceRecord } from '../types';
 import { scanReceipt } from '../lib/receiptScan';
-import { checkAIAccess, consumeAIUse } from '../lib/aiAccess';
+import { checkAIAccess } from '../lib/aiAccess';
 import PlanesIAModal from './PlanesIAModal';
 
 interface MaterialesYGastosViewProps {
@@ -100,8 +100,9 @@ export default function MaterialesYGastosView({
     try {
       // El QR del comprobante es gratis para todos; la lectura por IA (y la
       // lectura de PDFs) requiere un plan de IA activo. El admin siempre puede.
-      const acc = await checkAIAccess();
-      const result = await scanReceipt(file, acc.ok);
+      const acc = await checkAIAccess('boleta');
+      // Con QR basta (gratis); el admin además obtiene el detalle con IA.
+      const result = await scanReceipt(file, acc.ok, !!acc.ilimitado);
       const d = result.data;
       // Sin QR y sin IA permitida.
       if (result.source === 'sin_ia') {
@@ -109,18 +110,14 @@ export default function MaterialesYGastosView({
           // IA aún no abierta a usuarios: no se ofrece plan, solo se avisa.
           setScanNotice({ ok: false, msg: 'No se encontró QR en el comprobante. La lectura automática con IA está en pruebas internas; por ahora ingresa el gasto a mano.' });
         } else {
-          setShowPlanesIA(acc.motivo === 'agotado' ? 'agotado' : 'sin_plan');
-          setScanNotice({ ok: false, msg: 'La lectura automática con IA requiere un plan activo. El QR del comprobante es gratis; para fotos o PDFs sin QR, activa un plan.' });
+          setShowPlanesIA(result.motivo || (acc.motivo === 'sin_plan' ? 'sin_plan' : 'agotado'));
+          setScanNotice({ ok: false, msg: 'Se acabaron tus créditos para leer comprobantes sin QR. El QR del comprobante sigue siendo gratis; para fotos o PDFs sin QR, recarga créditos o sube de plan.' });
         }
         return;
       }
       if (result.source === 'none' || (!d.total && !d.proveedor && !d.ruc)) {
         setScanNotice({ ok: false, msg: 'No se pudieron leer los datos. Ingrésalos a mano o intenta con una foto más nítida.' });
         return;
-      }
-      // Si la IA aportó datos, descuenta un uso del plan.
-      if (result.source === 'ia' || result.source === 'qr_ia') {
-        try { await consumeAIUse(); } catch { /* ignore */ }
       }
       // Rellenar el formulario (el usuario revisa y confirma antes de guardar).
       // La descripción combina el DETALLE de lo comprado + proveedor + método de pago.

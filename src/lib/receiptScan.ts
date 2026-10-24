@@ -11,6 +11,7 @@
 // Siempre con revisión humana: los datos se cargan al formulario y el usuario
 // confirma antes de guardar.
 // ============================================================================
+import { motivoErrorIA } from './aiAccess';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from './firebase';
 import jsQR from 'jsqr';
@@ -33,6 +34,7 @@ export interface ReceiptData {
 
 export interface ScanResult {
   source: 'qr' | 'ia' | 'qr_ia' | 'none' | 'sin_ia';
+  motivo?: 'agotado' | 'sin_plan'; // por qué no se usó la lectura inteligente (sin_ia)
   data: ReceiptData;
 }
 
@@ -198,12 +200,14 @@ const isPdf = (file: File) =>
  * y no hay QR, se devuelve { source: 'sin_ia' } para que la vista ofrezca un
  * plan.
  */
-export async function scanReceipt(file: File, allowAI = true): Promise<ScanResult> {
+export async function scanReceipt(file: File, allowAI = true, iaAunqueHayaQr = true): Promise<ScanResult> {
   // PDF: no tiene QR legible por cámara → va directo a IA (Claude lee el PDF).
   if (isPdf(file)) {
     if (!allowAI) return { source: 'sin_ia', data: {} };
     const base64 = await fileToBase64(file);
-    const ai = await scanReceiptWithAI(base64, 'application/pdf');
+    let ai: ReceiptData;
+    try { ai = await scanReceiptWithAI(base64, 'application/pdf'); }
+    catch (e) { const m = motivoErrorIA(e); if (m) return { source: 'sin_ia', data: {}, motivo: m }; throw e; }
     if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc)) {
       return { source: 'ia', data: ai };
     }
@@ -228,15 +232,18 @@ export async function scanReceipt(file: File, allowAI = true): Promise<ScanResul
   //    IA no está desplegada o falla, seguimos con lo que dé el QR.
   //    Solo se intenta si el usuario tiene plan (allowAI). Si no, con el QR
   //    (gratis) basta; sin QR se avisa que se requiere plan.
+  //    Con QR, la lectura inteligente (que gasta créditos) es opcional.
   let aiData: ReceiptData | null = null;
-  if (allowAI) {
+  let motivo: ScanResult['motivo'];
+  if (allowAI && (!qrData || iaAunqueHayaQr)) {
     try {
       const ai = await scanReceiptWithAI(base64, 'image/jpeg');
       if (ai && (ai.total !== undefined || ai.proveedor || ai.ruc || ai.detalle || ai.metodoPago)) {
         aiData = ai;
       }
-    } catch (_) {
-      // IA no disponible: no rompemos el flujo; usamos el QR si existe.
+    } catch (e) {
+      // Sin créditos o IA no disponible: no rompemos el flujo; usamos el QR si existe.
+      motivo = motivoErrorIA(e) || undefined;
     }
   }
 
@@ -251,8 +258,8 @@ export async function scanReceipt(file: File, allowAI = true): Promise<ScanResul
     return { source: 'ia', data: aiData };
   }
 
-  // Sin QR y sin IA permitida → avisar que se necesita plan de IA.
-  if (!allowAI) return { source: 'sin_ia', data: {} };
+  // Sin QR y sin IA permitida (o sin créditos) → avisar que se necesita plan.
+  if (!allowAI || motivo) return { source: 'sin_ia', data: {}, motivo };
 
   return { source: 'none', data: {} };
 }

@@ -8,41 +8,24 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Funciones (Blaze): `loginWithPin`, `scanReceipt` (boletas), `analyzeRoofPlan`
   (planos a mano). Usan `ANTHROPIC_API_KEY` (secreto). Modelo económico Haiku.
 
-## ⚠️ PENDIENTE IMPORTANTE — Seguridad de la IA (NO olvidar)
+## IA para usuarios — créditos (IMPLEMENTADO, falta desplegar)
 
-Estado actual (decisión del dueño): **la IA está habilitada SOLO para el ADMIN**
-(pruebas internas). Los usuarios NO la ven ni se les ofrecen planes todavía.
-Switch: `IA_HABILITADA_USUARIOS` en `src/lib/aiAccess.ts` (hoy = `false`).
-
-Cuando el dueño dé luz verde para abrir la IA a usuarios (planes de pago),
-implementar TODO esto junto (ya está diseñado y aprobado en concepto):
-
-1. **Reglas de Firestore** (`firestore.rules`): quitar `config_ia` y `ai_access`
-   de la regla comodín y bloquearlas:
-   - `config_ia/*`: lee cualquiera autenticado; **escribe solo admin**.
-   - `ai_access/*`: lee su dueño (`uid == token.workspace`) o admin; **escribe solo admin**.
-   - El resto de colecciones se listan explícitas (`allow read,write: if authed()`),
-     porque en Firestore "si alguna regla permite, se concede": una comodín abierta
-     anularía las restricciones de arriba.
-   - **Cada colección NUEVA que se agregue a la app hay que añadirle su línea aquí**,
-     o esa sección no podrá leer/escribir.
-
-2. **Cobro/enforcement en la Cloud Function** (server-side, a prueba de trampas):
-   agregar `cobrarUsoIA(req)` al inicio de `scanReceipt` y `analyzeRoofPlan`:
-   - admin → ilimitado (return).
-   - lee `ai_access/<uid>` (uid = `req.auth.token.workspace`), transacción:
-     verifica plan, recarga mensual leyendo `config_ia/planes`, rechaza si agotado
-     (`resource-exhausted`) o sin plan (`permission-denied`), y **descuenta 1 uso**.
-   - Motivo: como las reglas bloquean que el cliente escriba `ai_access`, el
-     descuento DEBE hacerse en el servidor.
-
-3. **Cliente**: `checkAIAccess` queda **solo lectura** (para mostrar el modal de
-   planes antes); quitar los `consumeAIUse` del cliente (ahora lo hace el servidor).
-   Poner `IA_HABILITADA_USUARIOS = true`. El QR de boletas sigue GRATIS para todos.
-
-4. **Operación**: desplegar con `firebase deploy --only hosting,functions,firestore:rules`
-   (NO subir el ZIP a mano: así no se aplican `firebase.json` ni las reglas).
-   Poner tope de gasto (Budget alert) en Google Cloud Billing.
+- Abierta a usuarios: `IA_HABILITADA_USUARIOS = true` (`src/lib/aiAccess.ts`).
+  En la interfaz NUNCA se muestra el proveedor ni el modelo.
+- Créditos: boleta sin QR = 1, plano a mano = 10 (`COSTO_CREDITOS`, igual en
+  `functions/index.js`). QR de boletas gratis. Planes: Gratis 15/mes, Maestro,
+  Taller Pro, Empresa (mensual o anual) + recargas que no vencen. Config en
+  `config_ia/planes` (`{planes, packs}`), editable en Configuración (admin).
+- Cobro en el servidor: `cobrarUsoIA(request, accion)` en `scanReceipt` y
+  `analyzeRoofPlan` (transacción en `ai_access/<workspace>`; recarga mensual,
+  vencimiento → Gratis; `resource-exhausted 'SIN_CREDITOS'`; devuelve los
+  créditos si la IA falla o no lee nada). El cliente solo lee el saldo.
+- Validar Compras: `ai_plan_<id>[__anual]` activa plan; `ai_creditos_<n>` suma recarga.
+- `firestore.rules`: sin comodín. `config_ia` escribe solo admin; `ai_access`
+  lee dueño/admin, escribe solo admin. **Cada colección NUEVA necesita su línea.**
+- Despliegue: `firebase deploy --only hosting,functions,firestore:rules`
+  (NO subir el ZIP a mano). Poner tope de gasto (Budget alert). Guía:
+  `docs/Guia_API_IA_y_App_Android.pdf`.
 
 ## Convenciones de atribución (git)
 - Commits terminan con las líneas Co-Authored-By / Claude-Session indicadas por la sesión.

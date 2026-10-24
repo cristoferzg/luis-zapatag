@@ -48,7 +48,7 @@ import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64 } from '../../lib/roofPlanScan';
-import { checkAIAccess, consumeAIUse, iaVisibleParaUI } from '../../lib/aiAccess';
+import { checkAIAccess, iaVisibleParaUI, motivoErrorIA, getAICtx } from '../../lib/aiAccess';
 import PlanesIAModal from '../PlanesIAModal';
 import { 
   getSegmentColorHex, 
@@ -134,7 +134,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Antes de abrir el selector de archivo, verifica el acceso a la IA (por plan).
   const handleIaButtonClick = async () => {
-    const acc = await checkAIAccess();
+    const acc = await checkAIAccess('croquis');
     if (!acc.ok) {
       // 'no_disponible' = IA aún no abierta a usuarios → no se ofrece plan.
       if (acc.motivo === 'agotado') setShowPlanesIA('agotado');
@@ -161,13 +161,18 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       } else {
         const { nodes: nN, segments: nS } = buildSceneFromPlan(plan, engineState.activeProfileId);
         engineState.loadScene(nN, nS, {});
-        try { await consumeAIUse(); } catch { /* no bloquear por el contador */ }
         setIaNotice(`✓ IA: ${nCols} columnas y ${nVig} barras (confianza ${plan.confianza}). ${plan.notas || ''} Revisa y ajusta con las herramientas.`);
       }
     } catch (err: any) {
       const code = String(err?.code || err?.message || '');
-      if (code.includes('failed-precondition')) {
-        setIaNotice('La lectura por IA aún no está activada. Configura la clave ANTHROPIC_API_KEY y despliega las funciones (firebase deploy --only functions). Mientras tanto, usa "Imagen ref." para calcar.');
+      const sinCreditos = motivoErrorIA(err);
+      if (sinCreditos) {
+        setShowPlanesIA(sinCreditos);
+        setIaNotice('No te alcanzan los créditos para leer el plano. Recarga créditos o sube de plan.');
+      } else if (code.includes('failed-precondition')) {
+        setIaNotice(getAICtx().isAdmin
+          ? 'La lectura por IA aún no está activada: falta configurar la clave del servicio y desplegar las funciones (ver la guía PDF). Mientras tanto, usa "Imagen ref." para calcar.'
+          : 'La lectura de planos no está disponible en este momento. Usa "Imagen ref." para calcar el plano.');
       } else if (code.includes('unauthenticated')) {
         setIaNotice('Inicia sesión para usar la lectura por IA.');
       } else if (code.includes('resource-exhausted')) {
