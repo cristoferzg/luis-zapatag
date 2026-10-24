@@ -5,9 +5,7 @@ import {
   Plus, 
   Trash2, 
   Edit, 
-  Save, 
   Globe, 
-  Check, 
   Users, 
   Search, 
   MessageCircle, 
@@ -16,12 +14,15 @@ import {
   KeyRound, 
   FolderOpen,
   Sparkles,
-  Sliders
+  Sliders,
+  Star,
+  GalleryHorizontal,
+  Paperclip
 } from 'lucide-react';
 import { SystemUser } from '../types';
 import { deleteRecord, useFirestoreArraySync, updateRecord } from '../lib/db';
-import { uploadFileToFirebaseStorage } from '../lib/storage';
-import { UploadProgressBar } from './common/UploadProgressBar';
+import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
+import SliderDestacados from './common/SliderDestacados';
 import { 
   getCompanyCurrency, 
   convertAmount, 
@@ -149,45 +150,10 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
   };
 
   // Admin CRUD states
-  const [isEditingId, setIsEditingId] = useState<string | null>(null);
-  const [formTitulo, setFormTitulo] = useState('');
-  const [formDescripcion, setFormDescripcion] = useState('');
-  const [formCategoria, setFormCategoria] = useState('');
-  const [formDescargaUrl, setFormDescargaUrl] = useState('');
-  const [formPrecio, setFormPrecio] = useState<number>(35);
-  const [formPrecioOriginal, setFormPrecioOriginal] = useState<number>(70);
-  const [formIsOferta, setFormIsOferta] = useState<boolean>(false);
-  const [formIsMasComprado, setFormIsMasComprado] = useState<boolean>(false);
-  const [formFileName, setFormFileName] = useState('');
-  const [formIsFree, setFormIsFree] = useState<boolean>(false);
-  const [formPreviewImageUrl, setFormPreviewImageUrl] = useState('');
-  const [formImageWidth, setFormImageWidth] = useState<number>(0);
-  const [formImageHeight, setFormImageHeight] = useState<number>(0);
-  const [formDiscountPercentage, setFormDiscountPercentage] = useState<number>(0);
-  const [formDiscountExpiryDate, setFormDiscountExpiryDate] = useState<string>('');
-
-  // Upload progress state for documents/PDFs
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [uploadStatusMsg, setUploadStatusMsg] = useState<string>('');
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadTotalBytes, setUploadTotalBytes] = useState<number>(0);
-  const [uploadBytesTransferred, setUploadBytesTransferred] = useState<number>(0);
-
-  // Upload progress state for preview images
-  const [isUploadingPreview, setIsUploadingPreview] = useState<boolean>(false);
-  const [previewUploadProgress, setPreviewUploadProgress] = useState<number>(0);
-  const [previewUploadStatusMsg, setPreviewUploadStatusMsg] = useState<string>('');
-  const [previewUploadError, setPreviewUploadError] = useState<string | null>(null);
-  const [previewTotalBytes, setPreviewTotalBytes] = useState<number>(0);
-  const [previewBytesTransferred, setPreviewBytesTransferred] = useState<number>(0);
-
-  // Local Blob URL PDF States
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
 
   const [itemToDelete, setItemToDelete] = useState<BibliotecaItem | null>(null);
-  const [formNotification, setFormNotification] = useState<string | null>(null);
   const [grantUserSearch, setGrantUserSearch] = useState('');
   const [activeManagerItemId, setActiveManagerItemId] = useState<string | null>(null);
   const activeManagerItem = items.find(i => i.id === activeManagerItemId) || null;
@@ -336,55 +302,6 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
     return matchesTab && matchesSearch && matchesCategory;
   });
 
-  // Handle direct file upload from device with Firebase Cloud Storage + Real Progress Bar + IndexedDB local fallback
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    setUploadProgress(10);
-    setUploadTotalBytes(file.size);
-    setUploadBytesTransferred(Math.round(file.size * 0.1));
-    setUploadStatusMsg('Iniciando subida a la nube...');
-    setUploadError(null);
-    setFormFileName(file.name);
-
-    try {
-      setUploadStatusMsg('Subiendo archivo a la nube...');
-      const cloudUrl = await uploadFileToFirebaseStorage(file, 'biblioteca', (percent, bytes) => {
-        setUploadProgress(percent);
-        setUploadBytesTransferred(bytes);
-      });
-      setFormDescargaUrl(cloudUrl);
-      setUploadProgress(100);
-      setUploadBytesTransferred(file.size);
-      setUploadStatusMsg('Documento guardado con éxito en la nube');
-      setFormNotification(`✓ Documento cargado exitosamente en la nube: ${file.name}`);
-    } catch (err: any) {
-      console.warn('Error al subir a Firebase Storage, ejecutando respaldo local:', err);
-      try {
-        setUploadStatusMsg('Guardando en almacenamiento local como respaldo...');
-        const reader = new FileReader();
-        const base64Url = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        setFormDescargaUrl(base64Url);
-        setUploadProgress(100);
-        setUploadBytesTransferred(file.size);
-        setUploadStatusMsg('Guardado localmente como respaldo');
-        setFormNotification(`✓ Guardado localmente (${file.name}).`);
-      } catch (localErr: any) {
-        setUploadError(err.message || 'Error al procesar el archivo');
-        setFormNotification('Error al cargar archivo: ' + (err.message || ''));
-      }
-    } finally {
-      setIsUploading(false);
-      e.target.value = '';
-    }
-  };
-
   // WhatsApp purchase helper
   const handlePurchaseRequest = (item: BibliotecaItem) => {
     const adminPhone = "+51966000500"; 
@@ -407,184 +324,72 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
     setPurchasingItem(null);
   };
 
-  // Save Item (Create or Edit)
-  const handleSaveItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formTitulo || !formCategoria) {
-      setFormNotification('Por favor ingresa el título y la categoría del recurso.');
-      return;
-    }
+  // Asistente de subida (crear / editar)
+  const [asistente, setAsistente] = useState<{ id: string | null; inicial: BorradorSubida } | null>(null);
 
-    const itemId = isEditingId || `bib_${Date.now()}`;
-    const rawDataUrl = formDescargaUrl.trim();
+  const abrirAsistente = async (item?: BibliotecaItem) => {
+    if (!item) { setAsistente({ id: null, inicial: borradorVacio({ isFree: false, precio: 35 }) }); return; }
+    const url = await resolveMediaUrl(item);
+    setAsistente({
+      id: item.id,
+      inicial: borradorVacio({
+        titulo: item.titulo, descripcion: item.descripcion, categoria: item.categoria,
+        portadaUrl: item.previewImageUrl || '', archivoUrl: url || '', archivoNombre: item.fileName || '',
+        adjuntos: item.adjuntos || [], isFree: !!item.isFree, precio: item.precioSoles || 0,
+        precioAntes: item.precioOriginalSoles || 0, descuentoPct: item.discountPercentage || 0,
+        descuentoHasta: (item.discountExpiryDate || '').slice(0, 16), destacado: !!item.isDestacado,
+        enSlider: !!item.enSlider, masComprado: !!item.isMasComprado,
+      }),
+    });
+  };
+  const handleStartEdit = (item: BibliotecaItem) => { abrirAsistente(item); };
 
-    let storedUrl = rawDataUrl;
-
-    if (rawDataUrl.length > 150000 || rawDataUrl.startsWith('data:')) {
-      await saveBibliotecaFile(itemId, rawDataUrl);
+  const guardarDesdeAsistente = async (b: BorradorSubida) => {
+    const editId = asistente?.id || null;
+    const itemId = editId || `bib_${Date.now()}`;
+    let storedUrl = b.archivoUrl.trim();
+    if (storedUrl.length > 150000 || storedUrl.startsWith('data:')) {
+      await saveBibliotecaFile(itemId, storedUrl);
       storedUrl = `indexeddb://${itemId}`;
     }
-
+    const previo = editId ? items.find(i => i.id === editId) : undefined;
     const itemData: BibliotecaItem = {
+      ...(previo || {}),
       id: itemId,
-      tipo: 'documento',
-      titulo: formTitulo.trim(),
-      descripcion: formDescripcion.trim(),
-      categoria: formCategoria.trim(),
-      isFree: formIsFree,
-      precioSoles: Number(formPrecio) || 0,
-      precioOriginalSoles: formIsOferta ? (Number(formPrecioOriginal) || Number(formPrecio) * 2) : undefined,
-      isOferta: formIsOferta,
-      isMasComprado: formIsMasComprado,
-      fileName: formFileName.trim() || 'documento_tecnico.pdf',
+      tipo: previo?.tipo || 'documento',
+      titulo: b.titulo.trim(),
+      descripcion: b.descripcion.trim(),
+      categoria: b.categoria.trim(),
+      isFree: b.isFree,
+      precioSoles: b.isFree ? 0 : Number(b.precio) || 0,
+      precioOriginalSoles: !b.isFree && b.precioAntes > b.precio ? b.precioAntes : undefined,
+      isOferta: !b.isFree && (b.precioAntes > b.precio || b.descuentoPct > 0),
+      isMasComprado: b.masComprado,
+      isDestacado: b.destacado,
+      enSlider: b.enSlider,
+      adjuntos: b.adjuntos,
+      fileName: b.archivoNombre.trim() || previo?.fileName || 'documento_tecnico.pdf',
       enlaceDescargaUrl: storedUrl,
-      previewImageUrl: formPreviewImageUrl,
-      imageWidth: formImageWidth || 0,
-      imageHeight: formImageHeight || 0,
-      discountPercentage: formDiscountPercentage || 0,
-      discountExpiryDate: formDiscountExpiryDate || '',
-      allowedUserIds: isEditingId ? (items.find(i => i.id === isEditingId)?.allowedUserIds || []) : []
+      previewImageUrl: b.portadaUrl,
+      imageWidth: 0,
+      imageHeight: 0,
+      discountPercentage: b.isFree ? 0 : b.descuentoPct || 0,
+      discountExpiryDate: b.descuentoPct && b.descuentoHasta ? new Date(b.descuentoHasta).toISOString() : '',
+      allowedUserIds: previo?.allowedUserIds || [],
     };
-
-    let updatedItems: BibliotecaItem[];
-    if (isEditingId) {
-      updatedItems = items.map(i => i.id === isEditingId ? itemData : i);
-      setIsEditingId(null);
-    } else {
-      updatedItems = [itemData, ...items];
-    }
-
+    // Firestore no acepta undefined.
+    Object.keys(itemData).forEach(k => (itemData as any)[k] === undefined && delete (itemData as any)[k]);
+    const updatedItems = editId ? items.map(i => i.id === editId ? itemData : i) : [itemData, ...items];
     setItems(updatedItems);
     await saveBibliotecaBackup(updatedItems);
-    resetForm();
+    setAsistente(null);
   };
 
-  const handlePreviewImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingPreview(true);
-    setPreviewUploadProgress(15);
-    setPreviewTotalBytes(file.size);
-    setPreviewBytesTransferred(Math.round(file.size * 0.15));
-    setPreviewUploadStatusMsg('Leyendo imagen...');
-    setPreviewUploadError(null);
-
-    try {
-      // 1. Read locally to detect natural dimensions and create immediate preview
-      const localDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      // Detect natural width and height
-      const img = new window.Image();
-      img.src = localDataUrl;
-      await new Promise<void>((resolve) => {
-        img.onload = () => {
-          if (!formImageWidth || formImageWidth === 0) {
-            setFormImageWidth(img.naturalWidth || 600);
-          }
-          if (!formImageHeight || formImageHeight === 0) {
-            setFormImageHeight(img.naturalHeight || 400);
-          }
-          resolve();
-        };
-        img.onerror = () => resolve();
-      });
-
-      setPreviewUploadProgress(40);
-      setPreviewUploadStatusMsg('Subiendo portada a la nube...');
-
-      try {
-        const cloudUrl = await uploadFileToFirebaseStorage(file, 'biblioteca_previews', (percent, bytes) => {
-          setPreviewUploadProgress(40 + Math.round(percent * 0.6));
-          setPreviewBytesTransferred(bytes);
-        });
-        setFormPreviewImageUrl(cloudUrl);
-        setPreviewUploadProgress(100);
-        setPreviewBytesTransferred(file.size);
-        setPreviewUploadStatusMsg('Imagen de portada lista');
-        setFormNotification('✓ Imagen de portada guardada en la nube');
-      } catch (cloudErr) {
-        setFormPreviewImageUrl(localDataUrl);
-        setPreviewUploadProgress(100);
-        setPreviewBytesTransferred(file.size);
-        setPreviewUploadStatusMsg('Imagen guardada localmente');
-        setFormNotification('✓ Imagen de portada guardada');
-      }
-    } catch (err: any) {
-      console.warn('Error subiendo imagen:', err);
-      try {
-        const reader = new FileReader();
-        const base64Url = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        setFormPreviewImageUrl(base64Url);
-        setPreviewUploadProgress(100);
-        setPreviewUploadStatusMsg('Imagen guardada localmente');
-        setFormNotification('✓ Imagen guardada');
-      } catch (fErr: any) {
-        setPreviewUploadError(err?.message || 'Error al procesar imagen');
-        setFormNotification('Error al procesar imagen: ' + (err?.message || ''));
-      }
-    } finally {
-      setIsUploadingPreview(false);
-      e.target.value = '';
-    }
-  };
-
-  const resetForm = () => {
-    setIsEditingId(null);
-    setFormTitulo('');
-    setFormDescripcion('');
-    setFormCategoria('');
-    setFormDescargaUrl('');
-    setFormPrecio(35);
-    setFormPrecioOriginal(70);
-    setFormIsOferta(false);
-    setFormIsMasComprado(false);
-    setFormFileName('');
-    setFormIsFree(false);
-    setFormNotification(null);
-    setFormPreviewImageUrl('');
-    setFormImageWidth(0);
-    setFormImageHeight(0);
-    setFormDiscountPercentage(0);
-    setFormDiscountExpiryDate('');
-    setUploadProgress(0);
-    setUploadError(null);
-    setUploadStatusMsg('');
-    setPreviewUploadProgress(0);
-    setPreviewUploadError(null);
-    setPreviewUploadStatusMsg('');
-  };
-
-  const handleStartEdit = async (item: BibliotecaItem) => {
-    setIsEditingId(item.id);
-    setFormTitulo(item.titulo);
-    setFormDescripcion(item.descripcion);
-    setFormCategoria(item.categoria);
-    
-    const mediaUrl = await resolveMediaUrl(item);
-    setFormDescargaUrl(mediaUrl || '');
-
-    setFormPrecio(item.precioSoles || 0);
-    setFormPrecioOriginal(item.precioOriginalSoles || (item.precioSoles ? item.precioSoles * 2 : 70));
-    setFormIsOferta(!!item.isOferta || !!item.precioOriginalSoles);
-    setFormIsMasComprado(!!item.isMasComprado);
-    setFormFileName(item.fileName || '');
-    setFormIsFree(!!item.isFree);
-    setFormPreviewImageUrl(item.previewImageUrl || '');
-    setFormImageWidth(item.imageWidth || 0);
-    setFormImageHeight(item.imageHeight || 0);
-    setFormDiscountPercentage(item.discountPercentage || 0);
-    setFormDiscountExpiryDate(item.discountExpiryDate || '');
-    setActiveTab('admin');
+  // Alternar ⭐ destacado / 🎞️ carrusel desde la tarjeta (admin).
+  const alternar = async (item: BibliotecaItem, campo: 'isDestacado' | 'enSlider') => {
+    const updated = items.map(i => i.id === item.id ? { ...i, [campo]: !i[campo] } : i);
+    setItems(updated);
+    await saveBibliotecaBackup(updated);
   };
 
   const confirmDeleteItem = async () => {
@@ -697,6 +502,31 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
 
       {activeTab !== 'admin' ? (
         <div className="space-y-4">
+          {/* CARRUSEL DE DESTACADOS */}
+          {(() => {
+            const enCarrusel = items.filter(i => i.enSlider);
+            return enCarrusel.length > 0 && (
+              <SliderDestacados laminas={enCarrusel.map(item => ({
+                id: item.id,
+                titulo: item.titulo,
+                descripcion: item.descripcion,
+                imagen: item.previewImageUrl,
+                etiqueta: item.isMasComprado ? 'Más comprado' : item.categoria,
+                gratis: !!item.isFree,
+                precio: item.precioSoles || 0,
+                precioAntes: item.precioOriginalSoles,
+                descuentoPct: item.discountPercentage,
+                descuentoHasta: item.discountExpiryDate,
+                textoBoton: hasAccess(item) ? 'Ver recurso' : 'Adquirir',
+                onAccion: async () => {
+                  if (hasAccess(item)) {
+                    const url = await resolveMediaUrl(item);
+                    setViewingItem({ ...item, enlaceDescargaUrl: url });
+                  } else handlePurchaseRequest(item);
+                },
+              }))} />
+            );
+          })()}
           {/* BARRA DE BÚSQUEDA Y FILTRADO RÁPIDO */}
           <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
@@ -812,8 +642,12 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                       {/* Título y Descripción */}
                       <div>
                         <h3 className="font-extrabold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                          {item.isDestacado && <Star className="w-3.5 h-3.5 text-amber-500 inline -mt-0.5 mr-1" fill="currentColor" />}
                           {item.titulo}
                         </h3>
+                        {(item.adjuntos?.length || 0) > 0 && (
+                          <p className="text-[10px] font-bold text-slate-500 mt-1 flex items-center gap-1"><Paperclip className="w-3 h-3" />{item.adjuntos!.length} archivo(s) adjunto(s)</p>
+                        )}
                         <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
                           {item.descripcion}
                         </p>
@@ -856,6 +690,20 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                       {isAdmin && (
                         <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 p-1 rounded-xl shrink-0">
                           <button
+                            onClick={() => alternar(item, 'isDestacado')}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-white ${item.isDestacado ? 'text-amber-500' : 'text-slate-400'}`}
+                            title={item.isDestacado ? 'Quitar de Destacados' : 'Marcar como Destacado'}
+                          >
+                            <Star className="w-3.5 h-3.5" fill={item.isDestacado ? 'currentColor' : 'none'} />
+                          </button>
+                          <button
+                            onClick={() => alternar(item, 'enSlider')}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-white ${item.enSlider ? 'text-indigo-600' : 'text-slate-400'}`}
+                            title={item.enSlider ? 'Quitar del carrusel' : 'Mostrar en el carrusel'}
+                          >
+                            <GalleryHorizontal className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => setActiveManagerItemId(item.id)}
                             className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-white rounded-lg transition-colors cursor-pointer"
                             title="Gestionar accesos de usuarios / PINs"
@@ -894,368 +742,21 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
       ) : (
         /* PANEL DE GESTIÓN ADMINISTRATIVA */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Formulario de Registro / Edición */}
-          <div className="lg:col-span-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <h2 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
-                <Plus className="w-4 h-4 text-emerald-600" />
-                {isEditingId ? 'Modificar Recurso' : 'Nuevo Recurso Técnico'}
-              </h2>
-              {isEditingId && (
-                <button 
-                  onClick={resetForm} 
-                  className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
-
-            <form onSubmit={handleSaveItem} className="space-y-3.5 text-xs">
-              {formNotification && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded-xl text-xs font-bold flex items-center justify-between gap-2">
-                  <span>{formNotification}</span>
-                  <button type="button" onClick={() => setFormNotification(null)} className="text-emerald-700">✕</button>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Título del Recurso</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Diseño Estructural de Tijerales y Fichas"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-slate-400"
-                  value={formTitulo}
-                  onChange={e => setFormTitulo(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Descripción</label>
-                <textarea
-                  placeholder="Detalles técnicos del plano, manual o cálculo..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 outline-none focus:border-slate-400 h-20 resize-none leading-relaxed"
-                  value={formDescripcion}
-                  onChange={e => setFormDescripcion(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1 flex items-center justify-between">
-                  <span>Categoría Técnica</span>
-                  <span className="text-[10px] text-indigo-600 font-bold lowercase font-sans">
-                    (selecciona una ficha o escribe)
-                  </span>
-                </label>
-                <div className="space-y-2 bg-slate-50/80 p-3 border border-slate-200 rounded-2xl">
-                  {/* Selector rápido por fichas / chips */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {allPresetCategories.map(cat => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setFormCategoria(cat)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                          formCategoria === cat 
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs scale-105' 
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Campo desplegable + entrada manual */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1 border-t border-slate-200/80">
-                    <select
-                      value={allPresetCategories.includes(formCategoria) ? formCategoria : '__custom'}
-                      onChange={e => {
-                        if (e.target.value !== '__custom') {
-                          setFormCategoria(e.target.value);
-                        }
-                      }}
-                      className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 cursor-pointer"
-                    >
-                      <option value="" disabled>-- Selecciona una categoría existente --</option>
-                      {allPresetCategories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      <option value="__custom">+ Escribir categoría personalizada...</option>
-                    </select>
-
-                    <input
-                      type="text"
-                      required
-                      placeholder="O escribe una categoría personalizada..."
-                      className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-                      value={formCategoria}
-                      onChange={e => setFormCategoria(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Subida Real de Documento con Barra de Progreso */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                  Subir Documento o Plano (PDF / DWG / ZIP / Imagen)
-                </label>
-                <div className="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-xl space-y-2">
-                  <input
-                    type="file"
-                    disabled={isUploading}
-                    accept="application/pdf,image/*,.dwg,.dxf,.zip"
-                    onChange={handleFileUpload}
-                    className="w-full text-xs text-slate-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer disabled:opacity-50"
-                  />
-                  {formFileName && !isUploading && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 font-bold mt-1">
-                      <Check className="w-3.5 h-3.5" />
-                      <span className="truncate">{formFileName}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Barra de Progreso en Tiempo Real */}
-                {isUploading && (
-                  <div className="mt-2.5">
-                    <UploadProgressBar 
-                      progress={uploadProgress}
-                      fileName={formFileName}
-                      fileSizeBytes={uploadTotalBytes}
-                      bytesTransferred={uploadBytesTransferred}
-                      statusMessage={uploadStatusMsg}
-                      isComplete={uploadProgress >= 100}
-                      isError={!!uploadError}
-                      errorMessage={uploadError || undefined}
-                      type="document"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Subida de Imagen de Portada con Dimensiones Adaptables */}
-              <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[10px] font-bold text-slate-700 uppercase">
-                    Imagen de Portada (Previsualización)
-                  </label>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    {formImageWidth && formImageHeight ? `${formImageWidth} × ${formImageHeight} px` : 'Tamaño auto'}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="file"
-                    onChange={handlePreviewImageUpload}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none cursor-pointer file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-100 file:text-slate-700"
-                    accept="image/*"
-                    disabled={isUploadingPreview}
-                  />
-                </div>
-
-                {/* Barra de Progreso para la Imagen */}
-                {isUploadingPreview && (
-                  <div className="mt-2">
-                    <UploadProgressBar 
-                      progress={previewUploadProgress}
-                      fileSizeBytes={previewTotalBytes}
-                      bytesTransferred={previewBytesTransferred}
-                      statusMessage={previewUploadStatusMsg}
-                      isComplete={previewUploadProgress >= 100}
-                      isError={!!previewUploadError}
-                      errorMessage={previewUploadError || undefined}
-                      type="image"
-                    />
-                  </div>
-                )}
-
-                {/* Controles de Dimensiones Adaptables en Píxeles */}
-                <div className="space-y-2 pt-1 border-t border-slate-200/70">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
-                      <Sliders className="w-3 h-3 text-indigo-600" />
-                      Dimensiones Adaptables de la Imagen (Píxeles)
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Ancho (px)</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          placeholder="Auto (100%)"
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400"
-                          value={formImageWidth || ''}
-                          onChange={e => setFormImageWidth(Number(e.target.value) || 0)}
-                        />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400">px</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-0.5">Alto (px)</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          placeholder="Auto (150px)"
-                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400"
-                          value={formImageHeight || ''}
-                          onChange={e => setFormImageHeight(Number(e.target.value) || 0)}
-                        />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono text-slate-400">px</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Botones de Ajuste Rápido de Tamaño */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => { setFormImageWidth(0); setFormImageHeight(0); }}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                        !formImageWidth && !formImageHeight 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Responsivo (100%)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setFormImageWidth(400); setFormImageHeight(225); }}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                        formImageWidth === 400 && formImageHeight === 225 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      16:9 (400 × 225 px)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setFormImageWidth(300); setFormImageHeight(300); }}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                        formImageWidth === 300 && formImageHeight === 300 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Cuadrado (300 × 300 px)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setFormImageWidth(280); setFormImageHeight(180); }}
-                      className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                        formImageWidth === 280 && formImageHeight === 180 
-                          ? 'bg-indigo-600 text-white border-indigo-600' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      Miniatura (280 × 180 px)
-                    </button>
-                  </div>
-
-                  {/* Vista Previa de la Imagen con su tamaño */}
-                  {formPreviewImageUrl && (
-                    <div className="mt-2 p-2 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center space-y-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider self-start">
-                        Previsualización con tamaño aplicado:
-                      </span>
-                      <div className="max-w-full overflow-hidden flex items-center justify-center bg-slate-50 rounded-lg p-1">
-                        <img 
-                          src={formPreviewImageUrl} 
-                          alt="Preview" 
-                          style={{
-                            width: formImageWidth && formImageWidth > 0 ? `${formImageWidth}px` : '100%',
-                            height: formImageHeight && formImageHeight > 0 ? `${formImageHeight}px` : '140px',
-                            maxWidth: '100%',
-                            maxHeight: '260px',
-                            objectFit: 'cover'
-                          }}
-                          className="rounded-lg shadow-2xs border border-slate-100" 
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Inversión (S/)</label>
-                  <input
-                    type="number"
-                    disabled={formIsFree}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none disabled:opacity-40"
-                    value={formIsFree ? 0 : formPrecio}
-                    onChange={e => setFormPrecio(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">% Descuento</label>
-                  <input
-                    type="number"
-                    disabled={formIsFree}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none disabled:opacity-40"
-                    value={formDiscountPercentage}
-                    onChange={e => setFormDiscountPercentage(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Fecha Expiración Descuento</label>
-                <input
-                  type="datetime-local"
-                  disabled={formIsFree}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none disabled:opacity-40"
-                  value={formDiscountExpiryDate}
-                  onChange={e => setFormDiscountExpiryDate(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col justify-end pb-1.5">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                    checked={formIsFree}
-                    onChange={e => {
-                      setFormIsFree(e.target.checked);
-                      if (e.target.checked) {
-                        setFormPrecio(0);
-                        setFormDiscountPercentage(0);
-                      }
-                    }}
-                  />
-                  <span className="font-bold text-slate-700 text-xs">Acceso Libre / Abierto</span>
-                </label>
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                {isEditingId && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="flex-1 py-2 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-all text-xs cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={isUploading}
-                  className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 shadow-2xs transition-all text-xs cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{isEditingId ? 'Guardar Cambios' : 'Registrar Recurso'}</span>
-                </button>
-              </div>
-            </form>
+          {/* Publicar nuevo recurso (asistente de 3 pasos) */}
+          <div className="lg:col-span-1 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3 self-start">
+            <h2 className="text-sm font-black text-slate-800 flex items-center gap-1.5">
+              <Plus className="w-4 h-4 text-emerald-600" />
+              Publicar recurso técnico
+            </h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Un asistente de 3 pasos: <b>qué es</b>, <b>archivos</b> (portada, documento y adjuntos) y <b>publicación</b> (precio, descuento, ⭐ destacado y carrusel). Ves la tarjeta tal como la verá el usuario.
+            </p>
+            <button
+              onClick={() => abrirAsistente()}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-4 h-4" /> Nuevo recurso
+            </button>
           </div>
 
           {/* Lista de Inventario y Accesos */}
@@ -1311,6 +812,17 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {asistente && (
+        <AsistenteSubida
+          modo="recurso"
+          editando={!!asistente.id}
+          inicial={asistente.inicial}
+          categorias={allPresetCategories}
+          onGuardar={guardarDesdeAsistente}
+          onCerrar={() => setAsistente(null)}
+        />
       )}
 
       {/* MODAL DE GESTIÓN DE ACCESOS Y PINS DE USUARIOS */}
@@ -1470,6 +982,19 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                 </button>
               </div>
             </div>
+            {(viewingItem.adjuntos?.length || 0) > 0 && (
+              <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50 flex gap-2 overflow-x-auto">
+                {viewingItem.adjuntos!.map((a, k) => (
+                  <a key={a.url + k} href={a.url} target="_blank" rel="noopener noreferrer" download={a.nombre}
+                    className="shrink-0 flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-1.5 pr-3 hover:border-indigo-300 max-w-[220px]">
+                    <span className="w-8 h-8 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center shrink-0">
+                      {a.tipo.startsWith('image/') ? <img src={a.url} alt="" className="w-full h-full object-cover" /> : <Paperclip className="w-4 h-4 text-slate-500" />}
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-700 truncate">{a.nombre}</span>
+                  </a>
+                ))}
+              </div>
+            )}
             <div className="flex-1 overflow-auto bg-slate-100 relative min-h-0 flex flex-col justify-center items-center w-full h-full">
               {isLoadingPdf ? (
                 <div className="p-6 text-center space-y-3">

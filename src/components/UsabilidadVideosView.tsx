@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Video, Play, Plus, Trash2, Edit2, Search, FolderPlus,
-  Lock, X, FileVideo, UploadCloud,
+  Lock, X, FileVideo,
   ShoppingCart, UserCheck, MessageCircle,
   AlertTriangle, Sliders, KeyRound, Sparkles, Users,
   Folder, ArrowLeft, GraduationCap, BookOpen, 
-  CheckCircle2, ListChecks, LayoutGrid, ChevronRight, ChevronLeft, Star, Check
+  CheckCircle2, ListChecks, LayoutGrid, ChevronRight, ChevronLeft, Star, Check, Paperclip, GalleryHorizontal
 } from 'lucide-react';
 import { useFirestoreArraySync, updateRecord, deleteRecord } from '../lib/db';
-import { uploadFileToFirebaseStorage } from '../lib/storage';
 import { safeStorage } from '../lib/storageManager';
-import { UploadProgressBar } from './common/UploadProgressBar';
+import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
+import SliderDestacados from './common/SliderDestacados';
 import { getCompanyCurrency, convertAmount, formatCurrencyWithSymbol } from '../lib/currency';
 
 export interface TutorialVideo {
@@ -28,6 +28,8 @@ export interface TutorialVideo {
   priceSoles?: number; // Soles price if paid
   allowedUserIds?: string[]; // IDs of employees who purchased this video/course
   isFeatured?: boolean; // Destacado
+  enSlider?: boolean; // aparece en el carrusel de arriba
+  adjuntos?: { nombre: string; url: string; tipo: string; tamano?: number }[]; // archivos e imágenes de la clase
 }
 
 const PRESET_VIDEO_CATEGORIES = [
@@ -49,6 +51,12 @@ export interface CourseCategory {
   priceSoles?: number; // Soles price if paid (precio GENERAL del curso)
   allowedUserIds?: string[]; // IDs de usuarios con acceso a TODO el curso (se habilita al validar la compra)
   isFeatured?: boolean; // Destacado
+  enSlider?: boolean; // aparece en el carrusel de arriba
+  portadaUrl?: string; // imagen de portada del curso
+  precioAntesSoles?: number; // precio tachado
+  discountPercentage?: number;
+  discountExpiryDate?: string; // ISO
+  adjuntos?: { nombre: string; url: string; tipo: string; tamano?: number }[]; // material del curso
 }
 
 export interface SystemUser {
@@ -109,7 +117,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
   // Active playing video modal (Floating Popup Player instead of permanent screen clutter)
   const [playingVideo, setPlayingVideo] = useState<TutorialVideo | null>(null);
-  const [playingLocalBlobUrl, setPlayingLocalBlobUrl] = useState<string | null>(null);
+  const [playingLocalBlobUrl] = useState<string | null>(null);
 
   // In-App Confirmation Modal for Deletion (No window.confirm!)
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -180,37 +188,6 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   // Admin user access manager modal
   const [showAccessManagerVideo, setShowAccessManagerVideo] = useState<TutorialVideo | null>(null);
 
-  // Modal State for Adding / Editing Video (Admin)
-  const [showModal, setShowModal] = useState(false);
-  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
-  const [videoSourceType, setVideoSourceType] = useState<'file' | 'link'>('file');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isProcessingUpload, setIsProcessingUpload] = useState(false);
-  const [videoFormError, setVideoFormError] = useState<string | null>(null);
-
-  // Real-time Upload Progress State
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadBytesTransferred, setUploadBytesTransferred] = useState(0);
-  const [uploadTotalBytes, setUploadTotalBytes] = useState(0);
-  const [uploadStatusMsg, setUploadStatusMsg] = useState('');
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // Modal State for Adding / Editing Course (Admin)
-  const [showCourseModal, setShowCourseModal] = useState(false);
-  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
-  const [courseFormError, setCourseFormError] = useState<string | null>(null);
-  const [courseFormData, setCourseFormData] = useState({
-    name: '',
-    description: '',
-    isFree: true,
-    priceSoles: 49.90,
-    isFeatured: false
-  });
-
-  // Thumbnail upload progress state
-  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
-  const [thumbnailUploadProgress, setThumbnailUploadProgress] = useState(0);
-
   // Navigation tabs: 'cursos' (Carpetas de Cursos), 'todos' (Todas las clases), 'ofertas' (De Pago / Destacadas), 'admin'
   const [activeTab, setActiveTab] = useState<'cursos' | 'todos' | 'ofertas' | 'admin'>('cursos');
   const [selectedCourseFolder, setSelectedCourseFolder] = useState<string | null>(null);
@@ -250,390 +227,138 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     ...activeVideos.map(v => v.category).filter(Boolean)
   ]));
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: '',
-    externalUrl: '',
-    thumbnailUrl: '',
-    imageWidth: 0,
-    imageHeight: 0,
-    isFree: true,
-    priceSoles: 39.90,
-    isFeatured: false
-  });
+  // Asistente de subida (cursos y clases)
+  const [asistente, setAsistente] = useState<{ modo: 'clase' | 'curso'; id: string | null; inicial: BorradorSubida } | null>(null);
 
-  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingThumbnail(true);
-    setThumbnailUploadProgress(20);
-
-    try {
-      const localDataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const img = new window.Image();
-      img.src = localDataUrl;
-      await new Promise<void>((resolve) => {
-        img.onload = () => {
-          if (!formData.imageWidth) {
-            setFormData(prev => ({ ...prev, imageWidth: img.naturalWidth || 400 }));
-          }
-          if (!formData.imageHeight) {
-            setFormData(prev => ({ ...prev, imageHeight: img.naturalHeight || 225 }));
-          }
-          resolve();
-        };
-        img.onerror = () => resolve();
-      });
-
-      setThumbnailUploadProgress(60);
-
-      try {
-        const cloudThumbUrl = await uploadFileToFirebaseStorage(file, 'thumbnails', (percent) => {
-          setThumbnailUploadProgress(60 + Math.round(percent * 0.4));
-        });
-        setFormData(prev => ({ ...prev, thumbnailUrl: cloudThumbUrl }));
-      } catch (cloudErr) {
-        setFormData(prev => ({ ...prev, thumbnailUrl: localDataUrl }));
-      }
-      setThumbnailUploadProgress(100);
-    } catch (err) {
-      console.warn('Error subiendo miniatura:', err);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setFormData(prev => ({ ...prev, thumbnailUrl: reader.result as string }));
-        setThumbnailUploadProgress(100);
-      };
-      reader.readAsDataURL(file);
-    } finally {
-      setIsUploadingThumbnail(false);
-      e.target.value = '';
-    }
-  };
-
-  // Automatically select the first category if none is set when opening modal
-  useEffect(() => {
-    if (cursosList.length > 0 && !formData.category) {
-      setFormData(prev => ({ ...prev, category: cursosList[0].name }));
-    }
-  }, [cursosList, formData.category]);
-
-  // Clear local blob url state as all videos are cloud-hosted
-  useEffect(() => {
-    setPlayingLocalBlobUrl(null);
-  }, [playingVideo]);
-
-  // Group videos by Course (from cursosList or dynamic categories)
-  const coursesMap: Record<string, TutorialVideo[]> = {};
-  
-  // 1. Initialize with all actual course categories
-  cursosList.forEach(c => {
-    coursesMap[c.name] = [];
-  });
-
-  // 2. Add videos to their categories
-  activeVideos.forEach(v => {
-    const cat = v.category || 'Otros';
-    if (!coursesMap[cat]) {
-      coursesMap[cat] = [];
-    }
-    coursesMap[cat].push(v);
-  });
-
-  // Handlers for Video / Lesson Modal
   const handleOpenAddModal = (defaultCategory?: string) => {
-    setEditingVideoId(null);
-    setSelectedFile(null);
-    setVideoSourceType('link');
-    setVideoFormError(null);
-    setUploadProgress(0);
-    setUploadError(null);
-    setFormData({
-      title: '',
-      description: '',
-      category: defaultCategory || selectedCourseFolder || cursosList[0]?.name || allPresetCategories[0] || 'Herrería',
-      externalUrl: '',
-      thumbnailUrl: '',
-      imageWidth: 0,
-      imageHeight: 0,
-      isFree: true,
-      priceSoles: 39.90,
-      isFeatured: false
-    });
-    setShowModal(true);
+    setAsistente({ modo: 'clase', id: null, inicial: borradorVacio({ categoria: defaultCategory || selectedCourseFolder || cursosList[0]?.name || '' }) });
   };
 
   const handleOpenEditModal = (video: TutorialVideo, e: React.MouseEvent) => {
     e.stopPropagation();
-    setEditingVideoId(video.id);
-    setSelectedFile(null);
-    setVideoFormError(null);
-    setUploadProgress(0);
-    setUploadError(null);
-    const isFileVideo = video.videoUrl.includes('firebasestorage') || video.videoUrl.startsWith('local-video-');
-    setVideoSourceType(isFileVideo ? 'file' : 'link');
-    setFormData({
-      title: video.title,
-      description: video.description,
-      category: video.category,
-      externalUrl: isFileVideo ? '' : video.videoUrl,
-      thumbnailUrl: video.thumbnailUrl || '',
-      imageWidth: video.imageWidth || 0,
-      imageHeight: video.imageHeight || 0,
-      isFree: video.isFree !== false,
-      priceSoles: video.priceSoles || 39.90,
-      isFeatured: !!video.isFeatured
+    const esArchivo = video.videoUrl.includes('firebasestorage') || video.videoUrl.startsWith('local-video-');
+    setAsistente({
+      modo: 'clase', id: video.id,
+      inicial: borradorVacio({
+        titulo: video.title, descripcion: video.description, categoria: video.category,
+        portadaUrl: video.thumbnailUrl || '', archivoUrl: esArchivo ? video.videoUrl : '', archivoNombre: esArchivo ? 'Video actual' : '',
+        enlaceVideo: esArchivo ? '' : video.videoUrl, adjuntos: video.adjuntos || [],
+        isFree: video.isFree !== false, precio: video.priceSoles || 0, destacado: !!video.isFeatured, enSlider: !!video.enSlider,
+      }),
     });
-    setShowModal(true);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      const lastDotIndex = file.name.lastIndexOf('.');
-      const autoTitle = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
-      const cleanTitle = autoTitle.replace(/[_-]/g, ' ');
-      setFormData(prev => ({
-        ...prev,
-        title: cleanTitle.charAt(0).toUpperCase() + cleanTitle.slice(1)
-      }));
-    }
-  };
-
-  const handleSubmitVideo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setVideoFormError(null);
-
-    if (!formData.title.trim()) {
-      setVideoFormError('Ingresa un título para la clase.');
-      return;
-    }
-
-    if (!formData.category.trim()) {
-      setVideoFormError('Selecciona o crea un curso para asignar la clase.');
-      return;
-    }
-
-    setIsProcessingUpload(true);
-    try {
-      let finalVideoUrl = '';
-
-      if (videoSourceType === 'file') {
-        if (selectedFile) {
-          setUploadProgress(5);
-          setUploadTotalBytes(selectedFile.size);
-          setUploadBytesTransferred(0);
-          setUploadStatusMsg('Iniciando subida a la nube...');
-          setUploadError(null);
-
-          try {
-            setUploadStatusMsg('Subiendo archivo de video a la nube...');
-            const uploadedUrl = await uploadFileToFirebaseStorage(
-              selectedFile,
-              'videos',
-              (percent, bytesTransferred, totalBytes) => {
-                setUploadProgress(percent);
-                setUploadBytesTransferred(bytesTransferred);
-                setUploadTotalBytes(totalBytes);
-                setUploadStatusMsg(`Subiendo a la nube... ${percent}%`);
-              }
-            );
-            finalVideoUrl = uploadedUrl;
-            setUploadProgress(100);
-          } catch (storageErr: any) {
-            console.error('Error al subir video a Firebase Storage:', storageErr);
-            setVideoFormError(`No se pudo subir a la nube: ${storageErr.message || 'Error de almacenamiento'}.`);
-            setIsProcessingUpload(false);
-            return;
-          }
-        } else {
-          if (editingVideoId) {
-            const existingVideo = activeVideos.find(v => v.id === editingVideoId);
-            finalVideoUrl = existingVideo ? existingVideo.videoUrl : '';
-          } else {
-            setVideoFormError('Por favor selecciona un archivo de video desde tu dispositivo.');
-            setIsProcessingUpload(false);
-            return;
-          }
-        }
-      } else {
-        if (!formData.externalUrl.trim()) {
-          setVideoFormError('Por favor añade un enlace de video (YouTube o MP4).');
-          setIsProcessingUpload(false);
-          return;
-        }
-        finalVideoUrl = formData.externalUrl.trim();
-      }
-
-      if (editingVideoId) {
-        const existingVideo = activeVideos.find(v => v.id === editingVideoId);
-        if (!existingVideo) return;
-
-        const updatedItem: TutorialVideo = {
-          ...existingVideo,
-          title: formData.title.trim(),
-          description: formData.description.trim(),
-          category: formData.category,
-          videoUrl: finalVideoUrl || existingVideo.videoUrl,
-          thumbnailUrl: formData.thumbnailUrl || undefined,
-          imageWidth: formData.imageWidth || undefined,
-          imageHeight: formData.imageHeight || undefined,
-          isFree: formData.isFree,
-          priceSoles: Number(formData.priceSoles) || 0,
-          isFeatured: formData.isFeatured
-        };
-
-        const updatedList = activeVideos.map(v => v.id === editingVideoId ? updatedItem : v);
-        updateVideos(updatedList);
-        await updateRecord('tutoriales', editingVideoId, updatedItem);
-
-        if (playingVideo?.id === editingVideoId) {
-          setPlayingVideo(updatedItem);
-        }
-      } else {
-        const newVideoId = 'tut-' + Date.now();
-        const newVideo: TutorialVideo = {
-          id: newVideoId,
-          title: formData.title.trim(),
-          description: formData.description.trim(),
-          category: formData.category,
-          videoUrl: finalVideoUrl,
-          thumbnailUrl: formData.thumbnailUrl || undefined,
-          imageWidth: formData.imageWidth || undefined,
-          imageHeight: formData.imageHeight || undefined,
-          isFree: formData.isFree,
-          priceSoles: Number(formData.priceSoles) || 0,
-          allowedUserIds: [],
-          isFeatured: formData.isFeatured,
-          createdAt: new Date().toISOString().split('T')[0]
-        };
-
-        const updatedList = [newVideo, ...activeVideos];
-        updateVideos(updatedList);
-        await updateRecord('tutoriales', newVideoId, newVideo);
-
-        // Ensure category is also recorded in cursos list if not already present
-        const categoryName = formData.category.trim();
-        const existsInCursos = cursosList.some(c => c.name.trim().toLowerCase() === categoryName.toLowerCase());
-        if (!existsInCursos && categoryName) {
-          const autoCourseId = 'course-' + Date.now();
-          const autoCourse: CourseCategory = {
-            id: autoCourseId,
-            name: categoryName,
-            description: '',
-            isFree: formData.isFree,
-            priceSoles: Number(formData.priceSoles) || 49.90,
-            createdAt: new Date().toISOString().split('T')[0]
-          };
-          await updateRecord('cursos', autoCourseId, autoCourse);
-          setCursosList(prev => [...prev, autoCourse]);
-        }
-      }
-
-      setShowModal(false);
-    } catch (err: any) {
-      console.error("Error saving video:", err);
-      setVideoFormError(err.message || 'Error al guardar la clase.');
-    } finally {
-      setIsProcessingUpload(false);
-    }
-  };
-
-  // Handlers for Course Categories
   const handleOpenAddCourseModal = () => {
-    setEditingCourseId(null);
-    setCourseFormError(null);
-    setCourseFormData({ name: '', description: '', isFree: true, priceSoles: 49.90, isFeatured: false });
-    setShowCourseModal(true);
+    setAsistente({ modo: 'curso', id: null, inicial: borradorVacio({ isFree: true, precio: 49.9 }) });
   };
 
   const handleOpenEditCourseModal = (course: CourseCategory, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setEditingCourseId(course.id);
-    setCourseFormError(null);
-    setCourseFormData({
-      name: course.name,
-      description: course.description || '',
-      isFree: course.isFree !== false,
-      priceSoles: course.priceSoles || 49.90,
-      isFeatured: !!course.isFeatured
+    setAsistente({
+      modo: 'curso', id: course.id,
+      inicial: borradorVacio({
+        titulo: course.name, descripcion: course.description || '', portadaUrl: course.portadaUrl || '',
+        adjuntos: course.adjuntos || [], isFree: course.isFree !== false, precio: course.priceSoles || 0,
+        precioAntes: course.precioAntesSoles || 0, descuentoPct: course.discountPercentage || 0,
+        descuentoHasta: (course.discountExpiryDate || '').slice(0, 16), destacado: !!course.isFeatured, enSlider: !!course.enSlider,
+      }),
     });
-    setShowCourseModal(true);
   };
 
-  const handleSaveCourse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCourseFormError(null);
+  // Firestore no acepta undefined.
+  const limpio = <T extends object>(o: T): T => {
+    Object.keys(o).forEach(k => (o as any)[k] === undefined && delete (o as any)[k]);
+    return o;
+  };
 
-    if (!courseFormData.name.trim()) {
-      setCourseFormError('El nombre del curso es obligatorio.');
+  const guardarClase = async (b: BorradorSubida, editId: string | null) => {
+    const videoUrl = b.enlaceVideo.trim() || b.archivoUrl;
+    const base = {
+      title: b.titulo.trim(),
+      description: b.descripcion.trim(),
+      category: b.categoria,
+      videoUrl,
+      thumbnailUrl: b.portadaUrl || undefined,
+      isFree: b.isFree,
+      priceSoles: b.isFree ? 0 : Number(b.precio) || 0,
+      isFeatured: b.destacado,
+      enSlider: b.enSlider,
+      adjuntos: b.adjuntos,
+    };
+    if (editId) {
+      const existing = activeVideos.find(v => v.id === editId);
+      if (!existing) return;
+      const updatedItem: TutorialVideo = limpio({ ...existing, ...base, videoUrl: videoUrl || existing.videoUrl });
+      updateVideos(activeVideos.map(v => v.id === editId ? updatedItem : v));
+      void updateRecord('tutoriales', editId, updatedItem);
+      if (playingVideo?.id === editId) setPlayingVideo(updatedItem);
       return;
     }
-
-    try {
-      if (editingCourseId) {
-        const existing = cursosList.find(c => c.id === editingCourseId);
-        if (!existing) return;
-
-        const oldName = existing.name;
-        const newName = courseFormData.name.trim();
-
-        const updatedCourse: CourseCategory = {
-          ...existing,
-          name: newName,
-          description: courseFormData.description.trim(),
-          isFree: courseFormData.isFree,
-          priceSoles: Number(courseFormData.priceSoles) || 0,
-          isFeatured: courseFormData.isFeatured
-        };
-        await updateRecord('cursos', editingCourseId, updatedCourse);
-        setCursosList(prev => prev.map(c => c.id === editingCourseId ? updatedCourse : c));
-
-        // Update all videos belonging to the old name to the new name
-        const updatedVideos = activeVideos.map(v => {
-          if (v.category === oldName) {
-            const updatedVideo = { ...v, category: newName };
-            updateRecord('tutoriales', v.id, updatedVideo);
-            return updatedVideo;
-          }
-          return v;
-        });
-        updateVideos(updatedVideos);
-
-        if (playingVideo && playingVideo.category === oldName) {
-          setPlayingVideo({ ...playingVideo, category: newName });
-        }
-      } else {
-        const newCourseId = 'course-' + Date.now();
-        const newCourse: CourseCategory = {
-          id: newCourseId,
-          name: courseFormData.name.trim(),
-          description: courseFormData.description.trim(),
-          isFree: courseFormData.isFree,
-          priceSoles: Number(courseFormData.priceSoles) || 0,
-          isFeatured: courseFormData.isFeatured,
-          createdAt: new Date().toISOString().split('T')[0]
-        };
-        await updateRecord('cursos', newCourseId, newCourse);
-        setCursosList(prev => [...prev, newCourse]);
-
-        // Automatically assign newly created course to the video form so there is zero confusion or bug
-        setFormData(prev => ({ ...prev, category: newCourse.name }));
-        setSelectedCourseFolder(newCourse.name);
-      }
-      setShowCourseModal(false);
-    } catch (err: any) {
-      console.error(err);
-      setCourseFormError(err.message || 'Error al guardar el curso.');
+    const newVideoId = 'tut-' + Date.now();
+    const newVideo: TutorialVideo = limpio({ id: newVideoId, ...base, allowedUserIds: [], createdAt: new Date().toISOString().split('T')[0] });
+    updateVideos([newVideo, ...activeVideos]);
+    void updateRecord('tutoriales', newVideoId, newVideo);
+    // Si el curso aún no existe como registro, se crea.
+    const categoryName = b.categoria.trim();
+    if (categoryName && !cursosList.some(c => c.name.trim().toLowerCase() === categoryName.toLowerCase())) {
+      const autoCourse: CourseCategory = { id: 'course-' + Date.now(), name: categoryName, description: '', isFree: b.isFree, priceSoles: Number(b.precio) || 49.90, createdAt: new Date().toISOString().split('T')[0] };
+      setCursosList(prev => [...prev, autoCourse]);
+      void updateRecord('cursos', autoCourse.id, autoCourse);
     }
+  };
+
+  const guardarCurso = async (b: BorradorSubida, editId: string | null) => {
+    const datos = {
+      name: b.titulo.trim(),
+      description: b.descripcion.trim(),
+      isFree: b.isFree,
+      priceSoles: b.isFree ? 0 : Number(b.precio) || 0,
+      precioAntesSoles: !b.isFree && b.precioAntes > b.precio ? b.precioAntes : undefined,
+      discountPercentage: b.isFree ? 0 : b.descuentoPct || 0,
+      discountExpiryDate: b.descuentoPct && b.descuentoHasta ? new Date(b.descuentoHasta).toISOString() : '',
+      isFeatured: b.destacado,
+      enSlider: b.enSlider,
+      portadaUrl: b.portadaUrl,
+      adjuntos: b.adjuntos,
+    };
+    if (editId) {
+      const existing = cursosList.find(c => c.id === editId);
+      if (!existing) return;
+      const oldName = existing.name;
+      const updatedCourse: CourseCategory = limpio({ ...existing, ...datos });
+      setCursosList(prev => prev.map(c => c.id === editId ? updatedCourse : c));
+      void updateRecord('cursos', editId, updatedCourse);
+      if (oldName !== datos.name) {
+        // Las clases del curso se mueven al nombre nuevo.
+        updateVideos(activeVideos.map(v => {
+          if (v.category !== oldName) return v;
+          const updatedVideo = { ...v, category: datos.name };
+          updateRecord('tutoriales', v.id, updatedVideo);
+          return updatedVideo;
+        }));
+        if (playingVideo && playingVideo.category === oldName) setPlayingVideo({ ...playingVideo, category: datos.name });
+        if (selectedCourseFolder === oldName) setSelectedCourseFolder(datos.name);
+      }
+      return;
+    }
+    const newCourse: CourseCategory = limpio({ id: 'course-' + Date.now(), ...datos, createdAt: new Date().toISOString().split('T')[0] });
+    setCursosList(prev => [...prev, newCourse]);
+    void updateRecord('cursos', newCourse.id, newCourse);
+    setSelectedCourseFolder(newCourse.name);
+  };
+
+  const guardarDesdeAsistente = async (b: BorradorSubida) => {
+    if (!asistente) return;
+    if (asistente.modo === 'clase') await guardarClase(b, asistente.id);
+    else await guardarCurso(b, asistente.id);
+    setAsistente(null);
+  };
+
+  // ⭐ destacado / 🎞️ carrusel en un toque (admin).
+  const alternarCurso = async (course: CourseCategory, campo: 'isFeatured' | 'enSlider') => {
+    const updated = { ...course, [campo]: !course[campo] };
+    setCursosList(prev => prev.map(c => c.id === course.id ? updated : c));
+    await updateRecord('cursos', course.id, updated);
   };
 
   // In-App Delete Execution (100% reliable, zero window.confirm reliance)
@@ -1190,6 +915,21 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     );
   };
 
+  // Archivos e imágenes adjuntas (curso o clase).
+  const listaAdjuntos = (lista: { nombre: string; url: string; tipo: string }[] | undefined, oscuro = false) => (lista?.length || 0) > 0 && (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {lista!.map((a, k) => (
+        <a key={a.url + k} href={a.url} target="_blank" rel="noopener noreferrer" download={a.nombre}
+          className={`shrink-0 flex items-center gap-2 rounded-xl p-1.5 pr-3 max-w-[220px] border ${oscuro ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-white border-slate-200 hover:border-indigo-300'}`}>
+          <span className={`w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center shrink-0 ${oscuro ? 'bg-white/10' : 'bg-slate-100'}`}>
+            {a.tipo.startsWith('image/') ? <img src={a.url} alt="" className="w-full h-full object-cover" /> : <Paperclip className={`w-4 h-4 ${oscuro ? 'text-slate-300' : 'text-slate-500'}`} />}
+          </span>
+          <span className={`text-[11px] font-bold truncate ${oscuro ? 'text-slate-200' : 'text-slate-700'}`}>{a.nombre}</span>
+        </a>
+      ))}
+    </div>
+  );
+
   return (
     <div className="w-full min-h-full space-y-6 pb-16 select-none max-w-6xl mx-auto px-3 sm:px-4">
       {/* HEADER COMPACTO Y CLARO (mismo estilo limpio de Recursos Técnicos) */}
@@ -1285,6 +1025,35 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
         </div>
       </header>
 
+      {/* CARRUSEL DE DESTACADOS */}
+      {activeTab !== 'admin' && !selectedCourseFolder && (() => {
+        const tieneCurso = (c: CourseCategory) => isAdmin || c.isFree !== false || (!!currentUser?.id && !!c.allowedUserIds?.includes(currentUser.id));
+        const laminas = [
+          ...cursosList.filter(c => c.enSlider).map(c => {
+            const clases = activeVideos.filter(v => (v.category || '').trim().toLowerCase() === c.name.trim().toLowerCase());
+            const acceso = tieneCurso(c);
+            return {
+              id: c.id, titulo: c.name, descripcion: c.description, imagen: c.portadaUrl,
+              etiqueta: `Curso · ${clases.length} ${clases.length === 1 ? 'lección' : 'lecciones'}`,
+              gratis: c.isFree !== false, precio: c.priceSoles || 0, precioAntes: c.precioAntesSoles,
+              descuentoPct: c.discountPercentage, descuentoHasta: c.discountExpiryDate,
+              textoBoton: acceso ? 'Ver curso' : 'Adquirir',
+              onAccion: () => {
+                if (!acceso && clases[0]) { setTargetPurchaseVideo(clases[0]); setShowPurchaseModal(true); }
+                else { setActiveTab('cursos'); setSelectedCourseFolder(c.name); }
+              },
+            };
+          }),
+          ...activeVideos.filter(v => v.enSlider).map(v => ({
+            id: v.id, titulo: v.title, descripcion: v.description, imagen: v.thumbnailUrl,
+            etiqueta: `Clase · ${v.category}`, gratis: v.isFree !== false && !isPaidCourseVideo(v), precio: getEffectivePrice(v),
+            textoBoton: hasAccessToVideo(v) ? 'Ver clase' : 'Adquirir',
+            onAccion: () => handlePlayVideoClick(v),
+          })),
+        ];
+        return laminas.length > 0 && <SliderDestacados laminas={laminas} />;
+      })()}
+
       {/* CONTENIDO PRINCIPAL: VISTA INTERIOR DE CARPETA O VISTAS POR PESTAÑAS */}
       {selectedCourseFolder && currentCourseObj ? (
         /* VISTA INTERIOR DEL CURSO SELECCIONADO (ESTILO UDEMY PRO) */
@@ -1361,6 +1130,8 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     </div>
                   )}
                 </div>
+
+                {listaAdjuntos(currentCourseObj.rawCourse?.adjuntos)}
 
                 {/* Progreso en el curso (línea sutil) */}
                 {currentCourseVideos.length > 0 && (
@@ -1691,6 +1462,11 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     onClick={() => setSelectedCourseFolder(course.name)}
                     className="bg-white rounded-3xl border border-slate-200 shadow-xs hover:shadow-xl hover:border-slate-400 transition-all duration-300 cursor-pointer group flex flex-col justify-between overflow-hidden relative"
                   >
+                    {course.rawCourse?.portadaUrl && (
+                      <div className="aspect-[16/7] bg-slate-100 overflow-hidden">
+                        <img src={course.rawCourse.portadaUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      </div>
+                    )}
                     {/* CABECERA CLARA Y COMPACTA DEL CURSO */}
                     <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
@@ -1786,6 +1562,24 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                             >
                               <Plus className="w-3.5 h-3.5" />
                             </button>
+                            {course.rawCourse && (
+                              <>
+                                <button
+                                  onClick={() => alternarCurso(course.rawCourse!, 'isFeatured')}
+                                  className={`p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-white ${course.isFeatured ? 'text-amber-500' : 'text-slate-400'}`}
+                                  title={course.isFeatured ? 'Quitar de Destacados' : 'Marcar como Destacado'}
+                                >
+                                  <Star className="w-3.5 h-3.5" fill={course.isFeatured ? 'currentColor' : 'none'} />
+                                </button>
+                                <button
+                                  onClick={() => alternarCurso(course.rawCourse!, 'enSlider')}
+                                  className={`p-1.5 rounded-lg transition-colors cursor-pointer hover:bg-white ${course.rawCourse.enSlider ? 'text-indigo-600' : 'text-slate-400'}`}
+                                  title={course.rawCourse.enSlider ? 'Quitar del carrusel' : 'Mostrar en el carrusel'}
+                                >
+                                  <GalleryHorizontal className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
                             {course.rawCourse && (
                               <button
                                 onClick={(e) => handleOpenEditCourseModal(course.rawCourse!, e)}
@@ -2068,6 +1862,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">
                     {playingVideo.description || 'Lección práctica filmada en taller con explicación técnica paso a paso.'}
                   </p>
+                  {listaAdjuntos(playingVideo.adjuntos, true)}
                   {playingVideo.createdAt && (
                     <p className="text-[10px] text-slate-500">
                       Fecha de publicación: {playingVideo.createdAt}
@@ -2175,571 +1970,15 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
         </div>
       )}
 
-      {/* MODAL CREAR / EDITAR CURSO (ADMIN) */}
-      {showCourseModal && (
-        <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
-                  <FolderPlus className="w-4 h-4" />
-                </div>
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight">
-                  {editingCourseId ? 'Editar Curso' : 'Crear Nuevo Curso'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowCourseModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveCourse} className="p-4 space-y-3.5">
-              {courseFormError && (
-                <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] font-bold text-rose-700">
-                  {courseFormError}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                  Nombre del Curso *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={courseFormData.name}
-                  onChange={(e) => setCourseFormData({ ...courseFormData, name: e.target.value })}
-                  placeholder="Ej: Techos Parabólicos Avanzados"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-slate-500 focus:bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                  Descripción Corta
-                </label>
-                <textarea
-                  rows={2}
-                  value={courseFormData.description}
-                  onChange={(e) => setCourseFormData({ ...courseFormData, description: e.target.value })}
-                  placeholder="Explica qué temas o técnicas se enseñarán..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 focus:bg-white resize-none"
-                />
-              </div>
-
-              {/* Modalidad de Acceso al Curso (Gratuito vs De Pago) */}
-              <div className="p-3 border border-slate-200 rounded-xl bg-slate-50/60 space-y-2.5">
-                <label className="block text-[10px] font-extrabold text-slate-800 uppercase">
-                  Modalidad de Acceso
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCourseFormData({ ...courseFormData, isFree: true })}
-                    className={`p-2 rounded-lg border text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      courseFormData.isFree
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-2xs'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>🟢 Gratuito</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCourseFormData({ ...courseFormData, isFree: false })}
-                    className={`p-2 rounded-lg border text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                      !courseFormData.isFree
-                        ? 'bg-rose-50 border-rose-500 text-rose-800 shadow-2xs'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>🔒 De Pago</span>
-                  </button>
-                </div>
-
-                {!courseFormData.isFree && (
-                  <div className="pt-1.5">
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                      Precio de Venta del Curso Completo (PEN S/.) *
-                    </label>
-                    <div className="relative rounded-lg shadow-2xs">
-                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
-                        S/.
-                      </div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required={!courseFormData.isFree}
-                        value={courseFormData.priceSoles}
-                        onChange={(e) => setCourseFormData({ ...courseFormData, priceSoles: Number(e.target.value) })}
-                        placeholder="Ej: 49.90"
-                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-slate-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Course featured toggle */}
-              <div className="p-3 border border-amber-200 rounded-xl bg-amber-50/50 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!courseFormData.isFeatured}
-                    onChange={(e) => setCourseFormData({ ...courseFormData, isFeatured: e.target.checked })}
-                    className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
-                  />
-                  <span className="text-xs font-black text-amber-900 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    ⭐ Marcar como Curso Destacado (Aparecerá en la pestaña Destacadas)
-                  </span>
-                </label>
-              </div>
-
-              <div className="pt-2.5 flex justify-end gap-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowCourseModal(false)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-xs font-black rounded-lg shadow-sm transition-all cursor-pointer"
-                >
-                  {editingCourseId ? 'Guardar Cambios' : 'Crear Curso'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL CREAR / EDITAR CLASE (ADMIN) */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
-                  <Video className="w-4 h-4" />
-                </div>
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight">
-                  {editingVideoId ? 'Editar Clase' : 'Agregar Nueva Clase'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitVideo} className="p-4 space-y-3.5 max-h-[75vh] overflow-y-auto">
-              {videoFormError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-bold">
-                  <p>{videoFormError}</p>
-                </div>
-              )}
-
-              {/* Source Type Selector */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-600 uppercase">
-                  Método de Publicación del Video
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setVideoSourceType('file')}
-                    className={`p-2.5 rounded-xl border text-[11px] font-extrabold transition-all cursor-pointer flex flex-col items-center gap-1 text-center ${
-                      videoSourceType === 'file'
-                        ? 'border-slate-600 bg-slate-50 text-slate-700 shadow-2xs ring-1 ring-slate-500'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                    }`}
-                  >
-                    <span>☁️ Subir Archivo</span>
-                    <span className="text-[9px] font-normal text-slate-500">Subir MP4 directo</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setVideoSourceType('link')}
-                    className={`p-2.5 rounded-xl border text-[11px] font-extrabold transition-all cursor-pointer flex flex-col items-center gap-1 text-center ${
-                      videoSourceType === 'link'
-                        ? 'border-slate-600 bg-slate-50 text-slate-700 shadow-2xs ring-1 ring-slate-500'
-                        : 'border-slate-200 hover:bg-slate-50 text-slate-600'
-                    }`}
-                  >
-                    <span>🔗 Pegar Enlace</span>
-                    <span className="text-[9px] font-normal text-slate-500">YouTube / URL</span>
-                  </button>
-                </div>
-              </div>
-
-              {videoSourceType === 'file' ? (
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase">
-                    Seleccionar Archivo de Video *
-                  </label>
-                  <div className="relative border-2 border-dashed border-slate-200 hover:border-slate-400 rounded-xl p-4 transition-all bg-slate-50/50 flex flex-col items-center justify-center text-center cursor-pointer group">
-                    <input
-                      type="file"
-                      required={!editingVideoId}
-                      accept="video/*"
-                      onChange={handleFileChange}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                    />
-                    <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-slate-500 transition-colors mb-1" />
-                    {selectedFile ? (
-                      <div>
-                        <p className="text-xs font-bold text-slate-600 line-clamp-1">{selectedFile.name}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">{(selectedFile.size / (1024 * 1024)).toFixed(1)} MB</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-xs font-extrabold text-slate-700">Haz clic para cargar video</p>
-                        <p className="text-[10px] text-slate-400">MP4, WebM, MOV a la nube</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                    Enlace / URL de Video (YouTube o MP4 directo) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.externalUrl}
-                    onChange={(e) => setFormData({ ...formData, externalUrl: e.target.value })}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                  Título de la Clase *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Ej: Paso 1: Cálculo de tijerales en acero"
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500"
-                />
-              </div>
-
-              {/* Course & Category Selector with Preset Chips */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[10px] font-bold text-slate-600 uppercase">
-                    Curso / Categoría al que pertenece *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleOpenAddCourseModal}
-                    className="text-[10px] font-extrabold text-slate-600 hover:text-slate-800 transition-colors cursor-pointer"
-                  >
-                    + Crear Curso Nuevo
-                  </button>
-                </div>
-
-                <div className="space-y-2 bg-slate-50/80 p-2.5 border border-slate-200 rounded-xl">
-                  {/* Selector por chips */}
-                  <div className="flex flex-wrap gap-1">
-                    {allPresetCategories.map(cat => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, category: cat })}
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
-                          formData.category === cat 
-                            ? 'bg-slate-600 text-white border-slate-600 shadow-2xs scale-105' 
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Dropdown y texto libre */}
-                  <div className="flex flex-col sm:flex-row gap-1.5 pt-1 border-t border-slate-200/70">
-                    <select
-                      value={allPresetCategories.includes(formData.category) ? formData.category : '__custom'}
-                      onChange={(e) => {
-                        if (e.target.value !== '__custom') {
-                          setFormData({ ...formData, category: e.target.value });
-                        }
-                      }}
-                      className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer"
-                    >
-                      <option value="" disabled>-- Selecciona un curso/categoría --</option>
-                      {allPresetCategories.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                      <option value="__custom">+ Escribir categoría personalizada...</option>
-                    </select>
-
-                    <input
-                      type="text"
-                      placeholder="O escribe nueva categoría..."
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-slate-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Cargar Miniatura / Imagen de Portada (Opcional) */}
-              <div className="p-3 bg-slate-50/80 border border-slate-200 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[10px] font-bold text-slate-700 uppercase">
-                    Imagen de Portada / Miniatura (Opcional)
-                  </label>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    {formData.imageWidth && formData.imageHeight ? `${formData.imageWidth} × ${formData.imageHeight} px` : 'Auto'}
-                  </span>
-                </div>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleThumbnailUpload}
-                  disabled={isUploadingThumbnail}
-                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 outline-none cursor-pointer file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-bold file:bg-slate-50 file:text-slate-700"
-                />
-
-                {isUploadingThumbnail && (
-                  <div className="mt-1">
-                    <UploadProgressBar 
-                      progress={thumbnailUploadProgress}
-                      statusMessage="Subiendo miniatura a la nube..."
-                      isComplete={thumbnailUploadProgress >= 100}
-                      type="image"
-                    />
-                  </div>
-                )}
-
-                {/* Controles de Dimensiones en Píxeles */}
-                <div className="space-y-1.5 pt-1 border-t border-slate-200/80">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Ancho (px)</label>
-                      <input
-                        type="number"
-                        placeholder="Auto (100%)"
-                        value={formData.imageWidth || ''}
-                        onChange={(e) => setFormData({ ...formData, imageWidth: Number(e.target.value) || 0 })}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Alto (px)</label>
-                      <input
-                        type="number"
-                        placeholder="Auto (225px)"
-                        value={formData.imageHeight || ''}
-                        onChange={(e) => setFormData({ ...formData, imageHeight: Number(e.target.value) || 0 })}
-                        className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Presets de Tamaño */}
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, imageWidth: 0, imageHeight: 0 })}
-                      className={`px-2 py-0.5 rounded-md text-[9px] font-bold border cursor-pointer ${
-                        !formData.imageWidth && !formData.imageHeight 
-                          ? 'bg-slate-600 text-white border-slate-600' 
-                          : 'bg-white text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      100% Responsivo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, imageWidth: 400, imageHeight: 225 })}
-                      className={`px-2 py-0.5 rounded-md text-[9px] font-bold border cursor-pointer ${
-                        formData.imageWidth === 400 && formData.imageHeight === 225 
-                          ? 'bg-slate-600 text-white border-slate-600' 
-                          : 'bg-white text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      16:9 (400×225 px)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, imageWidth: 280, imageHeight: 180 })}
-                      className={`px-2 py-0.5 rounded-md text-[9px] font-bold border cursor-pointer ${
-                        formData.imageWidth === 280 && formData.imageHeight === 180 
-                          ? 'bg-slate-600 text-white border-slate-600' 
-                          : 'bg-white text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      Miniatura (280×180 px)
-                    </button>
-                  </div>
-
-                  {/* Vista previa de miniatura */}
-                  {formData.thumbnailUrl && (
-                    <div className="mt-1.5 p-1.5 bg-white rounded-lg border border-slate-200 flex flex-col items-center">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase self-start mb-1">Previsualización de Portada:</span>
-                      <div className="max-w-full overflow-hidden flex items-center justify-center bg-slate-900 rounded-md p-0.5">
-                        <img 
-                          src={formData.thumbnailUrl} 
-                          alt="Preview" 
-                          style={{
-                            width: formData.imageWidth && formData.imageWidth > 0 ? `${formData.imageWidth}px` : '100%',
-                            height: formData.imageHeight && formData.imageHeight > 0 ? `${formData.imageHeight}px` : '120px',
-                            maxWidth: '100%',
-                            maxHeight: '180px',
-                            objectFit: 'cover'
-                          }}
-                          className="rounded-md shadow-2xs" 
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Individual lesson pricing override */}
-              <div className="p-3 border border-slate-200 rounded-xl bg-slate-50/50 space-y-2">
-                <label className="block text-[10px] font-extrabold text-slate-800 uppercase">
-                  Acceso a esta clase específica
-                </label>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="isFree"
-                      checked={formData.isFree}
-                      onChange={() => setFormData({ ...formData, isFree: true })}
-                      className="w-3.5 h-3.5 text-slate-600"
-                    />
-                    <span>Gratuita</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="isFree"
-                      checked={!formData.isFree}
-                      onChange={() => setFormData({ ...formData, isFree: false })}
-                      className="w-3.5 h-3.5 text-slate-600"
-                    />
-                    <span>De Pago Individual</span>
-                  </label>
-                </div>
-
-                {!formData.isFree && (
-                  <div className="pt-1">
-                    <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                      Precio Individual (PEN S/.)
-                    </label>
-                    <div className="relative rounded-lg shadow-2xs">
-                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
-                        S/.
-                      </div>
-                      <input
-                        type="number"
-                        step="0.01"
-                        required={!formData.isFree}
-                        value={formData.priceSoles}
-                        onChange={(e) => setFormData({ ...formData, priceSoles: Number(e.target.value) })}
-                        placeholder="Ej: 39.90"
-                        className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-slate-500"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Video featured toggle */}
-              <div className="p-3 border border-amber-200 rounded-xl bg-amber-50/50 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={!!formData.isFeatured}
-                    onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })}
-                    className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
-                  />
-                  <span className="text-xs font-black text-amber-900 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    ⭐ Marcar como Clase / Video Destacado (Aparecerá en la pestaña Destacadas)
-                  </span>
-                </label>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">
-                  Descripción Corta
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Detalles sobre lo que se explica en esta lección..."
-                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 resize-none"
-                />
-              </div>
-
-              {/* Real-time Progress Bar for Video Upload */}
-              {isProcessingUpload && videoSourceType === 'file' && (
-                <div className="pt-2">
-                  <UploadProgressBar
-                    progress={uploadProgress}
-                    fileName={selectedFile?.name}
-                    fileSizeBytes={uploadTotalBytes || selectedFile?.size}
-                    bytesTransferred={uploadBytesTransferred}
-                    statusMessage={uploadStatusMsg}
-                    isComplete={uploadProgress >= 100}
-                    isError={!!uploadError}
-                    errorMessage={uploadError || undefined}
-                    type="video"
-                  />
-                </div>
-              )}
-
-              <div className="pt-2.5 flex justify-end gap-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  disabled={isProcessingUpload}
-                  onClick={() => setShowModal(false)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isProcessingUpload}
-                  className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-xs font-extrabold rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {isProcessingUpload ? (
-                    <>
-                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Guardando...</span>
-                    </>
-                  ) : (
-                    <span>{editingVideoId ? 'Guardar Cambios' : 'Publicar Clase'}</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {asistente && (
+        <AsistenteSubida
+          modo={asistente.modo}
+          editando={!!asistente.id}
+          inicial={asistente.inicial}
+          categorias={asistente.modo === 'clase' ? allCourseItems.map(c => c.name) : []}
+          onGuardar={guardarDesdeAsistente}
+          onCerrar={() => setAsistente(null)}
+        />
       )}
 
       {/* MODAL ADQUIRIR CURSO / CLASE POR WHATSAPP */}
