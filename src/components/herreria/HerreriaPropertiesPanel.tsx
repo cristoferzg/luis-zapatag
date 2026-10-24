@@ -1,5 +1,6 @@
 // Panel Inspector de Propiedades Paramétricas de HERRERÍA
 // Edición en tiempo real de piezas CAD individuales (PiezaCad), accesorios (AccesorioCad) y modelo global
+import { fijarPrecio } from '../../lib/catalogoPrecios';
 import React, { useEffect } from 'react';
 import {
   Trash2,
@@ -687,7 +688,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
               type="number"
               step="0.50"
               value={accesorioSeleccionado.precioUnitario || 0}
-              onChange={e => updateAccesorio({ precioUnitario: parseFloat(e.target.value) || 0 })}
+              onChange={e => { const v = parseFloat(e.target.value) || 0; updateAccesorio({ precioUnitario: v }); fijarPrecio(`carpicad:${accesorioSeleccionado.tipo}`, v, 'CarpiMetal'); }}
               className="w-full bg-white border border-slate-300 rounded-lg p-2 font-mono text-xs text-emerald-700 font-bold"
             />
           </div>

@@ -6,7 +6,8 @@
 import React from 'react';
 import { DollarSign, Plus, Trash2, RotateCcw, Package, HardHat, Truck, Percent } from 'lucide-react';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR, SOLDADURA_AWS_E6011 } from './techosCadCatalog';
-import { useCostosTechos, guardarCostosTechos, totalCuadrilla, totalOperativos, CostosTechos } from './costosTechos';
+import { useCostosTechos, guardarCostosTechos, totalCuadrilla, totalOperativos, CostosTechos, jornalDe } from './costosTechos';
+import { useCatalogo, precio, fijarPrecio, quitarPrecio, tienePrecioPropio, clavePerfil, claveCobertura, claveJornal } from '../../lib/catalogoPrecios';
 
 interface TechosCostosViewProps {
   design?: any;
@@ -41,14 +42,17 @@ function Modo({ valor, onChange }: { valor: 'porcentaje' | 'detalle'; onChange: 
 
 export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) => {
   const c = useCostosTechos();
+  useCatalogo(); // se redibuja al cambiar un precio del catálogo único
   const set = (p: Partial<CostosTechos>) => guardarCostosTechos(p);
   const bom = design && typeof design.precioVentaFinalSoles === 'number' ? design : null;
   const perfiles: any[] = bom?.despiecePerfiles || [];
   const coberturas: any[] = bom?.resumenCoberturas || [];
 
-  const precioPerfil = (id: string) => c.precioPerfil[id] ?? INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)?.costoMetroSol ?? 0;
-  const precioCob = (id: string) => c.precioCobertura[id] ?? INVENTARIO_COBERTURAS.find(p => p.id === id)?.costoM2Sol ?? 0;
-  const quitar = (obj: Record<string, number>, k: string) => { const o = { ...obj }; delete o[k]; return o; };
+  // Precios del catálogo único: perfiles por barra, cobertura por m².
+  const clavePf = (id: string) => { const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id); return p ? clavePerfil(p.categoria, p.anchoMm, p.altoMm, p.espesorMm) : `perfil:${id}`; };
+  const largoPf = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id)?.longitudComercialM || 6;
+  const precioBarra = (id: string) => precio(clavePf(id), (INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)?.costoMetroSol || 0) * largoPf(id));
+  const precioCob = (id: string) => precio(claveCobertura(id), INVENTARIO_COBERTURAS.find(p => p.id === id)?.costoM2Sol ?? 0);
 
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-3 sm:p-6 overflow-y-auto space-y-4 font-sans">
@@ -68,21 +72,22 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
 
       {/* 1. MATERIALES */}
       <Seccion icono={<Package className="w-4 h-4 text-amber-600" />} titulo="1. Materiales (precios de tu proveedor)" total={bom?.costoDirectoMaterialesSoles}>
+        <p className="text-[11px] text-slate-500">Estos precios son los del <b>Catálogo de precios</b> (menú Precios): si los cambias aquí, cambian también en CarpiMetal y Obra Civil.</p>
         {perfiles.length === 0 && coberturas.length === 0 && <p className="text-xs text-slate-400">Diseña o carga un techo en "1. Diseño CAD" para ver sus materiales.</p>}
         {perfiles.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[520px]">
-              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Perfil</th><th className="text-right">Metros (barras 6 m)</th><th className="text-right w-32">Precio S/ por metro</th><th className="text-right">Subtotal</th><th /></tr></thead>
+              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Perfil</th><th className="text-right">Barras a comprar</th><th className="text-right w-32">Precio S/ por barra</th><th className="text-right">Subtotal</th><th /></tr></thead>
               <tbody>
                 {perfiles.map(p => {
-                  const editado = c.precioPerfil[p.profileId] !== undefined;
+                  const editado = tienePrecioPropio(clavePf(p.profileId));
                   return (
                     <tr key={p.profileId} className="border-t border-slate-100">
                       <td className="py-1.5 pr-2 font-bold text-slate-700">{p.nombrePerfil}</td>
-                      <td className="text-right font-mono text-slate-500">{p.totalMetrosComprados6mM} m · {p.totalBarrasComerciales6m} br</td>
-                      <td className="pl-2"><input type="number" step="0.1" value={precioPerfil(p.profileId)} onChange={e => set({ precioPerfil: { ...c.precioPerfil, [p.profileId]: num(e.target.value) } })} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} /></td>
+                      <td className="text-right font-mono text-slate-500">{p.totalBarrasComerciales6m} barras de {largoPf(p.profileId)} m</td>
+                      <td className="pl-2"><input type="number" step="0.5" value={precioBarra(p.profileId)} onChange={e => fijarPrecio(clavePf(p.profileId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} /></td>
                       <td className="text-right font-mono font-bold">{S(p.totalCostoSoles)}</td>
-                      <td className="text-right">{editado && <button title="Volver al precio de catálogo" onClick={() => set({ precioPerfil: quitar(c.precioPerfil, p.profileId) })} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}</td>
+                      <td className="text-right">{editado && <button title="Volver al precio de referencia" onClick={() => quitarPrecio(clavePf(p.profileId))} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}</td>
                     </tr>
                   );
                 })}
@@ -97,14 +102,14 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
               <tbody>
                 {[...new Map(coberturas.map(z => [z.coberturaMaterialId, z])).values()].map(z => {
                   const filas = coberturas.filter(x => x.coberturaMaterialId === z.coberturaMaterialId);
-                  const editado = c.precioCobertura[z.coberturaMaterialId] !== undefined;
+                  const editado = tienePrecioPropio(claveCobertura(z.coberturaMaterialId));
                   return (
                     <tr key={z.coberturaMaterialId} className="border-t border-slate-100">
                       <td className="py-1.5 pr-2 font-bold text-slate-700">{z.nombreCobertura}</td>
                       <td className="text-right font-mono text-slate-500">{filas.reduce((s, x) => s + x.areaEfectivaCalculadaM2, 0).toFixed(2)} m²</td>
-                      <td className="pl-2"><input type="number" step="0.1" value={precioCob(z.coberturaMaterialId)} onChange={e => set({ precioCobertura: { ...c.precioCobertura, [z.coberturaMaterialId]: num(e.target.value) } })} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} /></td>
+                      <td className="pl-2"><input type="number" step="0.1" value={precioCob(z.coberturaMaterialId)} onChange={e => fijarPrecio(claveCobertura(z.coberturaMaterialId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} /></td>
                       <td className="text-right font-mono font-bold">{S(filas.reduce((s, x) => s + x.costoTotalCoberturaSoles, 0))}</td>
-                      <td className="text-right">{editado && <button title="Volver al precio de catálogo" onClick={() => set({ precioCobertura: quitar(c.precioCobertura, z.coberturaMaterialId) })} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}</td>
+                      <td className="text-right">{editado && <button title="Volver al precio de catálogo" onClick={() => quitarPrecio(claveCobertura(z.coberturaMaterialId))} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}</td>
                     </tr>
                   );
                 })}
@@ -114,13 +119,13 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([
-            ['placaBase', `Placa base (S/ c/u) · ${bom?.placasBaseTotalesUnids ?? 0} u`, PLACA_BASE_ESTANDAR.costoUnidadSol],
-            ['pernoAnclajeCaja', 'Pernos de anclaje (S/ caja ×100)', PERNO_ANCLAJE_J.costoCaja100Sol],
-            ['pernoEpdmCaja', `Pernos EPDM (S/ caja ×100) · ${bom?.cajasPernosEpdmTotales ?? 0} cj`, PERNO_EPDM_ESTANDAR.costoCaja100Sol],
-            ['soldaduraKg', `Soldadura (S/ kg) · ${bom?.kgSoldaduraAwsEstimados ?? 0} kg`, SOLDADURA_AWS_E6011.costoKgSol],
-          ] as [keyof CostosTechos, string, number][]).map(([k, l, def]) => (
+            ['techos:placa_base', `Placa base (S/ c/u) · ${bom?.placasBaseTotalesUnids ?? 0} u`, PLACA_BASE_ESTANDAR.costoUnidadSol],
+            ['techos:perno_anclaje', 'Pernos de anclaje (S/ caja ×100)', PERNO_ANCLAJE_J.costoCaja100Sol],
+            ['techos:perno_epdm', `Pernos EPDM (S/ caja ×100) · ${bom?.cajasPernosEpdmTotales ?? 0} cj`, PERNO_EPDM_ESTANDAR.costoCaja100Sol],
+            ['soldadura:kg', `Soldadura (S/ kg) · ${bom?.kgSoldaduraAwsEstimados ?? 0} kg`, SOLDADURA_AWS_E6011.costoKgSol],
+          ] as [string, string, number][]).map(([k, l, def]) => (
             <label key={k} className="text-[10px] font-bold text-slate-500">{l}
-              <input type="number" step="0.1" value={(c[k] as number | undefined) ?? def} onChange={e => set({ [k]: num(e.target.value) } as Partial<CostosTechos>)} className={`${inp} mt-0.5`} />
+              <input type="number" step="0.1" value={precio(k, def)} onChange={e => fijarPrecio(k, num(e.target.value), 'Techos')} className={`${inp} mt-0.5`} />
             </label>
           ))}
         </div>
@@ -144,9 +149,9 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
                     <tr key={f.id} className="border-t border-slate-100">
                       <td className="py-1 pr-2"><input value={f.cargo} onChange={e => up({ cargo: e.target.value })} className={`${inp} font-sans font-bold`} /></td>
                       <td className="pr-1"><input type="number" value={f.cantidad} onChange={e => up({ cantidad: num(e.target.value) })} className={inp} /></td>
-                      <td className="pr-1"><input type="number" value={f.jornal} onChange={e => up({ jornal: num(e.target.value) })} className={inp} /></td>
+                      <td className="pr-1"><input type="number" value={jornalDe(f)} onChange={e => { up({ jornal: num(e.target.value) }); fijarPrecio(claveJornal(f.cargo), num(e.target.value), 'Techos'); }} className={inp} title="Se guarda en el Catálogo de precios para este cargo" /></td>
                       <td className="pr-1"><input type="number" value={f.dias} onChange={e => up({ dias: num(e.target.value) })} className={inp} /></td>
-                      <td className="text-right font-mono font-bold">{S(f.cantidad * f.jornal * f.dias)}</td>
+                      <td className="text-right font-mono font-bold">{S(f.cantidad * jornalDe(f) * f.dias)}</td>
                       <td className="text-right"><button onClick={() => set({ cuadrilla: c.cuadrilla.filter(x => x.id !== f.id) })} className="p-1 text-rose-400 hover:text-rose-600 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button></td>
                     </tr>
                   );

@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import CatalogoPreciosView from './components/CatalogoPreciosView';
+import { useCatalogo, migrarPreciosAntiguos, hidratarCatalogo, EstadoCatalogo } from './lib/catalogoPrecios';
+import { INVENTARIO_PERFILES_TUBULARES } from './components/techos/techosCadCatalog';
+import { EmpresaProvider, datosDesdeSettings, settingsDesdeDatos, DatosEmpresa } from './lib/empresa';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Briefcase, Calculator, Users, DollarSign, Activity, 
   Settings, AlertCircle, TrendingUp, TrendingDown, Home, CreditCard, Menu, Plus, 
@@ -32,7 +36,6 @@ import ContratosYEPPView from './components/ContratosYEPPView';
 import ProyectosYClientesView from './components/ProyectosYClientesView';
 import PersonalYAsistenciaView from './components/PersonalYAsistenciaView';
 import UsabilidadVideosView, { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
-import { PreciosView } from './components/PreciosView';
 import ConcretoMetradosView from './components/ConcretoMetradosView';
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
@@ -1582,6 +1585,32 @@ export default function App() {
     theme: 'light'
   };
 
+  // Datos de la empresa para cotizaciones y planos (se editan también desde el documento).
+  const empresaCtx = useMemo(() => ({
+    datos: datosDesdeSettings(currentSettings),
+    guardar: (p: Partial<DatosEmpresa>) => setSettings(prev => {
+      const actual = prev.find(s => s.id === mySettingsId || s.userId === activeUid) || currentSettings;
+      const nuevo = { ...actual, ...settingsDesdeDatos(p), id: (actual as any).id || mySettingsId, userId: activeUid || 'guest' } as SystemConfig;
+      return prev.some(s => s.id === nuevo.id) ? prev.map(s => s.id === nuevo.id ? nuevo : s) : [...prev, nuevo];
+    }),
+  }), [currentSettings, mySettingsId, activeUid]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Catálogo de precios único: migra precios viejos una vez y se sincroniza
+  // con el documento de configuración del usuario (gana el más reciente).
+  const catalogoPrecios = useCatalogo();
+  useEffect(() => { migrarPreciosAntiguos(id => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)); }, []);
+  const catalogoRemoto = (currentSettings as any).catalogoPrecios as EstadoCatalogo | undefined;
+  useEffect(() => { hidratarCatalogo(catalogoRemoto); }, [catalogoRemoto?.actualizado]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!activeUid || !catalogoPrecios.actualizado || catalogoRemoto?.actualizado === catalogoPrecios.actualizado) return;
+    const t = setTimeout(() => setSettings(prev => {
+      const actual = prev.find(s => s.id === mySettingsId || s.userId === activeUid) || currentSettings;
+      const nuevo = { ...actual, catalogoPrecios: catalogoPrecios, id: (actual as any).id || mySettingsId, userId: activeUid } as SystemConfig;
+      return prev.some(s => s.id === nuevo.id) ? prev.map(s => s.id === nuevo.id ? nuevo : s) : [...prev, nuevo];
+    }), 1500);
+    return () => clearTimeout(t);
+  }, [catalogoPrecios, activeUid]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Automated Daily Backup for Admin
   useEffect(() => {
     if (isAdmin) {
@@ -2028,7 +2057,7 @@ export default function App() {
       case 'familia': return <FinanceGenericView type="familia" title="Finanzas Familiares" subtitle="Control de gastos personales" icon={Home} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'inversion': return <FinanceGenericView type="inversion" title="Inversiones" subtitle="Capital invertido en equipos/negocio" icon={TrendingUp} colorClass="emerald" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
-      case 'precios': return <PreciosView />;
+      case 'precios': return <CatalogoPreciosView projects={filteredProjects} />;
       case 'concreto': return <ConcretoMetradosView onIrATechos={() => setCurrentView('techos')} />;
       case 'usuarios': return <UsuariosView usuarios={usuarios} setUsuarios={setUsuarios} isAdmin={isAdmin} />;
       case 'soporte':
@@ -2121,8 +2150,8 @@ export default function App() {
     { id: 'dashboard', label: 'Panel Principal', icon: Activity },
     { id: 'calculator', label: 'Calculadora Estructural', icon: Calculator },
     { id: 'techos', label: 'Techos Metálicos', icon: PenTool },
-    { id: 'concreto', label: 'Metrados Concreto', icon: Box },
-    { id: 'herreria', label: 'Herrería', icon: DoorClosed },
+    { id: 'concreto', label: 'Obra Civil', icon: Box },
+    { id: 'herreria', label: 'CarpiMetal', icon: DoorClosed },
     { id: 'projects', label: 'Proyectos & Clientes', icon: Briefcase },
     { id: 'portafolio', label: 'Carpeta Privada', icon: FolderKanban },
     { id: 'materials', label: 'Materiales & Gastos', icon: Package },
@@ -2390,7 +2419,7 @@ export default function App() {
         {currentView !== 'designer' && currentView !== 'calculator' && (
           <main className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : "flex-1 overflow-y-auto bg-slate-50/50 p-4 xl:p-8 scroll-smooth"}>
             <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
-              {renderView()}
+              <EmpresaProvider value={empresaCtx}>{renderView()}</EmpresaProvider>
             </div>
           </main>
         )}

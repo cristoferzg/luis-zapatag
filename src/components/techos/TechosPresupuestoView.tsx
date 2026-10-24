@@ -2,7 +2,9 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Send, CheckCircle, ArrowRight } from 'lucide-react';
 import BotonImprimir from '../common/BotonImprimir';
-import { useCostosTechos, totalCuadrilla } from './costosTechos';
+import { CabeceraEmpresa } from '../../lib/empresa';
+import { useCostosTechos, totalCuadrilla, jornalDe } from './costosTechos';
+import { useCatalogo } from '../../lib/catalogoPrecios';
 
 interface ProjectOption {
   id: string;
@@ -43,16 +45,13 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
   const [nuevoProyectoNombre, setNuevoProyectoNombre] = useState<string>(`Obra: ${nombreProyecto}`);
   const [enviadoExito, setEnviadoExito] = useState<boolean>(false);
 
-  const companyName = currentSettings?.appName ? currentSettings.appName.toUpperCase() : 'INNOVA CONTRATISTAS';
-  const companyRuc = currentSettings?.contratistaDni ? `RUC: ${currentSettings.contratistaDni}` : 'RUC: 20601234567';
-  const companyCel = currentSettings?.contratistaPhone ? `Cel: ${currentSettings.contratistaPhone}` : 'Cel: 987-654-321';
-  const companyDir = currentSettings?.contratistaDir || 'Lima, Perú';
 
   const isBom = design && typeof design.precioVentaFinalSoles === 'number';
 
   // Montos tomados del BOM, que ya usa los precios, la cuadrilla y los gastos
   // operativos editados en "4. Estructura de costos".
   const costos = useCostosTechos();
+  useCatalogo();
   const subtotal = isBom ? (design.subtotalSoles ?? design.costoDirectoTotalSoles + design.gastosGeneralesYUtilidadSoles) : 0;
   const igv = isBom ? design.igvSoles || 0 : 0;
   const totalConIgv = isBom ? design.precioVentaFinalSoles : 0;
@@ -65,7 +64,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       `Placas base, pernos y soldadura: S/. ${(design.costoAccesoriosSoles ?? 0).toFixed(2)}`,
     ] },
     { item: '02', desc: 'Mano de obra: fabricación y montaje', monto: design.costoManoObraMontajeSoles,
-      sub: costos.manoObraModo === 'detalle' && totalCuadrilla(costos) > 0 ? costos.cuadrilla.filter(f => f.cantidad * f.jornal * f.dias > 0).map(f => `${f.cargo}: ${f.cantidad} × ${f.dias} días × S/. ${f.jornal.toFixed(2)}`) : undefined },
+      sub: costos.manoObraModo === 'detalle' && totalCuadrilla(costos) > 0 ? costos.cuadrilla.filter(f => f.cantidad * jornalDe(f) * f.dias > 0).map(f => `${f.cargo}: ${f.cantidad} × ${f.dias} días × S/. ${jornalDe(f).toFixed(2)}`) : undefined },
     { item: '03', desc: 'Gastos operativos (grúa, transporte, andamios, EPP)', monto: design.costoEquiposGruaSoles,
       sub: costos.operativosModo === 'detalle' ? costos.operativos.filter(f => f.monto > 0).map(f => `${f.concepto}: S/. ${f.monto.toFixed(2)}`) : undefined },
     { item: '04', desc: `Gastos generales (${costos.gastosGeneralesPct}%)`, monto: design.gastosGeneralesSoles ?? 0 },
@@ -200,11 +199,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
             {currentSettings?.logoBase64 && (
               <img src={currentSettings.logoBase64} alt="Logo" className="h-14 max-w-[120px] object-contain rounded-md" />
             )}
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">{companyName}</h1>
-              <p className="text-xs text-slate-600 font-bold">Ingeniería, Fabricación y Montaje de Techos y Estructuras Metálicas</p>
-              <p className="text-[11px] text-slate-500">{companyRuc} | {companyCel} | {companyDir}</p>
-            </div>
+            <CabeceraEmpresa subtitulo="Ingeniería, Fabricación y Montaje de Techos y Estructuras Metálicas" />
           </div>
           <div className="text-right">
             <span className="text-xs uppercase font-extrabold text-amber-600 block">Cotización Formal #TM-{numeroCotizacion}</span>

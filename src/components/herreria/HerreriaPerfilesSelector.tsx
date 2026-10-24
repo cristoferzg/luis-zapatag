@@ -1,3 +1,4 @@
+import { precioBarraPerfil } from '../../lib/catalogoPrecios';
 import React, { useState } from 'react';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { PERFILES_CATALOGO } from './herreriaCatalog';
@@ -98,7 +99,7 @@ export const HerreriaPerfilesSelector: React.FC<PerfilSelectorProps> = ({
             <strong>Peso:</strong> {selectedProfile.pesoKgPorMetro.toFixed(2)} kg/m
           </div>
           <div className="text-blue-700 text-[9px]">
-            <strong>Precio:</strong> S/ {selectedProfile.precioPorBarra6m.toFixed(2)} (6m)
+            <strong>Precio:</strong> S/ {precioBarraPerfil(selectedProfile, selectedProfile.precioPorBarra6m).toFixed(2)} (barra 6 m · Catálogo de precios)
           </div>
         </div>
       )}

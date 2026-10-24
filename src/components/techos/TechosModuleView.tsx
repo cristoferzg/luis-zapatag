@@ -778,7 +778,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     }
 
     safeStorage.setItem('concreto_plano_elems', [...prev, ...nuevos]);
-    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas + ${nVigas} vigas de cimentación${nMuros ? ` + ${nMuros} muros de ladrillo en el perímetro` : ''}.\n\nAbre "Metrados Concreto" → modo "Plano CAD". Con la herramienta "Muro" puedes dibujar más muros de ladrillo o drywall por piso.`);
+    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas + ${nVigas} vigas de cimentación${nMuros ? ` + ${nMuros} muros de ladrillo en el perímetro` : ''}.\n\nAbre "Obra Civil" → modo "Plano CAD". Con la herramienta "Muro" puedes dibujar más muros de ladrillo o drywall por piso.`);
   };
 
   // PUENTE TECHOS → OBRA POR PISOS: guarda un resumen del presupuesto del techo
@@ -803,7 +803,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       precioVentaSoles: bom.precioVentaFinalSoles || 0,
     };
     safeStorage.setItem('obra_techos_disponibles', [...lib, snap]);
-    alert(`✓ "${nombre}" enviado a la obra.\n\nAbre "Metrados Concreto", elige el piso y en "Techo / estructura metálica en este piso" vincúlalo.`);
+    alert(`✓ "${nombre}" enviado a la obra.\n\nAbre "Obra Civil", elige el piso y en "Techo / estructura metálica en este piso" vincúlalo.`);
   };
 
   // Plantillas: al terminar de generarse, se cubren solas con Aluzinc TR-4
@@ -988,14 +988,14 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             title="Enviar las columnas del techo al CAD de Concreto para diseñar la cimentación"
           >
             <Box className="w-3.5 h-3.5 text-stone-600 shrink-0" />
-            <span className="text-[11px] font-bold hidden lg:inline">→ Concreto</span>
+            <span className="text-[11px] font-bold hidden lg:inline">→ Obra Civil</span>
           </button>
 
           {/* [ ENVIAR A OBRA POR PISOS ] — solo escritorio */}
           <button
             onClick={handleEnviarAObraPisos}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
-            title="Enviar el presupuesto de este techo a un piso de la obra (Metrados Concreto)"
+            title="Enviar el presupuesto de este techo a un piso de la obra (Obra Civil)"
           >
             <Layers className="w-3.5 h-3.5 text-stone-600 shrink-0" />
             <span className="text-[11px] font-bold hidden lg:inline">→ Obra por pisos</span>

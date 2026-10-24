@@ -2,6 +2,8 @@
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
 
 import { useCostosTechos } from './costosTechos';
+import { useCatalogo } from '../../lib/catalogoPrecios';
+import { zonasDesdeCorreas } from './coberturaAuto';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { 
   Node3D, 
@@ -1052,8 +1054,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     customSpacingM?: number,
     _peralteM?: number,
     perimetralBracingEnabled?: boolean,
-    tipoTijeralPerimetral?: TipoTijeral
-  ) => {
+    tipoTijeralPerimetral?: TipoTijeral,
+    soloDevolver?: boolean // true: devuelve la nave sin cargarla (la usa el techo en L)
+  ): { nodes: Record<string, Node3D>; segs: Record<string, Segment3D> } | void => {
     const newNodes: Record<string, Node3D> = {};
     const newSegs: Record<string, Segment3D> = {};
 
@@ -1317,6 +1320,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       prevBottomNodes = [...bottomNodes];
     }
 
+    if (soloDevolver) return { nodes: newNodes, segs: newSegs };
     setNodes(newNodes);
     setSegments(newSegs);
     pushHistory(newNodes, newSegs, coverageZones);
@@ -3028,91 +3032,63 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   }, [activeProfileId, pushHistory, coverageZones]);
 
   // Generador de Techo en Forma de L con Limahoya (L-Shaped Intersecting Roof)
+  // Techo en L: nave principal a dos aguas (cumbrera en Z) + ala a dos aguas
+  // en escuadra (cumbrera en X). El ala entra en la principal hasta que su
+  // cumbrera toca el techo principal, así se forman las dos limahoyas; sus
+  // columnas dentro de la nave principal se quitan y las correas que quedan
+  // ocultas bajo el techo principal no se cubren.
   const generateRoofLShaped = useCallback((
     luzPrincipalM: number,
     largoPrincipalM: number,
     luzAlaM: number,
     largoAlaM: number,
     alturaColM: number = 4.5,
-    tipoTijeral: TipoTijeral = 'escalera_vierendeel',
+    tipoTijeral: TipoTijeral = 'fink',
     orientacionTijeral: OrientacionTijeral = 'vertical'
   ) => {
-    const newNodes: Record<string, Node3D> = {};
-    const newSegs: Record<string, Segment3D> = {};
-
-    const colProf = INVENTARIO_PERFILES_TUBULARES[4]?.id || activeProfileId;
-    const vigaProf = INVENTARIO_PERFILES_TUBULARES[0]?.id || activeProfileId;
-
-    const hCumbrera = 1.8;
-    const yPeak = alturaColM + hCumbrera;
-
-    const polyL = [
-      { x: 0, z: 0 },
-      { x: luzPrincipalM, z: 0 },
-      { x: luzPrincipalM, z: largoPrincipalM },
-      { x: luzPrincipalM + largoAlaM, z: largoPrincipalM },
-      { x: luzPrincipalM + largoAlaM, z: largoPrincipalM + luzAlaM },
-      { x: 0, z: largoPrincipalM + luzAlaM }
-    ];
-
-    polyL.forEach((pt, idx) => {
-      const bId = `n_l_b_${idx}`;
-      const tId = `n_l_t_${idx}`;
-      newNodes[bId] = { id: bId, x: pt.x, y: 0, z: pt.z, isFixedSupport: true, nodeLabel: `SHAPE-L-COL-B-${idx+1}` };
-      newNodes[tId] = { id: tId, x: pt.x, y: alturaColM, z: pt.z, nodeLabel: `SHAPE-L-COL-T-${idx+1}` };
-      newSegs[`s_l_col_${idx}`] = { id: `s_l_col_${idx}`, nodeAId: bId, nodeBId: tId, profileId: colProf, rolEstructural: 'columna' };
+    const pend = 20;
+    const luzAla = Math.min(luzAlaM, largoPrincipalM); // el ala no puede ser más ancha que la nave
+    const principal = generateRoofGable(luzPrincipalM, largoPrincipalM, alturaColM, pend, tipoTijeral, orientacionTijeral, undefined, undefined, undefined, undefined, undefined, false, undefined, true);
+    const entra = luzAla / 2; // cuánto penetra el ala en la nave principal
+    const ala = generateRoofGable(luzAla, largoAlaM + entra, alturaColM, pend, tipoTijeral, orientacionTijeral, undefined, undefined, undefined, undefined, undefined, false, undefined, true);
+    if (!principal || !ala) return;
+    const x0 = luzPrincipalM - entra;
+    const newNodes: Record<string, Node3D> = { ...principal.nodes };
+    const newSegs: Record<string, Segment3D> = { ...principal.segs };
+    // Ala girada: su luz va en Z (0..luzAla) y su largo en X desde x0.
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    const clave = (x: number, y: number, z: number) => `${r3(x)}|${r3(y)}|${r3(z)}`;
+    const existentes = new Map(Object.values(newNodes).map(n => [clave(n.x, n.y, n.z), n.id]));
+    const mapaId: Record<string, string> = {};
+    Object.values(ala.nodes).forEach(n => {
+      const x = r3(x0 + n.z), z = r3(n.x);
+      const k = clave(x, n.y, z);
+      const ya = existentes.get(k);
+      if (ya) { mapaId[n.id] = ya; return; }
+      const id = `L2_${n.id}`;
+      newNodes[id] = { ...n, id, x, z, nodeLabel: n.nodeLabel ? `ALA-${n.nodeLabel}` : undefined };
+      existentes.set(k, id); mapaId[n.id] = id;
     });
-
-    // Vigas perimetrales
-    for (let i = 0; i < polyL.length; i++) {
-      const next = (i + 1) % polyL.length;
-      newSegs[`s_l_ring_${i}`] = {
-        id: `s_l_ring_${i}`,
-        nodeAId: `n_l_t_${i}`,
-        nodeBId: `n_l_t_${next}`,
-        profileId: vigaProf,
-        rolEstructural: 'viga_principal'
-      };
-    }
-
-    // Cumbreras de las dos alas y Limahoya
-    const nR1 = 'n_l_ridge_main_1';
-    const nR2 = 'n_l_ridge_main_2';
-    const nR3 = 'n_l_ridge_wing_end';
-
-    const xMainMid = luzPrincipalM / 2;
-    newNodes[nR1] = { id: nR1, x: xMainMid, y: yPeak, z: 0, nodeLabel: 'SHAPE-L-RIDGE-1' };
-    newNodes[nR2] = { id: nR2, x: xMainMid, y: yPeak, z: largoPrincipalM + luzAlaM / 2, nodeLabel: 'SHAPE-L-INTERSECTION' };
-    newNodes[nR3] = { id: nR3, x: luzPrincipalM + largoAlaM, y: yPeak, z: largoPrincipalM + luzAlaM / 2, nodeLabel: 'SHAPE-L-RIDGE-WING' };
-
-    newSegs['s_l_ridge_main'] = { id: 's_l_ridge_main', nodeAId: nR1, nodeBId: nR2, profileId: vigaProf, rolEstructural: 'cordon_superior' };
-    newSegs['s_l_ridge_wing'] = { id: 's_l_ridge_wing', nodeAId: nR2, nodeBId: nR3, profileId: vigaProf, rolEstructural: 'cordon_superior' };
-
-    // Limahoya en la esquina interior (P3: luzPrincipalM, largoPrincipalM)
-    newSegs['s_l_limahoya'] = { id: 's_l_limahoya', nodeAId: 'n_l_t_2', nodeBId: nR2, profileId: vigaProf, rolEstructural: 'cordon_superior' };
-
-    // Tijerales transversales en ala principal y ala secundaria
-    const nTieMain1 = 'n_l_tie_main_1';
-    newNodes[nTieMain1] = { id: nTieMain1, x: xMainMid, y: alturaColM, z: 0, nodeLabel: 'SHAPE-L-TIE-1' };
-    newSegs['s_l_mon_main_1'] = { id: 's_l_mon_main_1', nodeAId: nTieMain1, nodeBId: nR1, profileId: vigaProf, rolEstructural: 'montante' };
-    newSegs['s_l_tie_main_l'] = { id: 's_l_tie_main_l', nodeAId: 'n_l_t_0', nodeBId: nTieMain1, profileId: vigaProf, rolEstructural: 'cordon_inferior' };
-    newSegs['s_l_tie_main_r'] = { id: 's_l_tie_main_r', nodeAId: nTieMain1, nodeBId: 'n_l_t_1', profileId: vigaProf, rolEstructural: 'cordon_inferior' };
-
-    if (tipoTijeral !== 'escalera_vierendeel') {
-      newSegs['s_l_diag_main_l'] = { id: 's_l_diag_main_l', nodeAId: 'n_l_t_0', nodeBId: nR1, profileId: vigaProf, rolEstructural: 'diagonal' };
-      newSegs['s_l_diag_main_r'] = { id: 's_l_diag_main_r', nodeAId: 'n_l_t_1', nodeBId: nR1, profileId: vigaProf, rolEstructural: 'diagonal' };
-    }
-
-    // Refuerzos perimetrales o longitudinales en alas
-    if ((orientacionTijeral === 'perimetral' || orientacionTijeral === 'completo') && tipoTijeral !== 'escalera_vierendeel' && tipoTijeral !== 'simple_arco') {
-      newSegs['s_l_perim_brace_1'] = { id: 's_l_perim_brace_1', nodeAId: 'n_l_b_0', nodeBId: 'n_l_t_1', profileId: colProf, rolEstructural: 'diagonal' };
-      newSegs['s_l_perim_brace_2'] = { id: 's_l_perim_brace_2', nodeAId: 'n_l_b_3', nodeBId: 'n_l_t_4', profileId: colProf, rolEstructural: 'diagonal' };
-    }
-
+    // Altura del techo principal sobre (x): el ala solo se ve donde queda por encima.
+    const yPrincipal = (x: number) => alturaColM + Math.max(0, luzPrincipalM / 2 - Math.abs(x - luzPrincipalM / 2)) * (pend / 100);
+    Object.values(ala.segs).forEach(sg => {
+      const a = newNodes[mapaId[sg.nodeAId]], b = newNodes[mapaId[sg.nodeBId]];
+      if (!a || !b || a.id === b.id) return;
+      const dentro = (n: Node3D) => n.x < luzPrincipalM - 0.01;
+      if (sg.rolEstructural === 'columna' && (dentro(a) || dentro(b))) return;
+      if (sg.rolEstructural === 'correa' && dentro(a) && dentro(b) && Math.max(a.y, b.y) < Math.min(yPrincipal(a.x), yPrincipal(b.x)) - 0.05) return;
+      const id = `L2_${sg.id}`;
+      newSegs[id] = { ...sg, id, nodeAId: a.id, nodeBId: b.id };
+    });
+    // Nodos del ala que quedaron sin piezas (bases de columnas quitadas).
+    const usados = new Set(Object.values(newSegs).flatMap(sg => [sg.nodeAId, sg.nodeBId]));
+    Object.keys(newNodes).forEach(id => { if (!usados.has(id)) delete newNodes[id]; });
+    const zonas = zonasDesdeCorreas(newNodes, newSegs, activeCoverageId || 'cob_aluzinc_030');
     setNodes(newNodes);
     setSegments(newSegs);
-    pushHistory(newNodes, newSegs, coverageZones);
-  }, [activeProfileId, pushHistory, coverageZones]);
+    setCoverageZones(zonas);
+    pushHistory(newNodes, newSegs, zonas);
+  }, [generateRoofGable, activeCoverageId, pushHistory]);
 
   // Generador de Techo Mariposa / V Invertida (Butterfly Roof) con Viga Canaleta Central
   const generateRoofButterfly = useCallback((
@@ -3978,6 +3954,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   // Cálculo en tiempo real de Reporte BOM Presupuestario (con los precios,
   // la mano de obra y los gastos operativos que el usuario edita).
   const costosUsuario = useCostosTechos();
+  const catalogo = useCatalogo(); // precios del catálogo único
   const bomReport = useMemo(() => {
     // Las columnas de concreto existentes NO se cuentan como acero (ya están
     // construidas). Se excluyen del despiece/costo de acero, pero siguen
@@ -3987,7 +3964,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       Object.entries(segments).filter(([, s]) => s.rolEstructural !== 'columna_concreto')
     ) as typeof segments;
     return generarReportePresupuestoBom(nodes, segmentosAcero, coverageZones, costosUsuario);
-  }, [nodes, segments, coverageZones, costosUsuario]);
+  }, [nodes, segments, coverageZones, costosUsuario, catalogo]);
 
   // Cálculo de Análisis Estructural segun RNE E.020, E.030, E.090
   const structuralReport: StructuralAnalysisReport = useMemo(() => {

@@ -57,6 +57,8 @@ export function imprimirElemento(el: HTMLElement, opts: OpcionesImpresion) {
   html, body { background: #fff !important; margin: 0; padding: 0; height: auto !important; overflow: visible !important; }
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
   .print\\:hidden, .no-imprimir { display: none !important; }
+  .zona-impresion input, .zona-impresion select { border: none !important; background: transparent !important; }
+  .zona-impresion input::placeholder { color: transparent !important; }
   .zona-impresion { max-width: none !important; width: 100% !important; margin: 0 !important; box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; height: auto !important; max-height: none !important; }
   .zona-impresion svg { max-width: 100%; height: auto; }
   .imprimir-claro, .imprimir-claro * { background: #fff !important; color: #0f172a !important; border-color: #cbd5e1 !important; box-shadow: none !important; }

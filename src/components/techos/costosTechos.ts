@@ -4,6 +4,7 @@
 // Formal, así que un cambio aquí se refleja en todos a la vez.
 import { useSyncExternalStore } from 'react';
 import { safeStorage } from '../../lib/storageManager';
+import { precio, claveJornal, tienePrecioPropio } from '../../lib/catalogoPrecios';
 
 export interface FilaCuadrilla { id: string; cargo: string; cantidad: number; jornal: number; dias: number }
 export interface FilaOperativo { id: string; concepto: string; monto: number }
@@ -61,5 +62,7 @@ export function useCostosTechos() {
   return useSyncExternalStore(f => { oyentes.add(f); return () => oyentes.delete(f); }, () => actual);
 }
 
-export const totalCuadrilla = (c: CostosTechos) => c.cuadrilla.reduce((s, f) => s + f.cantidad * f.jornal * f.dias, 0);
+// Jornal: el del catálogo único para ese cargo (Catálogo de precios → Mano de obra).
+export const jornalDe = (f: FilaCuadrilla) => (tienePrecioPropio(claveJornal(f.cargo)) ? precio(claveJornal(f.cargo)) : f.jornal);
+export const totalCuadrilla = (c: CostosTechos) => c.cuadrilla.reduce((s, f) => s + f.cantidad * jornalDe(f) * f.dias, 0);
 export const totalOperativos = (c: CostosTechos) => c.operativos.reduce((s, f) => s + f.monto, 0);

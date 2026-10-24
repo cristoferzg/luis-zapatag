@@ -1,5 +1,6 @@
 // Módulo Principal e Independiente de HERRERÍA para Innova Contratistas Manager
 // Cumple estrictamente todos los lineamientos solicitados para el módulo de Herrería
+import { useCatalogo } from '../../lib/catalogoPrecios';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   DoorClosed, 
@@ -63,6 +64,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
   currentSettings
 }) => {
   // Estado del diseño actual (inicia con un lienzo CAD vacío para diseñar desde cero)
+  useCatalogo(); // al cambiar un precio del catálogo se recalculan materiales y presupuesto
   const [design, setDesign] = useState<HerreriaDesign>(() => {
     const saved = safeStorage.getItem<any>('innova_herreria_current_design', null);
     if (saved) {
@@ -257,7 +259,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
       {/* ==================================================
           2. CABECERA
           Mostrar:
-          🚪 HERRERÍA
+          🚪 CARPIMETAL
           Proyecto: [Nombre del proyecto]
           Botones: [ + NUEVO ] [ GUARDAR ] [ CARGAR ] [ EXPORTAR ] [ AYUDA ]
       ================================================== */}
@@ -269,7 +271,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-wide">
-                HERRERÍA Y CERRAJERÍA
+                CARPIMETAL · CARPINTERÍA METÁLICA
               </h1>
               <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-mono font-bold border border-blue-200">
                 CAD 2D / 3D
@@ -545,7 +547,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
               <h3 className="text-sm font-bold text-slate-800 uppercase flex items-center gap-2">
                 <FolderOpen className="w-4 h-4 text-amber-500" />
-                <span>CARGAR PROYECTO O PLANTILLA DE HERRERÍA</span>
+                <span>CARGAR PROYECTO O PLANTILLA DE CARPIMETAL</span>
               </h3>
               <button onClick={() => setShowLoadModal(false)} className="p-1 rounded text-slate-400 hover:text-slate-700">
                 ✕

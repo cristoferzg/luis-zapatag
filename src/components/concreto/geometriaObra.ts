@@ -4,6 +4,7 @@ import type { PlanoElem } from '../ConcretoPlanoCad';
 import type { EstructuraTechos } from './obraPisos';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from '../techos/techosCadCatalog';
 import { coberturaDesdeCorreas, TANQUES_ROTOPLAS } from '../techos/coberturaAuto';
+import { precio, precioBarraPerfil, claveCobertura } from '../../lib/catalogoPrecios';
 
 export const NKp = (x: number, y: number) => `${Math.round(x * 1000)}_${Math.round(y * 1000)}`;
 
@@ -217,7 +218,7 @@ export function metradoTechosPorPiso(est: EstructuraTechos | null, bases: number
     // Las vigas de un entrepiso son el techo del piso de abajo.
     const y = Math.min(a.y, b.y), horizontal = Math.abs(a.y - b.y) < 0.01;
     const o = out[piso(horizontal && y > 0.05 ? y - 0.05 : y + 0.01)];
-    o.perfiles++; o.metros += L; o.kg += L * (p?.pesoLinealKgM || 0); o.costoAcero += L * (p?.costoMetroSol || 0);
+    o.perfiles++; o.metros += L; o.kg += L * (p?.pesoLinealKgM || 0); o.costoAcero += L * (p ? precioBarraPerfil(p, p.costoMetroSol * (p.longitudComercialM || 6)) / (p.longitudComercialM || 6) : 0);
   });
   Object.values(est.coverageZones || {}).forEach(z => {
     const pts = (z.nodeIdsBoundary || []).map(id => N[id]).filter(Boolean);
@@ -230,7 +231,7 @@ export function metradoTechosPorPiso(est: EstructuraTechos | null, bases: number
     const area = Math.hypot(ax, ay, az) / 2;
     const c = INVENTARIO_COBERTURAS.find(x => x.id === z.coberturaMaterialId);
     const o = out[piso(Math.min(...pts.map(p => p.y)) + 0.01)];
-    o.coberturaM2 += area; o.costoCobertura += area * (c?.costoM2Sol || 0);
+    o.coberturaM2 += area; o.costoCobertura += area * (c ? precio(claveCobertura(c.id), c.costoM2Sol) : 0);
     if (c && !o.coberturas.includes(c.nombre)) o.coberturas.push(c.nombre);
   });
   return out;

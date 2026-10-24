@@ -15,6 +15,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Box, Plus, Trash2, Calculator, Download } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
+import { useCatalogo, fijarPrecio } from '../lib/catalogoPrecios';
 import ConcretoElementoSVG from './ConcretoElementoSVG';
 import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
 import { List, PenTool } from 'lucide-react';
@@ -27,6 +28,7 @@ import {
   SistemaNivel, TechoSnapshot, MuroCapa, calcSistema, sistemaVacio, muroDesdePlano,
   KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_CAT_OSB, leerCatalogoOsb,
   KEY_OBRA_TECHOS_ID, EstructuraTechos, contextosObra, obraPorPiso, ObraPiso,
+  drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo,
 } from './concreto/obraPisos';
 import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
 import { AdminCatalogosMateriales } from './concreto/AdminCatalogosMateriales';
@@ -193,33 +195,36 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
     const n0 = (safeStorage.getItem<string[]>('concreto_metrados_niveles', NIVELES_DEFAULT) || NIVELES_DEFAULT)[0] || 'Piso 1';
     return raw.map(i => ({ ...i, nivel: i.nivel || n0 }));
   });
-  const [precios, setPrecios] = useState(() =>
-    safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT
-  );
+  // Precios del Catálogo de precios único (cemento, arena, piedra, acero, encofrado).
+  const catalogo = useCatalogo();
+  const precios = useMemo(() => preciosConcretoCatalogo(), [catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const CLAVE_PRECIO: Record<keyof typeof PRECIOS_DEFAULT, string> = { cementoBolsa: 'concreto:cemento', arenaM3: 'concreto:arena', piedraM3: 'concreto:piedra', aceroKg: 'concreto:acero', encofradoM2: 'concreto:encofrado' };
   const [showPrecios, setShowPrecios] = useState(false);
   // Modo de trabajo: lista (formulario) o plano CAD 2D.
   const [modo, setModo] = useState<'lista' | 'cad'>(() => (safeStorage.getItem<'lista' | 'cad'>('concreto_modo', 'lista') || 'lista'));
   useEffect(() => { safeStorage.setItem('concreto_modo', modo); }, [modo]);
 
   useEffect(() => { safeStorage.setItem('concreto_metrados_items', items); }, [items]);
-  useEffect(() => { safeStorage.setItem('concreto_metrados_precios', precios); }, [precios]);
   useEffect(() => { safeStorage.setItem('concreto_metrados_niveles', niveles); }, [niveles]);
 
   // Sistema de cada piso: muros (drywall/ladrillo), techos metálicos y tanque.
   const [sistemas, setSistemas] = useState<Record<string, SistemaNivel>>(() =>
     safeStorage.getItem<Record<string, SistemaNivel>>(KEY_SISTEMAS_NIVEL, {}) || {}
   );
-  const [catDrywall, setCatDrywall] = useState<DrywallItem[]>(() =>
+  const [catDrywallBase, setCatDrywall] = useState<DrywallItem[]>(() =>
     safeStorage.getItem<DrywallItem[]>(KEY_CAT_DRYWALL, DRYWALL_DEFAULTS) || DRYWALL_DEFAULTS
   );
-  const [catLadrillo, setCatLadrillo] = useState<LadrilloItem[]>(() =>
+  const [catLadrilloBase, setCatLadrillo] = useState<LadrilloItem[]>(() =>
     safeStorage.getItem<LadrilloItem[]>(KEY_CAT_LADRILLO, LADRILLO_DEFAULTS) || LADRILLO_DEFAULTS
   );
   // Biblioteca de techos enviados desde el módulo Techos (solo lectura aquí).
   const [techosLib] = useState<TechoSnapshot[]>(() =>
     safeStorage.getItem<TechoSnapshot[]>(KEY_TECHOS_DISPONIBLES, []) || []
   );
-  const [catOsb, setCatOsb] = useState<OsbItem[]>(leerCatalogoOsb);
+  const [catOsbBase, setCatOsb] = useState<OsbItem[]>(leerCatalogoOsb);
+  const catDrywall = useMemo(() => drywallConCatalogo(catDrywallBase), [catDrywallBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const catLadrillo = useMemo(() => ladrilloConCatalogo(catLadrilloBase), [catLadrilloBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const catOsb = useMemo(() => osbConCatalogo(catOsbBase), [catOsbBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
   // Lo dibujado en el Plano CAD (muros, aberturas, ambientes, cielo raso) y la
   // estructura de Techos vinculada, por piso. Se relee al volver a Lista.
   const obraCad = useMemo(() => {
@@ -245,9 +250,9 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   }, [modo, niveles, catDrywall, catOsb, catLadrillo]); // eslint-disable-line react-hooks/exhaustive-deps
   const murosCad = obraCad.muros;
   useEffect(() => { safeStorage.setItem(KEY_SISTEMAS_NIVEL, sistemas); }, [sistemas]);
-  useEffect(() => { safeStorage.setItem(KEY_CAT_DRYWALL, catDrywall); }, [catDrywall]);
-  useEffect(() => { safeStorage.setItem(KEY_CAT_LADRILLO, catLadrillo); }, [catLadrillo]);
-  useEffect(() => { safeStorage.setItem(KEY_CAT_OSB, catOsb); }, [catOsb]);
+  useEffect(() => { safeStorage.setItem(KEY_CAT_DRYWALL, catDrywallBase); }, [catDrywallBase]);
+  useEffect(() => { safeStorage.setItem(KEY_CAT_LADRILLO, catLadrilloBase); }, [catLadrilloBase]);
+  useEffect(() => { safeStorage.setItem(KEY_CAT_OSB, catOsbBase); }, [catOsbBase]);
 
   const addItem = (tipoId: string) => setItems(prev => [...prev, nuevaInstancia(tipoId, nivelActivo)]);
   const removeItem = (uid: string) => setItems(prev => prev.filter(i => i.uid !== uid));
@@ -377,7 +382,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
               <Box className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-900 uppercase leading-tight">Plano de Cimentación (CAD)</h2>
+              <h2 className="text-sm font-black text-slate-900 uppercase leading-tight">Obra Civil · Plano CAD</h2>
               <p className="text-[11px] text-slate-500">Dibuja columnas, zapatas, vigas y cimientos; el metrado sale solo.</p>
             </div>
           </div>
@@ -399,7 +404,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
             <Box className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 uppercase">Metrados de Concreto / Obra Civil</h2>
+            <h2 className="text-base sm:text-lg font-black text-slate-900 uppercase">Obra Civil · Metrados</h2>
             <p className="text-xs text-slate-500">Agrega elementos, pon medidas y obtén concreto, acero, encofrado y costo.</p>
           </div>
         </div>
@@ -423,7 +428,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
           ] as [keyof typeof PRECIOS_DEFAULT, string][]).map(([k, label]) => (
             <label key={k} className="text-[11px] font-bold text-slate-600">
               {label}
-              <input type="number" value={precios[k]} onChange={e => setPrecios(p => ({ ...p, [k]: parseFloat(e.target.value) || 0 }))}
+              <input type="number" value={precios[k]} onChange={e => fijarPrecio(CLAVE_PRECIO[k], parseFloat(e.target.value) || 0, 'Obra Civil')}
                 className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
             </label>
           ))}

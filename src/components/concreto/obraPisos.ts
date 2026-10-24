@@ -5,6 +5,7 @@ import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
 import { OsbItem, OSB_DEFAULTS } from '../../catalogo/osb';
 import { safeStorage } from '../../lib/storageManager';
+import { precio, precioPlanchaAM2, precioBarraPerfil, claveDrywall, claveOsb, claveLadrillo } from '../../lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import type { PlanoElem } from '../ConcretoPlanoCad';
 import {
@@ -172,7 +173,8 @@ export function calcTanque(t: SoporteTanque, lad: LadrilloItem[]): CalcTanque {
   const perfil = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === t.perfilId);
   const metrosPerfil = 4 * t.alturaM + 2 * 4 * lado + 3 * lado + 4 * Math.hypot(lado, t.alturaM);
   const pesoAceroKg = metrosPerfil * (perfil?.pesoLinealKgM || 0);
-  const costoAcero = metrosPerfil * t.precioMetro;
+  // Precio del perfil: el del Catálogo de precios (por barra) llevado a metro.
+  const costoAcero = metrosPerfil * (perfil ? precioBarraPerfil(perfil, perfil.costoMetroSol * (perfil.longitudComercialM || 6)) / (perfil.longitudComercialM || 6) : t.precioMetro);
 
   const perimetro = 4 * (lado + 0.6);
   const area = t.sobrepecho ? perimetro * t.sobrepechoAlturaM : 0;
@@ -287,3 +289,13 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
   });
   return out;
 }
+
+// Listas de materiales con el precio vigente del Catálogo de precios único
+// (drywall y OSB por plancha → S/ por m²; ladrillo por millar).
+export const drywallConCatalogo = (l: DrywallItem[]) => l.map(d => ({ ...d, precioM2: precioPlanchaAM2(claveDrywall(d.id), d.precioM2) }));
+export const osbConCatalogo = (l: OsbItem[]) => l.map(d => ({ ...d, precioM2: precioPlanchaAM2(claveOsb(d.id), d.precioM2) }));
+export const ladrilloConCatalogo = (l: LadrilloItem[]) => l.map(d => ({ ...d, precioxMil: precio(claveLadrillo(d.id), d.precioxMil) }));
+export const preciosConcretoCatalogo = () => ({
+  cementoBolsa: precio('concreto:cemento', 28), arenaM3: precio('concreto:arena', 55), piedraM3: precio('concreto:piedra', 60),
+  aceroKg: precio('concreto:acero', 4.2), encofradoM2: precio('concreto:encofrado', 25),
+});

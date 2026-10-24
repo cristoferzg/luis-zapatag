@@ -1,5 +1,6 @@
 // Centro CAD Paramétrico 2D para Herrería y Carpintería Metálica
 // Construcción pieza por pieza desde lienzo en blanco con referencias geométricas (SNAP) y medidas paramétricas
+import { precio as precioCat } from '../../lib/catalogoPrecios';
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { 
   Plus, 
@@ -788,7 +789,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       tipo,
       nombre,
       especificacion,
-      precioUnitario: precio,
+      precioUnitario: precioCat(`carpicad:${tipo}`, precio), // precio del catálogo único
       cantidad: 1,
       x: accDropPos.x,
       y: accDropPos.y,

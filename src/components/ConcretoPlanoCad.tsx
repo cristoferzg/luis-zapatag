@@ -22,7 +22,8 @@ import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, 
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
-import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra } from './concreto/obraPisos';
+import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo } from './concreto/obraPisos';
+import { useCatalogo } from '../lib/catalogoPrecios';
 import {
   Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
   regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
@@ -79,7 +80,6 @@ const DEFAULTS: Record<PlanoTipo, Omit<PlanoElem, 'uid' | 'tipo' | 'x1' | 'y1' |
   muro:     { a: 0.15, H: 2.6 },
 };
 
-const PRECIOS_DEFAULT = { cementoBolsa: 28, arenaM3: 55, piedraM3: 60, aceroKg: 4.2, encofradoM2: 25 };
 const GRID_M = 0.25;
 
 // --- Motor de nodos compartidos --------------------------------------------
@@ -153,14 +153,19 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const [verCimentacion, setVerCimentacion] = useState(false);
 
   const [elems, setElems] = useState<PlanoElem[]>(() => safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || []);
-  const [precios] = useState(() => safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT);
+  // Precios y materiales con el Catálogo de precios único.
+  const catalogo = useCatalogo();
+  const precios = useMemo(() => preciosConcretoCatalogo(), [catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
   // Pisos (los mismos de la vista Lista) y material de muro a dibujar.
   const [niveles] = useState<string[]>(() => safeStorage.getItem<string[]>('concreto_metrados_niveles', ['Cimentación', 'Piso 1']) || ['Cimentación', 'Piso 1']);
   const pisos = niveles.filter(n => !/cimentaci/i.test(n));
   const [nivelMuro, setNivelMuro] = useState<string>(() => pisos[0] || 'Piso 1');
-  const [catDrywall] = useState<DrywallItem[]>(() => safeStorage.getItem<DrywallItem[]>(KEY_CAT_DRYWALL, DRYWALL_DEFAULTS) || DRYWALL_DEFAULTS);
-  const [catLadrillo] = useState<LadrilloItem[]>(() => safeStorage.getItem<LadrilloItem[]>(KEY_CAT_LADRILLO, LADRILLO_DEFAULTS) || LADRILLO_DEFAULTS);
-  const [catOsb] = useState<OsbItem[]>(leerCatalogoOsb);
+  const [catDrywallBase] = useState<DrywallItem[]>(() => safeStorage.getItem<DrywallItem[]>(KEY_CAT_DRYWALL, DRYWALL_DEFAULTS) || DRYWALL_DEFAULTS);
+  const [catLadrilloBase] = useState<LadrilloItem[]>(() => safeStorage.getItem<LadrilloItem[]>(KEY_CAT_LADRILLO, LADRILLO_DEFAULTS) || LADRILLO_DEFAULTS);
+  const [catOsbBase] = useState<OsbItem[]>(leerCatalogoOsb);
+  const catDrywall = useMemo(() => drywallConCatalogo(catDrywallBase), [catDrywallBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const catLadrillo = useMemo(() => ladrilloConCatalogo(catLadrilloBase), [catLadrilloBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const catOsb = useMemo(() => osbConCatalogo(catOsbBase), [catOsbBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
   const [materialMuro, setMaterialMuro] = useState<{ material: MaterialMuro; materialId: string }>({ material: 'ladrillo', materialId: LADRILLO_DEFAULTS[0].id });
   const [tipoAbertura, setTipoAbertura] = useState<TipoAbertura>('puerta');
   const [selAb, setSelAb] = useState<{ uid: string; id: string } | null>(null);
@@ -664,7 +669,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   }, [elems, precios]);
 
   const exportar = () => {
-    let txt = `INNOVA CONTRATISTAS — PLANO DE CIMENTACIÓN (CAD CONCRETO)\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
+    let txt = `INNOVA CONTRATISTAS — OBRA CIVIL (PLANO CAD)\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
     txt += `============================================================\n`;
     Object.entries(totales.porTipo).forEach(([t, v]) => {
       txt += `${META[t as PlanoTipo].nombre}: ${v.n} u. · ${v.concreto.toFixed(2)} m³ · ${v.acero.toFixed(0)} kg acero\n`;

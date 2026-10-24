@@ -21,6 +21,7 @@ import {
   SOLDADURA_AWS_E6011 
 } from './techosCadCatalog';
 import { CostosTechos, leerCostosTechos, totalCuadrilla, totalOperativos } from './costosTechos';
+import { precio, precioBarraPerfil, claveCobertura } from '../../lib/catalogoPrecios';
 
 // 1. CÁLCULO DE DISTANCIA EUCLIDIANA 3D ENTRE NODOS
 export function calcularLongitudSegmento3D(nodoA: Node3D, nodoB: Node3D): number {
@@ -115,7 +116,10 @@ export function calcularDespieceOptimizado1D(
     const desperdicioTotalM = totalMetrosComprados6mM - totalMetrosRequeridosM;
     const eficienciaProm = totalMetrosComprados6mM > 0 ? (totalMetrosRequeridosM / totalMetrosComprados6mM) * 100 : 0;
     const totalPesoAceroKg = totalMetrosComprados6mM * perfilInfo.pesoLinealKgM;
-    const totalCostoSoles = totalMetrosComprados6mM * (precioPerfil[perfilInfo.id] ?? perfilInfo.costoMetroSol);
+    // Precio del catálogo único (por barra) llevado a metro.
+    const largoBarra = perfilInfo.longitudComercialM || 6;
+    const costoMetro = precioPerfil[perfilInfo.id] ?? precioBarraPerfil(perfilInfo, perfilInfo.costoMetroSol * largoBarra) / largoBarra;
+    const totalCostoSoles = totalMetrosComprados6mM * costoMetro;
 
     resumenesDespiece.push({
       profileId: perfilInfo.id,
@@ -186,7 +190,7 @@ export function calcularMetradoCoberturas(
 
     const areaCompradaM2 = totalPlanchas * (coberturaInfo.anchoTotalMm / 1000) * largoPlanchaM;
     const pesoTotalKg = areaCompradaM2 * coberturaInfo.pesoM2Kg;
-    const costoTotalSol = areaCompradaM2 * (precioCobertura[coberturaInfo.id] ?? coberturaInfo.costoM2Sol);
+    const costoTotalSol = areaCompradaM2 * (precioCobertura[coberturaInfo.id] ?? precio(claveCobertura(coberturaInfo.id), coberturaInfo.costoM2Sol));
     const pernosEpdmUnids = Math.ceil(areaRealSuperficieM2 * coberturaInfo.pernosRequeridosPorM2);
 
     resultados.push({
@@ -214,8 +218,8 @@ export function generarReportePresupuestoBom(
   costos: CostosTechos = leerCostosTechos()
 ): FullTechosBomReport {
   
-  const despiecePerfiles = calcularDespieceOptimizado1D(segments, nodes, 0.003, costos.precioPerfil);
-  const resumenCoberturas = calcularMetradoCoberturas(coverageZones, nodes, costos.precioCobertura);
+  const despiecePerfiles = calcularDespieceOptimizado1D(segments, nodes, 0.003);
+  const resumenCoberturas = calcularMetradoCoberturas(coverageZones, nodes);
 
   // Contar columnas apoyadas para Placas Base y Pernos J
   const numColumnas = Object.values(nodes).filter(n => n.isFixedSupport).length || 4;
@@ -238,16 +242,16 @@ export function generarReportePresupuestoBom(
   // Costos directos acumulados
   const costoPerfilesSoles = despiecePerfiles.reduce((sum, p) => sum + p.totalCostoSoles, 0);
   const costoCoberturasSoles = resumenCoberturas.reduce((sum, c) => sum + c.costoTotalCoberturaSoles, 0);
-  const costoPlacasSoles = placasBaseTotales * (costos.placaBase ?? PLACA_BASE_ESTANDAR.costoUnidadSol);
-  const costoPernosAnclajeSoles = (pernosAnclajeJ / 100) * (costos.pernoAnclajeCaja ?? PERNO_ANCLAJE_J.costoCaja100Sol);
-  const costoPernosEpdmSoles = cajasPernosEpdm * (costos.pernoEpdmCaja ?? PERNO_EPDM_ESTANDAR.costoCaja100Sol);
-  const costoSoldaduraSoles = kgSoldaduraEstimados * (costos.soldaduraKg ?? SOLDADURA_AWS_E6011.costoKgSol);
+  const costoPlacasSoles = placasBaseTotales * precio('techos:placa_base', PLACA_BASE_ESTANDAR.costoUnidadSol);
+  const costoPernosAnclajeSoles = (pernosAnclajeJ / 100) * precio('techos:perno_anclaje', PERNO_ANCLAJE_J.costoCaja100Sol);
+  const costoPernosEpdmSoles = cajasPernosEpdm * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol);
+  const costoSoldaduraSoles = kgSoldaduraEstimados * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol);
 
   const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles;
 
   // Mano de obra y gastos operativos: % de materiales o detalle del usuario
   // (cuadrilla con jornales; grúa, transporte… con montos).
-  const costoManoObra = costos.manoObraModo === 'detalle' ? totalCuadrilla(costos) : costoDirectoMateriales * costos.manoObraPct / 100;
+  const costoManoObra = costos.manoObraModo === 'detalle' ? totalCuadrilla(costos) : costoDirectoMateriales * costos.manoObraPct / 100; // cuadrilla: jornales del catálogo
   const costoEquiposYGrua = costos.operativosModo === 'detalle' ? totalOperativos(costos) : costoDirectoMateriales * costos.operativosPct / 100;
   const costoDirectoTotal = costoDirectoMateriales + costoManoObra + costoEquiposYGrua;
 

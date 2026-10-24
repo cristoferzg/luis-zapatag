@@ -1,4 +1,5 @@
 // Motor de cálculos matemáticos, despiece, optimización de cortes y costos de HERRERÍA
+import { precio, precioBarraPerfil, tienePrecioPropio } from '../../lib/catalogoPrecios';
 import { 
   HerreriaDesign, 
   PerfilCatalogo, 
@@ -486,13 +487,14 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
 
   Object.values(perfilesMap).forEach(item => {
     const barras6m = Math.ceil((item.metrosTotales * 1.08) / 6);
-    const subtotal = barras6m * item.perfil.precioPorBarra6m;
+    const precioBarra = precioBarraPerfil(item.perfil, item.perfil.precioPorBarra6m);
+    const subtotal = barras6m * precioBarra;
     agrupados.perfiles.push({
       id: item.perfil.id,
       nombre: item.perfil.nombre,
       unidad: 'barra 6m',
       cantidad: barras6m,
-      precioUnitario: item.perfil.precioPorBarra6m,
+      precioUnitario: precioBarra,
       subtotal,
       observacion: `Requerido: ${item.metrosTotales.toFixed(2)}m (${item.pesoKg.toFixed(1)} kg)`
     });
@@ -527,7 +529,7 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
 
   if (areaAcanaladaM2 > 0) {
     const planchasComerciales = Math.max(1, Math.ceil(areaAcanaladaM2 / (1.00 * 2.40)));
-    const precioPlancha = 128.00; // S/. 128.00 por plancha acanalada LAC 1.2mm
+    const precioPlancha = precio('carpi:plancha_acanalada', 128); // catálogo de precios
     agrupados.planchas.push({
       id: 'plancha-acanalada-1.2',
       nombre: 'Plancha Acanalada / Corrugada LAC 1.2mm (Panel Cerrajería 1.00m × 2.40m)',
@@ -541,7 +543,7 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
 
   if (areaLisaM2 > 0) {
     const planchasComerciales = Math.max(1, Math.ceil(areaLisaM2 / (1.20 * 2.40)));
-    const precioPlancha = 135.00;
+    const precioPlancha = precio('carpi:plancha_lisa', 135);
     agrupados.planchas.push({
       id: 'plancha-lac-1/16',
       nombre: 'Plancha LAC 1/16" (1.5mm) 1.20m × 2.40m',
@@ -560,13 +562,14 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
     panelesMalla.forEach(p => {
       areaMallaM2 += (design.anchoM / Math.max(1, design.numHojas) * p.relW) * (design.altoM * p.relH);
     });
-    const subtotal = areaMallaM2 * 45.0;
+    const precioMalla = precio('carpi:malla', 45);
+    const subtotal = areaMallaM2 * precioMalla;
     agrupados.mallas.push({
       id: 'malla-electrosoldada',
       nombre: 'Malla Electrosoldada Galvanizada 50x50x3mm',
       unidad: 'm²',
       cantidad: Math.round(areaMallaM2 * 100) / 100,
-      precioUnitario: 45.00,
+      precioUnitario: precioMalla,
       subtotal,
       observacion: 'Corte e instalación en marco'
     });
@@ -579,7 +582,7 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
     panelesVidrio.forEach(p => {
       areaVidrioM2 += (design.anchoM / Math.max(1, design.numHojas) * p.relW) * (design.altoM * p.relH);
     });
-    const precioM2 = 110.0;
+    const precioM2 = precio('carpi:vidrio', 110);
     agrupados.vidrios.push({
       id: 'vidrio-templado-6mm',
       nombre: 'Vidrio Templado Incoloro 6mm con Bordes Pulidos',
@@ -594,13 +597,14 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
   // 5. ACCESORIOS (Bisagras, cerraduras, ruedas, rieles, etc.)
   if (design.accesoriosCad && design.accesoriosCad.length > 0) {
     design.accesoriosCad.forEach(acc => {
-      const sub = acc.cantidad * acc.precioUnitario;
+      const pu = tienePrecioPropio(`carpicad:${acc.tipo}`) ? precio(`carpicad:${acc.tipo}`) : acc.precioUnitario;
+      const sub = acc.cantidad * pu;
       const item = {
         id: acc.id,
         nombre: acc.nombre,
         unidad: 'und',
         cantidad: acc.cantidad,
-        precioUnitario: acc.precioUnitario,
+        precioUnitario: pu,
         subtotal: sub,
         observacion: acc.especificacion || acc.descripcion || ''
       };
@@ -614,13 +618,14 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
 
   if (design.accesorios) {
     design.accesorios.filter(a => a.incluido).forEach(acc => {
-      const sub = acc.cantidad * acc.precioUnitario;
+      const pu = tienePrecioPropio(`carpi:${acc.id}`) ? precio(`carpi:${acc.id}`) : acc.precioUnitario; // catálogo único (o el del diseño)
+      const sub = acc.cantidad * pu;
       const item = {
         id: acc.id,
         nombre: acc.nombre,
         unidad: acc.unidad,
         cantidad: acc.cantidad,
-        precioUnitario: acc.precioUnitario,
+        precioUnitario: pu,
         subtotal: sub,
         observacion: acc.descripcion
       };
@@ -639,8 +644,8 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
       nombre: 'Pernos de Expansión Hilti 3/8" x 3 1/2" + Arandelas',
       unidad: 'jgo',
       cantidad: 8,
-      precioUnitario: 4.50,
-      subtotal: 36.00,
+      precioUnitario: precio('carpi:perno_expansion', 4.5),
+      subtotal: 8 * precio('carpi:perno_expansion', 4.5),
       observacion: 'Fijación y anclaje de estructura'
     });
   }
@@ -654,8 +659,8 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
       nombre: 'Electrodos E6011 / E7018 1/8" Conarco / Indura',
       unidad: 'kg',
       cantidad: kilosSoldadura,
-      precioUnitario: 22.00,
-      subtotal: kilosSoldadura * 22.00,
+      precioUnitario: precio('soldadura:kg', 22),
+      subtotal: kilosSoldadura * precio('soldadura:kg', 22),
       observacion: 'Cordón continuo y de penetración'
     });
     agrupados.soldadura.push({
@@ -663,8 +668,8 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
       nombre: 'Discos de Corte Extra Fino 4 1/2" Norton / DeWalt',
       unidad: 'und',
       cantidad: cantDiscosCorte,
-      precioUnitario: 5.50,
-      subtotal: cantDiscosCorte * 5.50,
+      precioUnitario: precio('carpi:disco_corte', 5.5),
+      subtotal: cantDiscosCorte * precio('carpi:disco_corte', 5.5),
       observacion: 'Cortes limpios a 90° y 45°'
     });
     agrupados.soldadura.push({
@@ -672,8 +677,8 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
       nombre: 'Discos de Corte Fino 4 1/2" + Discos Flap de Esmerilado',
       unidad: 'und',
       cantidad: cantDiscosCorte,
-      precioUnitario: 8.50,
-      subtotal: cantDiscosCorte * 8.50,
+      precioUnitario: precio('carpi:disco_desbaste', 8.5),
+      subtotal: cantDiscosCorte * precio('carpi:disco_desbaste', 8.5),
       observacion: 'Corte limpio y desbaste de cordones'
     });
 
@@ -685,8 +690,8 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
       nombre: `Pintura Base Anticorrosiva Epóxica + Esmalte (${design.acabado.colorNombre})`,
       unidad: 'gal',
       cantidad: galonesPintura,
-      precioUnitario: 65.00,
-      subtotal: galonesPintura * 65.00,
+      precioUnitario: precio('pintura:anticorrosiva', 65),
+      subtotal: galonesPintura * precio('pintura:anticorrosiva', 65),
       observacion: `Área superficial calculada: ${areaTotalPinturaM2} m²`
     });
     agrupados.pintura.push({
@@ -694,8 +699,8 @@ export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: Des
       nombre: 'Thinner Acrílico Extra para Limpieza y Dilución',
       unidad: 'gal',
       cantidad: 1,
-      precioUnitario: 25.00,
-      subtotal: 25.00,
+      precioUnitario: precio('pintura:thinner', 25),
+      subtotal: precio('pintura:thinner', 25),
       observacion: 'Desengrase y aplicación con soplete'
     });
   }
