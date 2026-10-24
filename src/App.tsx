@@ -1149,7 +1149,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
           )}
 
           <div className="md:col-span-1">
-            <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Monto ($)</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Monto (S/)</label>
             <input required value={amount} onChange={e => setAmount(e.target.value)} type="number" min="0" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 transition-all" placeholder="Ej. 0.00" />
           </div>
 
