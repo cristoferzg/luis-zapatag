@@ -22,6 +22,7 @@ import {
 } from './techosCadCatalog';
 import { CostosTechos, leerCostosTechos, totalCuadrilla, totalOperativos } from './costosTechos';
 import { precio, precioBarraPerfil, claveCobertura } from '../../lib/catalogoPrecios';
+import { esTensor, metradoTensores } from './tensores';
 
 // 1. CÁLCULO DE DISTANCIA EUCLIDIANA 3D ENTRE NODOS
 export function calcularLongitudSegmento3D(nodoA: Node3D, nodoB: Node3D): number {
@@ -43,6 +44,7 @@ export function calcularDespieceOptimizado1D(
   const piezasPorPerfil: Record<string, CortePiezaSegmento[]> = {};
 
   Object.values(segments).forEach(seg => {
+    if (esTensor(seg)) return; // varilla/cable: se metra aparte (metradoTensores)
     const nodoA = nodes[seg.nodeAId];
     const nodoB = nodes[seg.nodeBId];
     if (!nodoA || !nodoB) return;
@@ -218,7 +220,12 @@ export function generarReportePresupuestoBom(
   costos: CostosTechos = leerCostosTechos()
 ): FullTechosBomReport {
   
-  const despiecePerfiles = calcularDespieceOptimizado1D(segments, nodes, 0.003);
+  // Los tensores (varilla/cable) van aparte: no son perfiles de 6 m soldados.
+  const segsPerfil: Record<string, Segment3D> = {};
+  Object.values(segments).forEach(s => { if (!esTensor(s)) segsPerfil[s.id] = s; });
+  const tensores = metradoTensores(nodes, segments);
+  const costoTensoresSoles = tensores.reduce((x, l) => x + l.subtotal, 0);
+  const despiecePerfiles = calcularDespieceOptimizado1D(segsPerfil, nodes, 0.003);
   const resumenCoberturas = calcularMetradoCoberturas(coverageZones, nodes);
 
   // Contar columnas apoyadas para Placas Base y Pernos J
@@ -231,7 +238,7 @@ export function generarReportePresupuestoBom(
   const cajasPernosEpdm = Math.ceil((totalPernosEpdmUnids || 100) / 100);
 
   // Estimado de soldadura en base a metros lineales de estructura
-  const totalMetrosEstructura = Object.values(segments).reduce((sum, seg) => {
+  const totalMetrosEstructura = Object.values(segsPerfil).reduce((sum, seg) => {
     const nA = nodes[seg.nodeAId];
     const nB = nodes[seg.nodeBId];
     return sum + (nA && nB ? calcularLongitudSegmento3D(nA, nB) : 0);
@@ -247,7 +254,7 @@ export function generarReportePresupuestoBom(
   const costoPernosEpdmSoles = cajasPernosEpdm * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol);
   const costoSoldaduraSoles = kgSoldaduraEstimados * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol);
 
-  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles;
+  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles;
 
   // Mano de obra y gastos operativos: % de materiales o detalle del usuario
   // (cuadrilla con jornales; grúa, transporte… con montos).
@@ -279,7 +286,9 @@ export function generarReportePresupuestoBom(
     precioVentaFinalSoles: Math.round(precioVentaFinal * 100) / 100,
     costoPerfilesSoles: r2(costoPerfilesSoles),
     costoCoberturasSoles: r2(costoCoberturasSoles),
-    costoAccesoriosSoles: r2(costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles),
+    costoAccesoriosSoles: r2(costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles),
+    tensores,
+    costoTensoresSoles: r2(costoTensoresSoles),
     gastosGeneralesSoles: r2(gastosGenerales),
     utilidadSoles: r2(utilidad),
     subtotalSoles: r2(subtotal),

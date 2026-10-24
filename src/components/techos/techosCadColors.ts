@@ -166,12 +166,12 @@ export const ROLES_ESTRUCTURALES_INFO: Record<RolEstructuralSegmento, Estructura
     rol: 'tensor_viento',
     nombre: 'Tensor de Viento / Templador',
     nombreCorto: 'Tensor',
-    colorHex: '#d946ef', // Magenta
-    colorClaseTailwind: 'bg-fuchsia-500',
-    colorBgTailwind: 'bg-fuchsia-50',
-    colorBorderTailwind: 'border-fuchsia-300',
-    colorTextTailwind: 'text-fuchsia-800',
-    colorThreeJs: 0xd946ef,
+    colorHex: '#059669', // Verde (distinto de los arriostres rosados)
+    colorClaseTailwind: 'bg-emerald-600',
+    colorBgTailwind: 'bg-emerald-50',
+    colorBorderTailwind: 'border-emerald-300',
+    colorTextTailwind: 'text-emerald-800',
+    colorThreeJs: 0x059669,
     descripcion: 'Cables o varillas redondas tensadas'
   },
   piso_deck: {
@@ -404,6 +404,8 @@ export const getToolColorBadge = (tool: ToolModoCad): { bg: string; text: string
       return { bg: 'bg-lime-50', text: 'text-lime-800', border: 'border-lime-300', hex: '#84cc16' };
     case 'draw_arriostre':
       return { bg: 'bg-pink-50', text: 'text-pink-800', border: 'border-pink-300', hex: '#ec4899' };
+    case 'draw_tensor':
+      return { bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-300', hex: '#10b981' };
     case 'draw_node':
       return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-300', hex: '#3b82f6' };
     case 'draw_mezzanine':

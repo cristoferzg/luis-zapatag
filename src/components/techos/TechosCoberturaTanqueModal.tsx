@@ -8,14 +8,16 @@
 //   sobretecho opcional. Todo se ve y se metra también en Concreto por pisos.
 // =============================================================================
 import { useMemo, useState } from 'react';
-import { X, Layers, Droplets, Trash2, Compass, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
+import { X, Layers, Droplets, Trash2, Compass, Cable, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { INVENTARIO_COBERTURAS, INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
+import { MODELOS_TENSOR, TipoTensor, sugerido, generarTensores, quitarTensoresAuto, modeloTensor } from './tensores';
+import { safeStorage } from '../../lib/storageManager';
 import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA, pendienteActual, cambiarPendiente, PENDIENTE_MIN_PCT } from './coberturaAuto';
 
 interface Props {
   engineState: any;
-  modo: 'cobertura' | 'tanque' | 'caida';
+  modo: 'cobertura' | 'tanque' | 'caida' | 'tensores';
   onClose: () => void;
 }
 
@@ -29,6 +31,18 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
   const segments: Record<string, Segment3D> = engineState?.segments || {};
   const zones: Record<string, CoverageZone3D> = engineState?.coverageZones || {};
   const [cobId, setCobId] = useState<string>('cob_aluzinc_030');
+  // Tensores
+  const luz = useMemo(() => { const ns = Object.values(nodes); return ns.length ? Math.max(...ns.map(n => n.x)) - Math.min(...ns.map(n => n.x)) : 0; }, [nodes]);
+  const arriostresTubo = Object.values(segments).filter(s => s.rolEstructural === 'arriostre' && !s.tensorAuto).length;
+  const [ten, setTen] = useState(() => ({ tipo: 'varilla' as TipoTensor, modelo: sugerido('varilla', luz), correa: 'TEN-VAR-12', techo: true, paredes: true, correas: true, cada: 5, reemplazar: true }));
+  const RIGIDOS = INVENTARIO_PERFILES_TUBULARES.filter(p => p.categoria === 'tubo_redondo' || (p.categoria === 'tubo_cuadrado' && p.anchoMm <= 50));
+  const tensoresEnEscena = Object.values(segments).filter(s => modeloTensor(s.profileId) || (s.tensorAuto && s.rolEstructural === 'arriostre'));
+  const colocarTensores = () => {
+    const r = generarTensores(nodes, segments, { modeloCruz: ten.modelo, modeloCorrea: ten.correa, techo: ten.techo, paredes: ten.paredes, correas: ten.correas, cadaPanos: Math.max(2, ten.cada), reemplazarArriostres: ten.reemplazar && arriostresTubo > 0 });
+    if (!r.cruces && !r.correas) { setMsg('No encontré pórticos con tijerales repetidos. Genera la nave con el Asistente o dibuja los tensores a mano con la herramienta Tensor.'); return; }
+    engineState.loadScene(r.nodes, r.segments, zones);
+    setMsg(`✓ ${r.cruces} tensores en cruz (paños ${r.panos.join(', ')}) y ${r.correas} tramos de templador de correas.`);
+  };
   const [msg, setMsg] = useState('');
 
   // Medidas de la obra (sin contar tanques) para proponer la posición.
@@ -144,7 +158,7 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3" onClick={onClose}>
       <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
-          <div className="inline-flex p-0.5 bg-slate-200/70 rounded-xl">
+          <div className="inline-flex flex-wrap p-0.5 bg-slate-200/70 rounded-xl">
             <button onClick={() => { setModo('cobertura'); setMsg(''); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${modo === 'cobertura' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
               <Layers className="w-3.5 h-3.5" /> Cobertura
             </button>
@@ -154,12 +168,59 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
             <button onClick={() => { setModo('caida'); setMsg(''); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${modo === 'caida' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
               <Compass className="w-3.5 h-3.5" /> Caída
             </button>
+            <button onClick={() => { setModo('tensores'); setMsg(''); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${modo === 'tensores' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
+              <Cable className="w-3.5 h-3.5" /> Tensores
+            </button>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-4 space-y-3 overflow-y-auto">
-          {modo === 'caida' ? (<>
+          {modo === 'tensores' ? (<>
+            <p className="text-xs text-slate-500">Arriostran la nave contra el viento y el sismo y evitan que las correas se doblen de lado. Se colocan solos según el tamaño de la nave, o a mano con la herramienta <b>Tensor</b>.</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {([['varilla', 'Varilla lisa + templador', 'Lo más usado y económico'], ['cable', 'Cable de acero + templador', 'Luces largas / naves livianas'], ['rigido', 'Rígido (tubo)', 'También toma compresión']] as [TipoTensor, string, string][]).map(([t, n, d]) => (
+                <button key={t} onClick={() => { const m = sugerido(t, luz); setTen({ ...ten, tipo: t, modelo: m }); if (t !== 'rigido') safeStorage.setItem('techos_tensor_modelo', m); }}
+                  className={`text-left rounded-xl border px-2.5 py-2 cursor-pointer ${ten.tipo === t ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'}`}>
+                  <p className="text-[11px] font-black text-slate-800 leading-tight">{n}</p>
+                  <p className="text-[10px] text-slate-500 leading-tight mt-0.5">{d}</p>
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-[11px] font-bold text-slate-600">Cruces en X
+                <select value={ten.modelo} onChange={e => { setTen({ ...ten, modelo: e.target.value }); if (modeloTensor(e.target.value)) safeStorage.setItem('techos_tensor_modelo', e.target.value); }}
+                  className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-bold focus:outline-none">
+                  {ten.tipo === 'rigido' ? RIGIDOS.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>) : MODELOS_TENSOR.filter(m => m.tipo === ten.tipo).map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                </select>
+              </label>
+              <label className="text-[11px] font-bold text-slate-600">Templador de correas
+                <select value={ten.correa} onChange={e => setTen({ ...ten, correa: e.target.value })} className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-bold focus:outline-none">
+                  {MODELOS_TENSOR.filter(m => m.tipo === 'varilla').map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" checked={ten.techo} onChange={e => setTen({ ...ten, techo: e.target.checked })} /> Cruces en el plano del techo</label>
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" checked={ten.paredes} onChange={e => setTen({ ...ten, paredes: e.target.checked })} /> Cruces en las paredes laterales (entre columnas)</label>
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" checked={ten.correas} onChange={e => setTen({ ...ten, correas: e.target.checked })} /> Templadores de correas (paños de más de 5.5 m)</label>
+              {arriostresTubo > 0 && <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" checked={ten.reemplazar} onChange={e => setTen({ ...ten, reemplazar: e.target.checked })} /> Reemplazar los {arriostresTubo} arriostres de tubo en cruz por estos tensores</label>}
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-700">Arriostrar los paños extremos y cada
+                <input type="number" min={2} max={10} value={ten.cada} onChange={e => setTen({ ...ten, cada: Math.max(2, parseInt(e.target.value) || 5) })} className="w-14 px-2 py-1 rounded-lg bg-slate-100 text-xs font-mono focus:outline-none" /> paños
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={colocarTensores} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer hover:bg-emerald-700"><Cable className="w-4 h-4" /> Colocar tensores</button>
+              {tensoresEnEscena.some(s => s.tensorAuto) && (
+                <button onClick={() => { const r = quitarTensoresAuto(nodes, segments); engineState.loadScene(r.nodes, r.segments, zones); setMsg('Se quitaron los tensores automáticos.'); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><Trash2 className="w-4 h-4" /> Quitar automáticos</button>
+              )}
+            </div>
+            <p className="text-[11px] font-bold text-slate-600">En el diseño: {tensoresEnEscena.length} tensores{luz ? ` · luz de la nave ${luz.toFixed(1)} m` : ''}. Su varilla o cable, templadores, tuercas y grapas salen en Materiales y en el presupuesto (precios del catálogo).</p>
+            <p className="text-[10px] text-slate-500 bg-slate-50 rounded-lg p-2 leading-snug">Norma E.090 (RNE): no impone un tipo de tensor; debe resistir la fuerza de diseño. Las cruces de varilla o cable trabajan solo a tracción y se instalan tensadas con su templador. Diámetros sugeridos por la luz de la nave (práctica usual); confírmalos con el cálculo del ingeniero.</p>
+            {ten.tipo === 'rigido' && <p className="text-[10px] text-slate-500">Para dibujar uno a mano usa la herramienta Cruz; la herramienta Tensor usa varilla o cable.</p>}
+            {ten.tipo !== 'rigido' && <p className="text-[10px] text-slate-500">Para uno a mano: Más herramientas → <b>Tensor</b> y toca dos nodos; usa el modelo elegido aquí.</p>}
+          </>) : modo === 'caida' ? (<>
             <p className="text-xs text-slate-500">Hacia dónde escurre el agua del techo, visto en planta (abajo = adelante / calle). Al cambiarla se gira todo el diseño: columnas, tijerales, correas y cobertura.</p>
             <p className="text-sm font-black text-slate-800">Caída actual: <span className="text-sky-700">{caida ? NOMBRE_CAIDA[caida] : 'techo plano o sin cobertura'}</span></p>
             <div className="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">

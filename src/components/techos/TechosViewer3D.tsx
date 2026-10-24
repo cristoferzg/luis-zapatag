@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
+import { perfilTechos } from './tensores';
 
 interface TechosViewer3DProps {
   engineState?: UseTechosCadEngineReturn;
@@ -1990,7 +1991,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       if (distance < 0.001) return;
 
       // Buscar perfil en el catálogo
-      const profCatalog = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === seg.profileId);
+      const profCatalog = perfilTechos(seg.profileId);
       const isRedondo = profCatalog 
         ? (profCatalog.categoria === 'tubo_redondo' || profCatalog.categoria === 'barra_redonda')
         : (seg.profileId?.includes('pipe') || seg.profileId?.includes('redondo') || seg.profileId?.includes('sch') || seg.profileId?.includes('red'));

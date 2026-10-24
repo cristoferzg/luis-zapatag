@@ -17,7 +17,8 @@ import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes
   CapaEstructura, capaDeRol, CAPAS, Sobrepecho } from './concreto/geometriaObra';
 import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
 import { coberturaDesdeCorreas } from './techos/coberturaAuto';
-import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
+import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
+import { perfilTechos } from './techos/tensores';
 import { Bloque, muebleDe, geometriaCarpi, GeomCarpi } from './concreto/bloques';
 import { leerDisenosCarpi } from './concreto/carpiObra';
 
@@ -325,7 +326,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           if (!conTecho && (sg.rolEstructural === 'correa' || deSobretecho)) return;
           const capa = capaDeRol(sg.rolEstructural);
           if (ocultas.includes(capa)) return;
-          const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sg.profileId);
+          const p = perfilTechos(sg.profileId) as PerfilTubularItem | undefined;
           const ancho = Math.max(0.03, (p?.anchoMm || 50) / 1000), alto = Math.max(0.03, (p?.altoMm || 50) / 1000);
           const a = new THREE.Vector3(na.x, na.y, na.z), b = new THREE.Vector3(nb.x, nb.y, nb.z);
           if (sg.rolEstructural === 'columna_concreto') { barra(a, b, Math.max(0.25, ancho), Math.max(0.25, alto), M.concreto); return; }

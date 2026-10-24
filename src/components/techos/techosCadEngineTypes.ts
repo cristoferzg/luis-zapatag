@@ -139,6 +139,9 @@ export interface Segment3D {
   // Columna mixta: metros de CONCRETO (encamisado) desde la base; el resto es
   // metal. Solo aplica a columnas. Es visual (no altera el metrado por ahora).
   concretoBaseM?: number;
+  // Tensores (varilla/cable): colocados por el botón automático y su función.
+  tensorAuto?: boolean;
+  funcionTensor?: 'cruz' | 'correa';
 }
 
 export interface CoverageZone3D {
@@ -188,6 +191,7 @@ export type ToolModoCad =
   | 'draw_tijeral'
   | 'draw_correa'
   | 'draw_arriostre'
+  | 'draw_tensor'
   | 'draw_line_h'
   | 'draw_line_v'
   | 'draw_rect'
@@ -287,6 +291,8 @@ export interface FullTechosBomReport {
   gastosGeneralesSoles?: number;
   utilidadSoles?: number;
   subtotalSoles?: number;
+  tensores?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
+  costoTensoresSoles?: number;
 }
 
 // 5. ANÁLISIS ESTRUCTURAL Y PARÁMETROS NORMATIVOS (RNE E.020, E.030, E.050, E.090)

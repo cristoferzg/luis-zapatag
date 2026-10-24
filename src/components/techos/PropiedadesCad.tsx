@@ -156,6 +156,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
       diagonal: { label: 'Diagonales de Celosía', icon: '⚡', colorBadge: 'bg-purple-50 text-purple-700 border-purple-200' },
       correa: { label: 'Correas / Tubos de Tejido', icon: '🪵', colorBadge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
       arriostre: { label: 'Arriostres y Cruces San Andrés', icon: '⛓️', colorBadge: 'bg-slate-100 text-slate-800 border-slate-300' },
+      tensor_viento: { label: 'Tensores (varilla / cable)', icon: '🪢', colorBadge: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
       piso_deck: { label: 'Piso Metal Deck / Mezzanine', icon: '🏁', colorBadge: 'bg-slate-50 text-slate-700 border-slate-200' }
     };
 

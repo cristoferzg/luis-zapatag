@@ -450,7 +450,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     }
 
     const id = `seg_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const profId = profileId || activeProfileId;
+    // Tensor dibujado a mano: el modelo elegido en Más → Tensores (varilla Ø5/8" por defecto).
+    const profId = profileId || (rolEstructural === 'tensor_viento' ? (safeStorage.getItem<string>('techos_tensor_modelo', 'TEN-VAR-58') || 'TEN-VAR-58') : activeProfileId);
 
     const newSegs = {
       ...segments,

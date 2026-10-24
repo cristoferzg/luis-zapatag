@@ -12,6 +12,7 @@ import {
   Trash2, 
   GripHorizontal,
   Crosshair,
+  Cable,
   MousePointer,
   PenTool,
   Layers,
@@ -283,7 +284,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
   const [showColumnasExactas, setShowColumnasExactas] = useState<boolean>(false);
-  const [showCobTanque, setShowCobTanque] = useState<null | 'cobertura' | 'tanque' | 'caida'>(null);
+  const [showCobTanque, setShowCobTanque] = useState<null | 'cobertura' | 'tanque' | 'caida' | 'tensores'>(null);
 
 
 
@@ -372,7 +373,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const activeTool: ToolModoCad = engineState?.activeTool || 'select';
 
   // Herramientas que dibujan sobre el lienzo (no selección/paneo).
-  const DRAWING_TOOLS: ToolModoCad[] = ['draw_line', 'draw_arc', 'draw_col', 'draw_tijeral', 'draw_correa', 'draw_arriostre', 'draw_node', 'measure'];
+  const DRAWING_TOOLS: ToolModoCad[] = ['draw_line', 'draw_arc', 'draw_col', 'draw_tijeral', 'draw_correa', 'draw_arriostre', 'draw_tensor', 'draw_node', 'measure'];
   const isDrawingTool = DRAWING_TOOLS.includes(activeTool);
 
   // Al elegir una herramienta de dibujo, colapsa el panel flotante para que no
@@ -893,6 +894,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       case 'draw_tijeral': return 'cordon_superior';
       case 'draw_correa': return 'correa';
       case 'draw_arriostre': return 'arriostre';
+      case 'draw_tensor': return 'tensor_viento';
       case 'draw_arc': return 'cordon_superior';
       default: return 'viga_principal';
     }
@@ -1027,7 +1029,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     const isDrawingSegment = 
       activeTool === 'draw_line' || 
       activeTool === 'draw_correa' || 
-      activeTool === 'draw_arriostre';
+      activeTool === 'draw_arriostre' || 
+      activeTool === 'draw_tensor';
 
     if (isDrawingSegment) {
       const rol = getRolFromActiveTool();
@@ -1176,7 +1179,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     const isDrawingSegment = 
       activeTool === 'draw_line' || 
       activeTool === 'draw_correa' || 
-      activeTool === 'draw_arriostre';
+      activeTool === 'draw_arriostre' || 
+      activeTool === 'draw_tensor';
 
     if (isDrawingSegment) {
       const rol = getRolFromActiveTool();
@@ -1215,7 +1219,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       activeTool === 'draw_line' || 
       activeTool === 'draw_tijeral' || 
       activeTool === 'draw_correa' || 
-      activeTool === 'draw_arriostre';
+      activeTool === 'draw_arriostre' || 
+      activeTool === 'draw_tensor';
 
     if (isDrawingSegment) {
       const coords = screenToWorld(e.clientX, e.clientY);
@@ -1500,6 +1505,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                     className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
                     <Compass className="w-4 h-4 text-sky-600 shrink-0" />
                     <span>Caída del techo</span>
+                  </button>
+                  <button onClick={() => { setShowCadMore(false); setShowCobTanque('tensores'); }}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                    <Cable className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Tensores (varilla, cable)</span>
                   </button>
                   <button onClick={() => { setShowCadMore(false); setShowControlsSumilla(v => !v); }}
                     className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
@@ -2806,6 +2816,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                     { id: 'draw_tijeral', label: 'Tijeral', icon: Layers, color: 'text-amber-400', bg: 'bg-amber-500/20' },
                     { id: 'draw_correa', label: 'Correa', icon: Grid, color: 'text-lime-400', bg: 'bg-lime-500/20' },
                     { id: 'draw_arriostre', label: 'Cruz', icon: Crosshair, color: 'text-pink-400', bg: 'bg-pink-500/20' },
+                    { id: 'draw_tensor', label: 'Tensor', icon: Cable, color: 'text-emerald-400', bg: 'bg-emerald-500/20' },
                     { id: 'measure', label: 'Medir', icon: Ruler, color: 'text-sky-400', bg: 'bg-sky-500/20' },
                   ].map(tool => {
                     const Icon = tool.icon;

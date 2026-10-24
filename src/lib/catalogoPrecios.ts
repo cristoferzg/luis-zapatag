@@ -95,6 +95,13 @@ function construirItems(): ItemCatalogo[] {
     add({ clave: clavePerfilDe(p), grupo: 'Perfiles de acero', nombre: nombrePerfil(p), alias: [p.nombre], unidad: `barra ${norm(largo)} m`, ref: Math.round(p.costoMetroSol * largo * 100) / 100, usadoEn: ['Techos'] });
   });
   INVENTARIO_COBERTURAS.forEach(c => add({ clave: claveCobertura(c.id), grupo: 'Coberturas', nombre: c.nombre, unidad: 'm²', ref: c.costoM2Sol, usadoEn: ['Techos'] }));
+  // Tensores (varilla lisa / cable de acero) y sus accesorios.
+  ([
+    ['tensor:varilla_12', 'Varilla lisa Ø 1/2" (tensor)', 'barra 6 m'], ['tensor:varilla_58', 'Varilla lisa Ø 5/8" (tensor)', 'barra 6 m'], ['tensor:varilla_34', 'Varilla lisa Ø 3/4" (tensor)', 'barra 6 m'],
+    ['tensor:cable_14', 'Cable de acero Ø 1/4"', 'm'], ['tensor:cable_38', 'Cable de acero Ø 3/8"', 'm'], ['tensor:cable_12', 'Cable de acero Ø 1/2"', 'm'],
+    ['tensor:templador_12', 'Templador (tensor) Ø 1/2"', 'unidad'], ['tensor:templador_58', 'Templador (tensor) Ø 5/8"', 'unidad'], ['tensor:templador_34', 'Templador (tensor) Ø 3/4"', 'unidad'],
+    ['tensor:tuerca', 'Tuerca + arandela para tensor', 'unidad'], ['tensor:grapa', 'Grapa para cable', 'unidad'], ['tensor:guardacabo', 'Guardacabo para cable', 'unidad'],
+  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
   add({ clave: 'techos:placa_base', grupo: 'Accesorios de techos', nombre: PLACA_BASE_ESTANDAR.nombre, unidad: 'unidad', ref: PLACA_BASE_ESTANDAR.costoUnidadSol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_anclaje', grupo: 'Accesorios de techos', nombre: PERNO_ANCLAJE_J.nombre, unidad: 'caja ×100', ref: PERNO_ANCLAJE_J.costoCaja100Sol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_epdm', grupo: 'Accesorios de techos', nombre: PERNO_EPDM_ESTANDAR.nombre, unidad: 'caja ×100', ref: PERNO_EPDM_ESTANDAR.costoCaja100Sol, usadoEn: ['Techos'] });

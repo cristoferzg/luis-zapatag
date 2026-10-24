@@ -33,7 +33,7 @@ import {
   regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
   CAPAS, CapaEstructura, capaDeRol, esNodoTanque, poligonosTecho, KEY_SOBREPECHOS, Sobrepecho, sobrepechoDefault, perimetroSobrepecho,
 } from './concreto/geometriaObra';
-import { INVENTARIO_PERFILES_TUBULARES } from './techos/techosCadCatalog';
+import { perfilTechos } from './techos/tensores';
 import { caidaDePoligono, nombreDireccion, NOMBRE_CAIDA } from './techos/coberturaAuto';
 import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
@@ -214,7 +214,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       if (!a || !b || esNodoTanque(a) || esNodoTanque(b)) return;
       const capa = capaDeRol(sg.rolEstructural);
       conteo[capa] = (conteo[capa] || 0) + 1;
-      const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sg.profileId);
+      const p = perfilTechos(sg.profileId);
       const concreto = sg.rolEstructural === 'columna_concreto';
       const ancho = concreto ? 0.25 : (p?.anchoMm || 50) / 1000, alto = concreto ? 0.25 : (p?.altoMm || p?.anchoMm || 50) / 1000;
       const col = Math.hypot(a.x - b.x, a.z - b.z) < 0.01;

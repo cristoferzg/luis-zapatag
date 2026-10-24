@@ -3,6 +3,7 @@
 import type { PlanoElem } from '../ConcretoPlanoCad';
 import type { EstructuraTechos } from './obraPisos';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from '../techos/techosCadCatalog';
+import { modeloTensor } from '../techos/tensores';
 import { coberturaDesdeCorreas, TANQUES_ROTOPLAS } from '../techos/coberturaAuto';
 import { precio, precioBarraPerfil, claveCobertura } from '../../lib/catalogoPrecios';
 
@@ -219,10 +220,12 @@ export function metradoTechosPorPiso(est: EstructuraTechos | null, bases: number
     if (!a || !b) return;
     const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
     const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === s.profileId);
+    const ten = modeloTensor(s.profileId);
     // Las vigas de un entrepiso son el techo del piso de abajo.
     const y = Math.min(a.y, b.y), horizontal = Math.abs(a.y - b.y) < 0.01;
     const o = out[piso(horizontal && y > 0.05 ? y - 0.05 : y + 0.01)];
-    o.perfiles++; o.metros += L; o.kg += L * (p?.pesoLinealKgM || 0); o.costoAcero += L * (p ? precioBarraPerfil(p, p.costoMetroSol * (p.longitudComercialM || 6)) / (p.longitudComercialM || 6) : 0);
+    o.perfiles++; o.metros += L; o.kg += L * (p?.pesoLinealKgM || ten?.kgM || 0);
+    o.costoAcero += L * (p ? precioBarraPerfil(p, p.costoMetroSol * (p.longitudComercialM || 6)) / (p.longitudComercialM || 6) : ten ? precio(ten.clave) / (ten.tipo === 'varilla' ? 6 : 1) : 0);
   });
   Object.values(est.coverageZones || {}).forEach(z => {
     const pts = (z.nodeIdsBoundary || []).map(id => N[id]).filter(Boolean);
