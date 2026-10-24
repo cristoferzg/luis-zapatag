@@ -12,10 +12,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   X, ChevronLeft, ChevronRight, UploadCloud, Image as ImageIcon, FileText, Paperclip,
-  Trash2, Check, Star, GalleryHorizontal, Link2, Video, Loader2, Tag,
+  Trash2, Check, Star, GalleryHorizontal, Link2, Video, Loader2, Tag, LayoutTemplate,
 } from 'lucide-react';
 import { uploadFileToFirebaseStorage } from '../../lib/storage';
 import { safeStorage } from '../../lib/storageManager';
+import { Plantilla, ModuloPlantilla, NOMBRE_MODULO, capturarDiseno, pesoKB } from '../../lib/plantillas';
 
 export interface AdjuntoSubido { nombre: string; url: string; tipo: string; tamano?: number }
 
@@ -36,6 +37,7 @@ export interface BorradorSubida {
   destacado: boolean;
   enSlider: boolean;
   masComprado: boolean;
+  plantilla?: Plantilla | null; // recurso: diseño listo para usar
 }
 
 export const borradorVacio = (p: Partial<BorradorSubida> = {}): BorradorSubida => ({
@@ -199,6 +201,7 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
             : <ImageIcon className="w-10 h-10 text-white/30" />}
           <div className="absolute top-2 left-2 flex gap-1">
             {b.destacado && <span className="bg-amber-400 text-amber-950 text-[10px] font-black px-2 py-0.5 rounded-md">⭐ Destacado</span>}
+            {b.plantilla && <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md">Plantilla</span>}
             {b.descuentoPct > 0 && !b.isFree && <span className="bg-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md">-{b.descuentoPct}%</span>}
           </div>
         </div>
@@ -337,6 +340,40 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
                           <input className={`${campo} pl-9`} value={b.enlaceVideo} onChange={e => set({ enlaceVideo: e.target.value, ...(e.target.value ? { archivoUrl: '', archivoNombre: '' } : {}) })}
                             placeholder="…o pega un enlace de YouTube / MP4" />
                         </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Plantilla de diseño */}
+                  {modo === 'recurso' && (
+                    <div>
+                      <label className={etiqueta}>Plantilla de diseño <span className="normal-case font-bold text-slate-400">(opcional · el usuario la abre y la edita)</span></label>
+                      {b.plantilla ? (
+                        <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl p-3">
+                          <LayoutTemplate className="w-5 h-5 text-emerald-600 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-emerald-900">Plantilla de {NOMBRE_MODULO[b.plantilla.modulo]}</p>
+                            <p className="text-[11px] text-emerald-700">{pesoKB(b.plantilla.datos)} KB · se tomó el diseño que tienes abierto en ese módulo</p>
+                          </div>
+                          <button type="button" onClick={() => set({ plantilla: null })} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer" aria-label="Quitar plantilla"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(['techos', 'carpimetal', 'drywall'] as ModuloPlantilla[]).map(m => (
+                              <button key={m} type="button" onClick={() => {
+                                const datos = capturarDiseno(m);
+                                if (!datos) { setError(`No hay un diseño abierto en ${NOMBRE_MODULO[m]}. Ábrelo, deja listo el diseño y vuelve aquí.`); return; }
+                                if (pesoKB(datos) > 800) { setError('Ese diseño es demasiado grande para una plantilla (más de 800 KB).'); return; }
+                                setError(null); set({ plantilla: { modulo: m, datos } });
+                              }} className="p-2.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50 text-left cursor-pointer">
+                                <LayoutTemplate className="w-4 h-4 text-indigo-600" />
+                                <span className="block text-xs font-bold text-slate-800 mt-1">{NOMBRE_MODULO[m]}</span>
+                                <span className="block text-[10px] text-slate-500 leading-tight">Usar mi diseño actual</span>
+                              </button>
+                            ))}
+                          </div>
+                        </>
                       )}
                     </div>
                   )}

@@ -17,12 +17,14 @@ import {
   Sliders,
   Star,
   GalleryHorizontal,
-  Paperclip
+  Paperclip,
+  LayoutTemplate
 } from 'lucide-react';
 import { SystemUser } from '../types';
 import { deleteRecord, useFirestoreArraySync, updateRecord } from '../lib/db';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
 import SliderDestacados from './common/SliderDestacados';
+import { usarPlantilla, NOMBRE_MODULO } from '../lib/plantillas';
 import { 
   getCompanyCurrency, 
   convertAmount, 
@@ -97,7 +99,7 @@ export default function BibliotecaPremiumView({
   const setItems = propSetItems || setInternalItems;
   const usuariosList = propUsuariosList || internalUsuariosList;
 
-  const [activeTab, setActiveTab] = useState<'todos' | 'documentos' | 'ofertas' | 'admin'>('todos');
+  const [activeTab, setActiveTab] = useState<'todos' | 'documentos' | 'ofertas' | 'plantillas' | 'admin'>('todos');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCategoryManager, setShowCategoryManager] = useState(false);
@@ -294,6 +296,8 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
     } else if (activeTab === 'ofertas') {
       // Destacados: solo los recursos que el admin marcó como destacados.
       matchesTab = !!item.isDestacado;
+    } else if (activeTab === 'plantillas') {
+      matchesTab = !!item.plantilla;
     }
 
     const matchesSearch = item.titulo.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -325,6 +329,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
   };
 
   // Asistente de subida (crear / editar)
+  const [plantillaAUsar, setPlantillaAUsar] = useState<BibliotecaItem | null>(null);
   const [asistente, setAsistente] = useState<{ id: string | null; inicial: BorradorSubida } | null>(null);
 
   const abrirAsistente = async (item?: BibliotecaItem) => {
@@ -338,7 +343,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
         adjuntos: item.adjuntos || [], isFree: !!item.isFree, precio: item.precioSoles || 0,
         precioAntes: item.precioOriginalSoles || 0, descuentoPct: item.discountPercentage || 0,
         descuentoHasta: (item.discountExpiryDate || '').slice(0, 16), destacado: !!item.isDestacado,
-        enSlider: !!item.enSlider, masComprado: !!item.isMasComprado,
+        enSlider: !!item.enSlider, masComprado: !!item.isMasComprado, plantilla: item.plantilla || null,
       }),
     });
   };
@@ -368,6 +373,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
       isDestacado: b.destacado,
       enSlider: b.enSlider,
       adjuntos: b.adjuntos,
+      plantilla: b.plantilla || undefined,
       fileName: b.archivoNombre.trim() || previo?.fileName || 'documento_tecnico.pdf',
       enlaceDescargaUrl: storedUrl,
       previewImageUrl: b.portadaUrl,
@@ -484,6 +490,18 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
             <span>Destacados</span>
           </button>
 
+          <button
+            onClick={() => { setActiveTab('plantillas'); setSelectedCategory('all'); }}
+            className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
+              activeTab === 'plantillas'
+                ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <LayoutTemplate className="w-4 h-4 text-emerald-600" />
+            <span>Plantillas ({items.filter(i => i.plantilla).length})</span>
+          </button>
+
           {isAdmin && (
             <button
               onClick={() => setActiveTab('admin')}
@@ -517,9 +535,10 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                 precioAntes: item.precioOriginalSoles,
                 descuentoPct: item.discountPercentage,
                 descuentoHasta: item.discountExpiryDate,
-                textoBoton: hasAccess(item) ? 'Ver recurso' : 'Adquirir',
+                textoBoton: hasAccess(item) ? (item.plantilla ? 'Usar plantilla' : 'Ver recurso') : 'Adquirir',
                 onAccion: async () => {
-                  if (hasAccess(item)) {
+                  if (hasAccess(item) && item.plantilla) setPlantillaAUsar(item);
+                  else if (hasAccess(item)) {
                     const url = await resolveMediaUrl(item);
                     setViewingItem({ ...item, enlaceDescargaUrl: url });
                   } else handlePurchaseRequest(item);
@@ -643,6 +662,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                       <div>
                         <h3 className="font-extrabold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
                           {item.isDestacado && <Star className="w-3.5 h-3.5 text-amber-500 inline -mt-0.5 mr-1" fill="currentColor" />}
+                          {item.plantilla && <span className="inline-block align-middle mr-1.5 text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md">Plantilla {NOMBRE_MODULO[item.plantilla.modulo]}</span>}
                           {item.titulo}
                         </h3>
                         {(item.adjuntos?.length || 0) > 0 && (
@@ -657,7 +677,15 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                     {/* Footer y Botones de Acción */}
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        {unlocked ? (
+                        {unlocked && item.plantilla ? (
+                          <button
+                            onClick={() => setPlantillaAUsar(item)}
+                            className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                          >
+                            <LayoutTemplate className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">Usar plantilla</span>
+                          </button>
+                        ) : unlocked ? (
                           <button
                             onClick={async () => {
                               const url = await resolveMediaUrl(item);
@@ -809,6 +837,26 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {plantillaAUsar?.plantilla && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-3">
+            <div className="flex items-center gap-2">
+              <LayoutTemplate className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-black text-slate-800">Usar plantilla</h3>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Se abrirá <b>{NOMBRE_MODULO[plantillaAUsar.plantilla.modulo]}</b> con una copia de “{plantillaAUsar.titulo}” para que la ajustes a tu obra.
+              El diseño que tenías abierto se guarda como respaldo.
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button onClick={() => setPlantillaAUsar(null)} className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 cursor-pointer">Cancelar</button>
+              <button onClick={() => { const it = plantillaAUsar; setPlantillaAUsar(null); usarPlantilla(it.plantilla!, it.titulo); }}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black cursor-pointer">Abrir plantilla</button>
             </div>
           </div>
         </div>
