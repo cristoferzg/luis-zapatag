@@ -25,13 +25,14 @@ import { Asesoria } from './components/AsesoriasView';
 import SoporteYAsesoriasView from './components/SoporteYAsesoriasView';
 import MaterialesYGastosView from './components/MaterialesYGastosView';
 import SettingsView from './components/SettingsView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye } from 'lucide-react';
 import DiseñadorView from './components/DiseñadorView';
 import HerreriaModuleView from './components/herreria/HerreriaModuleView';
 import TechosModuleView from './components/techos/TechosModuleView';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import BibliotecaPremiumView, { BibliotecaItem } from './components/BibliotecaPremiumView';
 import AdminPurchasesView from './components/AdminPurchasesView';
+import SupervisionView from './components/SupervisionView';
 import ContratosYEPPView from './components/ContratosYEPPView';
 import ProyectosYClientesView from './components/ProyectosYClientesView';
 import PersonalYAsistenciaView from './components/PersonalYAsistenciaView';
@@ -1565,6 +1566,18 @@ export default function App() {
     return true;
   });
 
+  // Clientes: el admin no ve aquí los de sus usuarios (están en "Supervisión").
+  const workspacesDeUsuarios = useMemo(() => {
+    const ids = new Set<string>();
+    usuarios.forEach(u => {
+      if (u.role === 'admin' || u.id === 'admin') return;
+      const core = u.id.replace(/^user_/, '').replace(/^usr_/, '');
+      [u.id, core, `user_${core}`, `usr_${core}`, `user_usr_${core}`].forEach(x => ids.add(x));
+    });
+    return ids;
+  }, [usuarios]);
+  const filteredClients = isAdmin ? clients.filter(c => !c.userId || !workspacesDeUsuarios.has(c.userId)) : clients;
+
   const filteredFinances = finances.filter(f => {
     if (isAdmin) {
       return !f.userId || f.userId === 'admin' || f.userId === 'user_admin' || f.userId === 'shared' || f.userId === 'user';
@@ -1978,11 +1991,15 @@ export default function App() {
     switch (currentView) {
       case 'dashboard': return <DashboardView projects={filteredProjects} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} />;
       case 'admin_purchases': return <AdminPurchasesView />;
+      case 'supervision': return isAdmin ? (
+        <SupervisionView usuarios={usuarios} projects={projects} clients={clients} finances={finances} settings={settings}
+          setProjects={setProjects} setClients={setClients} setFinances={setFinances} setSettings={setSettings} />
+      ) : null;
       case 'techos':
         return (
           <TechosModuleView 
             projects={filteredProjects} 
-            clients={clients} 
+            clients={filteredClients} 
             onSaveToProject={handleSaveHerreriaToProject} 
             onCreateProject={handleCreateHerreriaProject} 
             onNavigateToProjects={() => setCurrentView('projects')} 
@@ -1997,7 +2014,7 @@ export default function App() {
         return (
           <HerreriaModuleView 
             projects={filteredProjects} 
-            clients={clients} 
+            clients={filteredClients} 
             onSaveToProject={handleSaveHerreriaToProject} 
             onCreateProject={handleCreateHerreriaProject} 
             onNavigateToProjects={() => setCurrentView('projects')} 
@@ -2011,7 +2028,7 @@ export default function App() {
           <ProyectosYClientesView 
             projects={filteredProjects} 
             setProjects={setProjects} 
-            clients={clients} 
+            clients={filteredClients} 
             setClients={setClients} 
             finances={filteredFinances} 
             initialSubTab={currentView === 'clients' ? 'clients' : currentView === 'portafolio' ? 'portafolio' : 'projects'}
@@ -2046,7 +2063,7 @@ export default function App() {
           <ContratosYEPPView 
             projects={filteredProjects} 
             setProjects={setProjects}
-            clients={clients} 
+            clients={filteredClients} 
             setClients={setClients}
             currentSettings={currentSettings}
             setSettings={setSettings}
@@ -2103,7 +2120,7 @@ export default function App() {
           <SettingsView 
             projects={projects} 
             setProjects={setProjects} 
-            clients={clients} 
+            clients={filteredClients} 
             setClients={setClients} 
             finances={finances} 
             setFinances={setFinances} 
@@ -2166,6 +2183,7 @@ export default function App() {
     { id: 'precios', label: 'Precios', icon: DollarSign },
     { id: 'usabilidad', label: 'Academia Técnica', icon: Video },
     { id: 'admin_purchases', label: 'Validar Compras', icon: ShieldCheck, adminOnly: true },
+    { id: 'supervision', label: 'Supervisión', icon: Eye, adminOnly: true },
     { id: 'biblioteca', label: 'Recursos Técnicos', icon: BookOpen },
     { id: 'contracts', label: 'Contratos & EPP', icon: FileSignature },
     { id: 'soporte', label: 'Atención & Asesorías', icon: Headset },

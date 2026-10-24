@@ -1,4 +1,4 @@
-export type ViewType = 'dashboard' | 'projects' | 'clients' | 'portafolio' | 'materials' | 'personal' | 'finances' | 'contracts' | 'settings' | 'gastos' | 'familia' | 'inversion' | 'deuda' | 'precios' | 'asistencia' | 'epp' | 'calculator' | 'designer' | 'carpinteria' | 'herreria' | 'techos' | 'usuarios' | 'tickets' | 'asesorias' | 'biblioteca' | 'soporte' | 'usabilidad' | 'admin_purchases' | 'concreto' | 'drywall';
+export type ViewType = 'dashboard' | 'projects' | 'clients' | 'portafolio' | 'materials' | 'personal' | 'finances' | 'contracts' | 'settings' | 'gastos' | 'familia' | 'inversion' | 'deuda' | 'precios' | 'asistencia' | 'epp' | 'calculator' | 'designer' | 'carpinteria' | 'herreria' | 'techos' | 'usuarios' | 'tickets' | 'asesorias' | 'biblioteca' | 'soporte' | 'usabilidad' | 'admin_purchases' | 'concreto' | 'drywall' | 'supervision';
 
 export interface Cobro { 
   id: string; 

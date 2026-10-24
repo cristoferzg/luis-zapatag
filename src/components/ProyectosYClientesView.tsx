@@ -52,8 +52,9 @@ export default function ProyectosYClientesView({
   onNavigateToTechos
 }: ProyectosYClientesViewProps) {
   const [activeTab, setActiveTab] = useState<'projects' | 'clients' | 'portafolio'>(initialSubTab);
-  const [clientScopeFilter, setClientScopeFilter] = useState<'todos' | 'admin' | 'usuarios'>('todos');
-  const [projectScopeFilter, setProjectScopeFilter] = useState<'todos' | 'admin' | 'usuarios'>('todos');
+  // El admin solo ve aquí lo suyo; lo de los usuarios está en "Supervisión".
+  const clientScopeFilter = 'admin' as 'todos' | 'admin' | 'usuarios';
+  const projectScopeFilter = 'admin' as 'todos' | 'admin' | 'usuarios';
   const [clientSearchTerm, setClientSearchTerm] = useState<string>('');
 
   // --- PORTAFOLIO 3D & CARPETA PRIVADA STATE ---
@@ -481,32 +482,6 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
             </div>
           </form>
 
-          {/* BARRA DE FILTROS PARA PROYECTOS (Especialmente para Administrador) */}
-          {isAdmin && (
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider hidden sm:inline">Filtrar Proyectos:</span>
-              <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                {[
-                  { id: 'todos', label: `👥 Todos (${projects.length})` },
-                  { id: 'admin', label: `👑 Mis Proyectos (${projects.filter(p => isProjectCreatedByAdmin(p)).length})` },
-                  { id: 'usuarios', label: `👤 De Colaboradores (${projects.filter(p => !isProjectCreatedByAdmin(p)).length})` },
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setProjectScopeFilter(f.id as any)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-                      projectScopeFilter === f.id
-                        ? 'bg-slate-900 text-white shadow-sm ring-2 ring-slate-900/30'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {([...projects]
@@ -783,30 +758,6 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
               )}
             </div>
 
-            {/* Filtros de Pestañas (Especialmente para Administrador para separar sus clientes de los usuarios) */}
-            {isAdmin && (
-              <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                <span className="text-[11px] font-bold text-slate-400 mr-1 hidden sm:inline">Filtrar:</span>
-                {[
-                  { id: 'todos', label: `👥 Todos (${clients.length})` },
-                  { id: 'admin', label: `👑 Mis Clientes (${clients.filter(c => isClientCreatedByAdmin(c)).length})` },
-                  { id: 'usuarios', label: `👤 De Usuarios (${clients.filter(c => !isClientCreatedByAdmin(c)).length})` },
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setClientScopeFilter(f.id as any)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-                      clientScopeFilter === f.id
-                        ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-blue-600/30'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
