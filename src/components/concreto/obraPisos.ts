@@ -12,6 +12,7 @@ import type { PlanoElem } from '../ConcretoPlanoCad';
 import { metradoDrywall } from './metradoDrywall';
 import { metradoPartidas } from '../drywall/calculoDrywall';
 import { leerCotizacionActual } from '../drywall/cotizacionDrywall';
+import { leerBloques } from './bloques';
 import {
   ContextoMuro, perfilMuro, areaPerfil, areaAberturas, esNodoTanque, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo,
   mallaCieloTanque, tanquesEnEstructura, metradoTechosPorPiso, MetradoTechosPiso, CieloRaso, Sobrepecho, perimetroSobrepecho,
@@ -240,6 +241,7 @@ export interface ObraPiso {
   // las placas ya van en los muros y el cielo raso.
   drywall?: { accesorios: number; manoObra: number; dias: number; lineas: number };
   drywallCotizador?: { partidas: number; total: number; dias: number }; // Drywall → Cotizar
+  observaciones?: string[]; // notas de la cotización (bloques, CarpiMetal no incluido, mobiliario)
   tanques?: { numero: number; litros: number; sobretecho?: string; sobretechoM2: number; sobrepechoM2: number; ladrillos: number; costoSobrepecho: number }[];
   costo: number;
 }
@@ -250,6 +252,7 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
   const tanques = tanquesEnEstructura(est);
   const dw = metradoDrywall(niveles, est, elems, cielos);
   const partidasCot = leerCotizacionActual().partidas;
+  const bloques = leerBloques();
   const out: Record<string, ObraPiso> = {};
   pisos.forEach((n, k) => {
     const c = ctx(n);
@@ -277,16 +280,38 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
         o.cieloTanque = { area, costo }; o.costo += costo;
       }
     }
-    // Puertas, ventanas y rejas de CarpiMetal colocadas en los vanos.
+    // Puertas, ventanas y rejas de CarpiMetal en los vanos, y bloques sueltos
+    // (mesas, barandas, portones…). Solo suman los marcados "Incluir en la
+    // cotización"; las observaciones van a la cotización del piso.
+    const obs: string[] = [];
     const conCarpi = abs.filter(a => a.carpiId);
-    if (conCarpi.length) {
+    const bloquesPiso = bloques.filter(b => (b.nivel || pisos[0]) === n);
+    if (conCarpi.length || bloquesPiso.some(b => b.origen === 'carpi')) {
       const disenos = leerDisenosCarpi();
-      o.carpi = conCarpi.map(a => {
+      const lista: { nombre: string; costo: number; medidas: string }[] = [];
+      conCarpi.forEach(a => {
         const d = disenos.find(x => x.id === a.carpiId);
-        return { nombre: d?.nombre || a.carpiNombre || 'Diseño CarpiMetal', costo: d ? costoDisenoCarpi(d) : 0, medidas: `${a.w.toFixed(2)} × ${a.h.toFixed(2)} m` };
+        const nombre = d?.nombre || a.carpiNombre || 'Diseño CarpiMetal';
+        if (a.incluir !== false) lista.push({ nombre, costo: d ? costoDisenoCarpi(d) : 0, medidas: `${a.w.toFixed(2)} × ${a.h.toFixed(2)} m` });
+        if (a.obs?.trim()) obs.push(`${nombre}: ${a.obs.trim()}`);
+        else if (a.incluir === false) obs.push(`${nombre}: no incluido en esta cotización.`);
       });
-      o.costo += o.carpi.reduce((x, c) => x + c.costo, 0);
+      bloquesPiso.filter(b => b.origen === 'carpi').forEach(b => {
+        const d = disenos.find(x => x.id === b.refId);
+        if (b.incluir) lista.push({ nombre: `${b.nombre} (suelto)`, costo: d ? costoDisenoCarpi(d) : 0, medidas: `${b.ancho.toFixed(2)} × ${b.fondo.toFixed(2)} × ${b.alto.toFixed(2)} m` });
+        if (b.obs.trim()) obs.push(`${b.nombre}: ${b.obs.trim()}`);
+        else if (!b.incluir) obs.push(`${b.nombre}: no incluido en esta cotización.`);
+      });
+      if (lista.length) { o.carpi = lista; o.costo += lista.reduce((x, c) => x + c.costo, 0); }
     }
+    const muebles = bloquesPiso.filter(b => b.origen === 'mueble');
+    if (muebles.length) {
+      const conObs = muebles.filter(b => b.obs.trim() && b.obs.trim() !== 'Mobiliario referencial, no incluido.');
+      const resto = muebles.filter(b => !conObs.includes(b));
+      if (resto.length) obs.push(`Mobiliario referencial, no incluido: ${[...new Set(resto.map(b => b.nombre.toLowerCase()))].join(', ')}.`);
+      conObs.forEach(b => obs.push(`${b.nombre}: ${b.obs.trim()}`));
+    }
+    if (obs.length) o.observaciones = obs;
     const md = dw.find(x => x.nivel === n);
     if (md && md.lineas.length) {
       const accesorios = md.lineas.filter(l => !/^(drywall|osb):/.test(l.clave)).reduce((x, l) => x + l.subtotal, 0);

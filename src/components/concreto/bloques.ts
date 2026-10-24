@@ -1,0 +1,141 @@
+// =============================================================================
+// Bloques a escala real (como en AutoCAD) para el plano de Obra Civil:
+//   • Diseños de CarpiMetal (mesas, rejas, barandas, portones, puertas…) con su
+//     geometría real (las mismas piezas que en CarpiMetal).
+//   • Muebles de referencia (cama, sofá, mesa, inodoro, cocina…).
+// Se colocan sueltos dentro del ambiente, se giran, se reflejan y se imantan a
+// los muros. Cada uno puede incluirse o no en la cotización, con observación.
+// =============================================================================
+import { safeStorage } from '../../lib/storageManager';
+import type { HerreriaDesign } from '../herreria/herreriaTypes';
+import { PERFILES_CATALOGO } from '../herreria/herreriaCatalog';
+
+export const KEY_BLOQUES = 'concreto_bloques';
+
+export interface Bloque {
+  uid: string;
+  nivel?: string;
+  origen: 'carpi' | 'mueble';
+  refId: string;          // id del diseño de CarpiMetal o del mueble
+  nombre: string;
+  x: number; y: number;   // centro en planta (m)
+  rot: number;            // grados (sentido horario en planta)
+  espejo?: boolean;
+  ancho: number; fondo: number; alto: number; // m
+  incluir: boolean;       // suma su costo a la cotización del piso
+  obs: string;            // observación que sale en la cotización
+}
+export const leerBloques = (): Bloque[] => safeStorage.getItem<Bloque[]>(KEY_BLOQUES, []) || [];
+
+// ── Primitivas en coordenadas locales (u = a lo ancho, v = fondo; v = 0 es la
+// cara pegada al muro). Medidas en metros.
+export type Prim2D =
+  | { t: 'rect'; u: number; v: number; w: number; h: number; r?: number; relleno?: boolean }
+  | { t: 'circ'; u: number; v: number; r: number }
+  | { t: 'elip'; u: number; v: number; rx: number; ry: number }
+  | { t: 'linea'; u1: number; v1: number; u2: number; v2: number; grosor?: number };
+export interface Caja3D { u: number; v: number; y: number; w: number; d: number; h: number; color: number; cil?: boolean }
+
+export interface Mueble { id: string; nombre: string; emoji: string; grupo: string; ancho: number; fondo: number; alto: number; planta: Prim2D[]; cajas: Caja3D[] }
+
+const R = (u: number, v: number, w: number, h: number, r = 0): Prim2D => ({ t: 'rect', u, v, w, h, r });
+const L = (u1: number, v1: number, u2: number, v2: number): Prim2D => ({ t: 'linea', u1, v1, u2, v2 });
+const MADERA = 0xb08159, TELA = 0x8a9bb0, BLANCO = 0xf1f5f9, LOZA = 0xffffff, ACERO = 0xcbd5e1, OSCURO = 0x334155;
+
+function cama(id: string, nombre: string, ancho: number): Mueble {
+  const almohadas = ancho > 1.2 ? [R(0.1, 0.1, ancho / 2 - 0.15, 0.3, 0.06), R(ancho / 2 + 0.05, 0.1, ancho / 2 - 0.15, 0.3, 0.06)] : [R(0.1, 0.1, ancho - 0.2, 0.3, 0.06)];
+  return {
+    id, nombre, emoji: '🛏️', grupo: 'Dormitorio', ancho, fondo: 2.0, alto: 0.55,
+    planta: [R(0, 0, ancho, 2.0), R(0, 0, ancho, 0.06), ...almohadas, L(0, 0.55, ancho, 0.55), L(0, 0.55, ancho * 0.35, 0.75)],
+    cajas: [{ u: 0, v: 0.06, y: 0, w: ancho, d: 1.94, h: 0.3, color: MADERA }, { u: 0.03, v: 0.08, y: 0.3, w: ancho - 0.06, d: 1.9, h: 0.22, color: BLANCO }, { u: 0, v: 0, y: 0, w: ancho, d: 0.06, h: 1.0, color: MADERA }],
+  };
+}
+export const MUEBLES: Mueble[] = [
+  cama('cama_2p', 'Cama 2 plazas', 1.4),
+  cama('cama_15p', 'Cama 1½ plaza', 1.05),
+  { id: 'ropero', nombre: 'Ropero', emoji: '🚪', grupo: 'Dormitorio', ancho: 1.2, fondo: 0.6, alto: 2.1, planta: [R(0, 0, 1.2, 0.6), L(0.6, 0, 0.6, 0.6), L(0, 0.6, 1.2, 0)], cajas: [{ u: 0, v: 0, y: 0, w: 1.2, d: 0.6, h: 2.1, color: MADERA }] },
+  { id: 'escritorio', nombre: 'Escritorio', emoji: '🖥️', grupo: 'Dormitorio', ancho: 1.2, fondo: 0.6, alto: 0.75, planta: [R(0, 0, 1.2, 0.6), R(0.4, 0.65, 0.45, 0.45, 0.08)], cajas: [{ u: 0, v: 0, y: 0.72, w: 1.2, d: 0.6, h: 0.03, color: MADERA }, { u: 0, v: 0, y: 0, w: 0.04, d: 0.6, h: 0.72, color: MADERA }, { u: 1.16, v: 0, y: 0, w: 0.04, d: 0.6, h: 0.72, color: MADERA }] },
+  { id: 'sofa3', nombre: 'Sofá 3 cuerpos', emoji: '🛋️', grupo: 'Sala y comedor', ancho: 2.0, fondo: 0.85, alto: 0.85, planta: [R(0, 0, 2.0, 0.85, 0.06), R(0, 0, 2.0, 0.2), R(0, 0.2, 0.18, 0.65), R(1.82, 0.2, 0.18, 0.65), L(0.73, 0.2, 0.73, 0.85), L(1.27, 0.2, 1.27, 0.85)], cajas: [{ u: 0, v: 0.2, y: 0, w: 2.0, d: 0.65, h: 0.42, color: TELA }, { u: 0, v: 0, y: 0, w: 2.0, d: 0.2, h: 0.85, color: TELA }, { u: 0, v: 0.2, y: 0, w: 0.18, d: 0.65, h: 0.62, color: TELA }, { u: 1.82, v: 0.2, y: 0, w: 0.18, d: 0.65, h: 0.62, color: TELA }] },
+  { id: 'mesa_comedor', nombre: 'Mesa de comedor (4)', emoji: '🍽️', grupo: 'Sala y comedor', ancho: 1.2, fondo: 1.8, alto: 0.75,
+    planta: [R(0, 0.5, 1.2, 0.8), R(0.1, 0.05, 0.42, 0.42, 0.06), R(0.68, 0.05, 0.42, 0.42, 0.06), R(0.1, 1.33, 0.42, 0.42, 0.06), R(0.68, 1.33, 0.42, 0.42, 0.06)],
+    cajas: [{ u: 0, v: 0.5, y: 0.72, w: 1.2, d: 0.8, h: 0.03, color: MADERA }, ...[[0.03, 0.53], [1.13, 0.53], [0.03, 1.23], [1.13, 1.23]].map(([u, v]) => ({ u, v, y: 0, w: 0.04, d: 0.04, h: 0.72, color: MADERA })), ...[[0.1, 0.05], [0.68, 0.05], [0.1, 1.33], [0.68, 1.33]].map(([u, v]) => ({ u, v, y: 0, w: 0.42, d: 0.42, h: 0.45, color: TELA }))] },
+  { id: 'mueble_tv', nombre: 'Mueble de TV', emoji: '📺', grupo: 'Sala y comedor', ancho: 1.8, fondo: 0.4, alto: 0.5, planta: [R(0, 0, 1.8, 0.4), R(0.3, 0.02, 1.2, 0.05)], cajas: [{ u: 0, v: 0, y: 0, w: 1.8, d: 0.4, h: 0.5, color: MADERA }, { u: 0.3, v: 0.12, y: 0.5, w: 1.2, d: 0.05, h: 0.7, color: OSCURO }] },
+  { id: 'inodoro', nombre: 'Inodoro', emoji: '🚽', grupo: 'Baño y cocina', ancho: 0.4, fondo: 0.7, alto: 0.75, planta: [R(0, 0, 0.4, 0.18, 0.03), { t: 'elip', u: 0.2, v: 0.45, rx: 0.18, ry: 0.24 }], cajas: [{ u: 0.02, v: 0, y: 0.4, w: 0.36, d: 0.18, h: 0.35, color: LOZA }, { u: 0.04, v: 0.2, y: 0, w: 0.32, d: 0.48, h: 0.4, color: LOZA, cil: true }] },
+  { id: 'lavatorio', nombre: 'Lavatorio', emoji: '🚰', grupo: 'Baño y cocina', ancho: 0.5, fondo: 0.45, alto: 0.85, planta: [R(0, 0, 0.5, 0.45, 0.04), { t: 'elip', u: 0.25, v: 0.25, rx: 0.18, ry: 0.14 }], cajas: [{ u: 0, v: 0, y: 0.7, w: 0.5, d: 0.45, h: 0.15, color: LOZA }, { u: 0.18, v: 0.05, y: 0, w: 0.14, d: 0.14, h: 0.7, color: LOZA, cil: true }] },
+  { id: 'ducha', nombre: 'Ducha', emoji: '🚿', grupo: 'Baño y cocina', ancho: 0.9, fondo: 0.9, alto: 0.1, planta: [R(0, 0, 0.9, 0.9), L(0, 0, 0.9, 0.9), L(0.9, 0, 0, 0.9), { t: 'circ', u: 0.45, v: 0.45, r: 0.04 }], cajas: [{ u: 0, v: 0, y: 0, w: 0.9, d: 0.9, h: 0.08, color: LOZA }] },
+  { id: 'cocina', nombre: 'Cocina 4 hornillas', emoji: '🔥', grupo: 'Baño y cocina', ancho: 0.6, fondo: 0.6, alto: 0.9, planta: [R(0, 0, 0.6, 0.6), ...[[0.17, 0.2], [0.43, 0.2], [0.17, 0.43], [0.43, 0.43]].map(([u, v]) => ({ t: 'circ' as const, u, v, r: 0.08 }))], cajas: [{ u: 0, v: 0, y: 0, w: 0.6, d: 0.6, h: 0.9, color: ACERO }] },
+  { id: 'lavadero', nombre: 'Lavadero / tarja', emoji: '🧽', grupo: 'Baño y cocina', ancho: 1.2, fondo: 0.6, alto: 0.9, planta: [R(0, 0, 1.2, 0.6), R(0.1, 0.1, 0.5, 0.42, 0.04), L(0.75, 0.1, 0.75, 0.52), L(0.9, 0.1, 0.9, 0.52), L(1.05, 0.1, 1.05, 0.52)], cajas: [{ u: 0, v: 0, y: 0, w: 1.2, d: 0.6, h: 0.9, color: ACERO }] },
+  { id: 'refri', nombre: 'Refrigeradora', emoji: '🧊', grupo: 'Baño y cocina', ancho: 0.7, fondo: 0.7, alto: 1.8, planta: [R(0, 0, 0.7, 0.7), L(0, 0.6, 0.7, 0.6)], cajas: [{ u: 0, v: 0, y: 0, w: 0.7, d: 0.7, h: 1.8, color: ACERO }] },
+  { id: 'auto', nombre: 'Auto (cochera)', emoji: '🚗', grupo: 'Exterior', ancho: 1.8, fondo: 4.5, alto: 1.45, planta: [R(0, 0, 1.8, 4.5, 0.35), R(0.15, 1.3, 1.5, 1.9, 0.15), L(0.15, 1.9, 1.65, 1.9)], cajas: [{ u: 0, v: 0, y: 0.2, w: 1.8, d: 4.5, h: 0.75, color: 0x64748b }, { u: 0.15, v: 1.3, y: 0.95, w: 1.5, d: 1.9, h: 0.5, color: 0x94a3b8 }] },
+];
+export const muebleDe = (id: string) => MUEBLES.find(m => m.id === id);
+
+// ── Geometría de un diseño de CarpiMetal (piezas reales) ────────────────────
+export interface BarraCarpi { a: [number, number, number]; b: [number, number, number]; s1: number; s2: number }
+export interface PanelCarpi { x: number; y: number; z: number; w: number; h: number; d: number; vidrio: boolean }
+export interface GeomCarpi { ancho: number; alto: number; fondo: number; barras: BarraCarpi[]; paneles: PanelCarpi[] }
+
+export function geometriaCarpi(d: HerreriaDesign): GeomCarpi {
+  const barras: BarraCarpi[] = [], paneles: PanelCarpi[] = [];
+  (d.piezas || []).forEach(pz => {
+    const z1 = pz.z1 || 0, z2 = pz.z2 || 0;
+    const plancha = pz.esPlancha || pz.tipo === 'plancha' || pz.tipo === 'vidrio' || pz.tipo === 'malla' || (pz.anchoPlanchaM && pz.altoPlanchaM);
+    if (plancha) {
+      const horizontal = Math.abs(pz.y2 - pz.y1) < 0.02 && (Math.abs(z2 - z1) > 0.01 || !!pz.altoPlanchaM);
+      const w = Math.max(0.02, pz.anchoPlanchaM || Math.abs(pz.x2 - pz.x1));
+      const esp = Math.max(0.003, (pz.espesorPlanchaMm || 2) / 1000);
+      const vidrio = pz.tipo === 'vidrio' || pz.tipoRelleno === 'vidrio';
+      if (horizontal) paneles.push({ x: Math.min(pz.x1, pz.x2), y: pz.y1, z: Math.min(z1, z2), w, h: esp, d: Math.max(0.02, pz.altoPlanchaM || Math.abs(z2 - z1)), vidrio });
+      else paneles.push({ x: Math.min(pz.x1, pz.x2), y: Math.min(pz.y1, pz.y2), z: z1, w, h: Math.max(0.02, pz.altoPlanchaM || Math.abs(pz.y2 - pz.y1)), d: esp, vidrio });
+      return;
+    }
+    const p = PERFILES_CATALOGO.find(x => x.id === pz.perfilId) || PERFILES_CATALOGO[0];
+    const s1 = Math.max(0.008, (p?.anchoMm || 25) / 1000), s2 = Math.max(0.008, (p?.altoMm || p?.anchoMm || 25) / 1000);
+    for (let k = 0; k < Math.max(1, pz.cantidad || 1); k++) barras.push({ a: [pz.x1, pz.y1, z1], b: [pz.x2, pz.y2, z2], s1, s2 });
+  });
+  if (!barras.length && !paneles.length) {
+    // Diseño sin piezas CAD: marco del ancho × alto del diseño.
+    const W = d.anchoM, H = d.altoM, s = 0.05;
+    [[[0, 0, 0], [W, 0, 0]], [[0, H, 0], [W, H, 0]], [[0, 0, 0], [0, H, 0]], [[W, 0, 0], [W, H, 0]]].forEach(([a, b]) => barras.push({ a: a as [number, number, number], b: b as [number, number, number], s1: s, s2: s }));
+  }
+  // Normalizar al origen (esquina inferior, frente).
+  const xs: number[] = [], ys: number[] = [], zs: number[] = [];
+  barras.forEach(b => { xs.push(b.a[0], b.b[0]); ys.push(b.a[1], b.b[1]); zs.push(b.a[2], b.b[2]); });
+  paneles.forEach(p => { xs.push(p.x, p.x + p.w); ys.push(p.y, p.y + p.h); zs.push(p.z, p.z + p.d); });
+  const mx = Math.min(...xs), my = Math.min(...ys), mz = Math.min(...zs);
+  const margen = Math.max(...barras.map(b => Math.max(b.s1, b.s2)), 0.02) / 2;
+  barras.forEach(b => { b.a = [b.a[0] - mx, b.a[1] - my, b.a[2] - mz]; b.b = [b.b[0] - mx, b.b[1] - my, b.b[2] - mz]; });
+  paneles.forEach(p => { p.x -= mx; p.y -= my; p.z -= mz; });
+  return {
+    ancho: Math.max(0.05, Math.max(...xs) - mx), alto: Math.max(0.05, Math.max(...ys) - my), fondo: Math.max(margen * 2, Math.max(...zs) - mz),
+    barras, paneles,
+  };
+}
+
+// Planta (vista superior) de un diseño de CarpiMetal: proyección de las piezas.
+export function plantaCarpi(g: GeomCarpi): Prim2D[] {
+  const out: Prim2D[] = [];
+  g.barras.forEach(b => {
+    const du = b.b[0] - b.a[0], dv = b.b[2] - b.a[2];
+    if (Math.hypot(du, dv) < 0.01) out.push({ t: 'rect', u: b.a[0] - b.s1 / 2, v: b.a[2] - b.s2 / 2, w: b.s1, h: b.s2, relleno: true });
+    else out.push({ t: 'linea', u1: b.a[0], v1: b.a[2], u2: b.b[0], v2: b.b[2], grosor: Math.max(b.s1, b.s2) });
+  });
+  g.paneles.forEach(p => out.push({ t: 'rect', u: p.x, v: p.z, w: p.w, h: Math.max(p.d, 0.01) }));
+  return out;
+}
+
+// Tipos de CarpiMetal que tienen sentido como bloque suelto en el ambiente.
+export const SUELTOS = new Set(['mesa', 'silla', 'escalera', 'escalera_descanso', 'escalera_caracol', 'baranda', 'reja', 'cerco', 'porton', 'mampara', 'cerramiento', 'personalizado', 'reja_abanico', 'puerta', 'ventana']);
+
+// Coloca un punto local (u, v) del bloque en el plano.
+export function aPlano(b: Pick<Bloque, 'x' | 'y' | 'rot' | 'espejo' | 'ancho' | 'fondo'>, u: number, v: number) {
+  const lu = (b.espejo ? b.ancho - u : u) - b.ancho / 2, lv = v - b.fondo / 2;
+  const a = (b.rot * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  return { x: b.x + lu * c - lv * s, y: b.y + lu * s + lv * c };
+}
+// ¿El punto (x, y) cae dentro del bloque?
+export function dentroBloque(b: Bloque, x: number, y: number, holgura = 0.05) {
+  const a = (-b.rot * Math.PI) / 180, dx = x - b.x, dy = y - b.y;
+  const lu = dx * Math.cos(a) - dy * Math.sin(a), lv = dx * Math.sin(a) + dy * Math.cos(a);
+  return Math.abs(lu) <= b.ancho / 2 + holgura && Math.abs(lv) <= b.fondo / 2 + holgura;
+}

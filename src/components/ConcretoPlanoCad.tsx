@@ -18,7 +18,7 @@
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen } from 'lucide-react';
+import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2 } from 'lucide-react';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
@@ -26,6 +26,8 @@ import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, Es
 import { useCatalogo } from '../lib/catalogoPrecios';
 import { leerDisenosCarpi, costoDisenoCarpi, tipoAberturaDe } from './concreto/carpiObra';
 import { metradoDrywall } from './concreto/metradoDrywall';
+import { Bloque, KEY_BLOQUES, MUEBLES, muebleDe, geometriaCarpi, plantaCarpi, dentroBloque, Prim2D, SUELTOS } from './concreto/bloques';
+import { NOMBRE_TIPO_CARPI } from './concreto/carpiObra';
 import {
   Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
   regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
@@ -38,7 +40,7 @@ import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
 
 export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento' | 'losa' | 'muro';
-type Herramienta = 'select' | 'pan' | 'abertura' | PlanoTipo;
+type Herramienta = 'select' | 'pan' | 'abertura' | 'bloque' | PlanoTipo;
 export type { Abertura } from './concreto/geometriaObra';
 
 export interface PlanoElem {
@@ -175,7 +177,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   const [tipoAbertura, setTipoAbertura] = useState<TipoAbertura>('puerta');
   const [selAb, setSelAb] = useState<{ uid: string; id: string } | null>(null);
   // Diseños guardados en CarpiMetal (se releen al seleccionar una abertura).
-  const disenosCarpi = useMemo(() => leerDisenosCarpi(), [selAb]); // eslint-disable-line react-hooks/exhaustive-deps
+  const disenosCarpi = useMemo(() => leerDisenosCarpi(), [selAb, tool]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Bloques a escala (diseños de CarpiMetal sueltos y muebles de referencia).
+  const [bloques, setBloques] = useState<Bloque[]>(() => safeStorage.getItem<Bloque[]>(KEY_BLOQUES, []) || []);
+  useEffect(() => { safeStorage.setItem(KEY_BLOQUES, bloques); }, [bloques]);
+  const [selBloque, setSelBloque] = useState<string | null>(null);
+  const [aColocar, setAColocar] = useState<{ origen: 'carpi' | 'mueble'; refId: string } | null>(null);
+  const geomCarpi = useMemo(() => new Map(disenosCarpi.map(d => [d.id, geometriaCarpi(d)])), [disenosCarpi]);
+  const updBloque = (uid: string, patch: Partial<Bloque>) => setBloques(prev => prev.map(b => b.uid === uid ? { ...b, ...patch } : b));
   const [aviso, setAviso] = useState('');
   // Cielo raso por piso (y bajo el sobretecho de cada tanque) y nombres de ambientes.
   const [cielos, setCielos] = useState<Record<string, CieloRaso>>(() => safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {});
@@ -404,6 +413,25 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   // --- Interacción puntero ---
   const dragNode = useRef<{ x: number; y: number; key: string } | null>(null);
   const dragAb = useRef<{ uid: string; id: string; moved: boolean } | null>(null);
+  const dragBloque = useRef<{ uid: string; dx: number; dy: number; moved: boolean } | null>(null);
+  // Imanta un bloque al muro más cercano del piso activo: lo gira con el muro y
+  // apoya su lado de atrás en la cara del muro.
+  const imantarAMuro = (b: Bloque, x: number, y: number): Partial<Bloque> => {
+    let mejor: { d: number; px: number; py: number; nx: number; ny: number; a: number } | null = null;
+    murosActivos.forEach(m => {
+      const p = proyectar(m, x, y);
+      if (p.t < 0 || p.t > p.L) return;
+      const ux = (m.x2! - m.x1) / p.L, uy = (m.y2! - m.y1) / p.L;
+      const lado = -(x - m.x1) * uy + (y - m.y1) * ux >= 0 ? 1 : -1;
+      const nx = -uy * lado, ny = ux * lado;
+      const libre = p.d - (m.a || 0.15) / 2;
+      if (libre < b.fondo / 2 + 0.35 && (!mejor || libre < mejor.d)) mejor = { d: libre, px: m.x1 + ux * p.t, py: m.y1 + uy * p.t, nx, ny, a: m.a || 0.15 };
+    });
+    if (!mejor) return { x: snap(x), y: snap(y) };
+    const mm = mejor as { d: number; px: number; py: number; nx: number; ny: number; a: number };
+    const off = mm.a / 2 + b.fondo / 2 + 0.01;
+    return { x: mm.px + mm.nx * off, y: mm.py + mm.ny * off, rot: Math.round((Math.atan2(-mm.nx, mm.ny) * 180) / Math.PI) };
+  };
   const didDrag = useRef(false);
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -413,6 +441,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       return;
     }
     if (tool === 'select' && e.button === 0) {
+      const w0 = rawWorld(e.clientX, e.clientY);
+      const hb = [...bloques].reverse().find(b => (b.nivel || pisos[0]) === nivelMuro && dentroBloque(b, w0.x, w0.y));
+      if (hb) {
+        dragBloque.current = { uid: hb.uid, dx: w0.x - hb.x, dy: w0.y - hb.y, moved: false };
+        setSelBloque(hb.uid); setSelUid(null); setSelNode(null); setSelAb(null);
+        didDrag.current = true; // el clic que sigue no debe deseleccionar
+        return;
+      }
       const hab = hitAbertura(e.clientX, e.clientY);
       if (hab) {
         pushHist();
@@ -441,6 +477,13 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
       return;
     }
+    if (dragBloque.current) {
+      const d = dragBloque.current;
+      const w = rawWorld(e.clientX, e.clientY);
+      updBloque(d.uid, { x: snap(w.x - d.dx), y: snap(w.y - d.dy) });
+      d.moved = true;
+      return;
+    }
     if (dragAb.current) {
       const d = dragAb.current;
       const w = rawWorld(e.clientX, e.clientY);
@@ -467,6 +510,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   };
   const onMouseUp = () => {
     setIsPanning(false);
+    if (dragBloque.current) {
+      const d = dragBloque.current; dragBloque.current = null;
+      if (d.moved) {
+        didDrag.current = true;
+        const b = bloques.find(x => x.uid === d.uid);
+        if (b) updBloque(b.uid, imantarAMuro(b, b.x, b.y));
+      }
+    }
     if (dragAb.current) {
       if (!dragAb.current.moved) undoRef.current.pop();
       dragAb.current = null;
@@ -507,7 +558,25 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     if (tool === 'pan') return;
     if (didDrag.current) { didDrag.current = false; return; } // acabamos de arrastrar un nodo
     const w = snapWorld(e.clientX, e.clientY);
-    if (tool === 'select') { setSelUid(null); setSelNode(null); setSelAb(null); return; }
+    if (tool === 'select') { setSelUid(null); setSelNode(null); setSelAb(null); setSelBloque(null); return; }
+    if (tool === 'bloque') {
+      if (!aColocar) { setAviso('Elige a la derecha qué bloque colocar'); setTimeout(() => setAviso(''), 1800); return; }
+      const raw = rawWorld(e.clientX, e.clientY);
+      let nuevo: Bloque;
+      if (aColocar.origen === 'mueble') {
+        const m = muebleDe(aColocar.refId)!;
+        nuevo = { uid: `bl_${Date.now().toString(36)}`, nivel: nivelMuro, origen: 'mueble', refId: m.id, nombre: m.nombre, x: raw.x, y: raw.y, rot: 0, ancho: m.ancho, fondo: m.fondo, alto: m.alto, incluir: false, obs: 'Mobiliario referencial, no incluido.' };
+      } else {
+        const d = disenosCarpi.find(x => x.id === aColocar.refId);
+        const g = geomCarpi.get(aColocar.refId);
+        if (!d || !g) return;
+        nuevo = { uid: `bl_${Date.now().toString(36)}`, nivel: nivelMuro, origen: 'carpi', refId: d.id, nombre: d.nombre, x: raw.x, y: raw.y, rot: 0, ancho: g.ancho, fondo: g.fondo, alto: g.alto, incluir: true, obs: '' };
+      }
+      nuevo = { ...nuevo, ...imantarAMuro(nuevo, raw.x, raw.y) };
+      setBloques(prev => [...prev, nuevo]);
+      setSelBloque(nuevo.uid);
+      return;
+    }
     if (tool === 'abertura') {
       const m = muroBajo(e.clientX, e.clientY);
       if (!m) { setAviso('Haz clic sobre un muro del piso activo'); setTimeout(() => setAviso(''), 1800); return; }
@@ -722,8 +791,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     { id: 'losa', label: 'Losa / Entrepiso', icon: Layers },
     { id: 'muro', label: 'Muro', icon: BrickWall },
     { id: 'abertura', label: 'Abertura', icon: DoorOpen },
+    { id: 'bloque', label: 'Bloques', icon: Armchair },
     { id: 'pan', label: 'Mover lienzo', icon: Hand },
-  ].filter(t => !esDrywall || ['select', 'muro', 'abertura', 'pan'].includes(t.id)) as { id: Herramienta; label: string; icon: any }[];
+  ].filter(t => !esDrywall || ['select', 'muro', 'abertura', 'bloque', 'pan'].includes(t.id)) as { id: Herramienta; label: string; icon: any }[];
 
   const canUndo = undoRef.current.length > 0;
   const canRedo = redoRef.current.length > 0;
@@ -825,8 +895,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           <Maximize className="w-3.5 h-3.5" />
         </button>
         <div className="h-5 w-px bg-slate-200 mx-1" />
-        {(selUid || selAb) && (
-          <button onClick={() => selAb ? removeAbertura(selAb.uid, selAb.id) : removeSel()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100">
+        {(selUid || selAb || selBloque) && (
+          <button onClick={() => selBloque ? (setBloques(prev => prev.filter(x => x.uid !== selBloque)), setSelBloque(null)) : selAb ? removeAbertura(selAb.uid, selAb.id) : removeSel()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100">
             <Trash2 className="w-3.5 h-3.5" /> Eliminar
           </button>
         )}
@@ -860,7 +930,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {/* VISTA 3D */}
         {vista3d ? (
           <div className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
-            <ConcretoViewer3D key={`${sig3d}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}`} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos} />
+            <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}`} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos} />
             <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
               <button onClick={() => setVerTecho(v => !v)} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verTecho ? 'bg-slate-100 text-slate-700' : 'bg-stone-700 text-white'}`}>
                 {verTecho ? 'Ocultar techo' : 'Mostrar techo'}
@@ -1071,6 +1141,34 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               return <line x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke={col} strokeWidth="2" strokeDasharray="5 4" opacity={0.7} />;
             })()}
 
+            {/* bloques a escala: diseños de CarpiMetal y muebles */}
+            {bloques.map(b => {
+              const otroPiso = (b.nivel || pisos[0]) !== nivelMuro;
+              const c = toScreen(b.x, b.y);
+              const sel = b.uid === selBloque;
+              const prims: Prim2D[] = b.origen === 'mueble' ? (muebleDe(b.refId)?.planta || []) : plantaCarpi(geomCarpi.get(b.refId) || { ancho: b.ancho, alto: b.alto, fondo: b.fondo, barras: [], paneles: [] });
+              const col = b.origen === 'carpi' ? '#0369a1' : '#475569';
+              const ns = { vectorEffect: 'non-scaling-stroke' as const };
+              return (
+                <g key={b.uid} opacity={otroPiso ? 0.18 : 1} style={{ pointerEvents: 'none' }}>
+                  <g transform={`translate(${c.sx} ${c.sy}) rotate(${b.rot}) scale(${scale}) translate(${-b.ancho / 2} ${-b.fondo / 2})${b.espejo ? ` translate(${b.ancho} 0) scale(-1 1)` : ''}`}>
+                    <rect x={0} y={0} width={b.ancho} height={b.fondo} fill={b.origen === 'carpi' ? '#e0f2fe' : '#ffffff'} fillOpacity={b.origen === 'carpi' ? 0.45 : 0.9}
+                      stroke={sel ? '#e11d48' : col} strokeWidth={sel ? 2.2 : 1} strokeDasharray={b.origen === 'carpi' ? '4 3' : undefined} {...ns} />
+                    {prims.map((q, i) => q.t === 'rect' ? <rect key={i} x={q.u} y={q.v} width={q.w} height={q.h} rx={q.r || 0} fill={q.relleno ? col : 'none'} stroke={col} strokeWidth={1.1} {...ns} />
+                      : q.t === 'circ' ? <circle key={i} cx={q.u} cy={q.v} r={q.r} fill="none" stroke={col} strokeWidth={1.1} {...ns} />
+                      : q.t === 'elip' ? <ellipse key={i} cx={q.u} cy={q.v} rx={q.rx} ry={q.ry} fill="none" stroke={col} strokeWidth={1.1} {...ns} />
+                      : q.grosor ? <line key={i} x1={q.u1} y1={q.v1} x2={q.u2} y2={q.v2} stroke={col} strokeWidth={Math.max(q.grosor, 1.6 / scale)} strokeLinecap="square" />
+                      : <line key={i} x1={q.u1} y1={q.v1} x2={q.u2} y2={q.v2} stroke={col} strokeWidth={1} {...ns} />)}
+                  </g>
+                  {!otroPiso && Math.min(b.ancho, b.fondo) * scale > 22 && Math.max(b.ancho, b.fondo) * scale > 60 && (
+                    <text x={c.sx} y={c.sy + 3} textAnchor="middle" fontSize={9.5} fontWeight={800} fill={sel ? '#e11d48' : col} stroke="#fff" strokeWidth={3} paintOrder="stroke">
+                      {b.nombre}{b.origen === 'carpi' && !b.incluir ? ' (no incluido)' : ''}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+
             {/* NODOS compartidos (manijas). Visibles al seleccionar o dibujar. */}
             {(tool === 'select' || tool !== 'pan') && nodos.map(n => {
               const s = toScreen(n.x, n.y);
@@ -1094,6 +1192,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               return (
                 <g style={{ pointerEvents: 'none' }}>
                   {cursor.onNode && <circle cx={c.sx} cy={c.sy} r="9" fill="none" stroke="#0ea5e9" strokeWidth="2" />}
+                  {tool === 'bloque' && aColocar && (() => { const m = aColocar.origen === 'mueble' ? muebleDe(aColocar.refId) : geomCarpi.get(aColocar.refId); return m ? <rect x={c.sx - (m.ancho * scale) / 2} y={c.sy - (m.fondo * scale) / 2} width={m.ancho * scale} height={m.fondo * scale} fill="#0ea5e9" fillOpacity={0.08} stroke="#0ea5e9" strokeWidth={1.5} strokeDasharray="5 4" /> : null; })()}
                   <circle cx={c.sx} cy={c.sy} r="4" fill={cursor.onNode ? '#0ea5e9' : col} opacity={0.75} />
                 </g>
               );
@@ -1116,9 +1215,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             <button onClick={() => setZoom(z => Math.max(0.3, z * 0.87))} className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-xs text-slate-700 cursor-pointer hover:bg-slate-100 flex items-center justify-center"><Minus className="w-4 h-4" /></button>
           </div>
 
-          {(tool === 'abertura' || aviso) && (
+          {(tool === 'abertura' || tool === 'bloque' || aviso) && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-sky-800 bg-sky-50/95 rounded-lg px-2.5 py-1 pointer-events-none">
-              {aviso || `Clic sobre un muro de ${nivelMuro} para colocar: ${PRESETS_ABERTURA[tipoAbertura].nombre}`}
+              {aviso || (tool === 'bloque' ? (aColocar ? `Clic en ${nivelMuro} para colocar: ${aColocar.origen === 'mueble' ? muebleDe(aColocar.refId)?.nombre : disenosCarpi.find(d => d.id === aColocar.refId)?.nombre}` : 'Elige un bloque en el panel de la derecha') : `Clic sobre un muro de ${nivelMuro} para colocar: ${PRESETS_ABERTURA[tipoAbertura].nombre}`)}
             </div>
           )}
           {/* pista de nodos */}
@@ -1132,6 +1231,64 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
 
         {/* PANEL DE METRADO + PROPIEDADES */}
         <div className="lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto">
+          {/* Biblioteca de bloques (herramienta Bloques) */}
+          {tool === 'bloque' && (
+            <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-3 space-y-2.5">
+              <p className="text-xs font-black text-sky-800 uppercase tracking-wide">Bloques a escala</p>
+              <p className="text-[10px] text-slate-500">Elige uno y haz clic en el plano. Cerca de un muro se pega y se gira solo.</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase">Mis diseños de CarpiMetal</p>
+              {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una mesa, reja, baranda, portón o puerta en CarpiMetal para colocarla aquí.</p>}
+              <div className="grid grid-cols-1 gap-1">
+                {disenosCarpi.map(d => { const g = geomCarpi.get(d.id); const act = aColocar?.origen === 'carpi' && aColocar.refId === d.id; return (
+                  <button key={d.id} onClick={() => setAColocar({ origen: 'carpi', refId: d.id })}
+                    className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${act ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-700 border-slate-200 hover:border-sky-400'}`}>
+                    {d.nombre}<span className={`block text-[10px] font-semibold ${act ? 'text-sky-100' : 'text-slate-400'}`}>{NOMBRE_TIPO_CARPI[d.tipoElemento] || d.tipoElemento}{g ? ` · ${g.ancho.toFixed(2)} × ${g.fondo.toFixed(2)} m` : ''}{SUELTOS.has(d.tipoElemento) ? '' : ' · mejor en un vano'}</span>
+                  </button>
+                ); })}
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase pt-1">Muebles de referencia (no suman costo)</p>
+              <div className="grid grid-cols-2 gap-1">
+                {MUEBLES.map(m => { const act = aColocar?.origen === 'mueble' && aColocar.refId === m.id; return (
+                  <button key={m.id} onClick={() => setAColocar({ origen: 'mueble', refId: m.id })}
+                    className={`text-left px-2 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${act ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'}`}>
+                    {m.emoji} {m.nombre}<span className={`block text-[9px] font-semibold ${act ? 'text-slate-300' : 'text-slate-400'}`}>{m.ancho} × {m.fondo} m</span>
+                  </button>
+                ); })}
+              </div>
+            </div>
+          )}
+
+          {/* Bloque seleccionado */}
+          {selBloque && (() => { const b = bloques.find(x => x.uid === selBloque); if (!b) return null; const d = b.origen === 'carpi' ? disenosCarpi.find(x => x.id === b.refId) : null; return (
+            <div className="rounded-2xl border border-sky-200 bg-white p-3 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-black text-sky-800 uppercase tracking-wide truncate">{b.origen === 'carpi' ? 'CarpiMetal' : 'Mueble'} · {b.nombre}</span>
+                <button onClick={() => { setBloques(prev => prev.filter(x => x.uid !== b.uid)); setSelBloque(null); }} className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer" title="Quitar bloque"><Trash2 className="w-4 h-4" /></button>
+              </div>
+              <p className="text-[11px] font-bold text-slate-500">{b.ancho.toFixed(2)} × {b.fondo.toFixed(2)} m en planta · {b.alto.toFixed(2)} m de alto</p>
+              <div className="flex gap-1.5">
+                <button onClick={() => updBloque(b.uid, { rot: (b.rot + 90) % 360 })} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-700 cursor-pointer hover:bg-slate-200"><RotateCw className="w-3.5 h-3.5" /> Girar 90°</button>
+                <button onClick={() => updBloque(b.uid, { espejo: !b.espejo })} className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-700 cursor-pointer hover:bg-slate-200"><FlipHorizontal2 className="w-3.5 h-3.5" /> Espejo</button>
+              </div>
+              <label className="block text-[10px] font-bold text-slate-600">Piso
+                <select value={b.nivel || pisos[0]} onChange={e => updBloque(b.uid, { nivel: e.target.value })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs focus:outline-none">
+                  {(pisos.length ? pisos : ['Piso 1']).map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              {b.origen === 'carpi' && (
+                <label className="flex items-start gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" checked={b.incluir} onChange={e => updBloque(b.uid, { incluir: e.target.checked })} />
+                  <span>Incluir en la cotización{d ? ` · S/ ${costoDisenoCarpi(d).toFixed(2)}` : ''}<span className="block text-[10px] font-semibold text-slate-400">Si no lo fabricas tú, desmárcalo y explica por qué en la observación.</span></span>
+                </label>
+              )}
+              <label className="block text-[10px] font-bold text-slate-600">Observación (sale en la cotización)
+                <textarea value={b.obs} onChange={e => updBloque(b.uid, { obs: e.target.value })} rows={2} placeholder={b.origen === 'carpi' ? 'Ej. Incluye pintura epóxica / Lo provee el cliente' : 'Ej. Mobiliario referencial'}
+                  className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs focus:outline-none focus:ring-2 focus:ring-sky-200" />
+              </label>
+              <p className="text-[10px] text-slate-400">Arrástralo con Seleccionar. Cerca de un muro se pega solo.</p>
+            </div>
+          ); })()}
+
           {/* Propiedades del elemento seleccionado (editar medidas reales) */}
           {selElem && (
             <div className="rounded-2xl border p-3 space-y-2.5" style={{ borderColor: META[selElem.tipo].color + '55', backgroundColor: META[selElem.tipo].color + '0d' }}>
@@ -1279,7 +1436,16 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                   </select>
                 </label>
                 {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una puerta, ventana o reja en CarpiMetal para colocarla aquí.</p>}
-                {a.carpiId && (() => { const d = disenosCarpi.find(x => x.id === a.carpiId); return d ? <p className="text-[10px] font-bold text-sky-800">CarpiMetal: {d.nombre} · S/ {costoDisenoCarpi(d).toFixed(2)} (se suma al piso)</p> : <p className="text-[10px] font-bold text-amber-700">El diseño "{a.carpiNombre}" ya no está guardado en CarpiMetal.</p>; })()}
+                {a.carpiId && (() => { const d = disenosCarpi.find(x => x.id === a.carpiId); return d ? (<>
+                  <label className="flex items-start gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
+                    <input type="checkbox" className="mt-0.5" checked={a.incluir !== false} onChange={e => updateAbertura(muro.uid, a.id, { incluir: e.target.checked })} />
+                    <span>Incluir en la cotización · S/ {costoDisenoCarpi(d).toFixed(2)}</span>
+                  </label>
+                  <label className="block text-[10px] font-bold text-slate-600">Observación (sale en la cotización)
+                    <textarea value={a.obs || ''} onChange={e => updateAbertura(muro.uid, a.id, { obs: e.target.value }, 'obs')} rows={2} placeholder="Ej. Con chapa de seguridad / la provee el cliente"
+                      className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none" />
+                  </label>
+                </>) : <p className="text-[10px] font-bold text-amber-700">El diseño "{a.carpiNombre}" ya no está guardado en CarpiMetal.</p>; })()}
                 <div className="grid grid-cols-2 gap-2">
                   {num('Ancho (m)', a.w, v => updateAbertura(muro.uid, a.id, { w: v }, 'w'), 'w')}
                   {num('Alto (m)', a.h, v => updateAbertura(muro.uid, a.id, { h: v }, 'h'), 'h')}

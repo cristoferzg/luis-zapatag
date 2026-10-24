@@ -30,6 +30,8 @@ export interface Abertura {
   sill: number; // antepecho (m); 0 en puertas
   carpiId?: string;      // diseño de CarpiMetal colocado en este vano
   carpiNombre?: string;
+  incluir?: boolean;     // el diseño de CarpiMetal suma a la cotización (por defecto sí)
+  obs?: string;          // observación que sale en la cotización
 }
 
 export const esPuerta = (t: TipoAbertura) => t === 'puerta' || t === 'puerta_doble';

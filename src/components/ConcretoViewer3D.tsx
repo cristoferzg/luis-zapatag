@@ -18,6 +18,8 @@ import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes
 import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
 import { coberturaDesdeCorreas } from './techos/coberturaAuto';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
+import { Bloque, muebleDe, geometriaCarpi, GeomCarpi } from './concreto/bloques';
+import { leerDisenosCarpi } from './concreto/carpiObra';
 
 const C = {
   concreto: 0xcfcfca, zapata: 0xc8c4bc, cimiento: 0xbdb8ae, losa: 0xdcdcd7, acero: 0x5f6f82,
@@ -121,15 +123,16 @@ interface Props {
   resaltarPerfiles?: boolean; // dibuja las secciones ×3 para verlas mejor de lejos
   verCimentacion?: boolean;   // suelo transparente y vista desde abajo (zapatas, cimientos)
   claveCamara?: string;       // misma obra → se conserva la cámara al remontar
+  bloques?: Bloque[];         // diseños de CarpiMetal sueltos y muebles a escala
 }
 
 // Cámara de la última vista (por obra), para no perderla al cambiar opciones.
 const camaras = new Map<string, { az: number; pol: number; rad: number; obj: [number, number, number] }>();
 
-export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '' }: Props) {
+export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '', bloques = [] }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles });
-  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles };
+  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques });
+  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -166,6 +169,27 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       cielo: new THREE.MeshLambertMaterial({ color: 0xf6f6f2, side: THREE.DoubleSide, transparent: true, opacity: 0.92, polygonOffset: true, polygonOffsetFactor: 1 }),
       tanque: new THREE.MeshLambertMaterial({ color: 0x4f555c }),
       metal: new THREE.MeshLambertMaterial({ color: 0x3f4a56 }),
+      plancha: new THREE.MeshLambertMaterial({ color: 0x475569, side: THREE.DoubleSide }),
+    };
+    // Diseño de CarpiMetal con sus piezas reales dentro de un grupo (coords del diseño).
+    const disenosCarpi = new Map(leerDisenosCarpi().map(d => [d.id, d]));
+    const cacheGeom = new Map<string, GeomCarpi | null>();
+    const geomDe = (id: string) => { if (!cacheGeom.has(id)) { const d = disenosCarpi.get(id); cacheGeom.set(id, d ? geometriaCarpi(d) : null); } return cacheGeom.get(id) || null; };
+    const carpi3d = (g: GeomCarpi, padre: THREE.Object3D) => {
+      g.barras.forEach(b => {
+        const a = new THREE.Vector3(...b.a), c = new THREE.Vector3(...b.b);
+        const dir = new THREE.Vector3().subVectors(c, a), L = dir.length();
+        if (L < 0.004) return;
+        const m = new THREE.Mesh(new THREE.BoxGeometry(L, b.s2, b.s1), M2.metal);
+        m.position.copy(a).addScaledVector(dir, 0.5);
+        m.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), dir.normalize());
+        conBordes(m, true, padre);
+      });
+      g.paneles.forEach(p => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.003, p.w), Math.max(0.003, p.h), Math.max(0.003, p.d)), p.vidrio ? M2.vidrio : M2.plancha);
+        m.position.set(p.x + p.w / 2, p.y + p.h / 2, p.z + p.d / 2);
+        conBordes(m, true, padre);
+      });
     };
     const superficie = (m: MallaCielo) => {
       if (!m.tris.length) return;
@@ -199,6 +223,16 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         else {
           const h = new THREE.Path(); h.moveTo(i, pie); h.lineTo(d, pie); h.lineTo(d, top); h.lineTo(i, top); h.lineTo(i, pie);
           forma.holes.push(h);
+        }
+        // Diseño de CarpiMetal en el vano: sus piezas reales, ajustadas al vano.
+        const gv = a.carpiId ? geomDe(a.carpiId) : null;
+        if (gv) {
+          const gr = new THREE.Group();
+          gr.position.set(i, pie, -gv.fondo / 2);
+          gr.scale.set((d - i) / gv.ancho, (top - pie) / gv.alto, 1);
+          grupo.add(gr);
+          carpi3d(gv, gr);
+          return;
         }
         // Hoja de puerta entreabierta / vidrio
         const matHoja = a.carpiId ? M2.metal : M2.puerta; // diseño de CarpiMetal: hoja metálica
@@ -353,6 +387,29 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           } else if (e.tipo === 'viga') caja(L, h, a, cx, vigaElev - h / 2, cz, M.concreto, rotY);
           else caja(L, h, a, cx, -h / 2, cz, M.cimiento, rotY);
         }
+      });
+
+      // ---- Bloques a escala (CarpiMetal suelto y muebles) ----
+      (datos.current.bloques || []).forEach(b => {
+        const nivel = b.nivel || obra.pisos[0];
+        if (!pisoVisible(nivel)) return;
+        const g = new THREE.Group();
+        g.position.set(b.x, obra.ctx(nivel).base + 0.02, b.y);
+        g.rotation.y = -(b.rot * Math.PI) / 180;
+        modelo.add(g);
+        const interior = new THREE.Group();
+        interior.position.set(-b.ancho / 2, 0, -b.fondo / 2);
+        if (b.espejo) { interior.scale.x = -1; interior.position.x = b.ancho / 2; }
+        g.add(interior);
+        if (b.origen === 'carpi') { const gc = geomDe(b.refId); if (gc) carpi3d(gc, interior); return; }
+        const m = muebleDe(b.refId);
+        m?.cajas.forEach(c => {
+          const mat = new THREE.MeshLambertMaterial({ color: c.color });
+          const geo = c.cil ? new THREE.CylinderGeometry(0.5, 0.5, c.h, 20).scale(c.w, 1, c.d) : new THREE.BoxGeometry(c.w, c.h, c.d);
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set(c.u + c.w / 2, c.y + c.h / 2, c.v + c.d / 2);
+          conBordes(mesh, true, interior);
+        });
       });
 
       // ---- Ambientes (piso coloreado) y cielo raso por piso ----
