@@ -1816,6 +1816,35 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     costoM2Sol: 125.00,
     traslapeTransversalMinMm: 150,
     pernosRequeridosPorM2: 3.0
+  },
+  // Fibrocemento ondulado (tipo Eternit Gran Onda / Perfil 4). Precio 0: lo ingresa el usuario.
+  {
+    id: 'cob_eternit_perfil4',
+    categoria: 'fibrocemento_eternit',
+    nombre: 'Eternit Fibrocemento Perfil 4 (Gran Onda) e=5mm',
+    anchoTotalMm: 1100,
+    anchoUtilMm: 1000,
+    espesorMm: 5.0,
+    tipoOnda: 'Ondulada Gran Onda',
+    longitudComercialM: 2.44,
+    pesoM2Kg: 11.0,
+    costoM2Sol: 0,
+    traslapeTransversalMinMm: 140,
+    pernosRequeridosPorM2: 3.0
+  },
+  {
+    id: 'cob_eternit_teja_andina',
+    categoria: 'fibrocemento_eternit',
+    nombre: 'Eternit Teja Andina Fibrocemento',
+    anchoTotalMm: 1100,
+    anchoUtilMm: 1000,
+    espesorMm: 5.0,
+    tipoOnda: 'Teja Andina',
+    longitudComercialM: 1.14,
+    pesoM2Kg: 12.0,
+    costoM2Sol: 0,
+    traslapeTransversalMinMm: 140,
+    pernosRequeridosPorM2: 3.0
   }
 ];
 

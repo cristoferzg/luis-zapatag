@@ -1,11 +1,11 @@
 // Panel por piso: muros (drywall / ladrillo), techos metálicos vinculados y
 // soporte metálico de tanque elevado con sobrepecho.
-import { Plus, Trash2, PenTool, Droplets, BrickWall } from 'lucide-react';
+import { Plus, Trash2, PenTool, Droplets, BrickWall, LayoutGrid } from 'lucide-react';
 import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
 import { OsbItem } from '../../catalogo/osb';
 import {
-  SistemaNivel, MuroCapa, TechoSnapshot, SoporteTanque, CalcSistema,
+  SistemaNivel, MuroCapa, TechoSnapshot, SoporteTanque, CalcSistema, ObraPiso,
   PERFILES_TANQUE, TANQUES, tanqueDefault,
 } from './obraPisos';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
@@ -20,12 +20,14 @@ interface Props {
   techosLib: TechoSnapshot[];
   onChange: (s: SistemaNivel) => void;
   onIrATechos?: () => void;
+  obra?: ObraPiso;            // lo dibujado en el Plano CAD para este piso
+  estructuraNombre?: string;  // diseño de Techos vinculado a la obra
 }
 
 const inputCls = 'mt-1 w-full px-2.5 py-2 rounded-lg bg-white text-sm text-slate-700 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-200';
 const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb, techosLib, onChange, onIrATechos }: Props) {
+export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb, techosLib, onChange, onIrATechos, obra, estructuraNombre }: Props) {
   const setMuro = (id: string, patch: Partial<MuroCapa>) =>
     onChange({ ...sistema, muros: sistema.muros.map(m => m.id === id ? { ...m, ...patch } : m) });
   const addMuro = (tipo: MuroCapa['tipo']) => onChange({
@@ -50,8 +52,36 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
     <div className="bg-white rounded-2xl p-4 shadow-xs space-y-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[11px] font-black text-slate-400 uppercase">Sistema del piso <span className="text-stone-500">→ {nivel}</span></p>
-        <span className="text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-2.5 py-1">{S(calc.costo)}</span>
+        <span className="text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-2.5 py-1">{S(calc.costo + (obra?.costo || 0))}</span>
       </div>
+
+      {/* AMBIENTES, ABERTURAS Y CIELO RASO (del Plano CAD) */}
+      {obra && (obra.ambientes.length > 0 || obra.puertas + obra.ventanas + obra.vanos > 0 || obra.cielo || obra.cieloTanque) && (
+        <section className="space-y-2">
+          <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><LayoutGrid className="w-4 h-4 text-emerald-500" /> Ambientes, puertas y cielo raso</h4>
+          {obra.ambientes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {obra.ambientes.map((a, i) => <span key={i} className="text-[11px] font-bold text-slate-600 bg-emerald-50 rounded-lg px-2 py-1">{a.nombre} · {a.area.toFixed(2)} m²</span>)}
+              <span className="text-[11px] font-bold text-slate-500 px-1 py-1">Total {obra.ambientes.reduce((x, a) => x + a.area, 0).toFixed(2)} m²</span>
+            </div>
+          )}
+          {obra.puertas + obra.ventanas + obra.vanos > 0 && (
+            <p className="text-[11px] font-bold text-slate-600">{obra.puertas} puertas · {obra.ventanas} ventanas{obra.vanos ? ` · ${obra.vanos} vanos` : ''} <span className="font-semibold text-slate-400">(sus vanos ya se descuentan del área de muro)</span></p>
+          )}
+          {obra.cielo && (
+            <div className="rounded-xl bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-700 truncate">Cielo raso {obra.cielo.nombre} <span className="text-[10px] font-semibold text-slate-500">· {obra.cielo.modo === 'plano' ? 'plano' : 'siguiendo el techo'}</span></p>
+                <p className="text-[11px] text-slate-500">{obra.cielo.area.toFixed(2)} m² de placa · {obra.cielo.perimetro.toFixed(1)} m de ángulo perimetral</p>
+              </div>
+              <span className="text-xs font-bold text-slate-800 shrink-0">{obra.cielo.costo > 0 ? S(obra.cielo.costo) : 'Sin precio'}</span>
+            </div>
+          )}
+          {obra.cieloTanque && (
+            <p className="text-[11px] font-bold text-slate-600">Cielo raso bajo el sobretecho del tanque: {obra.cieloTanque.area.toFixed(2)} m²{obra.cieloTanque.costo > 0 ? ` · ${S(obra.cieloTanque.costo)}` : ''}</p>
+          )}
+        </section>
+      )}
 
       {/* MUROS */}
       <section className="space-y-2">
@@ -108,7 +138,18 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
       {/* TECHOS METÁLICOS */}
       <section className="space-y-2 pt-2">
         <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><PenTool className="w-4 h-4 text-blue-500" /> Techo / estructura metálica en este piso</h4>
-        {calc.techos.map(t => (
+        {obra?.metal && (
+          <div className="rounded-xl bg-blue-50/60 px-3 py-2 space-y-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-bold text-slate-800 truncate">{estructuraNombre || 'Estructura de Techos'} <span className="text-[10px] font-semibold text-blue-600">· vinculada en el Plano CAD</span></p>
+              <span className="text-xs font-bold text-slate-800 shrink-0">{S(obra.metal.costoAcero + obra.metal.costoCobertura)}</span>
+            </div>
+            <p className="text-[11px] text-slate-600">{obra.metal.perfiles} perfiles · {obra.metal.metros.toFixed(1)} m · {obra.metal.kg.toFixed(0)} kg de acero ({S(obra.metal.costoAcero)})</p>
+            {obra.metal.coberturaM2 > 0 && <p className="text-[11px] text-slate-600">Cobertura {obra.metal.coberturaM2.toFixed(1)} m² · {obra.metal.coberturas.join(', ')} ({S(obra.metal.costoCobertura)})</p>}
+            {obra.metal.perfiles === 0 && <p className="text-[11px] text-slate-400">Esta estructura no tiene perfiles que arranquen en este piso.</p>}
+          </div>
+        )}
+        {!obra?.metal && calc.techos.map(t => (
           <div key={t.id} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-800 truncate">{t.nombre}</p>
@@ -118,7 +159,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
               className="p-2 rounded-lg hover:bg-rose-100 text-rose-500 cursor-pointer shrink-0" title="Desvincular"><Trash2 className="w-4 h-4" /></button>
           </div>
         ))}
-        {techosLibres.length > 0 ? (
+        {obra?.metal ? null : techosLibres.length > 0 ? (
           <select value="" onChange={e => e.target.value && onChange({ ...sistema, techoIds: [...sistema.techoIds, e.target.value] })} className={`${inputCls} !bg-slate-50 !shadow-none`}>
             <option value="">+ Vincular un techo enviado desde Techos Metálicos…</option>
             {techosLibres.map(t => <option key={t.id} value={t.id}>{t.nombre} — {S(t.costoDirectoSoles)} ({t.fecha})</option>)}

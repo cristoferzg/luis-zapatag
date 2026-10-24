@@ -20,7 +20,8 @@ export type CategoriaCobertura =
   | 'upvc_termoacustica'
   | 'panel_sandwich_pur'
   | 'calamina_galvanizada'
-  | 'plancha_acero_deck';
+  | 'plancha_acero_deck'
+  | 'fibrocemento_eternit';
 
 export type CategoriaAccesorio = 
   | 'placa_base'

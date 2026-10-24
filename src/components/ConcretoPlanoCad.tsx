@@ -18,17 +18,22 @@
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall } from 'lucide-react';
+import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen } from 'lucide-react';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
-import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, basesDeNiveles, entrepisosDesdeTechos, leerCatalogoOsb } from './concreto/obraPisos';
+import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra } from './concreto/obraPisos';
+import {
+  Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
+  regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
+} from './concreto/geometriaObra';
 import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
 
 export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento' | 'losa' | 'muro';
-type Herramienta = 'select' | 'pan' | PlanoTipo;
+type Herramienta = 'select' | 'pan' | 'abertura' | PlanoTipo;
+export type { Abertura } from './concreto/geometriaObra';
 
 export interface PlanoElem {
   uid: string;
@@ -43,6 +48,8 @@ export interface PlanoElem {
   material?: MaterialMuro;
   materialId?: string;
   caras?: 1 | 2;
+  hastaTecho?: boolean;            // muro: sube hasta el techo siguiendo la pendiente
+  aberturas?: Abertura[];          // muro: puertas, ventanas y vanos
 }
 
 // Peso lineal (kg/m) por diámetro de varilla de acero corrugado.
@@ -135,6 +142,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const [selUid, setSelUid] = useState<string | null>(null);
   const [selNode, setSelNode] = useState<string | null>(null);
   const [vista3d, setVista3d] = useState(false);
+  const [verTecho, setVerTecho] = useState(true);
+  const [hastaPiso, setHastaPiso] = useState('');
 
   const [elems, setElems] = useState<PlanoElem[]>(() => safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || []);
   const [precios] = useState(() => safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT);
@@ -146,6 +155,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const [catLadrillo] = useState<LadrilloItem[]>(() => safeStorage.getItem<LadrilloItem[]>(KEY_CAT_LADRILLO, LADRILLO_DEFAULTS) || LADRILLO_DEFAULTS);
   const [catOsb] = useState<OsbItem[]>(leerCatalogoOsb);
   const [materialMuro, setMaterialMuro] = useState<{ material: MaterialMuro; materialId: string }>({ material: 'ladrillo', materialId: LADRILLO_DEFAULTS[0].id });
+  const [tipoAbertura, setTipoAbertura] = useState<TipoAbertura>('puerta');
+  const [selAb, setSelAb] = useState<{ uid: string; id: string } | null>(null);
+  const [aviso, setAviso] = useState('');
+  // Cielo raso por piso (y bajo el sobretecho de cada tanque) y nombres de ambientes.
+  const [cielos, setCielos] = useState<Record<string, CieloRaso>>(() => safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {});
+  useEffect(() => { safeStorage.setItem(KEY_CIELOS, cielos); }, [cielos]);
+  const [nombresAmb, setNombresAmb] = useState<Record<string, string>>(() => safeStorage.getItem<Record<string, string>>(KEY_AMBIENTES, {}) || {});
+  useEffect(() => { safeStorage.setItem(KEY_AMBIENTES, nombresAmb); }, [nombresAmb]);
 
   // Estructura de Techos Metálicos vinculada a esta obra (diseño guardado).
   const [disenos, setDisenos] = useState<SavedTechosDesign[]>(getCachedTechosDesigns);
@@ -175,7 +192,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
     const out: Record<string, number> = {};
     if (!estructura) return out;
     const ent = entrepisosDesdeTechos(estructura);
-    const yTecho = Math.max(0, ...Object.values(estructura.nodes || {}).map(n => n.y));
+    const yTecho = yTechoObra(estructura);
     const lista = pisos.length ? pisos : ['Piso 1'];
     lista.forEach((n, k) => {
       const base = k === 0 ? 0 : (ent[k - 1] ?? 0);
@@ -304,7 +321,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   };
   const addLine = (tipo: PlanoTipo, x1: number, y1: number, x2: number, y2: number) => {
     const d = DEFAULTS[tipo];
-    const extra = tipo === 'muro' ? { nivel: nivelMuro, ...materialMuro, caras: (materialMuro.material === 'osb' ? 1 : 2) as 1 | 2, ...(alturaPiso[nivelMuro] ? { H: alturaPiso[nivelMuro] } : {}) } : {};
+    const extra = tipo === 'muro' ? { nivel: nivelMuro, ...materialMuro, caras: (materialMuro.material === 'osb' ? 1 : 2) as 1 | 2, hastaTecho: !!estructura, ...(alturaPiso[nivelMuro] ? { H: alturaPiso[nivelMuro] } : {}) } : {};
     commit(prev => [...prev, { uid: `pc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, tipo, x1, y1, x2, y2, ...d, ...extra }]);
   };
 
@@ -318,8 +335,37 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
     }));
   };
 
+  // --- Aberturas: proyección del cursor sobre los muros del piso activo ---
+  const murosActivos = elems.filter(e => e.tipo === 'muro' && (e.nivel || pisos[0]) === nivelMuro && e.x2 !== undefined && e.y2 !== undefined);
+  const proyectar = (e: PlanoElem, x: number, y: number) => {
+    const L = largoMuro(e), ux = (e.x2! - e.x1) / L, uy = (e.y2! - e.y1) / L;
+    return { L, t: (x - e.x1) * ux + (y - e.y1) * uy, d: Math.abs(-(x - e.x1) * uy + (y - e.y1) * ux) };
+  };
+  const muroBajo = (clientX: number, clientY: number) => {
+    const w = rawWorld(clientX, clientY);
+    let best: { e: PlanoElem; t: number; L: number } | null = null, bestD = Infinity;
+    murosActivos.forEach(e => {
+      const p = proyectar(e, w.x, w.y);
+      if (p.t < -0.05 || p.t > p.L + 0.05) return;
+      if (p.d <= Math.max(e.a / 2 + 0.2, 12 / scale) && p.d < bestD) { bestD = p.d; best = { e, t: p.t, L: p.L }; }
+    });
+    return best as { e: PlanoElem; t: number; L: number } | null;
+  };
+  const hitAbertura = (clientX: number, clientY: number) => {
+    const m = muroBajo(clientX, clientY);
+    const ab = m?.e.aberturas?.find(a => Math.abs(m.t - a.t) <= a.w / 2);
+    return m && ab ? { uid: m.e.uid, id: ab.id } : null;
+  };
+  const updateAbertura = (uid: string, id: string, patch: Partial<Abertura>, campo?: string) =>
+    commit(prev => prev.map(e => e.uid !== uid ? e : { ...e, aberturas: (e.aberturas || []).map(a => a.id === id ? ajustarAbertura({ ...a, ...patch }, largoMuro(e)) : a) }), campo ? `ab_${id}_${campo}` : undefined);
+  const removeAbertura = (uid: string, id: string) => {
+    commit(prev => prev.map(e => e.uid !== uid ? e : { ...e, aberturas: (e.aberturas || []).filter(a => a.id !== id) }));
+    setSelAb(null);
+  };
+
   // --- Interacción puntero ---
   const dragNode = useRef<{ x: number; y: number; key: string } | null>(null);
+  const dragAb = useRef<{ uid: string; id: string; moved: boolean } | null>(null);
   const didDrag = useRef(false);
 
   const onMouseDown = (e: React.MouseEvent) => {
@@ -329,6 +375,13 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
       return;
     }
     if (tool === 'select' && e.button === 0) {
+      const hab = hitAbertura(e.clientX, e.clientY);
+      if (hab) {
+        pushHist();
+        dragAb.current = { ...hab, moved: false };
+        setSelAb(hab); setSelUid(null); setSelNode(null);
+        return;
+      }
       const n = hitNode(e.clientX, e.clientY);
       if (n) {
         pushHist();                 // un paso deshacible por arrastre
@@ -341,6 +394,17 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const onMouseMove = (e: React.MouseEvent) => {
     if (isPanning) {
       setPan({ x: panStart.current.px + (e.clientX - panStart.current.x), y: panStart.current.py + (e.clientY - panStart.current.y) });
+      return;
+    }
+    if (dragAb.current) {
+      const d = dragAb.current;
+      const w = rawWorld(e.clientX, e.clientY);
+      setElems(prev => prev.map(m => {
+        if (m.uid !== d.uid) return m;
+        const p = proyectar(m, w.x, w.y);
+        return { ...m, aberturas: (m.aberturas || []).map(a => a.id === d.id ? ajustarAbertura({ ...a, t: Math.round(p.t / 0.05) * 0.05 }, p.L) : a) };
+      }));
+      d.moved = true;
       return;
     }
     if (dragNode.current) {
@@ -358,6 +422,12 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   };
   const onMouseUp = () => {
     setIsPanning(false);
+    if (dragAb.current) {
+      if (!dragAb.current.moved) undoRef.current.pop();
+      dragAb.current = null;
+      didDrag.current = true; // el clic que sigue no deselecciona
+      setHistVer(v => v + 1);
+    }
     if (dragNode.current) {
       if (!didDrag.current) undoRef.current.pop(); // no hubo movimiento → descarta el paso
       dragNode.current = null;
@@ -369,7 +439,16 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
     if (isPanning || tool === 'pan') return;
     if (didDrag.current) { didDrag.current = false; return; } // acabamos de arrastrar un nodo
     const w = snapWorld(e.clientX, e.clientY);
-    if (tool === 'select') { setSelUid(null); setSelNode(null); return; }
+    if (tool === 'select') { setSelUid(null); setSelNode(null); setSelAb(null); return; }
+    if (tool === 'abertura') {
+      const m = muroBajo(e.clientX, e.clientY);
+      if (!m) { setAviso('Haz clic sobre un muro del piso activo'); setTimeout(() => setAviso(''), 1800); return; }
+      const pr = PRESETS_ABERTURA[tipoAbertura];
+      const ab = ajustarAbertura({ id: `ab_${Date.now().toString(36)}`, tipo: tipoAbertura, t: Math.round(m.t / 0.05) * 0.05, w: pr.w, h: pr.h, sill: pr.sill }, m.L);
+      commit(prev => prev.map(x => x.uid === m.e.uid ? { ...x, aberturas: [...(x.aberturas || []), ab] } : x));
+      setSelAb({ uid: m.e.uid, id: ab.id }); setSelUid(null);
+      return;
+    }
     if (tool === 'columna' || tool === 'zapata') { addPoint(tool, w.x, w.y); return; }
     // línea (viga / cimiento / losa)
     if (!pending) { setPending({ x: w.x, y: w.y }); }
@@ -430,13 +509,27 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   };
 
   // Firma de la escena → se usa como key para remontar el visor 3D al cambiar algo.
-  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2},${e.nivel},${e.material}`).join('|'), [elems]);
-  const bases3d = useMemo(() => basesDeNiveles(niveles, entrepisosDesdeTechos(estructura)), [niveles, estructura]);
+  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2},${e.nivel},${e.material},${e.hastaTecho},${JSON.stringify(e.aberturas || [])}`).join('|') + JSON.stringify(cielos), [elems, cielos]);
+  const obra = useMemo(() => contextosObra(niveles, estructura), [niveles, estructura]);
+
+  // Ambientes del piso activo (recintos cerrados por muros) con su nombre.
+  const ambientes = useMemo(() => detectarAmbientes(murosActivos).map((a, i) => ({ ...a, nombre: nombresAmb[`${nivelMuro}#${a.key}`] || `Ambiente ${i + 1}` })), [elems, nivelMuro, nombresAmb]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tanques = useMemo(() => tanquesEnEstructura(estructura), [estructura]);
+  // Cielo raso del piso activo: malla y metrado.
+  const cieloPiso = useMemo(() => {
+    const cfg = cielos[nivelMuro];
+    if (!cfg?.activo) return null;
+    const ctx = obra.ctx(nivelMuro);
+    const malla = mallaCielo(regionesCielo(murosActivos, estructura, ctx.base), cfg, ctx);
+    const d = catDrywall.find(x => x.id === cfg.materialId);
+    return { cfg, malla, nombre: d?.tipo || 'Drywall', costo: malla.area * (d?.precioM2 || 0) };
+  }, [cielos, nivelMuro, elems, obra, catDrywall]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setCielo = (k: string, patch: Partial<CieloRaso>) => setCielos(prev => ({ ...prev, [k]: { ...(prev[k] || cieloDefault(alturaPiso[k])), ...patch } }));
 
   // Muros del piso activo: metrado y costo con los precios del usuario.
   const murosPiso = useMemo(() => {
     const lista = elems.filter(e => e.tipo === 'muro' && (e.nivel || pisos[0]) === nivelMuro)
-      .map(e => { const m = muroDesdePlano(e); return { e, m, r: calcMuro(m, catDrywall, catLadrillo, catOsb) }; });
+      .map(e => { const m = muroDesdePlano(e, obra.ctx(e.nivel)); return { e, m, r: calcMuro(m, catDrywall, catLadrillo, catOsb) }; });
     return {
       lista,
       areaLadrillo: lista.filter(x => x.m.tipo === 'ladrillo').reduce((s, x) => s + x.m.areaM2, 0),
@@ -446,8 +539,11 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
       areaOsb: lista.filter(x => x.m.tipo === 'osb').reduce((s, x) => s + x.m.areaM2, 0),
       osbM2: lista.filter(x => x.m.tipo === 'osb').reduce((s, x) => s + x.r.unidades, 0),
       costo: lista.reduce((s, x) => s + x.r.costo, 0),
+      puertas: lista.reduce((s, x) => s + (x.e.aberturas || []).filter(a => esPuerta(a.tipo)).length, 0),
+      ventanas: lista.reduce((s, x) => s + (x.e.aberturas || []).filter(a => esVidrio(a.tipo)).length, 0),
+      vanos: lista.reduce((s, x) => s + (x.e.aberturas || []).filter(a => a.tipo === 'vano').length, 0),
     };
-  }, [elems, nivelMuro, catDrywall, catLadrillo, catOsb]);
+  }, [elems, nivelMuro, catDrywall, catLadrillo, catOsb, obra]);
 
   // ---- Metrado total ----
   const totales = useMemo(() => {
@@ -488,9 +584,19 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
       [...new Set(muros.map(e => e.nivel || pisos[0] || 'Piso 1'))].forEach(n => {
         txt += `${n}:\n`;
         muros.filter(e => (e.nivel || pisos[0] || 'Piso 1') === n).forEach(e => {
-          const m = muroDesdePlano(e); const r = calcMuro(m, catDrywall, catLadrillo, catOsb);
-          txt += `  ${r.nombre} · ${m.areaM2.toFixed(2)} m² · ${m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² placa`} · S/ ${r.costo.toFixed(2)}\n`;
+          const m = muroDesdePlano(e, obra.ctx(e.nivel)); const r = calcMuro(m, catDrywall, catLadrillo, catOsb);
+          txt += `  ${r.nombre} · ${m.areaM2.toFixed(2)} m² (sin vanos) · ${m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² placa`} · S/ ${r.costo.toFixed(2)}\n`;
+          (e.aberturas || []).forEach(a => { txt += `    - ${PRESETS_ABERTURA[a.tipo].nombre} ${a.w.toFixed(2)} × ${a.h.toFixed(2)} m\n`; });
         });
+        const ctx = obra.ctx(n);
+        const ms = muros.filter(e => (e.nivel || pisos[0] || 'Piso 1') === n);
+        detectarAmbientes(ms).forEach((a, i) => { txt += `  Ambiente: ${nombresAmb[`${n}#${a.key}`] || `Ambiente ${i + 1}`} · ${a.area.toFixed(2)} m²\n`; });
+        const cfg = cielos[n];
+        if (cfg?.activo) {
+          const mc = mallaCielo(regionesCielo(ms, estructura, ctx.base), cfg, ctx);
+          const d = catDrywall.find(x => x.id === cfg.materialId);
+          txt += `  Cielo raso ${d?.tipo || 'drywall'} (${cfg.modo}) · ${mc.area.toFixed(2)} m² · perímetro ${mc.perimetro.toFixed(1)} m · S/ ${(mc.area * (d?.precioM2 || 0)).toFixed(2)}\n`;
+        }
       });
     }
     const a = document.createElement('a');
@@ -507,6 +613,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
     { id: 'cimiento', label: 'Cimiento', icon: Minus },
     { id: 'losa', label: 'Losa / Entrepiso', icon: Layers },
     { id: 'muro', label: 'Muro', icon: BrickWall },
+    { id: 'abertura', label: 'Abertura', icon: DoorOpen },
     { id: 'pan', label: 'Mover lienzo', icon: Hand },
   ];
 
@@ -539,7 +646,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
         {HERRAMIENTAS.map(t => {
           const Ic = t.icon;
           const act = tool === t.id;
-          const col = (t.id in META) ? META[t.id as PlanoTipo].color : '#334155';
+          const col = (t.id in META) ? META[t.id as PlanoTipo].color : t.id === 'abertura' ? '#0284c7' : '#334155';
           return (
             <button key={t.id} onClick={() => { setTool(t.id); setPending(null); }}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
@@ -559,6 +666,12 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             {(pisos.length ? pisos : ['Piso 1']).map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+        {tool === 'abertura' && (
+          <select value={tipoAbertura} onChange={e => setTipoAbertura(e.target.value as TipoAbertura)}
+            className="px-2 py-1.5 rounded-xl bg-sky-50 text-xs font-bold text-sky-800 cursor-pointer focus:outline-none">
+            {(Object.keys(PRESETS_ABERTURA) as TipoAbertura[]).map(k => <option key={k} value={k}>{PRESETS_ABERTURA[k].nombre} · {PRESETS_ABERTURA[k].w}×{PRESETS_ABERTURA[k].h}</option>)}
+          </select>
+        )}
         {tool === 'muro' && (
           <select
             value={`${materialMuro.material}:${materialMuro.materialId}`}
@@ -584,8 +697,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
           <Maximize className="w-3.5 h-3.5" />
         </button>
         <div className="h-5 w-px bg-slate-200 mx-1" />
-        {selUid && (
-          <button onClick={removeSel} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100">
+        {(selUid || selAb) && (
+          <button onClick={() => selAb ? removeAbertura(selAb.uid, selAb.id) : removeSel()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100">
             <Trash2 className="w-3.5 h-3.5" /> Eliminar
           </button>
         )}
@@ -619,7 +732,16 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
         {/* VISTA 3D */}
         {vista3d ? (
           <div className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
-            <ConcretoViewer3D key={`${sig3d}|${techosId}|${estructura?.updatedAt || ''}`} elems={elems} bases={bases3d} estructura={estructura} />
+            <ConcretoViewer3D key={`${sig3d}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}`} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} />
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+              <button onClick={() => setVerTecho(v => !v)} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verTecho ? 'bg-slate-100 text-slate-700' : 'bg-stone-700 text-white'}`}>
+                {verTecho ? 'Ocultar techo' : 'Mostrar techo'}
+              </button>
+              <select value={hastaPiso} onChange={e => setHastaPiso(e.target.value)} className="px-2 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 shadow-xs cursor-pointer focus:outline-none">
+                <option value="">Todos los pisos</option>
+                {pisos.map(n => <option key={n} value={n}>Hasta {n}</option>)}
+              </select>
+            </div>
             {elems.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm font-bold">Dibuja en 2D para ver el 3D</div>
             )}
@@ -659,6 +781,28 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                 : <line key={`tl${i}`} x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke="#64748b" strokeWidth={1.2} opacity={0.35} style={{ pointerEvents: 'none' }} />;
             })}
 
+            {/* tanques elevados de la estructura */}
+            {tanques.map(t => { const c = toScreen(t.x, t.z); return (
+              <g key={t.id} style={{ pointerEvents: 'none' }}>
+                <rect x={c.sx - (t.lado / 2) * scale} y={c.sy - (t.lado / 2) * scale} width={t.lado * scale} height={t.lado * scale} fill="none" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
+                <circle cx={c.sx} cy={c.sy} r={(t.diametro / 2) * scale} fill="#e2e8f0" stroke="#475569" strokeWidth={1.2} />
+                <text x={c.sx} y={c.sy + 3} textAnchor="middle" fontSize={10} fontWeight={800} fill="#334155">{t.litros} L</text>
+              </g>
+            ); })}
+
+            {/* ambientes del piso activo */}
+            {ambientes.map((a, i) => {
+              const c = toScreen(a.cx, a.cy);
+              const tonos = ['#fef3c7', '#dcfce7', '#e0f2fe', '#fce7f3', '#ede9fe', '#ffedd5'];
+              return (
+                <g key={a.key} style={{ pointerEvents: 'none' }}>
+                  <polygon points={a.poly.map(p => { const q = toScreen(p.x, p.y); return `${q.sx},${q.sy}`; }).join(' ')} fill={tonos[i % tonos.length]} opacity={0.75} />
+                  <text x={c.sx} y={c.sy - 3} textAnchor="middle" fontSize={11} fontWeight={800} fill="#334155">{a.nombre}</text>
+                  <text x={c.sx} y={c.sy + 10} textAnchor="middle" fontSize={10} fontWeight={600} fill="#64748b">{a.area.toFixed(2)} m²</text>
+                </g>
+              );
+            })}
+
             {/* elementos */}
             {elems.map(e => {
               const m = META[e.tipo];
@@ -682,10 +826,51 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                 const wPx = Math.max(5, e.a * scale);
                 const otroPiso = (e.nivel || pisos[0]) !== nivelMuro;
                 const col = COLOR_MURO[e.material || 'ladrillo'];
+                const L = largoMuro(e), ux = (e.x2 - e.x1) / (L || 1), uy = (e.y2 - e.y1) / (L || 1);
+                // Punto a t m del inicio y n m hacia un costado (en px de pantalla).
+                const P = (t: number, n = 0) => ({ x: p1.sx + (ux * t - uy * n) * scale, y: p1.sy + (uy * t + ux * n) * scale });
+                // Tramos llenos entre aberturas (en metros a lo largo del muro).
+                const abs = [...(e.aberturas || [])].sort((a, b) => a.t - b.t);
+                const tramos: [number, number][] = [];
+                let t0 = 0;
+                abs.forEach(a => { const ini = Math.max(t0, a.t - a.w / 2); if (ini > t0 + 0.005) tramos.push([t0, ini]); t0 = Math.max(t0, a.t + a.w / 2); });
+                if (L > t0 + 0.005) tramos.push([t0, L]);
                 return (
-                  <g key={e.uid} opacity={otroPiso ? 0.22 : 1} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); if (otroPiso && e.nivel) setNivelMuro(e.nivel); } }} className="cursor-pointer">
-                    <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={col} strokeWidth={wPx} strokeLinecap="butt" />
-                    {e.material !== 'drywall' && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#fff7ed" strokeWidth={Math.max(1, wPx * 0.18)} strokeDasharray="7 5" />}
+                  <g key={e.uid} opacity={otroPiso ? 0.22 : 1} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); setSelAb(null); if (otroPiso && e.nivel) setNivelMuro(e.nivel); } }} className="cursor-pointer">
+                    {tramos.map(([a, b], i) => { const A = P(a), B = P(b); return (
+                      <g key={i}>
+                        <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke={col} strokeWidth={wPx} strokeLinecap="butt" />
+                        {e.material !== 'drywall' && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#fff7ed" strokeWidth={Math.max(1, wPx * 0.18)} strokeDasharray="7 5" />}
+                      </g>
+                    ); })}
+                    {!otroPiso && abs.map(a => {
+                      const iz = a.t - a.w / 2, de = a.t + a.w / 2, r = a.w * scale;
+                      const marcada = selAb?.uid === e.uid && selAb.id === a.id;
+                      const A = P(iz), B = P(de), C = P(a.t);
+                      const ext = (t: number, n: number) => P(t, n);
+                      return (
+                        <g key={a.id} style={{ pointerEvents: 'none' }}>
+                          {/* jambas */}
+                          {[A, B].map((q, k) => <line key={k} x1={q.x - uy * wPx / 2} y1={q.y + ux * wPx / 2} x2={q.x + uy * wPx / 2} y2={q.y - ux * wPx / 2} stroke="#475569" strokeWidth={1.2} />)}
+                          {a.tipo === 'puerta' && (() => { const H = ext(iz, a.w); return (<>
+                            <line x1={A.x} y1={A.y} x2={H.x} y2={H.y} stroke="#334155" strokeWidth={2} />
+                            <path d={`M ${H.x} ${H.y} A ${r} ${r} 0 0 0 ${B.x} ${B.y}`} fill="none" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
+                          </>); })()}
+                          {a.tipo === 'puerta_doble' && (() => { const H1 = ext(iz, a.w / 2), H2 = ext(de, a.w / 2); return (<>
+                            <line x1={A.x} y1={A.y} x2={H1.x} y2={H1.y} stroke="#334155" strokeWidth={2} />
+                            <line x1={B.x} y1={B.y} x2={H2.x} y2={H2.y} stroke="#334155" strokeWidth={2} />
+                            <path d={`M ${H1.x} ${H1.y} A ${r / 2} ${r / 2} 0 0 0 ${C.x} ${C.y}`} fill="none" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
+                            <path d={`M ${H2.x} ${H2.y} A ${r / 2} ${r / 2} 0 0 1 ${C.x} ${C.y}`} fill="none" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
+                          </>); })()}
+                          {esVidrio(a.tipo) && (<>
+                            <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke={a.tipo === 'mampara' ? '#7dd3fc' : '#e0f2fe'} strokeWidth={wPx * 0.8} />
+                            <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#0284c7" strokeWidth={1.4} />
+                          </>)}
+                          {a.tipo === 'vano' && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />}
+                          {marcada && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#0ea5e9" strokeWidth={wPx + 8} opacity={0.3} />}
+                        </g>
+                      );
+                    })}
                     {(sel || con) && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#0ea5e9" strokeWidth={wPx + 4} opacity={0.35} />}
                   </g>
                 );
@@ -768,6 +953,11 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             <button onClick={() => setZoom(z => Math.max(0.3, z * 0.87))} className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-xs text-slate-700 cursor-pointer hover:bg-slate-100 flex items-center justify-center"><Minus className="w-4 h-4" /></button>
           </div>
 
+          {(tool === 'abertura' || aviso) && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-sky-800 bg-sky-50/95 rounded-lg px-2.5 py-1 pointer-events-none">
+              {aviso || `Clic sobre un muro de ${nivelMuro} para colocar: ${PRESETS_ABERTURA[tipoAbertura].nombre}`}
+            </div>
+          )}
           {/* pista de nodos */}
           {tool === 'select' && nodos.length > 0 && (
             <div className="absolute top-3 left-3 text-[10px] font-bold text-slate-500 bg-white/90 rounded-lg px-2 py-1 border border-slate-200 pointer-events-none">
@@ -791,7 +981,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {CAMPOS[selElem.tipo].map(c => (
+                {CAMPOS[selElem.tipo].filter(c => !(selElem.tipo === 'muro' && selElem.hastaTecho && c.key === 'H')).map(c => (
                   <label key={String(c.key)} className="text-[10px] font-bold text-slate-600">
                     {c.label}
                     <input type="number" step="0.05" value={(selElem[c.key] as number) ?? 0}
@@ -820,6 +1010,13 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                       </select>
                     </label>
                   )}
+                  <label className="col-span-2 flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
+                    <input type="checkbox" checked={!!selElem.hastaTecho} onChange={e => updateElem(selElem.uid, { hastaTecho: e.target.checked })} />
+                    Hasta el techo (sigue la pendiente)
+                  </label>
+                  {selElem.hastaTecho && (() => { const pf = perfilMuro(selElem, obra.ctx(selElem.nivel)); const hs = pf.map(p => p.h); return (
+                    <p className="col-span-2 text-[10px] font-bold text-slate-500">Alto: {Math.min(...hs).toFixed(2)}{Math.max(...hs) - Math.min(...hs) > 0.02 ? ` a ${Math.max(...hs).toFixed(2)}` : ''} m{!estructura ? ' (sin estructura: hasta el piso de arriba)' : ''}</p>
+                  ); })()}
                   <label className="col-span-2 text-[10px] font-bold text-slate-600">Piso
                     <select value={selElem.nivel || pisos[0]} onChange={e => { updateElem(selElem.uid, { nivel: e.target.value }); setNivelMuro(e.target.value); }}
                       className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
@@ -835,7 +1032,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
               )}
               {selElem.tipo === 'muro' ? (() => { const m = muroDesdePlano(selElem); const r = calcMuro(m, catDrywall, catLadrillo, catOsb); return (
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-slate-600 pt-1.5">
-                  <span>{m.areaM2.toFixed(2)} m² de muro</span>
+                  <span>{m.areaM2.toFixed(2)} m² de muro{(selElem.aberturas || []).length ? ` (sin ${(selElem.aberturas || []).length} vano${(selElem.aberturas || []).length > 1 ? 's' : ''})` : ''}</span>
                   <span>{m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² de placa`}</span>
                   <span>{r.costo > 0 ? `S/ ${r.costo.toFixed(2)}` : 'Sin precio (botón Precios)'}</span>
                 </div>
@@ -863,6 +1060,101 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             );
           })()}
 
+          {/* Abertura seleccionada */}
+          {selAb && (() => {
+            const muro = elems.find(e => e.uid === selAb.uid);
+            const a = muro?.aberturas?.find(x => x.id === selAb.id);
+            if (!muro || !a) return null;
+            const L = largoMuro(muro);
+            const num = (label: string, val: number, on: (v: number) => void, campo: string, dis = false) => (
+              <label className="text-[10px] font-bold text-slate-600">{label}
+                <input type="number" step="0.05" value={Math.round(val * 100) / 100} disabled={dis}
+                  onChange={e => on(Math.max(0, parseFloat(e.target.value) || 0))} data-campo={campo}
+                  className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs font-mono focus:outline-none disabled:opacity-50" />
+              </label>
+            );
+            return (
+              <div className="rounded-2xl bg-sky-50/70 p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wide text-sky-700">{PRESETS_ABERTURA[a.tipo].nombre}</span>
+                  <button onClick={() => removeAbertura(muro.uid, a.id)} className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer" title="Quitar abertura"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+                <label className="block text-[10px] font-bold text-slate-600">Tipo
+                  <select value={a.tipo} onChange={e => { const t = e.target.value as TipoAbertura; const pr = PRESETS_ABERTURA[t]; updateAbertura(muro.uid, a.id, { tipo: t, w: pr.w, h: pr.h, sill: pr.sill }); }}
+                    className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                    {(Object.keys(PRESETS_ABERTURA) as TipoAbertura[]).map(k => <option key={k} value={k}>{PRESETS_ABERTURA[k].nombre}</option>)}
+                  </select>
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {num('Ancho (m)', a.w, v => updateAbertura(muro.uid, a.id, { w: v }, 'w'), 'w')}
+                  {num('Alto (m)', a.h, v => updateAbertura(muro.uid, a.id, { h: v }, 'h'), 'h')}
+                  {num('Antepecho (m)', a.sill, v => updateAbertura(muro.uid, a.id, { sill: v }, 'sill'), 'sill', esPuerta(a.tipo) || a.tipo === 'vano')}
+                  {num('Desde el inicio (m)', a.t - a.w / 2, v => updateAbertura(muro.uid, a.id, { t: v + a.w / 2 }, 't'), 't')}
+                </div>
+                <p className="text-[10px] font-bold text-slate-500">Muro de {L.toFixed(2)} m · vano {(a.w * a.h).toFixed(2)} m² (se descuenta del muro). Arrástrala sobre el muro para moverla.</p>
+              </div>
+            );
+          })()}
+
+          {/* Ambientes del piso activo */}
+          {ambientes.length > 0 && (
+            <div className="rounded-xl bg-slate-50 p-2.5 space-y-1.5">
+              <p className="text-[10px] font-black text-slate-500 uppercase">Ambientes · {nivelMuro}</p>
+              {ambientes.map(a => (
+                <div key={a.key} className="flex items-center gap-1.5">
+                  <input value={a.nombre} onChange={e => setNombresAmb(prev => ({ ...prev, [`${nivelMuro}#${a.key}`]: e.target.value }))}
+                    className="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white text-[11px] font-bold text-slate-700 focus:outline-none" />
+                  <span className="text-[11px] font-mono font-bold text-slate-500 shrink-0">{a.area.toFixed(2)} m²</span>
+                </div>
+              ))}
+              <p className="text-[10px] font-bold text-slate-400">Total: {ambientes.reduce((x, a) => x + a.area, 0).toFixed(2)} m² (área libre entre ejes de muros)</p>
+            </div>
+          )}
+
+          {/* Cielo raso (falso techo) */}
+          <div className="rounded-xl bg-slate-50 p-2.5 space-y-1.5">
+            <label className="flex items-center gap-2 text-[11px] font-black text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={!!cielos[nivelMuro]?.activo} onChange={e => setCielo(nivelMuro, { activo: e.target.checked })} />
+              Cielo raso · {nivelMuro}
+            </label>
+            {cieloPiso && (<>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-bold text-slate-600">Forma
+                  <select value={cieloPiso.cfg.modo} onChange={e => setCielo(nivelMuro, { modo: e.target.value as CieloRaso['modo'] })}
+                    className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                    <option value="plano">Plano (horizontal)</option>
+                    <option value="inclinado">Siguiendo el techo</option>
+                  </select>
+                </label>
+                <label className="text-[10px] font-bold text-slate-600">Altura (m)
+                  <input type="number" step="0.05" value={cieloPiso.cfg.altura} disabled={cieloPiso.cfg.modo === 'inclinado'}
+                    onChange={e => setCielo(nivelMuro, { altura: Math.max(1.8, parseFloat(e.target.value) || 0) })}
+                    className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs font-mono focus:outline-none disabled:opacity-50" />
+                </label>
+                <label className="col-span-2 text-[10px] font-bold text-slate-600">Placa
+                  <select value={cieloPiso.cfg.materialId} onChange={e => setCielo(nivelMuro, { materialId: e.target.value })}
+                    className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                    {catDrywall.map(d => <option key={d.id} value={d.id}>{d.tipo}</option>)}
+                  </select>
+                </label>
+              </div>
+              {cieloPiso.malla.area > 0 ? (
+                <p className="text-[11px] font-bold text-slate-700">{cieloPiso.malla.area.toFixed(2)} m² · perímetro {cieloPiso.malla.perimetro.toFixed(1)} m · {cieloPiso.costo > 0 ? `S/ ${cieloPiso.costo.toFixed(2)}` : 'sin precio'}</p>
+              ) : <p className="text-[10px] font-bold text-amber-700">Dibuja muros cerrados (ambientes) o vincula una estructura para calcular el área.</p>}
+              {cieloPiso.malla.recortado && <p className="text-[10px] font-bold text-amber-700">El techo baja hasta {cieloPiso.malla.alturaMin.toFixed(2)} m: el cielo se ajusta bajo la pendiente en esa zona.</p>}
+              {cieloPiso.cfg.modo === 'inclinado' && cieloPiso.malla.area > 0 && <p className="text-[10px] font-bold text-slate-500">Sigue el techo de {cieloPiso.malla.alturaMin.toFixed(2)} a {cieloPiso.malla.alturaMax.toFixed(2)} m.</p>}
+            </>)}
+            {tanques.filter(t => t.ySobretecho !== null).map(t => {
+              const k = `tanque:${t.id}`, m = mallaCieloTanque(t), d = catDrywall.find(x => x.id === (cielos[k]?.materialId || 'drywall_standard_125'));
+              return (
+                <label key={k} className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer pt-1">
+                  <input type="checkbox" checked={!!cielos[k]?.activo} onChange={e => setCielo(k, { activo: e.target.checked })} />
+                  Bajo el sobretecho del tanque {t.litros} L · {m.area.toFixed(2)} m²{cielos[k]?.activo && d?.precioM2 ? ` · S/ ${(m.area * d.precioM2).toFixed(2)}` : ''}
+                </label>
+              );
+            })}
+          </div>
+
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide">Metrado automático</h3>
           <div className="grid grid-cols-2 gap-2">
             {[['Concreto', `${totales.concretoM3.toFixed(2)} m³`], ['Acero', `${totales.aceroKg.toFixed(0)} kg`], ['Encofrado', `${totales.encofradoM2.toFixed(1)} m²`], ['Cemento', `${Math.ceil(totales.cementoBolsas)} bls`]].map(([l, v]) => (
@@ -883,6 +1175,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
               {murosPiso.areaLadrillo > 0 && <p className="text-[11px] font-bold text-slate-700">Ladrillo: {murosPiso.areaLadrillo.toFixed(1)} m² · {murosPiso.ladrillos.toLocaleString('es-PE')} und.</p>}
               {murosPiso.areaDrywall > 0 && <p className="text-[11px] font-bold text-slate-700">Drywall: {murosPiso.areaDrywall.toFixed(1)} m² · {murosPiso.placaM2.toFixed(1)} m² placa</p>}
               {murosPiso.areaOsb > 0 && <p className="text-[11px] font-bold text-slate-700">OSB: {murosPiso.areaOsb.toFixed(1)} m² · {murosPiso.osbM2.toFixed(1)} m² placa</p>}
+              {(murosPiso.puertas + murosPiso.ventanas + murosPiso.vanos) > 0 && <p className="text-[11px] font-bold text-slate-700">{murosPiso.puertas} puertas · {murosPiso.ventanas} ventanas{murosPiso.vanos ? ` · ${murosPiso.vanos} vanos` : ''}</p>}
               <p className="text-[11px] font-black text-slate-800">{murosPiso.costo > 0 ? `S/ ${murosPiso.costo.toFixed(2)}` : 'Ingresa precios en la vista Lista → Precios'}</p>
             </div>
           )}

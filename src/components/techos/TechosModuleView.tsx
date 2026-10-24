@@ -48,6 +48,7 @@ import { TechosInteractiveTutorial } from './TechosInteractiveTutorial';
 import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { zonasDesdeCorreas } from './coberturaAuto';
 import { safeStorage } from '../../lib/storageManager';
 import { 
   SavedTechosDesign, 
@@ -805,9 +806,23 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     alert(`✓ "${nombre}" enviado a la obra.\n\nAbre "Metrados Concreto", elige el piso y en "Techo / estructura metálica en este piso" vincúlalo.`);
   };
 
+  // Plantillas: al terminar de generarse, se cubren solas con Aluzinc TR-4
+  // sobre las correas (el material se cambia en ⋯ Más → Cobertura).
+  const coberturaAutoPendiente = React.useRef(false);
+  useEffect(() => {
+    if (!coberturaAutoPendiente.current || !engineState) return;
+    const segs = engineState.segments || {};
+    if (!Object.keys(segs).length) return;
+    coberturaAutoPendiente.current = false;
+    if (Object.keys(engineState.coverageZones || {}).length) return;
+    const zonas = zonasDesdeCorreas(engineState.nodes, segs, 'cob_aluzinc_030');
+    if (Object.keys(zonas).length) engineState.loadScene(engineState.nodes, segs, zonas);
+  }, [engineState?.segments]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cargar Plantilla Prediseñada
   const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina' | 'multinivel' | 'tijeral_curvo') => {
     engineState.clearScene();
+    coberturaAutoPendiente.current = true;
     if (tipo === 'dos_aguas') {
       engineState.generateRoofGable(12, 20, 5, 15);
       setNombreProyecto('Nave Industrial 2 Aguas 12x20m');

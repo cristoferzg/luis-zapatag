@@ -7,6 +7,10 @@ import { OsbItem, OSB_DEFAULTS } from '../../catalogo/osb';
 import { safeStorage } from '../../lib/storageManager';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import type { PlanoElem } from '../ConcretoPlanoCad';
+import {
+  ContextoMuro, perfilMuro, areaPerfil, areaAberturas, esNodoTanque, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo,
+  mallaCieloTanque, tanquesEnEstructura, metradoTechosPorPiso, MetradoTechosPiso, CieloRaso,
+} from './geometriaObra';
 
 export const KEY_TECHOS_DISPONIBLES = 'obra_techos_disponibles';
 export const KEY_SISTEMAS_NIVEL = 'concreto_sistemas_nivel';
@@ -79,17 +83,20 @@ export const ALTURA_PISO_M = 3;
 
 // Muro dibujado en el plano → capa de muro (área = largo × alto).
 // Drywall: placa en ambas caras. OSB: una cara (forro exterior), editable.
-export function muroDesdePlano(e: PlanoElem): MuroCapa {
+// Con contexto (estructura y cota del piso) el alto sigue el techo si el muro
+// va "hasta el techo"; siempre se descuentan puertas y ventanas.
+export function muroDesdePlano(e: PlanoElem, ctx?: ContextoMuro): MuroCapa {
   const largo = e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0;
   const tipo = e.material || 'ladrillo';
-  return { id: `cad_${e.uid}`, deCad: true, tipo, materialId: e.materialId || '', areaM2: largo * (e.H || 2.6), caras: e.caras || (tipo === 'osb' ? 1 : 2) };
+  const bruta = ctx ? areaPerfil(perfilMuro(e, ctx)) : largo * (e.H || 2.6);
+  return { id: `cad_${e.uid}`, deCad: true, tipo, materialId: e.materialId || '', areaM2: Math.max(0, bruta - areaAberturas(e)), caras: e.caras || (tipo === 'osb' ? 1 : 2) };
 }
 
 // ---- Estructura guardada en Techos Metálicos ----
 export interface EstructuraTechos {
   id: string;
   nombre: string;
-  nodes: Record<string, { id: string; x: number; y: number; z: number }>;
+  nodes: Record<string, { id: string; x: number; y: number; z: number; nodeLabel?: string }>;
   segments: Record<string, { id: string; nodeAId: string; nodeBId: string; profileId: string; rolEstructural: string; concretoBaseM?: number }>;
   coverageZones: Record<string, { id: string; nombre: string; nodeIdsBoundary: string[]; coberturaMaterialId: string }>;
 }
@@ -99,8 +106,8 @@ export interface EstructuraTechos {
 export function entrepisosDesdeTechos(t: EstructuraTechos | null | undefined): number[] {
   if (!t) return [];
   const nodes = t.nodes || {};
-  const segs = Object.values(t.segments || {});
-  const yTecho = Math.max(0, ...Object.values(nodes).map(n => n.y));
+  const segs = Object.values(t.segments || {}).filter(s => !esNodoTanque(nodes[s.nodeAId]) && !esNodoTanque(nodes[s.nodeBId]));
+  const yTecho = yTechoObra(t);
   const conCorrea = new Set(segs.filter(s => s.rolEstructural === 'correa').map(s => Math.round((nodes[s.nodeAId]?.y ?? 0) * 100)));
   const niveles = new Set<number>();
   segs.forEach(s => {
@@ -112,6 +119,12 @@ export function entrepisosDesdeTechos(t: EstructuraTechos | null | undefined): n
     niveles.add(k);
   });
   return [...niveles].sort((x, y) => x - y).map(k => k / 100);
+}
+
+// Cota más alta de la estructura sin contar la torre del tanque.
+export function yTechoObra(t: EstructuraTechos | null | undefined): number {
+  if (!t) return 0;
+  return Math.max(0, ...Object.values(t.nodes || {}).filter(n => !esNodoTanque(n)).map(n => n.y));
 }
 
 // Cota de arranque de cada piso para el 3D (Cimentación y Piso 1 en 0). Si hay
@@ -191,4 +204,64 @@ export function calcSistema(s: SistemaNivel | undefined, dry: DrywallItem[], lad
   const costoTanque = tanque?.costo || 0;
   const pesoKg = muros.reduce((a, x) => a + x.r.pesoKg, 0) + techos.reduce((a, t) => a + t.pesoAceroKg, 0) + (tanque?.cargaTotalKg || 0);
   return { muros, techos, tanque, costoMuros, costoTechos, costoTanque, costo: costoMuros + costoTechos + costoTanque, pesoKg };
+}
+
+// Contexto de cada piso para los muros: cota de arranque y tope (el piso de
+// arriba); el último piso llega hasta el techo de la estructura.
+export function contextosObra(niveles: string[], est: EstructuraTechos | null) {
+  const bases = basesDeNiveles(niveles, entrepisosDesdeTechos(est));
+  const pisos = niveles.filter(n => !/cimentaci/i.test(n));
+  const ctx = (nivel?: string): ContextoMuro => {
+    const n = nivel || pisos[0] || 'Piso 1';
+    const k = pisos.indexOf(n);
+    const sig = k >= 0 ? pisos[k + 1] : undefined;
+    return { estructura: est, base: bases[n] || 0, tope: sig !== undefined ? bases[sig] : undefined };
+  };
+  return { bases, pisos, ctx };
+}
+
+// Resumen por piso de lo dibujado en el Plano CAD (para la vista Lista):
+// estructura de Techos del piso, ambientes, aberturas y cielo raso.
+export interface ObraPiso {
+  metal?: MetradoTechosPiso;
+  ambientes: { nombre: string; area: number }[];
+  puertas: number; ventanas: number; vanos: number;
+  cielo?: { area: number; perimetro: number; costo: number; nombre: string; modo: string };
+  cieloTanque?: { area: number; costo: number };
+  costo: number;
+}
+export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, elems: PlanoElem[], cielos: Record<string, CieloRaso>, nombres: Record<string, string>, dry: DrywallItem[]): Record<string, ObraPiso> {
+  const { pisos, ctx } = contextosObra(niveles, est);
+  const metal = metradoTechosPorPiso(est, pisos.map(n => ctx(n).base));
+  const tanques = tanquesEnEstructura(est);
+  const out: Record<string, ObraPiso> = {};
+  pisos.forEach((n, k) => {
+    const c = ctx(n);
+    const muros = elems.filter(e => e.tipo === 'muro' && (e.nivel || pisos[0]) === n && e.x2 !== undefined && e.y2 !== undefined);
+    const abs = muros.flatMap(m => m.aberturas || []);
+    const o: ObraPiso = {
+      metal: est ? metal[k] : undefined,
+      ambientes: detectarAmbientes(muros).map((a, i) => ({ nombre: nombres[`${n}#${a.key}`] || `Ambiente ${i + 1}`, area: a.area })),
+      puertas: abs.filter(a => esPuerta(a.tipo)).length, ventanas: abs.filter(a => esVidrio(a.tipo)).length, vanos: abs.filter(a => a.tipo === 'vano').length,
+      costo: est ? metal[k].costoAcero + metal[k].costoCobertura : 0,
+    };
+    const cfg = cielos[n];
+    if (cfg?.activo) {
+      const m = mallaCielo(regionesCielo(muros, est, c.base), cfg, c);
+      const d = dry.find(x => x.id === cfg.materialId);
+      o.cielo = { area: m.area, perimetro: m.perimetro, costo: m.area * (d?.precioM2 || 0), nombre: d?.tipo || 'Drywall', modo: cfg.modo };
+      o.costo += o.cielo.costo;
+    }
+    // El cielo raso bajo el sobretecho de los tanques se suma al último piso.
+    if (k === pisos.length - 1) {
+      const ts = tanques.filter(t => cielos[`tanque:${t.id}`]?.activo && t.ySobretecho !== null);
+      if (ts.length) {
+        const area = ts.reduce((s2, t) => s2 + mallaCieloTanque(t).area, 0);
+        const costo = ts.reduce((s2, t) => s2 + mallaCieloTanque(t).area * (dry.find(x => x.id === cielos[`tanque:${t.id}`]?.materialId)?.precioM2 || 0), 0);
+        o.cieloTanque = { area, costo }; o.costo += costo;
+      }
+    }
+    out[n] = o;
+  });
+  return out;
 }

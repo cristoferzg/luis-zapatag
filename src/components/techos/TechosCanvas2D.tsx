@@ -30,7 +30,8 @@ import {
   Clipboard,
   ChevronDown,
   MoreHorizontal,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Droplets
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
@@ -40,6 +41,7 @@ import { TechosViewer3D } from './TechosViewer3D';
 import { TechosErrorBoundary } from './TechosErrorBoundary';
 import { TechosNovatosWizardModal } from './TechosNovatosWizardModal';
 import TechosColumnasExactasModal from './TechosColumnasExactasModal';
+import TechosCoberturaTanqueModal from './TechosCoberturaTanqueModal';
 import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
@@ -280,6 +282,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
   const [showColumnasExactas, setShowColumnasExactas] = useState<boolean>(false);
+  const [showCobTanque, setShowCobTanque] = useState<null | 'cobertura' | 'tanque'>(null);
 
 
 
@@ -1473,6 +1476,16 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                       <span>Columnas por medidas</span>
                     </button>
                   )}
+                  <button onClick={() => { setShowCadMore(false); setShowCobTanque('cobertura'); }}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                    <Layers className="w-4 h-4 text-sky-600 shrink-0" />
+                    <span>Cobertura (TR-4, Eternit…)</span>
+                  </button>
+                  <button onClick={() => { setShowCadMore(false); setShowCobTanque('tanque'); }}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                    <Droplets className="w-4 h-4 text-sky-600 shrink-0" />
+                    <span>Tanque elevado</span>
+                  </button>
                   <button onClick={() => { setShowCadMore(false); setShowControlsSumilla(v => !v); }}
                     className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
                     <HelpCircle className="w-4 h-4 text-purple-600 shrink-0" />
@@ -2457,6 +2470,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {/* ------------------------------------------------------------- */}
         {/* MODAL: COLUMNAS POR MEDIDAS EXACTAS */}
         {/* ------------------------------------------------------------- */}
+        {showCobTanque && engineState && (
+          <TechosCoberturaTanqueModal engineState={engineState} modo={showCobTanque} onClose={() => setShowCobTanque(null)} />
+        )}
+
         {showColumnasExactas && (
           <TechosColumnasExactasModal
             engineState={engineState}

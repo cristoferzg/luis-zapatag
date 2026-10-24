@@ -21,10 +21,12 @@ import { List, PenTool } from 'lucide-react';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
-import { setActiveTechosDesignToLoad } from '../lib/techosDesignsRepo';
+import { setActiveTechosDesignToLoad, getCachedTechosDesigns } from '../lib/techosDesignsRepo';
+import { KEY_CIELOS, KEY_AMBIENTES, CieloRaso } from './concreto/geometriaObra';
 import {
   SistemaNivel, TechoSnapshot, MuroCapa, calcSistema, sistemaVacio, muroDesdePlano,
   KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_CAT_OSB, leerCatalogoOsb,
+  KEY_OBRA_TECHOS_ID, EstructuraTechos, contextosObra, obraPorPiso, ObraPiso,
 } from './concreto/obraPisos';
 import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
 import { AdminCatalogosMateriales } from './concreto/AdminCatalogosMateriales';
@@ -217,18 +219,29 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   const [techosLib] = useState<TechoSnapshot[]>(() =>
     safeStorage.getItem<TechoSnapshot[]>(KEY_TECHOS_DISPONIBLES, []) || []
   );
-  // Muros dibujados en el Plano CAD, agrupados por piso (se releen al volver a Lista).
-  const murosCad = useMemo(() => {
-    const out: Record<string, MuroCapa[]> = {};
-    if (modo !== 'lista') return out;
+  // Lo dibujado en el Plano CAD (muros, aberturas, ambientes, cielo raso) y la
+  // estructura de Techos vinculada, por piso. Se relee al volver a Lista.
+  const obraCad = useMemo(() => {
+    const muros: Record<string, MuroCapa[]> = {};
+    let resumen: Record<string, ObraPiso> = {};
+    let nombreEst = '';
+    if (modo !== 'lista') return { muros, resumen, nombreEst };
     const elems = safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || [];
-    const primerPiso = niveles.find(n => !/cimentaci/i.test(n)) || niveles[0];
+    const techosId = safeStorage.getItem<string>(KEY_OBRA_TECHOS_ID, '') || '';
+    const diseno = techosId ? getCachedTechosDesigns().find(d => d.id === techosId) : undefined;
+    const est = (diseno as unknown as EstructuraTechos) || null;
+    nombreEst = diseno?.nombre || '';
+    const { ctx, pisos } = contextosObra(niveles, est);
     elems.filter(e => e.tipo === 'muro').forEach(e => {
-      const n = e.nivel || primerPiso;
-      (out[n] ||= []).push(muroDesdePlano(e));
+      const n = e.nivel || pisos[0] || niveles[0];
+      (muros[n] ||= []).push(muroDesdePlano(e, ctx(n)));
     });
-    return out;
-  }, [modo, niveles]);
+    const cielos = safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {};
+    const nombres = safeStorage.getItem<Record<string, string>>(KEY_AMBIENTES, {}) || {};
+    resumen = obraPorPiso(niveles, est, elems, cielos, nombres, catDrywall);
+    return { muros, resumen, nombreEst };
+  }, [modo, niveles, catDrywall]); // eslint-disable-line react-hooks/exhaustive-deps
+  const murosCad = obraCad.muros;
   useEffect(() => { safeStorage.setItem(KEY_SISTEMAS_NIVEL, sistemas); }, [sistemas]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_DRYWALL, catDrywall); }, [catDrywall]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_LADRILLO, catLadrillo); }, [catLadrillo]);
@@ -283,7 +296,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       const sistema = calcSistema(sistemas[nivel], catDrywall, catLadrillo, techosLib, murosCad[nivel], catOsb);
       return { nivel, its, subConcreto, subAcero, sistema };
     });
-    const costoSistemas = porNivel.reduce((s, n) => s + n.sistema.costo, 0);
+    const costoSistemas = porNivel.reduce((s, n) => s + n.sistema.costo + (obraCad.resumen[n.nivel]?.costo || 0), 0);
     const cementoBolsas = concretoM3 * 9.5;
     const arenaM3 = concretoM3 * 0.54;
     const piedraM3 = concretoM3 * 0.55;
@@ -295,16 +308,22 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       aceroKg * precios.aceroKg +
       encofradoM2 * precios.encofradoM2;
     return { porItem, porNivel, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, costoSistemas, costoTotal: costo + costoSistemas, varillasTotales };
-  }, [items, precios, niveles, sistemas, catDrywall, catLadrillo, techosLib, murosCad, catOsb]);
+  }, [items, precios, niveles, sistemas, catDrywall, catLadrillo, techosLib, murosCad, catOsb, obraCad]);
 
   const exportar = () => {
     let txt = `INNOVA CONTRATISTAS — METRADO DE CONCRETO / OBRA CIVIL\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
     txt += `============================================================\n\n`;
     totales.porNivel.forEach(({ nivel, its, subConcreto, subAcero, sistema }) => {
-      if (its.length === 0 && sistema.costo === 0 && sistema.muros.length === 0 && !sistema.tanque && sistema.techos.length === 0) return;
+      const ob = obraCad.resumen[nivel];
+      if (its.length === 0 && sistema.costo === 0 && sistema.muros.length === 0 && !sistema.tanque && sistema.techos.length === 0 && !ob?.costo && !ob?.ambientes.length) return;
       txt += `### ${nivel.toUpperCase()}\n`;
+      if (ob?.metal && ob.metal.perfiles) txt += `  Estructura metálica (${obraCad.nombreEst}): ${ob.metal.perfiles} perfiles · ${ob.metal.metros.toFixed(1)} m · ${ob.metal.kg.toFixed(0)} kg · S/ ${ob.metal.costoAcero.toFixed(2)}${ob.metal.coberturaM2 ? ` | Cobertura ${ob.metal.coberturaM2.toFixed(1)} m² (${ob.metal.coberturas.join(', ')}) · S/ ${ob.metal.costoCobertura.toFixed(2)}` : ''}\n`;
+      ob?.ambientes.forEach(a => { txt += `  Ambiente: ${a.nombre} · ${a.area.toFixed(2)} m²\n`; });
+      if (ob && ob.puertas + ob.ventanas + ob.vanos > 0) txt += `  Aberturas: ${ob.puertas} puertas · ${ob.ventanas} ventanas · ${ob.vanos} vanos\n`;
+      if (ob?.cielo) txt += `  Cielo raso ${ob.cielo.nombre} (${ob.cielo.modo}): ${ob.cielo.area.toFixed(2)} m² · ángulo perimetral ${ob.cielo.perimetro.toFixed(1)} m · S/ ${ob.cielo.costo.toFixed(2)}\n`;
+      if (ob?.cieloTanque) txt += `  Cielo raso bajo sobretecho de tanque: ${ob.cieloTanque.area.toFixed(2)} m² · S/ ${ob.cieloTanque.costo.toFixed(2)}\n`;
       sistema.muros.forEach(({ m, r }) => {
-        txt += `  Muro ${m.tipo === 'drywall' ? 'drywall' : 'ladrillo'}: ${r.nombre} · ${m.areaM2} m²${m.tipo === 'drywall' ? ` x ${m.caras} cara(s)` : ''} → ${m.tipo === 'drywall' ? `${r.unidades.toFixed(1)} m² placa` : `${r.unidades} ladrillos`} · S/ ${r.costo.toFixed(2)}\n`;
+        txt += `  Muro ${m.tipo}: ${r.nombre} · ${m.areaM2.toFixed(2)} m²${m.tipo !== 'ladrillo' ? ` x ${m.caras} cara(s)` : ''} → ${m.tipo !== 'ladrillo' ? `${r.unidades.toFixed(1)} m² placa` : `${r.unidades} ladrillos`} · S/ ${r.costo.toFixed(2)}\n`;
       });
       sistema.techos.forEach(t => { txt += `  Techo metálico: ${t.nombre} · ${t.pesoAceroKg.toFixed(0)} kg acero · costo directo S/ ${t.costoDirectoSoles.toFixed(2)}\n`; });
       if (sistema.tanque) {
@@ -323,7 +342,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       txt += `Acero por varillas (9 m): ` + totales.varillasTotales.map(v => `Ø${v.d}: ${v.varillas} var. (${v.metros.toFixed(1)} m)`).join(' | ') + `\n`;
     }
     txt += `Costo concreto/acero/encofrado: S/ ${totales.costo.toFixed(2)}\n`;
-    txt += `Costo muros, techos metálicos y tanques: S/ ${totales.costoSistemas.toFixed(2)}\n`;
+    txt += `Costo muros, estructura metálica, cielo raso y tanques: S/ ${totales.costoSistemas.toFixed(2)}\n`;
     txt += `COSTO REFERENCIAL TOTAL: S/ ${totales.costoTotal.toFixed(2)}\n`;
     const blob = new Blob([txt], { type: 'text/plain' });
     const a = document.createElement('a');
@@ -444,6 +463,8 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
         techosLib={techosLib}
         onChange={s => setSistemas(prev => ({ ...prev, [nivelActivo]: s }))}
         onIrATechos={onIrATechos}
+        obra={obraCad.resumen[nivelActivo]}
+        estructuraNombre={obraCad.nombreEst}
       />
 
       {/* Paleta de elementos */}
@@ -571,6 +592,8 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
                       {n.sistema.costoMuros > 0 && <> · muros S/ {n.sistema.costoMuros.toFixed(0)}</>}
                       {n.sistema.costoTechos > 0 && <> · techo metálico S/ {n.sistema.costoTechos.toFixed(0)}</>}
                       {n.sistema.costoTanque > 0 && <> · tanque S/ {n.sistema.costoTanque.toFixed(0)}</>}
+                      {(obraCad.resumen[n.nivel]?.metal?.costoAcero || 0) + (obraCad.resumen[n.nivel]?.metal?.costoCobertura || 0) > 0 && <> · estructura S/ {((obraCad.resumen[n.nivel]?.metal?.costoAcero || 0) + (obraCad.resumen[n.nivel]?.metal?.costoCobertura || 0)).toFixed(0)}</>}
+                      {(obraCad.resumen[n.nivel]?.cielo?.costo || 0) > 0 && <> · cielo raso S/ {obraCad.resumen[n.nivel]!.cielo!.costo.toFixed(0)}</>}
                     </span>
                   </div>
                 );
