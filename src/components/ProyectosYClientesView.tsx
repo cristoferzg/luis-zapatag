@@ -18,8 +18,6 @@ import {
   StickyNote,
   FileArchive,
   ArrowLeft,
-  FolderOpen,
-  ShieldCheck
 } from 'lucide-react';
 import { Project, Client, ClientFile, FinanceRecord, SystemUser } from '../types';
 import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, deleteTechosDesign } from '../lib/techosDesignsRepo';
@@ -234,6 +232,10 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
 
   const [subiendoArchivo, setSubiendoArchivo] = useState<'photo' | 'contract' | null>(null);
+  const AVATAR_COLORES = ['bg-blue-50 text-blue-600', 'bg-amber-50 text-amber-600', 'bg-emerald-50 text-emerald-600', 'bg-purple-50 text-purple-600', 'bg-rose-50 text-rose-600', 'bg-sky-50 text-sky-600'];
+  const iniciales = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '📁';
+  const soles = (v: number) => `S/ ${Math.round(v).toLocaleString('es-PE')}`;
+  const colorAvatar = (n: string) => AVATAR_COLORES[[...n].reduce((a, ch) => a + ch.charCodeAt(0), 0) % AVATAR_COLORES.length];
 
   const handleClientFileUpload = async (clientId: string, e: React.ChangeEvent<HTMLInputElement>, fileType: 'photo' | 'contract' | 'document') => {
     const input = e.target;
@@ -382,7 +384,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
     <div className="space-y-6">
       {/* Encabezado según sección */}
       {activeTab === 'portafolio' ? (
-        <header className="mb-4">
+        selectedFolderGroupId !== null ? null : <header className="mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
@@ -930,7 +932,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
           {selectedFolderGroupId === null ? (
             <>
               {/* Barra Superior de la Vista de Carpetas */}
-              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <div className="p-2 bg-slate-50 text-slate-600 rounded-xl border border-slate-100">
@@ -1087,70 +1089,48 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                 }
 
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 animate-fadeIn">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 animate-fadeIn">
                     {Array.from(clientGroups.entries()).map(([groupId, group]) => {
                       const clientObj = group.clientObj || clients.find(c => c.id === groupId);
                       const clientProjects = projects.filter(p => p.client === group.clientName || (clientObj && p.client === clientObj.name));
                       const totalPresupuesto = clientProjects.reduce((s, p) => s + (p.presupuesto || 0), 0);
+                      const totalCobrado = clientProjects.reduce((s, p) => s + (p.cobros?.reduce((cs, c) => cs + c.amount, 0) || 0), 0);
+                      const avance = totalPresupuesto > 0 ? Math.min(100, Math.round((totalCobrado / totalPresupuesto) * 100)) : 0;
 
                       const allSavedContracts = safeStorage.getItem<any[]>('innova_client_contracts', []) || [];
-                      const clientSavedContracts = allSavedContracts.filter(c => 
+                      const clientSavedContracts = allSavedContracts.filter(c =>
                         c.clientName.toLowerCase().trim() === group.clientName.toLowerCase().trim() ||
                         (clientObj && c.clientName.toLowerCase().trim() === clientObj.name.toLowerCase().trim())
                       );
-                      const uploadedDocsCount = (clientObj?.files || []).filter(f => f.type === 'contract' || f.type === 'document').length;
-                      const photosCount = (clientObj?.files || []).filter(f => f.type === 'photo').length;
-                      const docsTotal = clientSavedContracts.length + uploadedDocsCount;
+                      const totalArchivos = group.designs.length + clientSavedContracts.length + (clientObj?.files || []).length;
+                      const subtitulo = clientProjects.length > 0
+                        ? `${clientProjects[0].name}${clientProjects.length > 1 ? ` +${clientProjects.length - 1}` : ''}`
+                        : (clientObj?.company || 'Sin obras activas');
 
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={groupId}
                           onClick={() => setSelectedFolderGroupId(groupId)}
-                          className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all cursor-pointer group flex flex-col justify-between space-y-3.5"
+                          className="text-left bg-white rounded-2xl p-4 shadow-xs hover:shadow-md transition-all cursor-pointer active:scale-[0.99]"
                         >
-                          {/* Folder Top Header */}
-                          <div className="flex items-start gap-3">
-                            <div className="w-12 h-12 rounded-2xl bg-slate-50/80 text-slate-600 border border-slate-100 flex items-center justify-center font-bold text-2xl group-hover:scale-105 transition-transform shrink-0">
-                              📁
+                          <div className="flex items-center gap-3">
+                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 ${groupId === 'sin_cliente' ? 'bg-slate-100 text-slate-500' : colorAvatar(group.clientName)}`}>
+                              {groupId === 'sin_cliente' ? '📐' : iniciales(group.clientName)}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h3 className="text-sm font-extrabold text-slate-900 group-hover:text-slate-600 transition-colors line-clamp-1">
-                                {group.clientName}
-                              </h3>
-                              <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                                {clientObj?.company || 'Cliente Registrado'}
-                              </p>
-                              <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-2 font-mono">
-                                {clientObj?.phone && <span>📞 {clientObj.phone}</span>}
-                                {clientObj?.dni && <span>🆔 {clientObj.dni}</span>}
-                              </div>
+                              <h3 className="text-sm font-bold text-slate-900 truncate">{group.clientName}</h3>
+                              <p className="text-xs text-slate-500 truncate">{subtitulo}</p>
+                              {totalPresupuesto > 0 && <p className="text-[11px] text-slate-400">Saldo {soles(totalPresupuesto - totalCobrado)} · {avance}% cobrado</p>}
                             </div>
+                            <span className="text-[11px] font-bold text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5 shrink-0" title="Archivos en la carpeta">{totalArchivos}</span>
                           </div>
-
-                          {/* Stats / File Indicators */}
-                          <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100 text-center text-[10px]">
-                            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-1.5">
-                              <span className="block font-black text-slate-800">{group.designs.length}</span>
-                              <span className="text-slate-500 text-[9px] font-semibold">Planos 3D</span>
+                          {totalPresupuesto > 0 && (
+                            <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden" title={`Cobrado ${avance}%`}>
+                              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${avance}%` }} />
                             </div>
-                            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-1.5">
-                              <span className="block font-black text-slate-800">{docsTotal}</span>
-                              <span className="text-slate-500 text-[9px] font-semibold">Contratos</span>
-                            </div>
-                            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-1.5">
-                              <span className="block font-black text-slate-800">{photosCount}</span>
-                              <span className="text-slate-500 text-[9px] font-semibold">Fotos</span>
-                            </div>
-                          </div>
-
-                          {/* Footer Action */}
-                          <div className="flex items-center justify-between pt-1 text-[11px] font-bold text-slate-600 group-hover:text-slate-800">
-                            <span className="truncate pr-1 text-slate-600 font-semibold">{clientProjects.length > 0 ? `${clientProjects.length} Obra(s) — ${formatCurrency(totalPresupuesto)}` : 'Sin obras activas'}</span>
-                            <span className="flex items-center gap-1 group-hover:translate-x-0.5 transition-transform shrink-0 font-extrabold text-slate-600">
-                              Abrir 📁
-                            </span>
-                          </div>
-                        </div>
+                          )}
+                        </button>
                       );
                     })}
                   </div>
@@ -1180,72 +1160,96 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
 
               return (
                 <div className="space-y-6">
-                  {/* Top Navigation Bar inside Client Folder */}
-                  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedFolderGroupId(null)}
-                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                        <span>Volver a Carpetas</span>
-                      </button>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <FolderOpen className="w-5 h-5 text-slate-600" />
-                          <h2 className="text-base font-bold text-slate-900">
-                            Carpeta Privada: {clientName}
-                          </h2>
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                          {clientObj?.company && <span>🏢 {clientObj.company}</span>}
-                          {clientObj?.dni && <span>🆔 {clientObj.dni}</span>}
-                          {clientObj?.phone && <span>📞 {clientObj.phone}</span>}
-                        </div>
-                      </div>
-                    </div>
-
+                  {/* Volver + descargar ZIP */}
+                  <div className="flex items-center justify-between gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        handleDownloadClientZip(clientName, clientObj, clientProjects, groupDesigns, currentNote);
-                      }}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                      onClick={() => setSelectedFolderGroupId(null)}
+                      className="text-sm font-bold text-blue-600 flex items-center gap-1.5 cursor-pointer hover:text-blue-700"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>Carpetas</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadClientZip(clientName, clientObj, clientProjects, groupDesigns, currentNote)}
+                      className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                       title="Descargar ZIP completo de esta carpeta"
                     >
-                      <FileArchive className="w-4 h-4 text-emerald-100" />
-                      <span>Descargar ZIP de esta Carpeta</span>
+                      <FileArchive className="w-4 h-4 text-emerald-600" />
+                      <span>Descargar ZIP</span>
                     </button>
                   </div>
 
-                  {/* Context Guarantee Banner */}
-                  <div className="bg-slate-50/80 border border-slate-100 rounded-xl p-3 flex items-center gap-2 text-xs text-slate-800">
-                    <ShieldCheck className="w-4 h-4 text-slate-600 shrink-0" />
-                    <span>
-                      <strong>Entorno Seguro de Archivos:</strong> Estás dentro de la carpeta exclusiva de <strong>{clientName}</strong>. Todos los planos, contratos y fotos subidas en esta vista se asignan de forma automática a este cliente.
-                    </span>
+                  {/* Ficha del cliente con resumen de la obra */}
+                  <div className="rounded-3xl p-5 text-white bg-gradient-to-br from-blue-600 to-blue-500 shadow-md">
+                    <h2 className="text-lg font-extrabold leading-tight">{clientName}</h2>
+                    <p className="text-xs text-blue-100 mt-0.5">
+                      {[clientProjects.map(p => p.name).join(', ') || clientObj?.company, clientObj?.phone && `📞 ${clientObj.phone}`, clientObj?.dni && `DNI ${clientObj.dni}`].filter(Boolean).join(' · ') || 'Carpeta privada del cliente'}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 mt-4">
+                      {([['Presupuesto', totalPresupuesto], ['Cobrado', totalCobrado], ['Saldo', saldoPendiente]] as [string, number][]).map(([l, v]) => (
+                        <div key={l} className="bg-white/15 rounded-2xl px-3 py-2.5 min-w-0">
+                          <p className="text-sm sm:text-base font-extrabold truncate">{soles(v)}</p>
+                          <p className="text-[11px] text-blue-100">{l}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Resumen Financiero y Obras */}
-                  {clientProjects.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                      <div className="font-semibold text-slate-800 flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-indigo-600 shrink-0" />
-                        <span>{clientProjects.length} Obra(s) Asignada(s): {clientProjects.map(p => p.name).join(', ')}</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-4 font-mono font-bold">
-                        <span className="text-slate-700">Total: {formatCurrency(totalPresupuesto)}</span>
-                        <span className="text-emerald-700">Cobrado: {formatCurrency(totalCobrado)}</span>
-                        <span className="text-amber-700">Saldo: {formatCurrency(saldoPendiente)}</span>
-                      </div>
+                  {/* Acciones rápidas */}
+                  {groupId !== 'sin_cliente' && (
+                    <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                      <label className={`bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all ${subiendoArchivo ? 'opacity-60 pointer-events-none' : ''}`}>
+                        <ImageIcon className="w-5 h-5 mx-auto text-emerald-600" />
+                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">{subiendoArchivo === 'photo' ? 'Subiendo…' : 'Foto'}</span>
+                        <input type="file" multiple accept="image/*" className="hidden" disabled={subiendoArchivo !== null} onChange={(e) => handleClientFileUpload(groupId, e, 'photo')} />
+                      </label>
+                      <label className={`bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all ${subiendoArchivo ? 'opacity-60 pointer-events-none' : ''}`}>
+                        <FileText className="w-5 h-5 mx-auto text-blue-600" />
+                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">{subiendoArchivo === 'contract' ? 'Subiendo…' : 'Documento'}</span>
+                        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.dwg,.dxf,image/*" className="hidden" disabled={subiendoArchivo !== null} onChange={(e) => handleClientFileUpload(groupId, e, 'contract')} />
+                      </label>
+                      <button type="button" onClick={onNavigateToTechos} disabled={!onNavigateToTechos}
+                        className="bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all disabled:opacity-50">
+                        <Box className="w-5 h-5 mx-auto text-amber-600" />
+                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">Plano 3D</span>
+                      </button>
+                      <button type="button" onClick={() => document.getElementById('carpeta-notas')?.focus()}
+                        className="bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all">
+                        <StickyNote className="w-5 h-5 mx-auto text-purple-600" />
+                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">Nota</span>
+                      </button>
                     </div>
                   )}
 
+                  {/* Últimos movimientos */}
+                  {(() => {
+                    const movs = [
+                      ...(clientObj?.files || []).slice(0, 4).map(f => ({ id: f.id, titulo: f.name, sub: `${f.uploadedAt} · ${f.type === 'photo' ? 'Foto de obra' : 'Documento'}`, color: f.type === 'photo' ? 'bg-emerald-500' : 'bg-blue-500' })),
+                      ...groupDesigns.slice(0, 2).map(d => ({ id: d.id, titulo: d.nombre, sub: `${d.updatedAt || d.savedAt || ''} · Plano 3D`, color: 'bg-amber-500' })),
+                    ].slice(0, 5);
+                    if (movs.length === 0) return null;
+                    return (
+                      <div className="bg-white rounded-2xl p-4 shadow-xs space-y-2.5">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Últimos movimientos</p>
+                        {movs.map(m => (
+                          <div key={m.id} className="flex gap-2.5">
+                            <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${m.color}`} />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{m.titulo}</p>
+                              <p className="text-[11px] text-slate-400">{m.sub}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                   {/* Grid / Content Blocks inside Folder */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* 1. PLANOS 3D / CAD DE LA CARPETA */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                           <Box className="w-4 h-4 text-slate-600" />
@@ -1254,10 +1258,10 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                         {groupId !== 'sin_cliente' && onNavigateToTechos && (
                           <button
                             onClick={onNavigateToTechos}
-                            className="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0"
                           >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Nuevo Plano 3D</span>
+                            <span>Nuevo</span>
                           </button>
                         )}
                       </div>
@@ -1301,16 +1305,16 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </div>
 
                     {/* 2. CONTRATOS Y DOCUMENTOS */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                           <FileText className="w-4 h-4 text-indigo-600" />
                           <span>Contratos y Documentos ({clientSavedContracts.length + uploadedDocs.length})</span>
                         </h4>
                         {groupId !== 'sin_cliente' && (
-                          <label className="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors">
+                          <label className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0">
                             <Plus className="w-3.5 h-3.5" />
-                            <span>{subiendoArchivo === 'contract' ? 'Subiendo…' : 'Subir Documento'}</span>
+                            <span>{subiendoArchivo === 'contract' ? 'Subiendo…' : 'Subir'}</span>
                             <input 
                               type="file" 
                               multiple
@@ -1365,16 +1369,16 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </div>
 
                     {/* 3. FOTOS DE OBRA */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                           <ImageIcon className="w-4 h-4 text-slate-600" />
                           <span>Fotos de Avance / Obra ({(clientObj?.files || []).filter(f => f.type === 'photo').length})</span>
                         </h4>
                         {groupId !== 'sin_cliente' && (
-                          <label className="text-xs bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors">
+                          <label className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0">
                             <Plus className="w-3.5 h-3.5" />
-                            <span>{subiendoArchivo === 'photo' ? 'Subiendo…' : 'Subir Foto'}</span>
+                            <span>{subiendoArchivo === 'photo' ? 'Subiendo…' : 'Subir'}</span>
                             <input 
                               type="file" 
                               multiple
@@ -1418,17 +1422,18 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </div>
 
                     {/* 4. NOTAS U OBSERVACIONES DEL CLIENTE */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-3">
+                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
                       <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <StickyNote className="w-4 h-4 text-amber-500" />
                         <span>Notas u Observaciones del Cliente</span>
                       </label>
                       <textarea
+                        id="carpeta-notas"
                         value={currentNote}
                         onChange={(e) => handleSaveClientNote(groupId, e.target.value)}
                         placeholder="Escribe notas de obra, acuerdos de pago o requerimientos especiales de este cliente..."
                         rows={4}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-slate-400 transition-all resize-none"
+                        className="w-full bg-slate-50 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-200 transition-all resize-none"
                       />
                       <p className="text-[11px] text-slate-400 italic">
                         * Las notas se guardan automáticamente y se incluirán al descargar la carpeta ZIP.
