@@ -25,6 +25,7 @@ import { OsbItem } from '../catalogo/osb';
 import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo } from './concreto/obraPisos';
 import { useCatalogo } from '../lib/catalogoPrecios';
 import { leerDisenosCarpi, costoDisenoCarpi, tipoAberturaDe } from './concreto/carpiObra';
+import { metradoDrywall } from './concreto/metradoDrywall';
 import {
   Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
   regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
@@ -135,10 +136,13 @@ function calcElem(e: PlanoElem): Resultado {
   return { concretoM3: vol, aceroKg: 0, encofradoM2: 0 };
 }
 
-export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTechos?: (d: SavedTechosDesign) => void } = {}) {
+// modo 'drywall': el mismo plano (compartido con Obra Civil) pero solo con
+// tabiques de drywall/OSB, aberturas y cielo raso, y su metrado detallado.
+export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { onEditarEnTechos?: (d: SavedTechosDesign) => void; modo?: 'obra' | 'drywall' } = {}) {
+  const esDrywall = modo === 'drywall';
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
-  const [tool, setTool] = useState<Herramienta>('columna');
+  const [tool, setTool] = useState<Herramienta>(esDrywall ? 'muro' : 'columna');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
@@ -167,7 +171,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const catDrywall = useMemo(() => drywallConCatalogo(catDrywallBase), [catDrywallBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
   const catLadrillo = useMemo(() => ladrilloConCatalogo(catLadrilloBase), [catLadrilloBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
   const catOsb = useMemo(() => osbConCatalogo(catOsbBase), [catOsbBase, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [materialMuro, setMaterialMuro] = useState<{ material: MaterialMuro; materialId: string }>({ material: 'ladrillo', materialId: LADRILLO_DEFAULTS[0].id });
+  const [materialMuro, setMaterialMuro] = useState<{ material: MaterialMuro; materialId: string }>(esDrywall ? { material: 'drywall', materialId: DRYWALL_DEFAULTS[0].id } : { material: 'ladrillo', materialId: LADRILLO_DEFAULTS[0].id });
   const [tipoAbertura, setTipoAbertura] = useState<TipoAbertura>('puerta');
   const [selAb, setSelAb] = useState<{ uid: string; id: string } | null>(null);
   // Diseños guardados en CarpiMetal (se releen al seleccionar una abertura).
@@ -614,6 +618,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   // Ambientes del piso activo (recintos cerrados por muros) con su nombre.
   const ambientes = useMemo(() => detectarAmbientes(murosActivos).map((a, i) => ({ ...a, nombre: nombresAmb[`${nivelMuro}#${a.key}`] || `Ambiente ${i + 1}` })), [elems, nivelMuro, nombresAmb]); // eslint-disable-line react-hooks/exhaustive-deps
   const tanques = useMemo(() => tanquesEnEstructura(estructura), [estructura]);
+  const metradoDw = useMemo(() => esDrywall ? metradoDrywall(niveles, estructura, elems, cielos).find(m => m.nivel === nivelMuro) || null : null,
+    [esDrywall, niveles, estructura, elems, cielos, nivelMuro, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sobrepechos, setSobrepechos] = useState<Record<string, Sobrepecho>>(() => safeStorage.getItem<Record<string, Sobrepecho>>(KEY_SOBREPECHOS, {}) || {});
   useEffect(() => { safeStorage.setItem(KEY_SOBREPECHOS, sobrepechos); }, [sobrepechos]);
   const setSobrepecho = (id: string, patch: Partial<Sobrepecho>) => setSobrepechos(prev => ({ ...prev, [id]: { ...(prev[id] || sobrepechoDefault()), ...patch } }));
@@ -717,7 +723,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
     { id: 'muro', label: 'Muro', icon: BrickWall },
     { id: 'abertura', label: 'Abertura', icon: DoorOpen },
     { id: 'pan', label: 'Mover lienzo', icon: Hand },
-  ];
+  ].filter(t => !esDrywall || ['select', 'muro', 'abertura', 'pan'].includes(t.id)) as { id: Herramienta; label: string; icon: any }[];
 
   const canUndo = undoRef.current.length > 0;
   const canRedo = redoRef.current.length > 0;
@@ -738,7 +744,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             Editar en Techos
           </button>
         )}
-        {estructura && (
+        {estructura && !esDrywall && (
           <button onClick={cimentacionAutomatica} title="Zapata bajo cada columna y cimiento corrido entre columnas vecinas"
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 cursor-pointer hover:bg-amber-100">
             <Square className="w-3.5 h-3.5" /> Cimentación bajo columnas
@@ -799,7 +805,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             value={`${materialMuro.material}:${materialMuro.materialId}`}
             onChange={e => { const [material, materialId] = e.target.value.split(':') as [MaterialMuro, string]; setMaterialMuro({ material, materialId }); }}
             className="px-2 py-1.5 rounded-xl bg-orange-50 text-xs font-bold text-orange-800 cursor-pointer focus:outline-none max-w-[200px]">
-            <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>
+            {!esDrywall && <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>}
             <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
             <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
           </select>
@@ -1154,7 +1160,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                     <select value={`${selElem.material || 'ladrillo'}:${selElem.materialId || ''}`}
                       onChange={e => { const [material, materialId] = e.target.value.split(':') as [MaterialMuro, string]; updateElem(selElem.uid, { material, materialId, caras: material === 'osb' ? 1 : 2 }); }}
                       className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
-                      <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>
+                      {!esDrywall && <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>}
                       <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
                       <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
                     </select>
@@ -1378,6 +1384,32 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             </div>
           )}
 
+          {esDrywall && metradoDw && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide">Metrado drywall · {nivelMuro}</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {[['Tabiques', `${metradoDw.tabiquesM2.toFixed(1)} m²`], ['Placa', `${metradoDw.placaTabiquesM2.toFixed(1)} m²`], ['Cielo raso', `${metradoDw.cieloM2.toFixed(1)} m²`]].map(([l, v]) => (
+                  <div key={l} className="bg-violet-50 rounded-xl p-2 text-center">
+                    <p className="text-sm font-black text-slate-800">{v}</p>
+                    <p className="text-[9px] font-bold text-violet-500 uppercase">{l}</p>
+                  </div>
+                ))}
+              </div>
+              {metradoDw.lineas.length === 0 && <p className="text-[11px] text-slate-500">Dibuja tabiques con la herramienta Muro o activa el cielo raso del piso.</p>}
+              {metradoDw.lineas.map(l => (
+                <div key={l.clave + (l.nota || '')} className="flex items-center justify-between gap-2 text-[11px] bg-slate-50 rounded-lg px-2 py-1">
+                  <span className="font-bold text-slate-700 truncate" title={l.nota}>{l.nombre}</span>
+                  <span className="font-mono font-bold text-violet-700 shrink-0">{l.cantidad} {l.unidad}</span>
+                </div>
+              ))}
+              <div className="bg-violet-600 text-white rounded-xl p-2.5 text-center">
+                <p className="text-lg font-black">S/ {metradoDw.total.toFixed(0)}</p>
+                <p className="text-[10px] font-bold uppercase">Materiales + {metradoDw.dias} días de instalador</p>
+              </div>
+              <p className="text-[9px] text-slate-400 leading-snug">Detalle y presupuesto completo en la pestaña “Metrado y presupuesto”. Precios del Catálogo de precios.</p>
+            </div>
+          )}
+          {!esDrywall && <>
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide">Metrado automático</h3>
           <div className="grid grid-cols-2 gap-2">
             {[['Concreto', `${totales.concretoM3.toFixed(2)} m³`], ['Acero', `${totales.aceroKg.toFixed(0)} kg`], ['Encofrado', `${totales.encofradoM2.toFixed(1)} m²`], ['Cemento', `${Math.ceil(totales.cementoBolsas)} bls`]].map(([l, v]) => (
@@ -1426,6 +1458,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             </div>
           )}
           <p className="text-[9px] text-slate-400 leading-snug">Estimados referenciales (f'c=210, 1:2:3). No reemplaza el cálculo de un ingeniero.</p>
+          </>}
         </div>
       </div>
     </div>

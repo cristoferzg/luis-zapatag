@@ -9,6 +9,7 @@ import { leerDisenosCarpi, costoDisenoCarpi } from './carpiObra';
 import { precio, precioPlanchaAM2, precioBarraPerfil, claveDrywall, claveOsb, claveLadrillo } from '../../lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import type { PlanoElem } from '../ConcretoPlanoCad';
+import { metradoDrywall } from './metradoDrywall';
 import {
   ContextoMuro, perfilMuro, areaPerfil, areaAberturas, esNodoTanque, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo,
   mallaCieloTanque, tanquesEnEstructura, metradoTechosPorPiso, MetradoTechosPiso, CieloRaso, Sobrepecho, perimetroSobrepecho,
@@ -233,6 +234,9 @@ export interface ObraPiso {
   cieloTanque?: { area: number; costo: number };
   entrepisoOsb?: { area: number; costo: number; nombre: string };
   carpi?: { nombre: string; costo: number; medidas: string }[]; // puertas/ventanas de CarpiMetal
+  // Drywall (módulo Drywall): perfilería, tornillos, masilla, cinta e instalación;
+  // las placas ya van en los muros y el cielo raso.
+  drywall?: { accesorios: number; manoObra: number; dias: number; lineas: number };
   tanques?: { numero: number; litros: number; sobretecho?: string; sobretechoM2: number; sobrepechoM2: number; ladrillos: number; costoSobrepecho: number }[];
   costo: number;
 }
@@ -241,6 +245,7 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
   const { pisos, ctx } = contextosObra(niveles, est);
   const metal = metradoTechosPorPiso(est, pisos.map(n => ctx(n).base));
   const tanques = tanquesEnEstructura(est);
+  const dw = metradoDrywall(niveles, est, elems, cielos);
   const out: Record<string, ObraPiso> = {};
   pisos.forEach((n, k) => {
     const c = ctx(n);
@@ -277,6 +282,12 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
         return { nombre: d?.nombre || a.carpiNombre || 'Diseño CarpiMetal', costo: d ? costoDisenoCarpi(d) : 0, medidas: `${a.w.toFixed(2)} × ${a.h.toFixed(2)} m` };
       });
       o.costo += o.carpi.reduce((x, c) => x + c.costo, 0);
+    }
+    const md = dw.find(x => x.nivel === n);
+    if (md && md.lineas.length) {
+      const accesorios = md.lineas.filter(l => !/^(drywall|osb):/.test(l.clave)).reduce((x, l) => x + l.subtotal, 0);
+      o.drywall = { accesorios, manoObra: md.manoObra, dias: md.dias, lineas: md.lineas.length };
+      o.costo += accesorios + md.manoObra;
     }
     // Entrepisos de OSB dibujados como "techo" de este piso.
     const losasOsb = elems.filter(e => e.tipo === 'losa' && e.losaMaterial === 'osb' && (e.nivel || pisos[0]) === n && e.x2 !== undefined && e.y2 !== undefined);

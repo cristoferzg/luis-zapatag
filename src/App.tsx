@@ -25,7 +25,7 @@ import { Asesoria } from './components/AsesoriasView';
 import SoporteYAsesoriasView from './components/SoporteYAsesoriasView';
 import MaterialesYGastosView from './components/MaterialesYGastosView';
 import SettingsView from './components/SettingsView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft } from 'lucide-react';
 import DiseñadorView from './components/DiseñadorView';
 import HerreriaModuleView from './components/herreria/HerreriaModuleView';
 import TechosModuleView from './components/techos/TechosModuleView';
@@ -37,6 +37,7 @@ import ProyectosYClientesView from './components/ProyectosYClientesView';
 import PersonalYAsistenciaView from './components/PersonalYAsistenciaView';
 import UsabilidadVideosView, { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
 import ConcretoMetradosView from './components/ConcretoMetradosView';
+import DrywallView from './components/DrywallView';
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import defaultAdminLogo from './assets/images/logo_innova_oficial_1791000137990.jpg';
@@ -2059,6 +2060,7 @@ export default function App() {
       case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
       case 'precios': return <CatalogoPreciosView projects={filteredProjects} />;
       case 'concreto': return <ConcretoMetradosView onIrATechos={() => setCurrentView('techos')} />;
+      case 'drywall': return <DrywallView onIrATechos={() => setCurrentView('techos')} onIrAPrecios={() => setCurrentView('precios')} />;
       case 'usuarios': return <UsuariosView usuarios={usuarios} setUsuarios={setUsuarios} isAdmin={isAdmin} />;
       case 'soporte':
       case 'tickets':
@@ -2152,6 +2154,7 @@ export default function App() {
     { id: 'techos', label: 'Techos Metálicos', icon: PenTool },
     { id: 'concreto', label: 'Obra Civil', icon: Box },
     { id: 'herreria', label: 'CarpiMetal', icon: DoorClosed },
+    { id: 'drywall', label: 'Drywall', icon: PanelsTopLeft },
     { id: 'projects', label: 'Proyectos & Clientes', icon: Briefcase },
     { id: 'portafolio', label: 'Carpeta Privada', icon: FolderKanban },
     { id: 'materials', label: 'Materiales & Gastos', icon: Package },
