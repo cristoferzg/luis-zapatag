@@ -20,9 +20,11 @@ import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
 import { List, PenTool } from 'lucide-react';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
+import { OsbItem } from '../catalogo/osb';
+import { setActiveTechosDesignToLoad } from '../lib/techosDesignsRepo';
 import {
   SistemaNivel, TechoSnapshot, MuroCapa, calcSistema, sistemaVacio, muroDesdePlano,
-  KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO,
+  KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_CAT_OSB, leerCatalogoOsb,
 } from './concreto/obraPisos';
 import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
 import { AdminCatalogosMateriales } from './concreto/AdminCatalogosMateriales';
@@ -230,6 +232,8 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   useEffect(() => { safeStorage.setItem(KEY_SISTEMAS_NIVEL, sistemas); }, [sistemas]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_DRYWALL, catDrywall); }, [catDrywall]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_LADRILLO, catLadrillo); }, [catLadrillo]);
+  const [catOsb, setCatOsb] = useState<OsbItem[]>(leerCatalogoOsb);
+  useEffect(() => { safeStorage.setItem(KEY_CAT_OSB, catOsb); }, [catOsb]);
 
   const addItem = (tipoId: string) => setItems(prev => [...prev, nuevaInstancia(tipoId, nivelActivo)]);
   const removeItem = (uid: string) => setItems(prev => prev.filter(i => i.uid !== uid));
@@ -276,7 +280,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       const its = porItem.filter(p => (p.it.nivel || niveles[0]) === nivel);
       const subConcreto = its.reduce((s, p) => s + p.r.concretoM3, 0);
       const subAcero = its.reduce((s, p) => s + p.r.aceroKg, 0);
-      const sistema = calcSistema(sistemas[nivel], catDrywall, catLadrillo, techosLib, murosCad[nivel]);
+      const sistema = calcSistema(sistemas[nivel], catDrywall, catLadrillo, techosLib, murosCad[nivel], catOsb);
       return { nivel, its, subConcreto, subAcero, sistema };
     });
     const costoSistemas = porNivel.reduce((s, n) => s + n.sistema.costo, 0);
@@ -291,7 +295,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       aceroKg * precios.aceroKg +
       encofradoM2 * precios.encofradoM2;
     return { porItem, porNivel, concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, costoSistemas, costoTotal: costo + costoSistemas, varillasTotales };
-  }, [items, precios, niveles, sistemas, catDrywall, catLadrillo, techosLib, murosCad]);
+  }, [items, precios, niveles, sistemas, catDrywall, catLadrillo, techosLib, murosCad, catOsb]);
 
   const exportar = () => {
     let txt = `INNOVA CONTRATISTAS — METRADO DE CONCRETO / OBRA CIVIL\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
@@ -358,7 +362,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
           {ModoToggle}
         </div>
         <div className="flex-1 min-h-0">
-          <ConcretoPlanoCad />
+          <ConcretoPlanoCad onEditarEnTechos={d => { setActiveTechosDesignToLoad(d); onIrATechos?.(); }} />
         </div>
       </div>
     );
@@ -404,7 +408,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
         </div>
       )}
       {showPrecios && (
-        <AdminCatalogosMateriales drywall={catDrywall} ladrillo={catLadrillo} onDrywall={setCatDrywall} onLadrillo={setCatLadrillo} />
+        <AdminCatalogosMateriales drywall={catDrywall} ladrillo={catLadrillo} onDrywall={setCatDrywall} onLadrillo={setCatLadrillo} osb={catOsb} onOsb={setCatOsb} />
       )}
 
       {/* Selector de NIVEL / PISO */}
@@ -433,9 +437,10 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       <SistemaPisoPanel
         nivel={nivelActivo}
         sistema={sistemas[nivelActivo] || sistemaVacio()}
-        calc={totales.porNivel.find(n => n.nivel === nivelActivo)?.sistema || calcSistema(undefined, catDrywall, catLadrillo, techosLib)}
+        calc={totales.porNivel.find(n => n.nivel === nivelActivo)?.sistema || calcSistema(undefined, catDrywall, catLadrillo, techosLib, [], catOsb)}
         drywall={catDrywall}
         ladrillo={catLadrillo}
+        osb={catOsb}
         techosLib={techosLib}
         onChange={s => setSistemas(prev => ({ ...prev, [nivelActivo]: s }))}
         onIrATechos={onIrATechos}

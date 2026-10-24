@@ -3,6 +3,8 @@
 // su sobrepecho. Todo se guarda en localStorage junto al metrado de concreto.
 import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
+import { OsbItem, OSB_DEFAULTS } from '../../catalogo/osb';
+import { safeStorage } from '../../lib/storageManager';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import type { PlanoElem } from '../ConcretoPlanoCad';
 
@@ -10,6 +12,11 @@ export const KEY_TECHOS_DISPONIBLES = 'obra_techos_disponibles';
 export const KEY_SISTEMAS_NIVEL = 'concreto_sistemas_nivel';
 export const KEY_CAT_DRYWALL = 'catalogo_drywall';
 export const KEY_CAT_LADRILLO = 'catalogo_ladrillo';
+export const KEY_CAT_OSB = 'catalogo_osb';
+export const KEY_OBRA_TECHOS_ID = 'concreto_obra_techos_id';
+
+export const leerCatalogoOsb = (): OsbItem[] => safeStorage.getItem<OsbItem[]>(KEY_CAT_OSB, OSB_DEFAULTS) || OSB_DEFAULTS;
+export type MaterialMuro = 'ladrillo' | 'drywall' | 'osb';
 
 // Resumen del presupuesto de un techo metálico, enviado desde el módulo Techos.
 export interface TechoSnapshot {
@@ -25,10 +32,10 @@ export interface TechoSnapshot {
 export interface MuroCapa {
   id: string;
   deCad?: boolean; // dibujado en el Plano CAD (se edita allá)
-  tipo: 'drywall' | 'ladrillo';
+  tipo: MaterialMuro;
   materialId: string;
   areaM2: number;
-  caras: 1 | 2; // solo drywall: placas en una o ambas caras del tabique
+  caras: 1 | 2; // drywall / OSB: placas en una o ambas caras
 }
 
 export interface SoporteTanque {
@@ -64,26 +71,57 @@ export function tanqueDefault(): SoporteTanque {
   const p = PERFILES_TANQUE.find(x => x.espesorMm >= 2) || PERFILES_TANQUE[0] || INVENTARIO_PERFILES_TUBULARES[0];
   return {
     capacidadL: 1100, alturaM: 1.5, perfilId: p.id, precioMetro: p.costoMetroSol,
-    sobrepecho: true, sobrepechoLadrilloId: 'ladrillo_pandereta', sobrepechoAlturaM: 1.0,
+    sobrepecho: false, sobrepechoLadrilloId: 'ladrillo_pandereta', sobrepechoAlturaM: 1.0,
   };
 }
 
 export const ALTURA_PISO_M = 3;
 
-// Muro dibujado en el plano → capa de muro (área = largo × alto). Drywall a 2 caras.
+// Muro dibujado en el plano → capa de muro (área = largo × alto).
+// Drywall: placa en ambas caras. OSB: una cara (forro exterior), editable.
 export function muroDesdePlano(e: PlanoElem): MuroCapa {
   const largo = e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0;
   const tipo = e.material || 'ladrillo';
-  return { id: `cad_${e.uid}`, deCad: true, tipo, materialId: e.materialId || '', areaM2: largo * (e.H || 2.6), caras: 2 };
+  return { id: `cad_${e.uid}`, deCad: true, tipo, materialId: e.materialId || '', areaM2: largo * (e.H || 2.6), caras: e.caras || (tipo === 'osb' ? 1 : 2) };
 }
 
-// Cota de arranque de cada piso para el 3D (Cimentación y Piso 1 en 0).
-export function basesDeNiveles(niveles: string[]): Record<string, number> {
+// ---- Estructura guardada en Techos Metálicos ----
+export interface EstructuraTechos {
+  id: string;
+  nombre: string;
+  nodes: Record<string, { id: string; x: number; y: number; z: number }>;
+  segments: Record<string, { id: string; nodeAId: string; nodeBId: string; profileId: string; rolEstructural: string; concretoBaseM?: number }>;
+  coverageZones: Record<string, { id: string; nombre: string; nodeIdsBoundary: string[]; coberturaMaterialId: string }>;
+}
+
+// Alturas de los entrepisos: vigas horizontales que no son el techo (la cota
+// más alta, donde van las correas). Piso 2 arranca en la primera, etc.
+export function entrepisosDesdeTechos(t: EstructuraTechos | null | undefined): number[] {
+  if (!t) return [];
+  const nodes = t.nodes || {};
+  const segs = Object.values(t.segments || {});
+  const yTecho = Math.max(0, ...Object.values(nodes).map(n => n.y));
+  const conCorrea = new Set(segs.filter(s => s.rolEstructural === 'correa').map(s => Math.round((nodes[s.nodeAId]?.y ?? 0) * 100)));
+  const niveles = new Set<number>();
+  segs.forEach(s => {
+    if (!['viga_principal', 'viga_secundaria', 'piso_deck'].includes(s.rolEstructural)) return;
+    const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
+    if (!a || !b || Math.abs(a.y - b.y) > 0.01 || a.y < 1.5) return;
+    const k = Math.round(a.y * 100);
+    if (conCorrea.has(k) || a.y >= yTecho - 0.05) return;
+    niveles.add(k);
+  });
+  return [...niveles].sort((x, y) => x - y).map(k => k / 100);
+}
+
+// Cota de arranque de cada piso para el 3D (Cimentación y Piso 1 en 0). Si hay
+// estructura de Techos se usan sus entrepisos; si no, 3 m por piso.
+export function basesDeNiveles(niveles: string[], entrepisos: number[] = []): Record<string, number> {
   const out: Record<string, number> = {};
   let k = 0;
   niveles.forEach(n => {
     if (/cimentaci/i.test(n)) { out[n] = 0; return; }
-    out[n] = k * ALTURA_PISO_M;
+    out[n] = k === 0 ? 0 : (entrepisos[k - 1] ?? k * ALTURA_PISO_M);
     k++;
   });
   return out;
@@ -91,7 +129,12 @@ export function basesDeNiveles(niveles: string[]): Record<string, number> {
 
 export interface CalcMuro { unidades: number; pesoKg: number; costo: number; nombre: string; }
 
-export function calcMuro(m: MuroCapa, dry: DrywallItem[], lad: LadrilloItem[]): CalcMuro {
+export function calcMuro(m: MuroCapa, dry: DrywallItem[], lad: LadrilloItem[], osb: OsbItem[] = leerCatalogoOsb()): CalcMuro {
+  if (m.tipo === 'osb') {
+    const o = osb.find(x => x.id === m.materialId);
+    const placaM2 = m.areaM2 * m.caras;
+    return { unidades: placaM2, pesoKg: placaM2 * (o?.pesoM2 || 0), costo: placaM2 * (o?.precioM2 || 0), nombre: o?.tipo || 'OSB' };
+  }
   if (m.tipo === 'drywall') {
     const d = dry.find(x => x.id === m.materialId);
     const placaM2 = m.areaM2 * m.caras;
@@ -138,9 +181,9 @@ export interface CalcSistema {
   costoMuros: number; costoTechos: number; costoTanque: number; costo: number; pesoKg: number;
 }
 
-export function calcSistema(s: SistemaNivel | undefined, dry: DrywallItem[], lad: LadrilloItem[], techosLib: TechoSnapshot[], murosCad: MuroCapa[] = []): CalcSistema {
+export function calcSistema(s: SistemaNivel | undefined, dry: DrywallItem[], lad: LadrilloItem[], techosLib: TechoSnapshot[], murosCad: MuroCapa[] = [], osb: OsbItem[] = leerCatalogoOsb()): CalcSistema {
   const sis = s || sistemaVacio();
-  const muros = [...murosCad, ...sis.muros].map(m => ({ m, r: calcMuro(m, dry, lad) }));
+  const muros = [...murosCad, ...sis.muros].map(m => ({ m, r: calcMuro(m, dry, lad, osb) }));
   const techos = sis.techoIds.map(id => techosLib.find(t => t.id === id)).filter((t): t is TechoSnapshot => !!t);
   const tanque = sis.tanque ? calcTanque(sis.tanque, lad) : undefined;
   const costoMuros = muros.reduce((a, x) => a + x.r.costo, 0);

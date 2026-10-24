@@ -3,6 +3,7 @@
 import { Plus, Trash2, PenTool, Droplets, BrickWall } from 'lucide-react';
 import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
+import { OsbItem } from '../../catalogo/osb';
 import {
   SistemaNivel, MuroCapa, TechoSnapshot, SoporteTanque, CalcSistema,
   PERFILES_TANQUE, TANQUES, tanqueDefault,
@@ -15,6 +16,7 @@ interface Props {
   calc: CalcSistema;
   drywall: DrywallItem[];
   ladrillo: LadrilloItem[];
+  osb: OsbItem[];
   techosLib: TechoSnapshot[];
   onChange: (s: SistemaNivel) => void;
   onIrATechos?: () => void;
@@ -23,14 +25,15 @@ interface Props {
 const inputCls = 'mt-1 w-full px-2.5 py-2 rounded-lg bg-white text-sm text-slate-700 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-200';
 const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, techosLib, onChange, onIrATechos }: Props) {
+export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb, techosLib, onChange, onIrATechos }: Props) {
   const setMuro = (id: string, patch: Partial<MuroCapa>) =>
     onChange({ ...sistema, muros: sistema.muros.map(m => m.id === id ? { ...m, ...patch } : m) });
   const addMuro = (tipo: MuroCapa['tipo']) => onChange({
     ...sistema,
     muros: [...sistema.muros, {
-      id: `mu_${Date.now()}`, tipo, areaM2: 10, caras: 2,
-      materialId: tipo === 'drywall' ? drywall[0]?.id : ladrillo[0]?.id,
+      id: `mu_${Date.now()}`, tipo, areaM2: 10,
+      caras: (tipo === 'osb' ? 1 : 2) as 1 | 2,
+      materialId: (tipo === 'drywall' ? drywall[0]?.id : tipo === 'osb' ? osb[0]?.id : ladrillo[0]?.id) || '',
     }],
   });
   const setTanque = (patch: Partial<SoporteTanque>) => sistema.tanque && onChange({ ...sistema, tanque: { ...sistema.tanque, ...patch } });
@@ -57,6 +60,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, tech
           <div className="flex gap-2">
             <button onClick={() => addMuro('drywall')} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><Plus className="w-3.5 h-3.5" /> Drywall</button>
             <button onClick={() => addMuro('ladrillo')} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><Plus className="w-3.5 h-3.5" /> Ladrillo</button>
+            <button onClick={() => addMuro('osb')} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><Plus className="w-3.5 h-3.5" /> OSB</button>
           </div>
         </div>
         {calc.muros.length === 0 && <p className="text-xs text-slate-400 italic">Sin muros en este piso. Agrega drywall o ladrillo.</p>}
@@ -64,7 +68,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, tech
           <div key={g.key} className="rounded-xl bg-orange-50/60 px-3 py-2 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-xs font-bold text-slate-700 truncate">{g.nombre} <span className="text-[10px] font-semibold text-orange-600">· {g.n} {g.n === 1 ? 'muro dibujado' : 'muros dibujados'} en el plano</span></p>
-              <p className="text-[11px] text-slate-500">{g.area.toFixed(1)} m² · {g.tipo === 'drywall' ? `${g.unidades.toFixed(1)} m² de placa` : `${g.unidades.toLocaleString('es-PE')} ladrillos`}</p>
+              <p className="text-[11px] text-slate-500">{g.area.toFixed(1)} m² · {g.tipo !== 'ladrillo' ? `${g.unidades.toFixed(1)} m² de placa` : `${g.unidades.toLocaleString('es-PE')} ladrillos`}</p>
             </div>
             <span className="text-xs font-bold text-slate-800 shrink-0">{g.costo > 0 ? S(g.costo) : 'Sin precio'}</span>
           </div>
@@ -72,20 +76,20 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, tech
         {calc.muros.filter(x => !x.m.deCad).map(({ m, r }) => (
           <div key={m.id} className="rounded-xl bg-slate-50 p-3">
             <div className="flex items-center justify-between gap-2 -mt-1 mb-1">
-              <span className="text-[10px] font-bold uppercase text-slate-500">{m.tipo === 'drywall' ? 'Muro de drywall' : 'Muro de ladrillo'}</span>
+              <span className="text-[10px] font-bold uppercase text-slate-500">{m.tipo === 'drywall' ? 'Muro de drywall' : m.tipo === 'osb' ? 'Muro de OSB' : 'Muro de ladrillo'}</span>
               <button onClick={() => onChange({ ...sistema, muros: sistema.muros.filter(x => x.id !== m.id) })}
                 className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-500 cursor-pointer" title="Quitar muro"><Trash2 className="w-4 h-4" /></button>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-[1fr_120px_120px] gap-2 items-end">
-              <label className="col-span-2 sm:col-span-1 text-[11px] font-bold text-slate-600">{m.tipo === 'drywall' ? 'Placa' : 'Ladrillo'}
+              <label className="col-span-2 sm:col-span-1 text-[11px] font-bold text-slate-600">{m.tipo === 'ladrillo' ? 'Ladrillo' : m.tipo === 'osb' ? 'Placa OSB' : 'Placa'}
                 <select value={m.materialId} onChange={e => setMuro(m.id, { materialId: e.target.value })} className={inputCls}>
-                  {(m.tipo === 'drywall' ? drywall : ladrillo).map(x => <option key={x.id} value={x.id}>{x.tipo}</option>)}
+                  {(m.tipo === 'drywall' ? drywall : m.tipo === 'osb' ? osb : ladrillo).map(x => <option key={x.id} value={x.id}>{x.tipo}</option>)}
                 </select>
               </label>
               <label className="text-[11px] font-bold text-slate-600">Área muro (m²)
                 <input type="number" inputMode="decimal" min={0} value={m.areaM2} onChange={e => setMuro(m.id, { areaM2: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} />
               </label>
-              {m.tipo === 'drywall' ? (
+              {m.tipo !== 'ladrillo' ? (
                 <label className="text-[11px] font-bold text-slate-600">Caras
                   <select value={m.caras} onChange={e => setMuro(m.id, { caras: Number(e.target.value) as 1 | 2 })} className={inputCls}>
                     <option value={1}>1 cara</option><option value={2}>2 caras</option>
@@ -94,7 +98,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, tech
               ) : <div className="hidden sm:block" />}
             </div>
             <p className="mt-2 text-[11px] font-bold text-slate-600">
-              {m.tipo === 'drywall' ? `${r.unidades.toFixed(1)} m² de placa` : `${r.unidades.toLocaleString('es-PE')} ladrillos`}
+              {m.tipo !== 'ladrillo' ? `${r.unidades.toFixed(1)} m² de placa` : `${r.unidades.toLocaleString('es-PE')} ladrillos`}
               {' · '}{r.pesoKg.toFixed(0)} kg · <span className="text-slate-800">{r.costo > 0 ? S(r.costo) : 'Ingresa el precio en "Precios"'}</span>
             </p>
           </div>
