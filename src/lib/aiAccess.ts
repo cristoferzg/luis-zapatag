@@ -59,6 +59,8 @@ export function iaHabilitadaUsuarios(): boolean { return _habilitadaUsuarios; }
 
 /** Lee el interruptor de la nube. App lo llama al iniciar sesión. */
 export async function cargarEstadoIA(): Promise<boolean> {
+  // Solo en el servidor local de pruebas (capturas del manual); no existe en producción.
+  if (import.meta.env.DEV && import.meta.env.VITE_IA_DEMO === '1') return (_habilitadaUsuarios = true);
   try {
     const s = await getDoc(doc(db, 'config_ia', 'planes'));
     _habilitadaUsuarios = s.exists() && (s.data() as any)?.habilitadaUsuarios === true;
