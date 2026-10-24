@@ -1406,7 +1406,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 <p className="text-lg font-black">S/ {metradoDw.total.toFixed(0)}</p>
                 <p className="text-[10px] font-bold uppercase">Materiales + {metradoDw.dias} días de instalador</p>
               </div>
-              <p className="text-[9px] text-slate-400 leading-snug">Detalle y presupuesto completo en la pestaña “Metrado y presupuesto”. Precios del Catálogo de precios.</p>
+              <p className="text-[9px] text-slate-400 leading-snug">Detalle completo en la pestaña “Presupuesto” (marca “Incluir lo dibujado en Plano con Techos”). Precios del Catálogo de precios.</p>
             </div>
           )}
           {!esDrywall && <>

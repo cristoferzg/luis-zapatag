@@ -57,7 +57,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
       </div>
 
       {/* AMBIENTES, ABERTURAS Y CIELO RASO (del Plano CAD) */}
-      {obra && (obra.ambientes.length > 0 || obra.puertas + obra.ventanas + obra.vanos > 0 || obra.cielo || obra.cieloTanque || obra.entrepisoOsb || obra.carpi?.length || obra.drywall) && (
+      {obra && (obra.ambientes.length > 0 || obra.puertas + obra.ventanas + obra.vanos > 0 || obra.cielo || obra.cieloTanque || obra.entrepisoOsb || obra.carpi?.length || obra.drywall || obra.drywallCotizador) && (
         <section className="space-y-2">
           <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><LayoutGrid className="w-4 h-4 text-emerald-500" /> Ambientes, puertas y cielo raso</h4>
           {obra.ambientes.length > 0 && (
@@ -95,6 +95,15 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
                 <p className="text-[11px] text-slate-500">{obra.drywall.lineas} partidas del módulo Drywall · {obra.drywall.dias} días de instalador</p>
               </div>
               <span className="text-xs font-bold text-slate-800 shrink-0">{obra.drywall.accesorios + obra.drywall.manoObra > 0 ? S(obra.drywall.accesorios + obra.drywall.manoObra) : 'Sin precio'}</span>
+            </div>
+          )}
+          {obra.drywallCotizador && (
+            <div className="rounded-xl bg-violet-50/60 px-3 py-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-700">Drywall · cotizador</p>
+                <p className="text-[11px] text-slate-500">{obra.drywallCotizador.partidas} partida{obra.drywallCotizador.partidas > 1 ? 's' : ''} asignada{obra.drywallCotizador.partidas > 1 ? 's' : ''} a este piso · {obra.drywallCotizador.dias} días</p>
+              </div>
+              <span className="text-xs font-bold text-slate-800 shrink-0">{obra.drywallCotizador.total > 0 ? S(obra.drywallCotizador.total) : 'Sin precio'}</span>
             </div>
           )}
           {obra.entrepisoOsb && (

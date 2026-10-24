@@ -138,6 +138,9 @@ function construirItems(): ItemCatalogo[] {
     ['dw:tornillo_placa', 'Tornillo punta fina 6 × 1" (placa)', 'ciento'], ['dw:tornillo_perfil', 'Tornillo wafer 8 × 1/2" (perfil)', 'ciento'],
     ['dw:fijacion', 'Clavo de fijación / tarugo para riel', 'ciento'], ['dw:masilla', 'Masilla lista (balde 28 kg)', 'balde'],
     ['dw:cinta', 'Cinta de papel para juntas (rollo 75 m)', 'rollo'],
+    ['dw:lana', 'Lana de vidrio 2" (aislante acústico)', 'm²'], ['dw:baldosa_6060', 'Baldosa de cielo raso 0.61 × 0.61', 'unidad'],
+    ['dw:t_principal', 'Perfil T principal × 3.66 m', 'pieza'], ['dw:t_sec_122', 'Perfil T secundario × 1.22 m', 'pieza'],
+    ['dw:t_sec_061', 'Perfil T secundario × 0.61 m', 'pieza'], ['dw:cinta_led', 'Cinta LED (rollo 5 m)', 'rollo'],
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de drywall', nombre, unidad, ref: 0, usadoEn: ['Drywall', 'Obra Civil'] }));
   ['Ingeniero residente', 'Maestro de obra', 'Soldador homologado', 'Armador / montajista', 'Operario', 'Oficial', 'Ayudante', 'Instalador de drywall', 'Albañil']
     .forEach(c => add({ clave: claveJornal(c), grupo: 'Mano de obra (jornal por día)', nombre: c, unidad: 'día', ref: 0, usadoEn: ['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall'] }));
