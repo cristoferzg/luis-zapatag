@@ -2,7 +2,7 @@ import CatalogoPreciosView from './components/CatalogoPreciosView';
 import { useCatalogo, migrarPreciosAntiguos, hidratarCatalogo, EstadoCatalogo } from './lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from './components/techos/techosCadCatalog';
 import { EmpresaProvider, datosDesdeSettings, settingsDesdeDatos, DatosEmpresa } from './lib/empresa';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Briefcase, Calculator, Users, DollarSign, Activity, 
   Settings, AlertCircle, TrendingUp, TrendingDown, Home, CreditCard, Menu, Plus, 
@@ -32,6 +32,8 @@ import TechosModuleView from './components/techos/TechosModuleView';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import BibliotecaPremiumView, { BibliotecaItem } from './components/BibliotecaPremiumView';
 import AdminPurchasesView from './components/AdminPurchasesView';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import SupervisionView from './components/SupervisionView';
 import ContratosYEPPView from './components/ContratosYEPPView';
 import ProyectosYClientesView from './components/ProyectosYClientesView';
@@ -1680,6 +1682,20 @@ export default function App() {
       isCurrent = false;
     };
   }, [user?.id, isAdmin]);
+
+  // App Android (Capacitor): el botón "atrás" vuelve al Panel Principal y, si
+  // ya estás ahí, minimiza la app (en vez de cerrarla de golpe).
+  const vistaActualRef = useRef(currentView);
+  vistaActualRef.current = currentView;
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const h = CapApp.addListener('backButton', () => {
+      if (document.querySelector('.fixed.inset-0')) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return; }
+      if (vistaActualRef.current !== 'dashboard') setCurrentView('dashboard');
+      else CapApp.minimizeApp();
+    });
+    return () => { h.then(x => x.remove()); };
+  }, []);
 
   // Global custom event listener for module navigation
   useEffect(() => {
