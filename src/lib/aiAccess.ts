@@ -49,13 +49,32 @@ export const PACKS_CREDITOS_DEFAULT: PackCreditos[] = [
   { id: 'p500', creditos: 500, precioSoles: 54.90 },
 ];
 
-// Interruptor maestro: con `true` los usuarios ven las funciones inteligentes
-// y los planes. El cobro real lo hace el servidor (ver functions/index.js).
-export const IA_HABILITADA_USUARIOS = true;
+// Interruptor maestro (sin recompilar): campo `habilitadaUsuarios` del doc
+// config_ia/planes, que el admin cambia en Configuración → Planes y créditos.
+// Mientras esté apagado, la IA es SOLO para el admin y los usuarios no ven
+// planes ni créditos. Encenderlo solo después de desplegar funciones y reglas
+// con la clave de la API cargada.
+let _habilitadaUsuarios = false;
+export function iaHabilitadaUsuarios(): boolean { return _habilitadaUsuarios; }
+
+/** Lee el interruptor de la nube. App lo llama al iniciar sesión. */
+export async function cargarEstadoIA(): Promise<boolean> {
+  try {
+    const s = await getDoc(doc(db, 'config_ia', 'planes'));
+    _habilitadaUsuarios = s.exists() && (s.data() as any)?.habilitadaUsuarios === true;
+  } catch { _habilitadaUsuarios = false; }
+  return _habilitadaUsuarios;
+}
+
+/** Enciende o apaga la IA para los usuarios (solo admin). */
+export async function setIAHabilitadaUsuarios(v: boolean): Promise<void> {
+  await setDoc(doc(db, 'config_ia', 'planes'), { habilitadaUsuarios: v }, { merge: true });
+  _habilitadaUsuarios = v;
+}
 
 /** ¿Se debe mostrar la opción en la interfaz para el usuario actual? */
 export function iaVisibleParaUI(): boolean {
-  return _ctx.isAdmin || IA_HABILITADA_USUARIOS;
+  return _ctx.isAdmin || _habilitadaUsuarios;
 }
 
 export interface AIAccess {
@@ -93,7 +112,7 @@ export async function getPlanesIA(): Promise<AIPlan[]> { return (await getConfig
 
 /** Guarda la config (solo admin; las reglas lo exigen). */
 export async function setConfigIA(planes: AIPlan[], packs: PackCreditos[]): Promise<void> {
-  await setDoc(doc(db, 'config_ia', 'planes'), JSON.parse(JSON.stringify({ planes, packs })));
+  await setDoc(doc(db, 'config_ia', 'planes'), JSON.parse(JSON.stringify({ planes, packs })), { merge: true });
 }
 
 /** Estado de créditos de un usuario (null = nunca usó: plan Gratis). */
@@ -130,7 +149,7 @@ export function saldoEfectivo(a: AIAccess | null, planes: AIPlan[]): { planId: s
  */
 export async function checkAIAccess(accion: AccionIA = 'boleta'): Promise<AICheck> {
   if (_ctx.isAdmin) return { ok: true, ilimitado: true, planNombre: 'Administrador' };
-  if (!IA_HABILITADA_USUARIOS) return { ok: false, motivo: 'no_disponible' };
+  if (!_habilitadaUsuarios) return { ok: false, motivo: 'no_disponible' };
   if (!_ctx.userId) return { ok: false, motivo: 'sin_plan' };
   const [a, { planes }] = await Promise.all([getAIAccess(_ctx.userId), getConfigIA()]);
   const s = saldoEfectivo(a, planes);

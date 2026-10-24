@@ -10,7 +10,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 
 ## IA para usuarios — créditos (IMPLEMENTADO, falta desplegar)
 
-- Abierta a usuarios: `IA_HABILITADA_USUARIOS = true` (`src/lib/aiAccess.ts`).
+- Interruptor SIN recompilar: `config_ia/planes.habilitadaUsuarios` (botón "Activar para
+  usuarios" en Configuración → Planes y créditos). Hoy APAGADO: el dueño aún no tiene
+  saldo en la API; se despliega solo hosting y luego functions + rules al activar.
   En la interfaz NUNCA se muestra el proveedor ni el modelo.
 - Créditos: boleta sin QR = 1, plano a mano = 10 (`COSTO_CREDITOS`, igual en
   `functions/index.js`). QR de boletas gratis. Planes: Gratis 15/mes, Maestro,

@@ -5,7 +5,7 @@
 // =============================================================================
 import { useEffect, useState } from 'react';
 import { Sparkles, Save, Check, Coins } from 'lucide-react';
-import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT } from '../lib/aiAccess';
+import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios } from '../lib/aiAccess';
 
 const campo = 'w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none bg-white';
 const etiqueta = 'text-[11px] font-bold text-slate-500 uppercase tracking-wide';
@@ -17,7 +17,15 @@ export default function PlanesIAAdminPanel() {
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { getConfigIA().then(c => { setPlanes(c.planes); setPacks(c.packs); }); }, []);
+  const [activa, setActiva] = useState(false);
+  const [confirmar, setConfirmar] = useState(false);
+  useEffect(() => { getConfigIA().then(c => { setPlanes(c.planes); setPacks(c.packs); }); cargarEstadoIA().then(setActiva); }, []);
+
+  const cambiarActiva = async (v: boolean) => {
+    setError(null);
+    try { await setIAHabilitadaUsuarios(v); setActiva(v); setConfirmar(false); }
+    catch { setError('No se pudo cambiar. Revisa que hayas ingresado como administrador.'); }
+  };
 
   const updPlan = (i: number, p: Partial<AIPlan>) => { setPlanes(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x)); setGuardado(false); };
   const updPack = (i: number, p: Partial<PackCreditos>) => { setPacks(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x)); setGuardado(false); };
@@ -43,6 +51,30 @@ export default function PlanesIAAdminPanel() {
           </div>
         </div>
         <span className="self-start sm:self-auto shrink-0 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200">Solo Administrador</span>
+      </div>
+
+      {/* Interruptor: IA para usuarios */}
+      <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${activa ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div>
+          <p className="text-sm font-black text-slate-800">Funciones inteligentes para usuarios: {activa ? <span className="text-emerald-700">ACTIVADAS</span> : <span className="text-slate-500">APAGADAS</span>}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {activa ? 'Los usuarios ven sus créditos y los planes, y pueden leer boletas y planos.' : 'Solo tú las usas. Los usuarios no ven planes ni créditos. Actívalas cuando tengas saldo en la API y hayas desplegado funciones y reglas.'}
+          </p>
+        </div>
+        {!confirmar ? (
+          <button onClick={() => activa ? cambiarActiva(false) : setConfirmar(true)}
+            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-black cursor-pointer ${activa ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
+            {activa ? 'Apagar' : 'Activar para usuarios'}
+          </button>
+        ) : (
+          <div className="shrink-0 bg-white border border-amber-300 rounded-xl p-3 space-y-2 max-w-sm">
+            <p className="text-[11px] text-amber-800 font-bold">¿Ya cargaste saldo en la API, guardaste la clave y desplegaste con “firebase deploy --only hosting,functions,firestore:rules”? Si no, los usuarios verán errores.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmar(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold cursor-pointer">Cancelar</button>
+              <button onClick={() => cambiarActiva(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-black cursor-pointer">Sí, activar</button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

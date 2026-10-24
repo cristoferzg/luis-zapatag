@@ -17,7 +17,7 @@ import { db } from './lib/firebase';
 import { auth } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { useFirestoreArraySync } from './lib/db';
-import { setAICtx } from './lib/aiAccess';
+import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
 import CotizadorRapidoView from './components/CotizadorRapidoView';
 import UsuariosView from './components/UsuariosView';
 import { Ticket } from './components/TicketsView';
@@ -1556,6 +1556,9 @@ export default function App() {
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
   // Contexto para el control de acceso a la IA (admin ilimitado; usuarios por plan).
   useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
+  // Interruptor de la IA para usuarios (lo enciende el admin en Configuración).
+  const [, setIaUsuarios] = useState(false);
+  useEffect(() => { if (user) cargarEstadoIA().then(setIaUsuarios); }, [user?.id]);
 
   // Strict isolation fallback: Filter arrays to strictly prevent cross-account leakage.
   // The Admin sees ONLY their own records where userId matches administrative tags ('admin', 'user_admin', 'shared', or 'user').
