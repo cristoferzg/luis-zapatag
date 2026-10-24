@@ -212,3 +212,53 @@ export function opParaCaida(actual: DireccionCaida, deseada: DireccionCaida): 'g
   const k = (orden.indexOf(deseada) - orden.indexOf(actual) + 4) % 4;
   return k === 0 ? null : k === 1 ? 'girar90' : k === 2 ? 'girar180' : 'girar270';
 }
+
+// ---------------------------------------------------------------------------
+// Pendiente del techo (%)
+// ---------------------------------------------------------------------------
+// Pendiente mínima referencial por tipo de cobertura (según fabricantes; el
+// usuario decide). Sirve solo para avisar.
+export const PENDIENTE_MIN_PCT: Record<string, number> = {
+  aluzinc_tr4: 10, aluzinc_tr5: 10, calamina_galvanizada: 15, fibrocemento_eternit: 27,
+  policarbonato_alveolar: 10, upvc_termoacustica: 10, panel_sandwich_pur: 5, plancha_acero_deck: 3,
+};
+
+function poligonosPropios(nodes: Record<string, NodoMin>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }>) {
+  const propias = Object.values(zones).map(z => z.nodeIdsBoundary).filter(ids => !ids.some(id => /^TQ/.test(nodes[id]?.nodeLabel || '')));
+  return (propias.length ? propias : coberturaDesdeCorreas(nodes, segments).map(p => p.ids)).map(ids => ids.map(id => nodes[id]).filter(Boolean));
+}
+
+// Pendiente del agua principal (la más grande) y cota del alero (lo más bajo del techo).
+export function pendienteActual(nodes: Record<string, NodoMin>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }>): { pct: number; yAlero: number; exacto: number } | null {
+  const polis = poligonosPropios(nodes, segments, zones);
+  if (!polis.length) return null;
+  let mejor: { a: number; pct: number } | null = null;
+  polis.forEach(p => {
+    // Pendiente exacta (sin redondear) para que el cambio de % sea preciso.
+    let nx = 0, ny = 0, nz = 0;
+    for (let i = 1; i < p.length - 1; i++) {
+      const u = [p[i].x - p[0].x, p[i].y - p[0].y, p[i].z - p[0].z], v = [p[i + 1].x - p[0].x, p[i + 1].y - p[0].y, p[i + 1].z - p[0].z];
+      nx += u[1] * v[2] - u[2] * v[1]; ny += u[2] * v[0] - u[0] * v[2]; nz += u[0] * v[1] - u[1] * v[0];
+    }
+    const pctExacto = Math.abs(ny) > 1e-9 ? (Math.hypot(nx, nz) / Math.abs(ny)) * 100 : 0;
+    let a = 0; for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; a += p[i].x * q.z - q.x * p[i].z; }
+    if (p.length >= 3 && (!mejor || Math.abs(a) > mejor.a)) mejor = { a: Math.abs(a), pct: pctExacto };
+  });
+  const yAlero = Math.min(...polis.flat().map(n => n.y));
+  return mejor ? { pct: Math.round((mejor as { a: number; pct: number }).pct * 10) / 10, yAlero, exacto: (mejor as { a: number; pct: number }).pct } : null;
+}
+
+// Cambia la pendiente subiendo o bajando todo lo que está sobre el alero en
+// la misma proporción (tijerales, correas, columnas del lado alto…). El alero
+// y lo que está debajo no se mueven. No toca los tanques.
+export function cambiarPendiente<N extends NodoMin>(nodes: Record<string, N>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }>, nuevoPct: number): Record<string, N> | null {
+  const act = pendienteActual(nodes, segments, zones);
+  if (!act || act.pct <= 0 || nuevoPct <= 0) return null;
+  const f = nuevoPct / act.exacto;
+  const out: Record<string, N> = {};
+  Object.values(nodes).forEach(n => {
+    const mover = !/^TQ/.test(n.nodeLabel || '') && n.y > act.yAlero + 0.005;
+    out[n.id] = mover ? { ...n, y: Math.round((act.yAlero + (n.y - act.yAlero) * f) * 1000) / 1000 } : n;
+  });
+  return out;
+}

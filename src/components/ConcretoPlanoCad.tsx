@@ -150,6 +150,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const [verTecho, setVerTecho] = useState(true);
   const [hastaPiso, setHastaPiso] = useState('');
   const [resaltar, setResaltar] = useState(false);
+  const [verCimentacion, setVerCimentacion] = useState(false);
 
   const [elems, setElems] = useState<PlanoElem[]>(() => safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || []);
   const [precios] = useState(() => safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT);
@@ -413,12 +414,19 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
         dragNode.current = { x: n.x, y: n.y, key: n.id };
         didDrag.current = false;
         setSelNode(n.id); setSelUid(null);
+      } else {
+        // Arrastrar en vacío mueve el plano (un clic sin mover sigue deseleccionando).
+        setIsPanning(true);
+        didDrag.current = false;
+        panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
       }
     }
   };
   const onMouseMove = (e: React.MouseEvent) => {
     if (isPanning) {
-      setPan({ x: panStart.current.px + (e.clientX - panStart.current.x), y: panStart.current.py + (e.clientY - panStart.current.y) });
+      const dx = e.clientX - panStart.current.x, dy = e.clientY - panStart.current.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) didDrag.current = true;
+      setPan({ x: panStart.current.px + dx, y: panStart.current.py + dy });
       return;
     }
     if (dragAb.current) {
@@ -460,8 +468,31 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
     }
   };
 
+  // Táctil: un dedo mueve el plano (con Seleccionar o Mover lienzo), dos dedos hacen zoom.
+  const toque = useRef<{ x: number; y: number; px: number; py: number; d: number; z: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches;
+    const c = t.length === 2 ? { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 } : { x: t[0].clientX, y: t[0].clientY };
+    toque.current = { ...c, px: pan.x, py: pan.y, d: t.length === 2 ? Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) : 0, z: zoom };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    const t = e.touches, s0 = toque.current;
+    if (!s0) return;
+    if (t.length === 2) {
+      const d = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+      const c = { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 };
+      if (s0.d) setZoom(Math.max(0.3, Math.min(4, s0.z * d / s0.d)));
+      setPan({ x: s0.px + c.x - s0.x, y: s0.py + c.y - s0.y });
+      didDrag.current = true;
+    } else if (t.length === 1 && (tool === 'select' || tool === 'pan') && !dragNode.current && !dragAb.current) {
+      const dx = t[0].clientX - s0.x, dy = t[0].clientY - s0.y;
+      if (Math.abs(dx) + Math.abs(dy) > 6) { didDrag.current = true; setPan({ x: s0.px + dx, y: s0.py + dy }); }
+    }
+  };
+  const onTouchEnd = () => { toque.current = null; };
+
   const onClick = (e: React.MouseEvent) => {
-    if (isPanning || tool === 'pan') return;
+    if (tool === 'pan') return;
     if (didDrag.current) { didDrag.current = false; return; } // acabamos de arrastrar un nodo
     const w = snapWorld(e.clientX, e.clientY);
     if (tool === 'select') { setSelUid(null); setSelNode(null); setSelAb(null); return; }
@@ -491,6 +522,41 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const removeSel = () => { if (selUid) { commit(prev => prev.filter(e => e.uid !== selUid)); setSelUid(null); } };
   const updateElem = (uid: string, patch: Partial<PlanoElem>, campo?: string) =>
     commit(prev => prev.map(e => e.uid === uid ? { ...e, ...patch } : e), campo ? `edit_${uid}_${campo}` : undefined);
+
+  // Cimentación automática: zapata bajo cada columna de Techos que llega al
+  // suelo y cimiento corrido entre columnas vecinas alineadas (no en tanques).
+  const cimentacionAutomatica = () => {
+    if (!estructura) return;
+    const N = estructura.nodes || {};
+    const bases = new Map<string, { x: number; y: number; tanque: boolean }>();
+    Object.values(estructura.segments || {}).forEach(sg => {
+      if (!sg.rolEstructural.startsWith('columna')) return;
+      [N[sg.nodeAId], N[sg.nodeBId]].forEach(n => { if (n && n.y < 0.05) bases.set(NK(n.x, n.z), { x: n.x, y: n.z, tanque: esNodoTanque(n) }); });
+    });
+    const pts = [...bases.values()];
+    if (!pts.length) { setAviso('La estructura no tiene columnas apoyadas en el suelo'); setTimeout(() => setAviso(''), 2200); return; }
+    const nuevos: PlanoElem[] = [];
+    const uid = () => `pc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const hayZapata = (x: number, y: number) => elems.some(e => e.tipo === 'zapata' && sameNode(e.x1, e.y1, x, y));
+    pts.forEach(p => { if (!hayZapata(p.x, p.y)) nuevos.push({ uid: uid(), tipo: 'zapata', x1: p.x, y1: p.y, ...DEFAULTS.zapata, ...(p.tanque ? { a: 0.8, b: 0.8, h: 0.4 } : {}) }); });
+    const obra = pts.filter(p => !p.tanque);
+    const hayCimiento = (a: { x: number; y: number }, b: { x: number; y: number }) => elems.some(e => e.tipo === 'cimiento' && e.x2 !== undefined && e.y2 !== undefined &&
+      ((sameNode(e.x1, e.y1, a.x, a.y) && sameNode(e.x2, e.y2, b.x, b.y)) || (sameNode(e.x1, e.y1, b.x, b.y) && sameNode(e.x2, e.y2, a.x, a.y))));
+    obra.forEach((a, i) => obra.forEach((b, j) => {
+      if (j <= i) return;
+      const enX = Math.abs(a.y - b.y) < 0.01, enZ = Math.abs(a.x - b.x) < 0.01;
+      if (!enX && !enZ) return;
+      const L = Math.hypot(b.x - a.x, b.y - a.y);
+      if (L > 8.5) return;
+      // Solo vecinos inmediatos: ninguna otra columna entre ambas.
+      const entre = obra.some(c => c !== a && c !== b && (enX ? Math.abs(c.y - a.y) < 0.01 && c.x > Math.min(a.x, b.x) + 0.01 && c.x < Math.max(a.x, b.x) - 0.01 : Math.abs(c.x - a.x) < 0.01 && c.y > Math.min(a.y, b.y) + 0.01 && c.y < Math.max(a.y, b.y) - 0.01));
+      if (!entre && !hayCimiento(a, b)) nuevos.push({ uid: uid(), tipo: 'cimiento', x1: a.x, y1: a.y, x2: b.x, y2: b.y, ...DEFAULTS.cimiento });
+    }));
+    if (!nuevos.length) { setAviso('La cimentación ya está colocada'); setTimeout(() => setAviso(''), 2200); return; }
+    commit(prev => [...prev, ...nuevos]);
+    setAviso(`✓ ${nuevos.filter(e => e.tipo === 'zapata').length} zapatas y ${nuevos.filter(e => e.tipo === 'cimiento').length} cimientos corridos (editables)`);
+    setTimeout(() => setAviso(''), 3500);
+  };
 
   // Encuadrar: ajusta zoom + paneo para que todo el plano quepa en el lienzo.
   const encuadrar = () => {
@@ -665,6 +731,12 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
           </button>
         )}
         {estructura && (
+          <button onClick={cimentacionAutomatica} title="Zapata bajo cada columna y cimiento corrido entre columnas vecinas"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 cursor-pointer hover:bg-amber-100">
+            <Square className="w-3.5 h-3.5" /> Cimentación bajo columnas
+          </button>
+        )}
+        {estructura && (
           <span className="text-[11px] text-slate-400">{Object.keys(estructura.segments || {}).length} perfiles · {Object.keys(estructura.coverageZones || {}).length} coberturas{tanques.length ? ` · ${tanques.length} tanque${tanques.length > 1 ? 's' : ''}` : ''}{caidas.length ? ` · caída: ${[...new Set(caidas.map(c => NOMBRE_CAIDA[nombreDireccion(c.dx, c.dz)]))].join(' y ')}` : ''}</span>
         )}
         {estructura && (
@@ -774,7 +846,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
         {/* VISTA 3D */}
         {vista3d ? (
           <div className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
-            <ConcretoViewer3D key={`${sig3d}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}`} resaltarPerfiles={resaltar} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos} />
+            <ConcretoViewer3D key={`${sig3d}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}`} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos} />
             <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
               <button onClick={() => setVerTecho(v => !v)} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verTecho ? 'bg-slate-100 text-slate-700' : 'bg-stone-700 text-white'}`}>
                 {verTecho ? 'Ocultar techo' : 'Mostrar techo'}
@@ -783,6 +855,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                 <option value="">Todos los pisos</option>
                 {pisos.map(n => <option key={n} value={n}>Hasta {n}</option>)}
               </select>
+              <button onClick={() => setVerCimentacion(v => !v)} title="Suelo transparente: mira zapatas y cimientos desde abajo"
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verCimentacion ? 'bg-stone-700 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                {verCimentacion ? 'Ocultar cimentación' : 'Ver cimentación'}
+              </button>
               {estructura && (
                 <button onClick={() => setResaltar(v => !v)} title="Las secciones se dibujan a su medida real; resaltado las multiplica ×3 solo para verlas mejor"
                   className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${resaltar ? 'bg-stone-700 text-white' : 'bg-slate-100 text-slate-700'}`}>
@@ -794,7 +870,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm font-bold">Dibuja en 2D para ver el 3D</div>
             )}
             <div className="absolute bottom-3 left-3 text-[10px] font-bold text-slate-500 bg-white/90 rounded-lg px-2 py-1 border border-slate-200 pointer-events-none">
-              Arrastra para girar · rueda para acercar
+              Arrastra: girar · clic derecho, Shift o 2 dedos: mover · rueda o pellizco: zoom
             </div>
           </div>
         ) : (
@@ -809,6 +885,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
           onClick={onClick}
           onWheel={onWheel}
           onContextMenu={e => e.preventDefault()}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          style={{ touchAction: 'none' }}
         >
           <svg className="absolute inset-0 w-full h-full">
             <defs>
@@ -1248,7 +1328,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                     <p className="text-[10px] font-bold text-slate-500">Sobretecho (techito, se edita en Techos): {t.ySobretecho !== null ? `${t.sobretechoCobertura || 'sí'} · ${t.sobretechoM2.toFixed(2)} m²` : 'no tiene'}</p>
                     <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
                       <input type="checkbox" checked={!!sp?.activo} onChange={e => setSobrepecho(t.id, { activo: e.target.checked })} />
-                      Sobrepecho (murete de ladrillo alrededor)
+                      Murete / parapeto de ladrillo (sobrepecho)
                     </label>
                     {sp?.activo && (
                       <div className="grid grid-cols-2 gap-1.5">

@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react';
 import { X, Layers, Droplets, Trash2, Compass, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { INVENTARIO_COBERTURAS, INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
-import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA } from './coberturaAuto';
+import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA, pendienteActual, cambiarPendiente, PENDIENTE_MIN_PCT } from './coberturaAuto';
 
 interface Props {
   engineState: any;
@@ -106,6 +106,27 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
     setMsg('✓ Diseño reorientado. Guárdalo para verlo así en Concreto.');
   };
   const orientar = (d: DireccionCaida) => { if (caida) aplicar(opParaCaida(caida, d)); };
+  const pend = useMemo(() => pendienteActual(nodes, segments, zones), [nodes, segments, zones]);
+  const [pctNuevo, setPctNuevo] = useState<string>('');
+  const aplicarPendiente = (pct: number) => {
+    const n2 = cambiarPendiente(nodes, segments, zones, pct);
+    if (!n2) { setMsg('Este techo es plano: para darle caída usa una plantilla de un agua o dos aguas.'); return; }
+    const z2 = Object.fromEntries(Object.entries(zones).map(([k, z]) => [k, z.nodeIdsBoundary.some(id => esTanque(nodes[id])) ? z : { ...z, pendientePorcentaje: pct }]));
+    engineState.loadScene(n2, segments, z2);
+    setPctNuevo('');
+    setMsg(`✓ Pendiente cambiada a ${pct}%. El alero queda a la misma altura; la parte alta se ajustó. Guarda para verlo en Concreto.`);
+  };
+  // Cobertura con la pendiente mínima más exigente entre las usadas.
+  const minCob = useMemo(() => {
+    let r: { pct: number; nombre: string } | null = null;
+    Object.values(zones).forEach(z => {
+      if (z.nodeIdsBoundary.some(id => esTanque(nodes[id]))) return;
+      const c = INVENTARIO_COBERTURAS.find(x => x.id === z.coberturaMaterialId);
+      const m = c ? PENDIENTE_MIN_PCT[c.categoria] : undefined;
+      if (c && m !== undefined && (!r || m > r.pct)) r = { pct: m, nombre: c.nombre };
+    });
+    return r as { pct: number; nombre: string } | null;
+  }, [zones, nodes]);
 
   const selCob = (value: string, onChange: (v: string) => void, cls = '') => (
     <select value={value} onChange={e => onChange(e.target.value)} className={`px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 focus:outline-none ${cls}`}>
@@ -152,6 +173,23 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
               <button disabled={!caida} onClick={() => orientar('adelante')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'adelante' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowDown className="w-4 h-4" />Adelante (calle)</button>
               <div />
             </div>
+            <div className="rounded-xl bg-slate-50 p-3 space-y-2">
+              <p className="text-sm font-black text-slate-800">Pendiente actual: <span className="text-sky-700">{pend && pend.pct > 0 ? `${pend.pct}%` : 'plano'}</span>{pend && pend.pct > 0 ? <span className="text-xs font-bold text-slate-500"> ({(Math.atan(pend.pct / 100) * 180 / Math.PI).toFixed(1)}°) · alero a {pend.yAlero.toFixed(2)} m</span> : null}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[8, 10, 15, 20, 27, 30].map(p => (
+                  <button key={p} disabled={!pend || pend.pct <= 0} onClick={() => aplicarPendiente(p)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-40 ${pend?.pct === p ? 'bg-sky-600 text-white' : 'bg-white text-slate-700'}`}>{p}%</button>
+                ))}
+                <input type="number" min={1} max={100} value={pctNuevo} onChange={e => setPctNuevo(e.target.value)} placeholder="Otro %"
+                  className="w-20 px-2 py-1.5 rounded-lg bg-white text-xs font-mono focus:outline-none" />
+                <button disabled={!pend || pend.pct <= 0 || !(parseFloat(pctNuevo) > 0)} onClick={() => aplicarPendiente(parseFloat(pctNuevo))}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-black cursor-pointer disabled:opacity-40">Aplicar</button>
+              </div>
+              {minCob && pend && pend.pct > 0 && pend.pct < minCob.pct && (
+                <p className="text-[11px] font-bold text-amber-700">⚠ {minCob.nombre}: se recomienda al menos {minCob.pct}% de pendiente (referencial del fabricante).</p>
+              )}
+              {minCob && <p className="text-[10px] text-slate-400">Mínimos referenciales: TR-4 10% · calamina 15% · Eternit 27% · policarbonato 10%.</p>}
+            </div>
             <div className="flex gap-2 flex-wrap justify-center">
               <button onClick={() => aplicar('girar90')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"><RotateCw className="w-3.5 h-3.5" /> Girar 90°</button>
               <button onClick={() => aplicar('reflejarX')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"><FlipHorizontal className="w-3.5 h-3.5" /> Espejo ↔</button>
@@ -176,7 +214,7 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
               </div>
             )}
           </>) : (<>
-            <p className="text-xs text-slate-500">Cada tanque lleva su torre metálica de 4 patas y, si quieres, un <b>sobretecho</b> (techito sobre el tanque) con su cobertura. Puedes agregar varios: cambia la posición y vuelve a agregar. El <b>sobrepecho</b> (murete de ladrillo alrededor) se agrega luego en Concreto.</p>
+            <p className="text-xs text-slate-500">Cada tanque lleva su torre metálica de 4 patas y, si quieres, un <b>sobretecho</b> (techito sobre el tanque) con su cobertura. Puedes agregar varios: cambia la posición y vuelve a agregar. El <b>murete o parapeto de ladrillo</b> alrededor (sobrepecho) se agrega luego en Concreto.</p>
             <div className="grid grid-cols-2 gap-2">
               <label className="text-[11px] font-bold text-slate-600">Tanque
                 <select value={tq.litros} onChange={e => setTq({ ...tq, litros: Number(e.target.value) as 600 | 1100 | 2500 })} className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-bold focus:outline-none">

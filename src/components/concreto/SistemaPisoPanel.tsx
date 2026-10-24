@@ -183,7 +183,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
             <div key={t.numero} className="rounded-xl bg-sky-50/60 px-3 py-2 flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-800">T{t.numero} · Rotoplas {t.litros} L <span className="text-[10px] font-semibold text-slate-500">· torre incluida en el acero de la estructura</span></p>
-                <p className="text-[11px] text-slate-600">Sobretecho: {t.sobretecho ? `${t.sobretecho} · ${t.sobretechoM2.toFixed(2)} m²` : 'no'} · Sobrepecho: {t.sobrepechoM2 ? `${t.sobrepechoM2.toFixed(2)} m² · ${t.ladrillos} ladrillos` : 'no'}</p>
+                <p className="text-[11px] text-slate-600">Sobretecho: {t.sobretecho ? `${t.sobretecho} · ${t.sobretechoM2.toFixed(2)} m²` : 'no'} · Murete (sobrepecho): {t.sobrepechoM2 ? `${t.sobrepechoM2.toFixed(2)} m² · ${t.ladrillos} ladrillos` : 'no'}</p>
               </div>
               <span className="text-xs font-bold text-slate-800 shrink-0">{t.costoSobrepecho > 0 ? S(t.costoSobrepecho) : ''}</span>
             </div>

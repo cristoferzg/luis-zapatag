@@ -20,8 +20,14 @@ const tamanoCss = (t: TamanoPapel) => (t === 'Carta' ? 'letter' : t === 'Oficio'
 
 export function imprimirElemento(el: HTMLElement, opts: OpcionesImpresion) {
   safeStorage.setItem(KEY, { tamano: opts.tamano, orientacion: opts.orientacion });
+  // El marco mide lo mismo que el área imprimible del papel (fuera de la
+  // pantalla) para que el contenido se arme con el ancho real de la hoja.
+  const [pa, pb] = PAPEL_MM[opts.tamano];
+  const [wMm, hMm] = opts.orientacion === 'portrait' ? [pa, pb] : [pb, pa];
+  const pxMm = 96 / 25.4;
+  const anchoPx = (wMm - 2 * MARGEN_MM) * pxMm, altoPx = (hMm - 2 * MARGEN_MM) * pxMm;
   const iframe = document.createElement('iframe');
-  Object.assign(iframe.style, { position: 'fixed', right: '0', bottom: '0', width: '0', height: '0', border: '0', visibility: 'hidden' });
+  Object.assign(iframe.style, { position: 'fixed', left: '-20000px', top: '0', width: `${Math.round(anchoPx)}px`, height: `${Math.round(altoPx)}px`, border: '0' });
   document.body.appendChild(iframe);
   const doc = iframe.contentDocument;
   const win = iframe.contentWindow;
@@ -62,14 +68,21 @@ export function imprimirElemento(el: HTMLElement, opts: OpcionesImpresion) {
   // Planos: se escala para que la lámina entera entre en una sola hoja.
   const ajustar = () => {
     if (!opts.unaHoja) return;
-    const [a, b] = PAPEL_MM[opts.tamano];
-    const [wMm, hMm] = opts.orientacion === 'portrait' ? [a, b] : [b, a];
-    const pxMm = 96 / 25.4;
-    const anchoPx = (wMm - 2 * MARGEN_MM) * pxMm, altoPx = (hMm - 2 * MARGEN_MM) * pxMm;
-    nodo.style.width = `${anchoPx}px`;
+    nodo.style.setProperty('width', `${anchoPx}px`, 'important');
     const alto = nodo.scrollHeight;
-    if (alto > altoPx) { const k = altoPx / alto; nodo.style.width = `${anchoPx / k}px`; (nodo.style as any).zoom = String(k * 0.98); }
+    if (alto <= altoPx) return;
+    // La lámina se reduce entera (transform) y se centra dentro de un marco del
+    // tamaño exacto de la hoja, así no se parte en varias páginas.
+    const k = Math.max(0.1, (altoPx / alto) * 0.98);
+    const marco = doc.createElement('div');
+    marco.style.cssText = `width:${anchoPx}px;height:${Math.floor(altoPx)}px;overflow:hidden;break-inside:avoid`;
+    nodo.parentNode!.insertBefore(marco, nodo);
+    marco.appendChild(nodo);
+    nodo.style.transformOrigin = 'top left';
+    nodo.style.transform = `translateX(${((anchoPx - anchoPx * k) / 2).toFixed(1)}px) scale(${k.toFixed(4)})`;
   };
+
+
 
   const limpiar = () => setTimeout(() => iframe.remove(), 500);
   win.addEventListener('afterprint', limpiar);

@@ -119,9 +119,14 @@ interface Props {
   capasOcultas?: CapaEstructura[];
   sobrepechos?: Record<string, Sobrepecho>;
   resaltarPerfiles?: boolean; // dibuja las secciones ×3 para verlas mejor de lejos
+  verCimentacion?: boolean;   // suelo transparente y vista desde abajo (zapatas, cimientos)
+  claveCamara?: string;       // misma obra → se conserva la cámara al remontar
 }
 
-export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false }: Props) {
+// Cámara de la última vista (por obra), para no perderla al cambiar opciones.
+const camaras = new Map<string, { az: number; pol: number; rad: number; obj: [number, number, number] }>();
+
+export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '' }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles });
   datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles };
@@ -394,23 +399,40 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     const centro = box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3());
     const tam = box.isEmpty() ? new THREE.Vector3(10, 3, 10) : box.getSize(new THREE.Vector3());
     const ext = Math.max(20, Math.ceil(Math.max(tam.x, tam.z) * 2.5));
-    const suelo = new THREE.Mesh(new THREE.PlaneGeometry(ext, ext), plano(C.suelo));
+    const suelo = new THREE.Mesh(new THREE.PlaneGeometry(ext, ext), verCimentacion
+      ? new THREE.MeshLambertMaterial({ color: C.suelo, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false })
+      : plano(C.suelo));
     suelo.rotation.x = -Math.PI / 2; suelo.position.set(centro.x, -0.012, centro.z); scene.add(suelo);
     const rejilla = new THREE.GridHelper(ext, ext, 0xd5dbe3, 0xe8ecf1); rejilla.position.set(centro.x, -0.005, centro.z); scene.add(rejilla);
 
-    // Órbita manual alrededor del modelo
-    let az = -0.72, pol = 0.98, rad = Math.max(8, Math.max(tam.x, tam.z, tam.y) * 2.1);
-    const objetivo = new THREE.Vector3(centro.x, Math.max(1, tam.y * 0.4), centro.z);
+    // Órbita como en Techos: arrastrar = girar; clic derecho, botón central,
+    // Shift + arrastre o dos dedos = mover el modelo; rueda o pellizco = zoom.
+    const guardada = claveCamara ? camaras.get(claveCamara) : undefined;
+    let az = guardada?.az ?? -0.72, pol = guardada?.pol ?? 0.98, rad = guardada?.rad ?? Math.max(8, Math.max(tam.x, tam.z, tam.y) * 2.1);
+    const objetivo = guardada ? new THREE.Vector3(...guardada.obj) : new THREE.Vector3(centro.x, Math.max(1, tam.y * 0.4), centro.z);
+    const polMax = verCimentacion ? Math.PI - 0.25 : Math.PI / 2 - 0.03; // con cimentación se puede mirar desde abajo
     const actualizar = () => {
-      pol = Math.max(0.15, Math.min(Math.PI / 2 - 0.03, pol));
+      pol = Math.max(0.15, Math.min(polMax, pol));
       camera.position.set(objetivo.x + rad * Math.sin(pol) * Math.cos(az), objetivo.y + rad * Math.cos(pol), objetivo.z + rad * Math.sin(pol) * Math.sin(az));
       camera.lookAt(objetivo);
+      if (claveCamara) camaras.set(claveCamara, { az, pol, rad, obj: [objetivo.x, objetivo.y, objetivo.z] });
     };
     actualizar();
+    // Desplaza el objetivo en el plano de la pantalla (px → metros según la distancia).
+    const mover = (dx: number, dy: number) => {
+      const k = (2 * rad * Math.tan((camera.fov * Math.PI) / 360)) / Math.max(1, mount.clientHeight);
+      const der = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0), arr = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+      objetivo.addScaledVector(der, -dx * k).addScaledVector(arr, dy * k);
+    };
 
     const punteros = new Map<number, { x: number; y: number }>();
-    let distPinza = 0;
-    const onDown = (e: PointerEvent) => { punteros.set(e.pointerId, { x: e.clientX, y: e.clientY }); renderer.domElement.setPointerCapture(e.pointerId); renderer.domElement.style.cursor = 'grabbing'; };
+    let distPinza = 0, centroPinza: { x: number; y: number } | null = null, moviendo = false;
+    const onDown = (e: PointerEvent) => {
+      punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      renderer.domElement.setPointerCapture(e.pointerId);
+      moviendo = e.button === 1 || e.button === 2 || e.shiftKey;
+      renderer.domElement.style.cursor = moviendo ? 'move' : 'grabbing';
+    };
     const onMove = (e: PointerEvent) => {
       const prev = punteros.get(e.pointerId);
       if (!prev) return;
@@ -418,20 +440,25 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       if (punteros.size === 2) {
         const [p1, p2] = [...punteros.values()];
         const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-        if (distPinza) rad = Math.max(3, Math.min(150, rad * distPinza / d));
-        distPinza = d;
-      } else {
+        const c = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        if (distPinza) rad = Math.max(2, Math.min(150, rad * distPinza / d));
+        if (centroPinza) mover(c.x - centroPinza.x, c.y - centroPinza.y);
+        distPinza = d; centroPinza = c;
+      } else if (moviendo) mover(e.clientX - prev.x, e.clientY - prev.y);
+      else {
         az += (e.clientX - prev.x) * 0.008;
         pol -= (e.clientY - prev.y) * 0.008;
       }
       actualizar();
     };
-    const onUp = (e: PointerEvent) => { punteros.delete(e.pointerId); distPinza = 0; renderer.domElement.style.cursor = 'grab'; };
-    const onWheel = (e: WheelEvent) => { e.preventDefault(); rad = Math.max(3, Math.min(150, rad * (e.deltaY < 0 ? 0.9 : 1.1))); actualizar(); };
+    const onUp = (e: PointerEvent) => { punteros.delete(e.pointerId); distPinza = 0; centroPinza = null; if (!punteros.size) moviendo = false; renderer.domElement.style.cursor = 'grab'; };
+    const onWheel = (e: WheelEvent) => { e.preventDefault(); rad = Math.max(2, Math.min(150, rad * (e.deltaY < 0 ? 0.9 : 1.1))); actualizar(); };
+    const sinMenu = (e: Event) => e.preventDefault();
     const el = renderer.domElement;
     el.addEventListener('pointerdown', onDown); el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp); el.addEventListener('pointercancel', onUp);
     el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('contextmenu', sinMenu);
 
     const resize = () => {
       const w = mount.clientWidth, h = mount.clientHeight;
@@ -449,6 +476,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp); el.removeEventListener('pointercancel', onUp);
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('contextmenu', sinMenu);
       scene.traverse(o => { const m = o as THREE.Mesh; if (m.geometry) m.geometry.dispose(); });
       renderer.dispose();
       if (el.parentNode === mount) mount.removeChild(el);
