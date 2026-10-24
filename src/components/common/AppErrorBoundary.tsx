@@ -108,7 +108,7 @@ export class AppErrorBoundary extends Component<Props, State> {
 
               <button
                 onClick={this.handleDownloadDiagnostic}
-                className="w-full inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-medium text-xs transition-colors"
+                className="w-full inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-medium text-xs transition-colors"
               >
                 <Download className="w-4 h-4 text-emerald-400" />
                 <span>Exportar diagnóstico</span>
@@ -116,7 +116,7 @@ export class AppErrorBoundary extends Component<Props, State> {
 
               <button
                 onClick={this.handleEmergencyClean}
-                className="w-full inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-medium text-xs transition-colors"
+                className="w-full inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-4 py-2.5 rounded-xl font-medium text-xs transition-colors"
                 title="Libera espacio de almacenamiento temporal sin borrar proyectos"
               >
                 <AlertTriangle className="w-4 h-4 text-amber-400" />

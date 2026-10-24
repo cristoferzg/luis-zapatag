@@ -235,7 +235,7 @@ export const HerreriaPlanoCadView: React.FC<HerreriaPlanoCadViewProps> = ({
             {/* Botón [ EXPORTAR SVG ] */}
             <button
               onClick={handleExportSVG}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-medium border border-slate-700 active:scale-95"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 active:scale-95"
             >
               {copiado ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Download className="w-3.5 h-3.5" />}
               <span>{copiado ? 'Descargado' : 'SVG'}</span>

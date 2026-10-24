@@ -204,7 +204,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
       <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden shadow-xl my-2 flex-1">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-850 bg-slate-900/90 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
+            <thead className="bg-slate-900/90 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-800">
               <tr>
                 <th className="py-3 px-3">Item / Descripción</th>
                 <th className="py-3 px-2 text-center">Unidad</th>

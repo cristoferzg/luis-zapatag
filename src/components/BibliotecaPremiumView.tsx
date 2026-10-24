@@ -52,6 +52,10 @@ export interface BibliotecaItem {
   precioOriginalSoles?: number;
   isMasComprado?: boolean;
   isOferta?: boolean;
+  isDestacado?: boolean;   // aparece en la pestaña Destacados
+  enSlider?: boolean;      // aparece en el carrusel de arriba
+  adjuntos?: { nombre: string; url: string; tipo: string; tamano?: number }[];
+  plantilla?: { modulo: 'techos' | 'carpimetal' | 'drywall'; datos: any }; // plantilla prediseñada
   allowedUserIds?: string[];
   fileName?: string;
   isFree?: boolean;
@@ -322,7 +326,8 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
     if (activeTab === 'documentos') {
       matchesTab = item.tipo !== 'video';
     } else if (activeTab === 'ofertas') {
-      matchesTab = !!item.isMasComprado || !!item.isOferta || (!!item.precioOriginalSoles && item.precioOriginalSoles > (item.precioSoles || 0));
+      // Destacados: solo los recursos que el admin marcó como destacados.
+      matchesTab = !!item.isDestacado;
     }
 
     const matchesSearch = item.titulo.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -1509,7 +1514,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
       {showCategoryManager && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
-            <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg">
                   <Sliders className="w-4 h-4" />

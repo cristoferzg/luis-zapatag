@@ -995,7 +995,9 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
     // 2. Tab filter
     if (activeTab === 'ofertas') {
-      if (!v.isFeatured && v.isFree !== false) return false; // Show featured OR paid
+      // Destacados: solo lo que el admin marcó como destacado (la clase o su curso).
+      const curso = cursosList.find((c: CourseCategory) => c.name.trim().toLowerCase() === (v.category || '').trim().toLowerCase());
+      if (!v.isFeatured && !curso?.isFeatured) return false;
     }
 
     // 3. Category Filter
@@ -1947,7 +1949,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       {showCategoryManagerModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
-            <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
                   <Sliders className="w-4 h-4" />
@@ -2177,7 +2179,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       {showCourseModal && (
         <div className="fixed inset-0 z-60 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
-            <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
                   <FolderPlus className="w-4 h-4" />
@@ -2211,7 +2213,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   value={courseFormData.name}
                   onChange={(e) => setCourseFormData({ ...courseFormData, name: e.target.value })}
                   placeholder="Ej: Techos Parabólicos Avanzados"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 font-bold focus:outline-none focus:ring-1 focus:ring-slate-500 focus:bg-white"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 font-bold focus:outline-none focus:ring-1 focus:ring-slate-500 focus:bg-white"
                 />
               </div>
 
@@ -2307,7 +2309,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-slate-650 hover:bg-slate-600 text-white text-xs font-black rounded-lg shadow-sm transition-all cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white text-xs font-black rounded-lg shadow-sm transition-all cursor-pointer"
                 >
                   {editingCourseId ? 'Guardar Cambios' : 'Crear Curso'}
                 </button>
@@ -2321,7 +2323,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       {showModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 animate-scaleUp">
-            <div className="flex items-center justify-between p-4 border-b border-slate-150 bg-slate-50">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg">
                   <Video className="w-4 h-4" />
@@ -2347,7 +2349,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
               {/* Source Type Selector */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-650 uppercase">
+                <label className="block text-[10px] font-bold text-slate-600 uppercase">
                   Método de Publicación del Video
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -2392,7 +2394,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       onChange={handleFileChange}
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     />
-                    <UploadCloud className="w-8 h-8 text-slate-450 group-hover:text-slate-500 transition-colors mb-1" />
+                    <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-slate-500 transition-colors mb-1" />
                     {selectedFile ? (
                       <div>
                         <p className="text-xs font-bold text-slate-600 line-clamp-1">{selectedFile.name}</p>
