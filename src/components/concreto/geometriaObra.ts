@@ -28,6 +28,8 @@ export interface Abertura {
   w: number;    // ancho (m)
   h: number;    // alto (m)
   sill: number; // antepecho (m); 0 en puertas
+  carpiId?: string;      // diseño de CarpiMetal colocado en este vano
+  carpiNombre?: string;
 }
 
 export const esPuerta = (t: TipoAbertura) => t === 'puerta' || t === 'puerta_doble';

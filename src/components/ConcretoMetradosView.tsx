@@ -327,6 +327,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       ob?.ambientes.forEach(a => { txt += `  Ambiente: ${a.nombre} · ${a.area.toFixed(2)} m²\n`; });
       if (ob && ob.puertas + ob.ventanas + ob.vanos > 0) txt += `  Aberturas: ${ob.puertas} puertas · ${ob.ventanas} ventanas · ${ob.vanos} vanos\n`;
       if (ob?.cielo) txt += `  Cielo raso ${ob.cielo.nombre} (${ob.cielo.modo}): ${ob.cielo.area.toFixed(2)} m² · ángulo perimetral ${ob.cielo.perimetro.toFixed(1)} m · S/ ${ob.cielo.costo.toFixed(2)}\n`;
+      ob?.carpi?.forEach(c => { txt += `  CarpiMetal: ${c.nombre} (${c.medidas}) · S/ ${c.costo.toFixed(2)}\n`; });
       if (ob?.entrepisoOsb) txt += `  Entrepiso ${ob.entrepisoOsb.nombre}: ${ob.entrepisoOsb.area.toFixed(2)} m² · S/ ${ob.entrepisoOsb.costo.toFixed(2)}\n`;
       ob?.tanques?.forEach(t => { txt += `  Tanque T${t.numero} (${t.litros} L): sobretecho ${t.sobretecho ? `${t.sobretecho} ${t.sobretechoM2.toFixed(2)} m²` : 'no'} · sobrepecho ${t.sobrepechoM2 ? `${t.sobrepechoM2.toFixed(2)} m² (${t.ladrillos} ladrillos) S/ ${t.costoSobrepecho.toFixed(2)}` : 'no'}\n`; });
       if (ob?.cieloTanque) txt += `  Cielo raso bajo sobretecho de tanque: ${ob.cieloTanque.area.toFixed(2)} m² · S/ ${ob.cieloTanque.costo.toFixed(2)}\n`;

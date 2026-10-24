@@ -57,7 +57,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
       </div>
 
       {/* AMBIENTES, ABERTURAS Y CIELO RASO (del Plano CAD) */}
-      {obra && (obra.ambientes.length > 0 || obra.puertas + obra.ventanas + obra.vanos > 0 || obra.cielo || obra.cieloTanque || obra.entrepisoOsb) && (
+      {obra && (obra.ambientes.length > 0 || obra.puertas + obra.ventanas + obra.vanos > 0 || obra.cielo || obra.cieloTanque || obra.entrepisoOsb || obra.carpi?.length) && (
         <section className="space-y-2">
           <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><LayoutGrid className="w-4 h-4 text-emerald-500" /> Ambientes, puertas y cielo raso</h4>
           {obra.ambientes.length > 0 && (
@@ -76,6 +76,16 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
                 <p className="text-[11px] text-slate-500">{obra.cielo.area.toFixed(2)} m² de placa · {obra.cielo.perimetro.toFixed(1)} m de ángulo perimetral</p>
               </div>
               <span className="text-xs font-bold text-slate-800 shrink-0">{obra.cielo.costo > 0 ? S(obra.cielo.costo) : 'Sin precio'}</span>
+            </div>
+          )}
+          {obra.carpi && obra.carpi.length > 0 && (
+            <div className="rounded-xl bg-sky-50/60 px-3 py-2 space-y-0.5">
+              <p className="text-xs font-bold text-slate-700">Carpintería metálica (CarpiMetal)</p>
+              {obra.carpi.map((c, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-[11px] text-slate-600">
+                  <span className="truncate">{c.nombre} · {c.medidas}</span><span className="font-bold text-slate-800 shrink-0">{c.costo > 0 ? S(c.costo) : 'Sin precio'}</span>
+                </div>
+              ))}
             </div>
           )}
           {obra.entrepisoOsb && (

@@ -5,6 +5,7 @@ import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
 import { OsbItem, OSB_DEFAULTS } from '../../catalogo/osb';
 import { safeStorage } from '../../lib/storageManager';
+import { leerDisenosCarpi, costoDisenoCarpi } from './carpiObra';
 import { precio, precioPlanchaAM2, precioBarraPerfil, claveDrywall, claveOsb, claveLadrillo } from '../../lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import type { PlanoElem } from '../ConcretoPlanoCad';
@@ -231,6 +232,7 @@ export interface ObraPiso {
   cielo?: { area: number; perimetro: number; costo: number; nombre: string; modo: string };
   cieloTanque?: { area: number; costo: number };
   entrepisoOsb?: { area: number; costo: number; nombre: string };
+  carpi?: { nombre: string; costo: number; medidas: string }[]; // puertas/ventanas de CarpiMetal
   tanques?: { numero: number; litros: number; sobretecho?: string; sobretechoM2: number; sobrepechoM2: number; ladrillos: number; costoSobrepecho: number }[];
   costo: number;
 }
@@ -265,6 +267,16 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
         const costo = ts.reduce((s2, t) => s2 + mallaCieloTanque(t).area * (dry.find(x => x.id === cielos[`tanque:${t.id}`]?.materialId)?.precioM2 || 0), 0);
         o.cieloTanque = { area, costo }; o.costo += costo;
       }
+    }
+    // Puertas, ventanas y rejas de CarpiMetal colocadas en los vanos.
+    const conCarpi = abs.filter(a => a.carpiId);
+    if (conCarpi.length) {
+      const disenos = leerDisenosCarpi();
+      o.carpi = conCarpi.map(a => {
+        const d = disenos.find(x => x.id === a.carpiId);
+        return { nombre: d?.nombre || a.carpiNombre || 'Diseño CarpiMetal', costo: d ? costoDisenoCarpi(d) : 0, medidas: `${a.w.toFixed(2)} × ${a.h.toFixed(2)} m` };
+      });
+      o.costo += o.carpi.reduce((x, c) => x + c.costo, 0);
     }
     // Entrepisos de OSB dibujados como "techo" de este piso.
     const losasOsb = elems.filter(e => e.tipo === 'losa' && e.losaMaterial === 'osb' && (e.nivel || pisos[0]) === n && e.x2 !== undefined && e.y2 !== undefined);

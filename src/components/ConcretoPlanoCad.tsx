@@ -24,6 +24,7 @@ import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
 import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo } from './concreto/obraPisos';
 import { useCatalogo } from '../lib/catalogoPrecios';
+import { leerDisenosCarpi, costoDisenoCarpi, tipoAberturaDe } from './concreto/carpiObra';
 import {
   Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
   regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
@@ -169,6 +170,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const [materialMuro, setMaterialMuro] = useState<{ material: MaterialMuro; materialId: string }>({ material: 'ladrillo', materialId: LADRILLO_DEFAULTS[0].id });
   const [tipoAbertura, setTipoAbertura] = useState<TipoAbertura>('puerta');
   const [selAb, setSelAb] = useState<{ uid: string; id: string } | null>(null);
+  // Diseños guardados en CarpiMetal (se releen al seleccionar una abertura).
+  const disenosCarpi = useMemo(() => leerDisenosCarpi(), [selAb]); // eslint-disable-line react-hooks/exhaustive-deps
   const [aviso, setAviso] = useState('');
   // Cielo raso por piso (y bajo el sobretecho de cada tanque) y nombres de ambientes.
   const [cielos, setCielos] = useState<Record<string, CieloRaso>>(() => safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {});
@@ -1021,6 +1024,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                           </>)}
                           {a.tipo === 'vano' && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />}
                           {marcada && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#0ea5e9" strokeWidth={wPx + 8} opacity={0.3} />}
+                          {a.carpiId && <text x={C.x - uy * (wPx + 10)} y={C.y + ux * (wPx + 10) + 3} textAnchor="middle" fontSize={9} fontWeight={800} fill="#0369a1">{a.carpiNombre || 'CarpiMetal'}</text>}
                         </g>
                       );
                     })}
@@ -1257,6 +1261,19 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                     {(Object.keys(PRESETS_ABERTURA) as TipoAbertura[]).map(k => <option key={k} value={k}>{PRESETS_ABERTURA[k].nombre}</option>)}
                   </select>
                 </label>
+                <label className="block text-[10px] font-bold text-slate-600">Diseño de CarpiMetal
+                  <select value={a.carpiId || ''} onChange={e => {
+                    const d = disenosCarpi.find(x => x.id === e.target.value);
+                    if (!d) { updateAbertura(muro.uid, a.id, { carpiId: undefined, carpiNombre: undefined }); return; }
+                    const t = tipoAberturaDe(d);
+                    updateAbertura(muro.uid, a.id, { carpiId: d.id, carpiNombre: d.nombre, tipo: t, w: d.anchoM, h: d.altoM, sill: t === 'ventana' ? (a.sill || 0.9) : 0 });
+                  }} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                    <option value="">— Sin diseño (solo el vano) —</option>
+                    {disenosCarpi.map(d => <option key={d.id} value={d.id}>{d.nombre} · {d.anchoM.toFixed(2)}×{d.altoM.toFixed(2)} m · S/ {costoDisenoCarpi(d).toFixed(0)}</option>)}
+                  </select>
+                </label>
+                {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una puerta, ventana o reja en CarpiMetal para colocarla aquí.</p>}
+                {a.carpiId && (() => { const d = disenosCarpi.find(x => x.id === a.carpiId); return d ? <p className="text-[10px] font-bold text-sky-800">CarpiMetal: {d.nombre} · S/ {costoDisenoCarpi(d).toFixed(2)} (se suma al piso)</p> : <p className="text-[10px] font-bold text-amber-700">El diseño "{a.carpiNombre}" ya no está guardado en CarpiMetal.</p>; })()}
                 <div className="grid grid-cols-2 gap-2">
                   {num('Ancho (m)', a.w, v => updateAbertura(muro.uid, a.id, { w: v }, 'w'), 'w')}
                   {num('Alto (m)', a.h, v => updateAbertura(muro.uid, a.id, { h: v }, 'h'), 'h')}

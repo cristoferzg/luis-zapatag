@@ -165,6 +165,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       vidrio: new THREE.MeshLambertMaterial({ color: 0xa9d8ee, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }),
       cielo: new THREE.MeshLambertMaterial({ color: 0xf6f6f2, side: THREE.DoubleSide, transparent: true, opacity: 0.92, polygonOffset: true, polygonOffsetFactor: 1 }),
       tanque: new THREE.MeshLambertMaterial({ color: 0x4f555c }),
+      metal: new THREE.MeshLambertMaterial({ color: 0x3f4a56 }),
     };
     const superficie = (m: MallaCielo) => {
       if (!m.tris.length) return;
@@ -200,11 +201,12 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           forma.holes.push(h);
         }
         // Hoja de puerta entreabierta / vidrio
+        const matHoja = a.carpiId ? M2.metal : M2.puerta; // diseño de CarpiMetal: hoja metálica
         if (esPuerta(a.tipo)) {
           const hojas = a.tipo === 'puerta_doble' ? [[i, (d - i) / 2, -0.55], [d, -(d - i) / 2, 0.55]] : [[i, d - i, -0.55]];
           hojas.forEach(([x0, ancho, giro]) => {
             const piv = new THREE.Group(); piv.position.set(x0, 0, esp / 2); piv.rotation.y = giro; grupo.add(piv);
-            const hoja = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(ancho), top - 0.01, 0.04), M2.puerta);
+            const hoja = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(ancho), top - 0.01, 0.04), matHoja);
             hoja.position.set(ancho / 2, (top - 0.01) / 2, 0.02);
             conBordes(hoja, false, piv);
           });
@@ -212,6 +214,12 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const v = new THREE.Mesh(new THREE.BoxGeometry(d - i, top - pie, 0.02), M2.vidrio);
           v.position.set((i + d) / 2, (pie + top) / 2, 0);
           conBordes(v, true, grupo);
+          // Reja / ventana de CarpiMetal: marco y barrotes metálicos.
+          if (a.carpiId) {
+            const n = Math.max(2, Math.round((d - i) / 0.12));
+            for (let k = 1; k < n; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, top - pie, 0.02), M2.metal); b.position.set(i + ((d - i) * k) / n, (pie + top) / 2, 0.03); grupo.add(b); }
+            [[ (i + d) / 2, pie, d - i, 0.04 ], [ (i + d) / 2, top, d - i, 0.04 ]].forEach(([x, y, w, h]) => { const r = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), M2.metal); r.position.set(x, y, 0.03); grupo.add(r); });
+          }
         }
       });
       forma.lineTo(L, 0);
