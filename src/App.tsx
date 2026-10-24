@@ -1922,13 +1922,26 @@ export default function App() {
     setProjects(prev => [newProject, ...prev]);
   };
 
+  // Varias vistas internas pertenecen al mismo interruptor del menú (p. ej. el
+  // Panel abre 'gastos', que es parte de "Materiales & Gastos").
+  const SECCION_DE_VISTA: Partial<Record<string, string>> = {
+    gastos: 'materials', clients: 'projects', asistencia: 'personal', epp: 'contracts',
+    carpinteria: 'herreria', tickets: 'soporte', asesorias: 'soporte', finances: 'inversion',
+  };
+  const seccionDeVista = (v: string) => SECCION_DE_VISTA[v] || v;
+  const vistaBloqueada = (v: string) => !isAdmin && v !== 'dashboard' && disabledSections.includes(seccionDeVista(v));
+  const renderMantenimiento = () => (
+    <MantenimientoView
+      seccion={allNavItems.find(it => it.id === seccionDeVista(currentView))?.label}
+      appName={currentSettings?.appName}
+      onVolver={() => setCurrentView('dashboard')}
+    />
+  );
+
   const renderView = () => {
     // Si un usuario (no admin) entra a un apartado en desarrollo, mostramos la
     // pantalla de mantenimiento en vez del módulo real.
-    if (!isAdmin && currentView !== 'dashboard' && disabledSections.includes(currentView)) {
-      const secLabel = allNavItems.find(it => it.id === currentView)?.label;
-      return <MantenimientoView seccion={secLabel} appName={currentSettings?.appName} onVolver={() => setCurrentView('dashboard')} />;
-    }
+    if (vistaBloqueada(currentView)) return renderMantenimiento();
     switch (currentView) {
       case 'dashboard': return <DashboardView projects={filteredProjects} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} />;
       case 'admin_purchases': return <AdminPurchasesView />;
@@ -2129,7 +2142,7 @@ export default function App() {
     ? allNavItems.map(item => ({ ...item, enDesarrollo: disabledSections.includes(item.id) }))
     // Los usuarios no ven las secciones solo-admin; las que están en desarrollo se
     // muestran con la etiqueta "Mantenimiento" (al entrar ven una pantalla bonita).
-    : allNavItems.filter(item => !item.adminOnly).map(item => ({ ...item, enMantenimiento: disabledSections.includes(item.id) }));
+    : allNavItems.filter(item => !item.adminOnly).map(item => ({ ...item, enMantenimiento: vistaBloqueada(item.id) }));
 
   const rawDisplayName = isAdmin ? (user?.name || user?.email || 'Administrador') : user?.name;
   const cleanUserName = (rawDisplayName && rawDisplayName.toLowerCase().includes('newton')) ? 'Innova Contratistas' : (rawDisplayName || 'Administrador');
@@ -2366,7 +2379,7 @@ export default function App() {
         {/* Persistent Calculadora Estructural View Wrapper */}
         <div className={currentView === 'calculator' ? 'flex-1 overflow-y-auto bg-slate-50/50 p-4 xl:p-8 scroll-smooth' : 'hidden'}>
           <div className="max-w-7xl mx-auto h-full">
-            <CotizadorRapidoView />
+            {vistaBloqueada('calculator') ? renderMantenimiento() : <CotizadorRapidoView />}
           </div>
         </div>
 

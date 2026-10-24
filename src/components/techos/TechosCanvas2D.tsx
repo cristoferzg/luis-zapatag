@@ -1,4 +1,5 @@
 // Lienzo CAD Vectorial 2D/3D con Soporte Táctil, Panning, Snapping, Acoplamiento, Arrastre de Nodos, Trazo de Arcos y Sumilla de Controles
+import { createPortal } from 'react-dom';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { 
   Grid, 
@@ -227,6 +228,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Sumilla de Controles (Widget Flotante Desplegable)
   const [showControlsSumilla, setShowControlsSumilla] = useState<boolean>(false);
   const [showCadMore, setShowCadMore] = useState<boolean>(false); // menú "⋯ Más" (acciones secundarias)
+  // La barra superior tiene scroll horizontal y recortaría un menú absoluto.
+  const [cadMorePos, setCadMorePos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
   // Cota Numérica Exacta Modal
   const [showDimensionModal, setShowDimensionModal] = useState<boolean>(false);
@@ -1432,7 +1435,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               (Imagen ref., IA: Leer plano, Columnas exactas, Controles). */}
           <div className="relative shrink-0">
             <button
-              onClick={() => setShowCadMore(v => !v)}
+              onClick={e => {
+                const r = e.currentTarget.getBoundingClientRect();
+                setCadMorePos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+                setShowCadMore(v => !v);
+              }}
               className={`p-1 sm:px-2 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${
                 showCadMore ? 'bg-slate-900 text-white border-slate-900' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
               }`}
@@ -1441,10 +1448,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <MoreHorizontal className="w-4 h-4 shrink-0" />
               <span className="hidden md:inline">Más</span>
             </button>
-            {showCadMore && (
+            {showCadMore && createPortal(
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowCadMore(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-50 w-52 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5">
+                <div className="fixed inset-0 z-[90]" onClick={() => setShowCadMore(false)} />
+                <div style={cadMorePos} className="fixed z-[100] w-52 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5">
                   {vista === 'planta' && (
                     <button onClick={() => { setShowCadMore(false); if (refImg) { setShowRefControls(s => !s); } else { refImgInputRef.current?.click(); } }}
                       className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
@@ -1479,7 +1486,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                     </button>
                   )}
                 </div>
-              </>
+              </>,
+              document.body
             )}
           </div>
 
@@ -2650,36 +2658,42 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               </div>
             );
           }
+          // Móvil: columna vertical fija (estilo Herrería). Los toques sobre la
+          // barra no llegan al lienzo, así no se mueve el área de trabajo.
+          const frenar = (e: React.SyntheticEvent) => e.stopPropagation();
           return (
-            <div className="absolute left-2 right-2 bottom-2 z-30 flex items-center gap-1 overflow-x-auto scrollbar-none bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl">
-              {/* Rejilla integrada al dock (ya no flota aparte, no se encima) */}
-              <div className="shrink-0 flex flex-col items-center justify-center gap-0.5 px-1 border-r border-slate-200 mr-0.5">
+            <div
+              onTouchStart={frenar} onTouchMove={frenar} onTouchEnd={frenar} onMouseDown={frenar}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-0.5 bg-white/95 backdrop-blur-md rounded-2xl p-1 shadow-lg"
+            >
+              {railTools.map(t => {
+                const A = activeTool === t.id;
+                const Icon = t.Icon;
+                return (
+                  <button key={t.id} onClick={() => toggleTool(t.id)} title={t.label} aria-label={t.label}
+                    className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 cursor-pointer ${A ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>
+                    <Icon className="w-[17px] h-[17px]" />
+                    <span className="text-[7.5px] font-bold leading-none">{t.label === 'Seleccionar' ? 'Selec.' : t.label}</span>
+                  </button>
+                );
+              })}
+              <div className="h-px w-7 bg-slate-200 my-0.5" />
+              <label className="w-11 flex flex-col items-center gap-0.5 py-1" title="Paso de rejilla (snap)">
                 <Grid className="w-[15px] h-[15px] text-blue-600" />
                 <select
                   value={engineState.snapGridSizeM}
                   onChange={(e) => engineState.setSnapGridSizeM(parseFloat(e.target.value) || 0.25)}
-                  className="text-[9px] font-bold bg-transparent outline-none text-slate-600 w-[44px] text-center cursor-pointer"
-                  title="Paso de rejilla (snap)"
+                  className="text-[9px] font-bold bg-transparent outline-none text-slate-600 w-10 text-center cursor-pointer"
                 >
                   <option value={0.1}>0.10</option>
                   <option value={0.25}>0.25</option>
                   <option value={0.5}>0.50</option>
                   <option value={1.0}>1.00</option>
                 </select>
-              </div>
-              {railTools.map(t => {
-                const A = activeTool === t.id;
-                const Icon = t.Icon;
-                return (
-                  <button key={t.id} onClick={() => toggleTool(t.id)}
-                    className={`min-w-[52px] h-12 shrink-0 rounded-xl flex flex-col items-center justify-center gap-0.5 cursor-pointer ${A ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>
-                    <Icon className="w-[17px] h-[17px]" />
-                    <span className="text-[8.5px] font-bold">{t.label}</span>
-                  </button>
-                );
-              })}
-              <button onClick={openMas} className="min-w-[52px] h-12 shrink-0 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-500">
-                <MoreHorizontal className="w-[17px] h-[17px]" /><span className="text-[8.5px] font-bold">Más</span>
+              </label>
+              <button onClick={openMas} title="Más herramientas" aria-label="Más herramientas"
+                className="w-11 h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-500 cursor-pointer">
+                <MoreHorizontal className="w-[17px] h-[17px]" /><span className="text-[7.5px] font-bold leading-none">Más</span>
               </button>
             </div>
           );
