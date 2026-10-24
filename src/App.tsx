@@ -1694,7 +1694,8 @@ export default function App() {
       if (vistaActualRef.current !== 'dashboard') setCurrentView('dashboard');
       else CapApp.minimizeApp();
     });
-    return () => { h.then(x => x.remove()); };
+    h.catch(() => { /* sin plugin nativo: no hay botón atrás que manejar */ });
+    return () => { h.then(x => x.remove()).catch(() => {}); };
   }, []);
 
   // Global custom event listener for module navigation

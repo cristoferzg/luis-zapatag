@@ -12,6 +12,7 @@ export interface LaminaSlider {
   precio?: number;        // undefined o 0 con gratis = "Gratis"
   precioAntes?: number;
   gratis?: boolean;
+  sinPrecio?: boolean;     // app Android: no se muestran precios ni ofertas
   descuentoPct?: number;
   descuentoHasta?: string;
   textoBoton: string;
@@ -61,8 +62,8 @@ export default function SliderDestacados({ laminas }: { laminas: LaminaSlider[] 
       }}>
       <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${i * 100}%)` }}>
         {laminas.map(l => {
-          const cuenta = l.descuentoPct ? restante(l.descuentoHasta) : null;
-          const conDescuento = !l.gratis && !!l.descuentoPct && (!l.descuentoHasta || !!cuenta);
+          const cuenta = l.descuentoPct && !l.sinPrecio ? restante(l.descuentoHasta) : null;
+          const conDescuento = !l.sinPrecio && !l.gratis && !!l.descuentoPct && (!l.descuentoHasta || !!cuenta);
           const final = l.gratis ? 0 : conDescuento ? +((l.precio || 0) * (1 - (l.descuentoPct || 0) / 100)).toFixed(2) : (l.precio || 0);
           const antes = l.gratis ? 0 : conDescuento ? (l.precio || 0) : (l.precioAntes || 0) > final ? l.precioAntes! : 0;
           return (
@@ -79,10 +80,10 @@ export default function SliderDestacados({ laminas }: { laminas: LaminaSlider[] 
                 <h3 className="text-xl sm:text-2xl font-black text-white leading-tight line-clamp-2">{l.titulo}</h3>
                 {l.descripcion && <p className="text-xs sm:text-sm text-slate-200 line-clamp-2">{l.descripcion}</p>}
                 <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <div className="flex items-baseline gap-1.5">
+                  {!l.sinPrecio && <div className="flex items-baseline gap-1.5">
                     <span className="text-2xl font-black text-white">{l.gratis ? 'Gratis' : `S/ ${final.toFixed(2)}`}</span>
                     {antes > 0 && <span className="text-sm text-slate-300 line-through">S/ {antes.toFixed(2)}</span>}
-                  </div>
+                  </div>}
                   <button type="button" onClick={l.onAccion} className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-sm font-black shadow cursor-pointer">{l.textoBoton}</button>
                 </div>
                 {cuenta && <p className="text-[11px] font-mono font-bold text-amber-200">⏳ La oferta termina en {cuenta}</p>}

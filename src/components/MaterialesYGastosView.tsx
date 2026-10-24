@@ -1,4 +1,5 @@
 import { itemsCatalogo, precio, fijarPrecio, useCatalogo } from '../lib/catalogoPrecios';
+import { comprasPermitidas } from '../lib/plataforma';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
@@ -111,7 +112,7 @@ export default function MaterialesYGastosView({
           setScanNotice({ ok: false, msg: 'No se encontró QR en el comprobante. La lectura automática con IA está en pruebas internas; por ahora ingresa el gasto a mano.' });
         } else {
           setShowPlanesIA(result.motivo || (acc.motivo === 'sin_plan' ? 'sin_plan' : 'agotado'));
-          setScanNotice({ ok: false, msg: 'Se acabaron tus créditos para leer comprobantes sin QR. El QR del comprobante sigue siendo gratis; para fotos o PDFs sin QR, recarga créditos o sube de plan.' });
+          setScanNotice({ ok: false, msg: comprasPermitidas() ? 'Se acabaron tus créditos para leer comprobantes sin QR. El QR del comprobante sigue siendo gratis; para fotos o PDFs sin QR, recarga créditos o sube de plan.' : 'Se acabaron tus créditos de este mes para leer comprobantes sin QR. El QR del comprobante sigue siendo gratis.' });
         }
         return;
       }

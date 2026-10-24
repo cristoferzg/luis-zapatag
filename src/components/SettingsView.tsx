@@ -16,6 +16,7 @@ import { safeStorage } from '../lib/storageManager';
 import { StorageAuditPanel } from './common/StorageAuditPanel';
 import PlanesIAAdminPanel from './PlanesIAAdminPanel';
 import MisCreditosCard from './MisCreditosCard';
+import { esAppAndroid } from '../lib/plataforma';
 import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -1335,7 +1336,8 @@ export default function SettingsView({
         </div>
       </div>
 
-      {/* Apartado de Aplicación Móvil y PC (.exe) */}
+      {/* Apartado de Aplicación Móvil y PC (.exe) — no aplica dentro de la app Android */}
+      {!esAppAndroid() && (
       <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
         <div className="border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-3">
@@ -1439,6 +1441,7 @@ export default function SettingsView({
           </div>
         </div>
       </div>
+      )}
 
       {/* Apartado de Comunicados / Notificaciones: VISIBLE ÚNICAMENTE PARA EL ADMINISTRADOR */}
       {isAdmin && setGlobalNotifs && (

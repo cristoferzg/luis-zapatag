@@ -11,6 +11,7 @@ import { useFirestoreArraySync, updateRecord, deleteRecord } from '../lib/db';
 import { safeStorage } from '../lib/storageManager';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
 import SliderDestacados from './common/SliderDestacados';
+import { comprasPermitidas } from '../lib/plataforma';
 import { getCompanyCurrency, convertAmount, formatCurrencyWithSymbol } from '../lib/currency';
 
 export interface TutorialVideo {
@@ -100,6 +101,8 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   const activeVideos = setVideos ? videos : dbVideos;
 
   const getFormattedPrice = (priceSoles: number) => {
+    // App Android: sin precios (solo se ve lo que el usuario ya tiene).
+    if (!comprasPermitidas()) return 'Habilitado';
     const currency = getCompanyCurrency();
     const converted = convertAmount(priceSoles, 'PEN', currency.code);
     return formatCurrencyWithSymbol(converted, currency);
@@ -521,6 +524,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   // Video Play Handler with Daily Free Video Limit (1 per day for non-admins)
   const handlePlayVideoClick = (video: TutorialVideo) => {
     const isUnlocked = hasAccessToVideo(video);
+    if (!isUnlocked && !comprasPermitidas()) return;
     if (!isUnlocked) {
       setTargetPurchaseVideo(video);
       setShowPurchaseModal(true);
@@ -689,6 +693,8 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   });
 
   const filteredCourseItems = allCourseItems.filter(course => {
+    // App Android: solo cursos con alguna clase habilitada para el usuario.
+    if (!comprasPermitidas() && !course.videos.some(hasAccessToVideo)) return false;
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase();
     return course.name.toLowerCase().includes(q) || course.description.toLowerCase().includes(q);
@@ -701,6 +707,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
   const currentCourseVideos = selectedCourseFolder
     ? activeVideos.filter(v => (v.category || '').trim().toLowerCase() === selectedCourseFolder.trim().toLowerCase()).filter(v => {
+        if (!comprasPermitidas() && !hasAccessToVideo(v)) return false;
         if (!searchTerm.trim()) return true;
         const q = searchTerm.toLowerCase();
         return v.title.toLowerCase().includes(q) || (v.description && v.description.toLowerCase().includes(q));
@@ -709,6 +716,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
   // Filter displayVideos for global cards list (matching BibliotecaPremiumView)
   const displayVideos = activeVideos.filter(v => {
+    if (!comprasPermitidas() && !hasAccessToVideo(v)) return false;
     // 1. Search term filter
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
@@ -1029,13 +1037,13 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       {activeTab !== 'admin' && !selectedCourseFolder && (() => {
         const tieneCurso = (c: CourseCategory) => isAdmin || c.isFree !== false || (!!currentUser?.id && !!c.allowedUserIds?.includes(currentUser.id));
         const laminas = [
-          ...cursosList.filter(c => c.enSlider).map(c => {
+          ...cursosList.filter(c => c.enSlider && (comprasPermitidas() || tieneCurso(c))).map(c => {
             const clases = activeVideos.filter(v => (v.category || '').trim().toLowerCase() === c.name.trim().toLowerCase());
             const acceso = tieneCurso(c);
             return {
               id: c.id, titulo: c.name, descripcion: c.description, imagen: c.portadaUrl,
               etiqueta: `Curso · ${clases.length} ${clases.length === 1 ? 'lección' : 'lecciones'}`,
-              gratis: c.isFree !== false, precio: c.priceSoles || 0, precioAntes: c.precioAntesSoles,
+              gratis: c.isFree !== false, sinPrecio: !comprasPermitidas(), precio: c.priceSoles || 0, precioAntes: c.precioAntesSoles,
               descuentoPct: c.discountPercentage, descuentoHasta: c.discountExpiryDate,
               textoBoton: acceso ? 'Ver curso' : 'Adquirir',
               onAccion: () => {
@@ -1044,9 +1052,9 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               },
             };
           }),
-          ...activeVideos.filter(v => v.enSlider).map(v => ({
+          ...activeVideos.filter(v => v.enSlider && (comprasPermitidas() || hasAccessToVideo(v))).map(v => ({
             id: v.id, titulo: v.title, descripcion: v.description, imagen: v.thumbnailUrl,
-            etiqueta: `Clase · ${v.category}`, gratis: v.isFree !== false && !isPaidCourseVideo(v), precio: getEffectivePrice(v),
+            etiqueta: `Clase · ${v.category}`, gratis: v.isFree !== false && !isPaidCourseVideo(v), sinPrecio: !comprasPermitidas(), precio: getEffectivePrice(v),
             textoBoton: hasAccessToVideo(v) ? 'Ver clase' : 'Adquirir',
             onAccion: () => handlePlayVideoClick(v),
           })),

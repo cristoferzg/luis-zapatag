@@ -11,6 +11,7 @@ import {
   AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, getAIAccess, saldoEfectivo,
   solicitarPlanIA, solicitarCreditos, getAICtx,
 } from '../lib/aiAccess';
+import { comprasPermitidas } from '../lib/plataforma';
 
 const WA_ADMIN = '51966000500';
 const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -80,10 +81,16 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
                   <p className="text-[11px] text-slate-500">Plan {actual?.nombre || 'Gratis'} · {saldo.mes} del mes{saldo.extra ? ` + ${saldo.extra} de recargas` : ''}</p>
                 </div>
               </div>
-              {motivo === 'agotado' && <p className="text-xs font-bold text-amber-800">No te alcanzan para esta acción. Recarga o sube de plan 👇</p>}
+              {motivo === 'agotado' && <p className="text-xs font-bold text-amber-800">{comprasPermitidas() ? 'No te alcanzan para esta acción. Recarga o sube de plan 👇' : 'No te alcanzan para esta acción este mes.'}</p>}
             </div>
           )}
 
+          {!comprasPermitidas() ? (
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Boleta o captura sin QR: <b>{COSTO_CREDITOS.boleta} crédito</b> · Plano a mano: <b>{COSTO_CREDITOS.croquis} créditos</b> · Boletas con QR: <b>gratis</b>.<br />
+              Los créditos de tu plan se renuevan cada mes.
+            </p>
+          ) : (<>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-600"><b>¿Cuánto cuesta cada acción?</b> Boleta o captura sin QR: <b>{COSTO_CREDITOS.boleta} crédito</b> · Plano a mano: <b>{COSTO_CREDITOS.croquis} créditos</b> · Boletas con QR: <b>gratis</b></p>
             {hayAnual && (
@@ -140,9 +147,11 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
             </div>
           )}
 
-          <p className="text-[11px] text-slate-400 leading-snug">
+          </>)}
+
+          {comprasPermitidas() && <p className="text-[11px] text-slate-400 leading-snug">
             Al elegir se envía tu pedido al administrador por WhatsApp. Cuando valide tu pago, los créditos se cargan solos. Los créditos del plan se renuevan cada mes mientras esté vigente.
-          </p>
+          </p>}
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Coins, Sparkles } from 'lucide-react';
 import { getAICtx, getAIAccess, getConfigIA, saldoEfectivo, iaVisibleParaUI } from '../lib/aiAccess';
 import PlanesIAModal from './PlanesIAModal';
+import { comprasPermitidas } from '../lib/plataforma';
 
 export default function MisCreditosCard() {
   const [info, setInfo] = useState<{ plan: string; mes: number; extra: number } | null>(null);
@@ -31,9 +32,9 @@ export default function MisCreditosCard() {
           <p className="text-[11px] text-slate-500">Se usan para leer boletas sin QR y planos dibujados a mano.</p>
         </div>
       </div>
-      <button onClick={() => setAbierto(true)} className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-sm font-black flex items-center gap-1.5 cursor-pointer">
+      {comprasPermitidas() && <button onClick={() => setAbierto(true)} className="self-start sm:self-auto px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-sm font-black flex items-center gap-1.5 cursor-pointer">
         <Sparkles className="w-4 h-4" />Ver planes y recargas
-      </button>
+      </button>}
       {abierto && <PlanesIAModal onClose={() => setAbierto(false)} />}
     </div>
   );

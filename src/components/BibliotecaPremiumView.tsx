@@ -25,6 +25,7 @@ import { deleteRecord, useFirestoreArraySync, updateRecord } from '../lib/db';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
 import SliderDestacados from './common/SliderDestacados';
 import { usarPlantilla, NOMBRE_MODULO } from '../lib/plantillas';
+import { comprasPermitidas } from '../lib/plataforma';
 import { 
   getCompanyCurrency, 
   convertAmount, 
@@ -290,6 +291,8 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
 
   // Filtered lists (No video tab, pure technical resources)
   const filteredItems = items.filter(item => {
+    // App Android: solo lo que el usuario ya tiene (sin ventas dentro de la app).
+    if (!comprasPermitidas() && !hasAccess(item)) return false;
     let matchesTab = true;
     if (activeTab === 'documentos') {
       matchesTab = item.tipo !== 'video';
@@ -522,7 +525,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
         <div className="space-y-4">
           {/* CARRUSEL DE DESTACADOS */}
           {(() => {
-            const enCarrusel = items.filter(i => i.enSlider);
+            const enCarrusel = items.filter(i => i.enSlider && (comprasPermitidas() || hasAccess(i)));
             return enCarrusel.length > 0 && (
               <SliderDestacados laminas={enCarrusel.map(item => ({
                 id: item.id,
@@ -531,6 +534,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                 imagen: item.previewImageUrl,
                 etiqueta: item.isMasComprado ? 'Más comprado' : item.categoria,
                 gratis: !!item.isFree,
+                sinPrecio: !comprasPermitidas(),
                 precio: item.precioSoles || 0,
                 precioAntes: item.precioOriginalSoles,
                 descuentoPct: item.discountPercentage,
@@ -616,9 +620,9 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                         </div>
 
                         <div className="shrink-0">
-                          {item.isFree ? (
+                          {item.isFree || !comprasPermitidas() ? (
                             <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
-                              Acceso Libre
+                              {item.isFree ? 'Acceso Libre' : 'Habilitado'}
                             </span>
                           ) : (
                             (() => {
@@ -648,7 +652,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                       </div>
 
                       {/* Banner de Oferta / Contador de Expiración (si aplica) */}
-                      {item.discountExpiryDate && (
+                      {item.discountExpiryDate && comprasPermitidas() && (
                         <div className="w-full flex items-center justify-between gap-2 bg-amber-50/90 border border-amber-200/90 rounded-xl px-2.5 py-1.5 text-[11px] text-amber-900 font-bold">
                           <span className="flex items-center gap-1 text-amber-800 shrink-0">
                             <Sparkles className="w-3.5 h-3.5 text-amber-600" />
