@@ -1,6 +1,7 @@
 // Hook de Gestión de Estado Vectorial CAD y Trazado Libre (Node-to-Node / Line-to-Line)
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
 
+import { useCostosTechos } from './costosTechos';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { 
   Node3D, 
@@ -3974,7 +3975,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     return generateDxfContent(linesToExport, projectName);
   }, [nodes, segments]);
 
-  // Cálculo en tiempo real de Reporte BOM Presupuestario
+  // Cálculo en tiempo real de Reporte BOM Presupuestario (con los precios,
+  // la mano de obra y los gastos operativos que el usuario edita).
+  const costosUsuario = useCostosTechos();
   const bomReport = useMemo(() => {
     // Las columnas de concreto existentes NO se cuentan como acero (ya están
     // construidas). Se excluyen del despiece/costo de acero, pero siguen
@@ -3983,8 +3986,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const segmentosAcero = Object.fromEntries(
       Object.entries(segments).filter(([, s]) => s.rolEstructural !== 'columna_concreto')
     ) as typeof segments;
-    return generarReportePresupuestoBom(nodes, segmentosAcero, coverageZones);
-  }, [nodes, segments, coverageZones]);
+    return generarReportePresupuestoBom(nodes, segmentosAcero, coverageZones, costosUsuario);
+  }, [nodes, segments, coverageZones, costosUsuario]);
 
   // Cálculo de Análisis Estructural segun RNE E.020, E.030, E.090
   const structuralReport: StructuralAnalysisReport = useMemo(() => {

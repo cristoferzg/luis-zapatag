@@ -22,7 +22,7 @@ import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
 import { setActiveTechosDesignToLoad, getCachedTechosDesigns } from '../lib/techosDesignsRepo';
-import { KEY_CIELOS, KEY_AMBIENTES, CieloRaso } from './concreto/geometriaObra';
+import { KEY_CIELOS, KEY_AMBIENTES, KEY_SOBREPECHOS, CieloRaso, Sobrepecho } from './concreto/geometriaObra';
 import {
   SistemaNivel, TechoSnapshot, MuroCapa, calcSistema, sistemaVacio, muroDesdePlano,
   KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_CAT_OSB, leerCatalogoOsb,
@@ -219,6 +219,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   const [techosLib] = useState<TechoSnapshot[]>(() =>
     safeStorage.getItem<TechoSnapshot[]>(KEY_TECHOS_DISPONIBLES, []) || []
   );
+  const [catOsb, setCatOsb] = useState<OsbItem[]>(leerCatalogoOsb);
   // Lo dibujado en el Plano CAD (muros, aberturas, ambientes, cielo raso) y la
   // estructura de Techos vinculada, por piso. Se relee al volver a Lista.
   const obraCad = useMemo(() => {
@@ -238,14 +239,14 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
     });
     const cielos = safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {};
     const nombres = safeStorage.getItem<Record<string, string>>(KEY_AMBIENTES, {}) || {};
-    resumen = obraPorPiso(niveles, est, elems, cielos, nombres, catDrywall);
+    const sobrepechos = safeStorage.getItem<Record<string, Sobrepecho>>(KEY_SOBREPECHOS, {}) || {};
+    resumen = obraPorPiso(niveles, est, elems, cielos, nombres, catDrywall, catOsb, catLadrillo, sobrepechos);
     return { muros, resumen, nombreEst };
-  }, [modo, niveles, catDrywall]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [modo, niveles, catDrywall, catOsb, catLadrillo]); // eslint-disable-line react-hooks/exhaustive-deps
   const murosCad = obraCad.muros;
   useEffect(() => { safeStorage.setItem(KEY_SISTEMAS_NIVEL, sistemas); }, [sistemas]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_DRYWALL, catDrywall); }, [catDrywall]);
   useEffect(() => { safeStorage.setItem(KEY_CAT_LADRILLO, catLadrillo); }, [catLadrillo]);
-  const [catOsb, setCatOsb] = useState<OsbItem[]>(leerCatalogoOsb);
   useEffect(() => { safeStorage.setItem(KEY_CAT_OSB, catOsb); }, [catOsb]);
 
   const addItem = (tipoId: string) => setItems(prev => [...prev, nuevaInstancia(tipoId, nivelActivo)]);
@@ -321,6 +322,8 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
       ob?.ambientes.forEach(a => { txt += `  Ambiente: ${a.nombre} · ${a.area.toFixed(2)} m²\n`; });
       if (ob && ob.puertas + ob.ventanas + ob.vanos > 0) txt += `  Aberturas: ${ob.puertas} puertas · ${ob.ventanas} ventanas · ${ob.vanos} vanos\n`;
       if (ob?.cielo) txt += `  Cielo raso ${ob.cielo.nombre} (${ob.cielo.modo}): ${ob.cielo.area.toFixed(2)} m² · ángulo perimetral ${ob.cielo.perimetro.toFixed(1)} m · S/ ${ob.cielo.costo.toFixed(2)}\n`;
+      if (ob?.entrepisoOsb) txt += `  Entrepiso ${ob.entrepisoOsb.nombre}: ${ob.entrepisoOsb.area.toFixed(2)} m² · S/ ${ob.entrepisoOsb.costo.toFixed(2)}\n`;
+      ob?.tanques?.forEach(t => { txt += `  Tanque T${t.numero} (${t.litros} L): sobretecho ${t.sobretecho ? `${t.sobretecho} ${t.sobretechoM2.toFixed(2)} m²` : 'no'} · sobrepecho ${t.sobrepechoM2 ? `${t.sobrepechoM2.toFixed(2)} m² (${t.ladrillos} ladrillos) S/ ${t.costoSobrepecho.toFixed(2)}` : 'no'}\n`; });
       if (ob?.cieloTanque) txt += `  Cielo raso bajo sobretecho de tanque: ${ob.cieloTanque.area.toFixed(2)} m² · S/ ${ob.cieloTanque.costo.toFixed(2)}\n`;
       sistema.muros.forEach(({ m, r }) => {
         txt += `  Muro ${m.tipo}: ${r.nombre} · ${m.areaM2.toFixed(2)} m²${m.tipo !== 'ladrillo' ? ` x ${m.caras} cara(s)` : ''} → ${m.tipo !== 'ladrillo' ? `${r.unidades.toFixed(1)} m² placa` : `${r.unidades} ladrillos`} · S/ ${r.costo.toFixed(2)}\n`;

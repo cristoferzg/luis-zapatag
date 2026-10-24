@@ -31,7 +31,8 @@ import {
   ChevronDown,
   MoreHorizontal,
   Image as ImageIcon,
-  Droplets
+  Droplets,
+  Compass
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
@@ -282,7 +283,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
   const [showColumnasExactas, setShowColumnasExactas] = useState<boolean>(false);
-  const [showCobTanque, setShowCobTanque] = useState<null | 'cobertura' | 'tanque'>(null);
+  const [showCobTanque, setShowCobTanque] = useState<null | 'cobertura' | 'tanque' | 'caida'>(null);
 
 
 
@@ -1332,6 +1333,15 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           ? 'cursor-default' 
           : 'cursor-crosshair';
 
+  // Etiquetas sin encimarse: cada cota o nombre reserva su rectángulo en
+  // pantalla en el orden de dibujo; si choca con otra ya puesta, no se dibuja.
+  const etiquetasPuestas: { x: number; y: number; w: number; h: number }[] = [];
+  const etiquetaLibre = (x: number, y: number, w: number, h: number) => {
+    if (etiquetasPuestas.some(o => Math.abs(o.x - x) < (o.w + w) / 2 && Math.abs(o.y - y) < (o.h + h) / 2)) return false;
+    etiquetasPuestas.push({ x, y, w, h });
+    return true;
+  };
+
   return (
     <div ref={containerRef} className={`w-full h-full flex flex-col bg-slate-50 text-slate-800 relative overflow-hidden select-none font-sans ${vistaAmplia ? 'fixed inset-0 z-50' : ''}`}>
       
@@ -1484,7 +1494,12 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                   <button onClick={() => { setShowCadMore(false); setShowCobTanque('tanque'); }}
                     className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
                     <Droplets className="w-4 h-4 text-sky-600 shrink-0" />
-                    <span>Tanque elevado</span>
+                    <span>Tanques elevados</span>
+                  </button>
+                  <button onClick={() => { setShowCadMore(false); setShowCobTanque('caida'); }}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                    <Compass className="w-4 h-4 text-sky-600 shrink-0" />
+                    <span>Caída del techo</span>
                   </button>
                   <button onClick={() => { setShowCadMore(false); setShowControlsSumilla(v => !v); }}
                     className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
@@ -1775,7 +1790,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                           <line x1={x1 - 6} y1={y1} x2={x1 + 6} y2={y1} stroke="#ffffff" strokeWidth="1.2" opacity="0.85" />
                           <line x1={x1} y1={y1 - 6} x2={x1} y2={y1 + 6} stroke="#ffffff" strokeWidth="1.2" opacity="0.85" />
 
-                          {showDimensions && (
+                          {showDimensions && etiquetaLibre(x1, y1 + 16, 54, 16) && (
                             <g transform={`translate(${x1}, ${y1 + 16})`} className="pointer-events-none">
                               <rect x="-26" y="-7" width="52" height="14" rx="3" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
                               <text x="0" y="3" fill="#0f172a" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
@@ -1814,7 +1829,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                         <line x1={x1 - 6} y1={y1 - 6} x2={x1 + 6} y2={y1 + 6} stroke="#ffffff" strokeWidth="1.2" opacity="0.85" />
                         <line x1={x1 - 6} y1={y1 + 6} x2={x1 + 6} y2={y1 - 6} stroke="#ffffff" strokeWidth="1.2" opacity="0.85" />
 
-                        {showDimensions && (
+                        {showDimensions && etiquetaLibre(x1, y1 + 16, 50, 16) && (
                           <g transform={`translate(${x1}, ${y1 + 16})`} className="pointer-events-none">
                             <rect x="-24" y="-7" width="48" height="14" rx="3" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
                             <text x="0" y="3" fill="#0f172a" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
@@ -1844,7 +1859,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                         className="group-hover:stroke-amber-500 transition-colors"
                       />
 
-                      {showDimensions && lengthM > 0.4 && (
+                      {showDimensions && lengthM > 0.4 && Math.hypot(x2 - x1, y2 - y1) >= 70 && etiquetaLibre(midX, midY, 62, 24) && (
                         <g transform={`translate(${midX}, ${midY})`} className="pointer-events-none">
                           <rect x="-30" y="-12" width="60" height="22" rx="6" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.5" className="shadow-xs" />
                           <text x="0" y="4" fill="#0f172a" fontSize="13" fontWeight="900" textAnchor="middle" fontFamily="monospace">
@@ -1906,7 +1921,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                         className="group-hover:stroke-amber-400 group-hover:brightness-110 transition-colors shadow-sm"
                       />
 
-                      {n.nodeLabel && (
+                      {n.nodeLabel && (isSelected || isBeingDragged || etiquetaLibre(cx + 10 + n.nodeLabel.length * 2.7, cy, n.nodeLabel.length * 5.6 + 4, 12)) && (
                         <text x={cx + 10} y={cy + 3} fill="#475569" fontSize="9" fontWeight="bold" fontFamily="monospace" className="pointer-events-none">
                           {n.nodeLabel}
                         </text>

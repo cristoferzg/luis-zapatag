@@ -13,7 +13,9 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { PlanoElem } from './ConcretoPlanoCad';
 import { EstructuraTechos, contextosObra } from './concreto/obraPisos';
-import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, MallaCielo, esNodoTanque } from './concreto/geometriaObra';
+import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, MallaCielo, esNodoTanque,
+  CapaEstructura, capaDeRol, CAPAS, Sobrepecho } from './concreto/geometriaObra';
+import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
 import { coberturaDesdeCorreas } from './techos/coberturaAuto';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
 
@@ -73,6 +75,38 @@ function materialCobertura(materialId: string): THREE.Material {
   }
 }
 
+// Sección real del perfil (en metros) como forma 2D: x = ancho, y = alto.
+function seccionPerfil(p: PerfilTubularItem): THREE.Shape | null {
+  const b = p.anchoMm / 1000, h = (p.altoMm || p.anchoMm) / 1000, e = Math.max(0.0015, (p.espesorMm || 2) / 1000);
+  const rect = (w: number, hh: number) => { const s = new THREE.Shape(); s.moveTo(-w / 2, -hh / 2); s.lineTo(w / 2, -hh / 2); s.lineTo(w / 2, hh / 2); s.lineTo(-w / 2, hh / 2); s.closePath(); return s; };
+  const poli = (pts: [number, number][]) => { const s = new THREE.Shape(); s.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(q => s.lineTo(q[0], q[1])); s.closePath(); return s; };
+  switch (p.categoria) {
+    case 'tubo_cuadrado': case 'tubo_rectangular': {
+      const s = rect(b, h);
+      if (b - 2 * e > 0.004 && h - 2 * e > 0.004) { const hole = new THREE.Path(); hole.moveTo(-b / 2 + e, -h / 2 + e); hole.lineTo(-b / 2 + e, h / 2 - e); hole.lineTo(b / 2 - e, h / 2 - e); hole.lineTo(b / 2 - e, -h / 2 + e); hole.closePath(); s.holes.push(hole); }
+      return s;
+    }
+    case 'perfil_c': { // canal con labios
+      const l = Math.min(b * 0.35, 0.02), t = Math.max(e, 0.002);
+      return poli([[-b / 2, -h / 2], [b / 2, -h / 2], [b / 2, -h / 2 + l], [b / 2 - t, -h / 2 + l], [b / 2 - t, -h / 2 + t], [-b / 2 + t, -h / 2 + t], [-b / 2 + t, h / 2 - t], [b / 2 - t, h / 2 - t], [b / 2 - t, h / 2 - l], [b / 2, h / 2 - l], [b / 2, h / 2], [-b / 2, h / 2]]);
+    }
+    case 'perfil_z': {
+      const t = Math.max(e, 0.002);
+      return poli([[-b, -h / 2], [t / 2, -h / 2], [t / 2, h / 2 - t], [b, h / 2 - t], [b, h / 2], [-t / 2, h / 2], [-t / 2, -h / 2 + t], [-b, -h / 2 + t]].map(([x, y]) => [x / 2, y] as [number, number]));
+    }
+    case 'perfil_h_ipe': {
+      const tf = Math.max(e * 1.4, h * 0.07), tw = Math.max(e, h * 0.045);
+      return poli([[-b / 2, -h / 2], [b / 2, -h / 2], [b / 2, -h / 2 + tf], [tw / 2, -h / 2 + tf], [tw / 2, h / 2 - tf], [b / 2, h / 2 - tf], [b / 2, h / 2], [-b / 2, h / 2], [-b / 2, h / 2 - tf], [-tw / 2, h / 2 - tf], [-tw / 2, -h / 2 + tf], [-b / 2, -h / 2 + tf]]);
+    }
+    case 'angulo_estructural': {
+      const t = Math.max(e, 0.003);
+      return poli([[-b / 2, -h / 2], [b / 2, -h / 2], [b / 2, -h / 2 + t], [-b / 2 + t, -h / 2 + t], [-b / 2 + t, h / 2], [-b / 2, h / 2]]);
+    }
+    case 'tubo_redondo': case 'barra_redonda': return null;
+    default: return rect(b, h);
+  }
+}
+
 const TONOS_AMBIENTE = [0xfdf0c4, 0xd9f2df, 0xd8ecf8, 0xf8dfea, 0xe6e0f7, 0xfde4cc];
 
 interface Props {
@@ -82,12 +116,15 @@ interface Props {
   cielos?: Record<string, CieloRaso>;
   verTecho?: boolean;   // false: oculta coberturas para ver el interior
   hastaPiso?: string;   // corta la obra por encima de este piso
+  capasOcultas?: CapaEstructura[];
+  sobrepechos?: Record<string, Sobrepecho>;
+  resaltarPerfiles?: boolean; // dibuja las secciones ×3 para verlas mejor de lejos
 }
 
-export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '' }: Props) {
+export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso });
-  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso };
+  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles });
+  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles };
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -192,8 +229,37 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       conBordes(m, true);
     };
 
+    // Perfil metálico con su sección real (tubo hueco, redondo, C, Z, I, ángulo)
+    // orientado con su alto en el plano vertical del elemento.
+    const matsCapa = new Map<CapaEstructura, THREE.Material>();
+    const matAcero = (c: CapaEstructura) => { let m = matsCapa.get(c); if (!m) { m = new THREE.MeshLambertMaterial({ color: CAPAS[c].hex }); matsCapa.set(c, m); } return m; };
+    const cacheSeccion = new Map<string, THREE.Shape | null>();
+    const perfil3d = (a: THREE.Vector3, b: THREE.Vector3, p: PerfilTubularItem | undefined, mat: THREE.Material, giroGrados?: number) => {
+      const dir = new THREE.Vector3().subVectors(b, a); const L = dir.length();
+      if (L < 0.005) return;
+      const z = dir.clone().normalize();
+      const arriba = new THREE.Vector3(0, 1, 0);
+      let x = new THREE.Vector3().crossVectors(arriba, z);
+      if (x.lengthSq() < 1e-6) x = new THREE.Vector3(1, 0, 0); else x.normalize();
+      const y = new THREE.Vector3().crossVectors(z, x).normalize();
+      let geo: THREE.BufferGeometry;
+      if (!p) geo = new THREE.BoxGeometry(0.05, 0.05, L).translate(0, 0, L / 2);
+      else {
+        if (!cacheSeccion.has(p.id)) cacheSeccion.set(p.id, seccionPerfil(p));
+        const sec = cacheSeccion.get(p.id);
+        geo = sec ? new THREE.ExtrudeGeometry(sec, { depth: L, bevelEnabled: false, curveSegments: 4 })
+          : new THREE.CylinderGeometry(p.anchoMm / 2000, p.anchoMm / 2000, L, 14).rotateX(Math.PI / 2).translate(0, 0, L / 2);
+      }
+      if (giroGrados) geo.rotateZ((giroGrados * Math.PI) / 180);
+      if (datos.current.resaltarPerfiles) geo.scale(3, 3, 1);
+      const m = new THREE.Mesh(geo, mat);
+      m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+      m.position.copy(a);
+      conBordes(m, true);
+    };
+
     const construir = () => {
-      const { elems: todos, niveles: nivs, estructura: est, cielos: cls, verTecho: conTecho, hastaPiso: corte } = datos.current;
+      const { elems: todos, niveles: nivs, estructura: est, cielos: cls, verTecho: conTecho, hastaPiso: corte, capasOcultas: ocultas, sobrepechos: sps } = datos.current;
       const obra = contextosObra(nivs, est || null);
       // Corte por piso: se dibuja hasta el piso elegido (sin lo que está encima).
       const kCorte = corte ? obra.pisos.indexOf(corte) : -1;
@@ -210,19 +276,22 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           if (Math.min(na.y, nb.y) > yCorte - 0.06 && !(Math.abs(na.y - nb.y) < 0.01 && Math.abs(na.y - yCorte) < 0.06)) return;
           const deSobretecho = /^TQS/.test(na.nodeLabel || '') && /^TQS/.test(nb.nodeLabel || '');
           if (!conTecho && (sg.rolEstructural === 'correa' || deSobretecho)) return;
+          const capa = capaDeRol(sg.rolEstructural);
+          if (ocultas.includes(capa)) return;
           const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sg.profileId);
           const ancho = Math.max(0.03, (p?.anchoMm || 50) / 1000), alto = Math.max(0.03, (p?.altoMm || 50) / 1000);
           const a = new THREE.Vector3(na.x, na.y, na.z), b = new THREE.Vector3(nb.x, nb.y, nb.z);
           if (sg.rolEstructural === 'columna_concreto') { barra(a, b, Math.max(0.25, ancho), Math.max(0.25, alto), M.concreto); return; }
           const hc = sg.concretoBaseM || 0;
+          const acero = matAcero(capa);
           if (hc > 0 && sg.rolEstructural.startsWith('columna')) {
             const bajo = a.y <= b.y ? a : b, altoP = a.y <= b.y ? b : a;
             const corte = bajo.clone().add(new THREE.Vector3().subVectors(altoP, bajo).setLength(Math.min(hc, bajo.distanceTo(altoP))));
             barra(bajo, corte, Math.max(0.25, ancho + 0.1), Math.max(0.25, alto + 0.1), M.concreto);
-            barra(corte, altoP, ancho, alto, M.acero);
+            perfil3d(corte, altoP, p, acero, sg.anguloRotacionGrados);
             return;
           }
-          barra(a, b, ancho, alto, M.acero);
+          perfil3d(a, b, p, acero, sg.anguloRotacionGrados);
         });
         // Coberturas guardadas; si el diseño no tiene, se deducen de las correas.
         const zonas = Object.values(est.coverageZones || {}).map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId }));
@@ -252,8 +321,13 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         if (e.tipo === 'columna') caja(a, H, b, e.x1, H / 2, e.y1, M.concreto);
         else if (e.tipo === 'zapata') caja(a, h, b, e.x1, h / 2 - h, e.y1, M.zapata);
         else if (e.tipo === 'losa' && e.x2 !== undefined && e.y2 !== undefined) {
-          const esp = e.h || 0.2;
-          caja(Math.abs(e.x2 - e.x1), esp, Math.abs(e.y2 - e.y1), (e.x1 + e.x2) / 2, vigaElev + esp / 2, (e.y1 + e.y2) / 2, M.losa);
+          // Losa / entrepiso: techo del piso elegido (= piso del de arriba).
+          const esOsb = e.losaMaterial === 'osb', esp = e.h || (esOsb ? 0.018 : 0.2);
+          const ctx = obra.ctx(e.nivel);
+          const tope = e.nivel ? (ctx.tope ?? ctx.base + 3) : vigaElev + esp;
+          let mat: THREE.Material = M.losa;
+          if (esOsb) { const t = TEX.osb(); t.repeat.set(Math.abs(e.x2 - e.x1) / 2.44, Math.abs(e.y2 - e.y1) / 1.22); mat = new THREE.MeshLambertMaterial({ map: t }); }
+          if (pisoVisible(e.nivel) || !e.nivel) caja(Math.abs(e.x2 - e.x1), Math.max(esp, 0.03), Math.abs(e.y2 - e.y1), (e.x1 + e.x2) / 2, tope - esp / 2, (e.y1 + e.y2) / 2, mat);
         } else if (e.x2 !== undefined && e.y2 !== undefined) {
           const dx = e.x2 - e.x1, dz = e.y2 - e.y1, L = Math.hypot(dx, dz);
           const cx = (e.x1 + e.x2) / 2, cz = (e.y1 + e.y2) / 2, rotY = -Math.atan2(dz, dx);
@@ -293,6 +367,23 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         const tapa = new THREE.Mesh(new THREE.CylinderGeometry(t.diametro * 0.22, t.diametro * 0.22, 0.08, 20), M2.tanque);
         tapa.position.set(t.x, t.y + t.alto + 0.07, t.z); conBordes(tapa, true);
         if (cls[`tanque:${t.id}`]?.activo && t.ySobretecho !== null) superficie(mallaCieloTanque(t));
+        // Sobrepecho: murete de ladrillo alrededor de la plataforma.
+        const sp = sps[t.id];
+        if (sp?.activo) {
+          const l = t.lado + 2 * sp.holgura, e = 0.13;
+          const tex = TEX.ladrillo(); tex.repeat.set(l / 1.2, sp.alto / 0.6);
+          const mat = new THREE.MeshLambertMaterial({ map: tex });
+          [[0, -l / 2, 0], [0, l / 2, 0], [-l / 2, 0, Math.PI / 2], [l / 2, 0, Math.PI / 2]].forEach(([dx, dz, rot]) =>
+            caja(l + e, sp.alto, e, t.x + dx, t.y + sp.alto / 2, t.z + dz, mat, rot));
+        }
+        // Etiqueta T1, T2… sobre el tanque.
+        const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+        const g = c.getContext('2d')!;
+        g.fillStyle = 'rgba(15,23,42,.88)'; g.beginPath(); if (g.roundRect) g.roundRect(4, 8, 120, 48, 14); else g.rect(4, 8, 120, 48); g.fill();
+        g.fillStyle = '#fff'; g.font = 'bold 30px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`T${t.numero}`, 64, 33);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+        sprite.scale.set(0.9, 0.45, 1); sprite.position.set(t.x, (t.ySobretecho ?? t.y + t.alto) + 0.7, t.z);
+        modelo.add(sprite);
       });
     };
 

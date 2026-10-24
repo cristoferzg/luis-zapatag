@@ -8,10 +8,11 @@
 // cambiaba la fecha, por eso se eliminó. El admin puede editar/añadir precios a
 // mano y persisten en el dispositivo. El cotizador es opcional (colapsable).
 // =============================================================================
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import BotonImprimir from './common/BotonImprimir';
 import {
   MapPin, Calculator, Search, Plus, Edit2, Trash2, RotateCcw,
-  Copy, Check, Printer, X, AlertTriangle, ChevronDown, Pencil
+  Copy, Check, X, AlertTriangle, ChevronDown, Pencil
 } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
 
@@ -81,6 +82,7 @@ const DEFAULT_PRECIOS_CATEGORIES: PriceCategory[] = [
 ];
 
 export const PreciosView: React.FC = () => {
+  const hojaRef = useRef<HTMLDivElement>(null);
   const [selectedRegion, setSelectedRegion] = useState<string>('Perú (Nacional)');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>('all');
@@ -187,7 +189,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
     v && v.startsWith('+') ? 'text-amber-700/80' : 'text-slate-400';
 
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 pb-24">
+    <div ref={hojaRef} className="h-full overflow-y-auto bg-slate-50 pb-24">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-5 space-y-5">
 
         {/* ENCABEZADO */}
@@ -218,10 +220,8 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
                 <option>Huancayo / Junín</option>
               </select>
             </div>
-            <button onClick={() => window.print()} title="Imprimir / PDF"
-              className="p-2 bg-white hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 cursor-pointer transition-colors">
-              <Printer className="w-4 h-4" />
-            </button>
+            <BotonImprimir objetivo={() => hojaRef.current} titulo="Precios de mercado" etiqueta="Imprimir"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 text-[12px] font-bold cursor-pointer transition-colors" />
             <button onClick={() => setEditMode(v => !v)}
               className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-bold border cursor-pointer transition-colors ${
                 editMode ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'

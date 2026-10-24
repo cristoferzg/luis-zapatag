@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Briefcase, Calculator, Users, DollarSign, Activity, 
   Settings, AlertCircle, TrendingUp, TrendingDown, Home, CreditCard, Menu, Plus, 
-  Edit2, Trash2, CheckCircle, ArrowRight, 
+  Edit2, Trash2, ArrowRight, 
   FileSignature, Package, 
   PenTool, Video, ExternalLink, ShieldCheck, FolderKanban, X
 } from 'lucide-react';
@@ -21,7 +21,7 @@ import { Asesoria } from './components/AsesoriasView';
 import SoporteYAsesoriasView from './components/SoporteYAsesoriasView';
 import MaterialesYGastosView from './components/MaterialesYGastosView';
 import SettingsView from './components/SettingsView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown } from 'lucide-react';
 import DiseñadorView from './components/DiseñadorView';
 import HerreriaModuleView from './components/herreria/HerreriaModuleView';
 import TechosModuleView from './components/techos/TechosModuleView';
@@ -358,14 +358,16 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
             </div>
           )}
 
-          <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-indigo-100 text-indigo-700 rounded-xl">
-                <CheckCircle className="w-8 h-8" />
+          <div className="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-r from-slate-950 via-slate-900 to-stone-900 ring-1 ring-amber-400/40 shadow-lg shadow-amber-900/10">
+            <div className="absolute -right-10 -top-12 w-48 h-48 rounded-full bg-amber-400/10 blur-2xl pointer-events-none" />
+            <div className="relative flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 text-slate-950 shadow-md shadow-amber-500/30">
+                <Crown className="w-7 h-7" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-indigo-900">Licencia Permanente PRO Activada</h2>
-                <p className="text-sm text-indigo-700 mt-0.5">Acceso completo sin caducidad. Tus proyectos y finanzas son 100% privados.</p>
+                <p className="text-[10px] font-black tracking-[0.25em] text-amber-300/80 uppercase">Edición exclusiva</p>
+                <h2 className="text-xl font-black bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-100 bg-clip-text text-transparent">Licencia Permanente PRO Activada</h2>
+                <p className="text-sm text-slate-300 mt-0.5">Acceso completo sin caducidad. Tus proyectos y finanzas son 100% privados.</p>
               </div>
             </div>
           </div>
@@ -454,13 +456,14 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
       <div className="space-y-6">
         <AnnouncementBanner notifications={globalNotifs} isAdmin={isAdmin} setNotifications={setGlobalNotifs} />
 
-        <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center space-x-4 shadow-sm mb-6">
-          <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
-            <CheckCircle className="w-6 h-6" />
+        <div className="relative overflow-hidden rounded-2xl p-4 mb-6 bg-gradient-to-r from-slate-950 via-slate-900 to-stone-900 ring-1 ring-amber-400/40 shadow-lg shadow-amber-900/10 flex items-center gap-4">
+          <div className="absolute -right-10 -top-12 w-40 h-40 rounded-full bg-amber-400/10 blur-2xl pointer-events-none" />
+          <div className="relative p-2.5 rounded-xl bg-gradient-to-br from-amber-300 to-amber-500 text-slate-950 shadow-md shadow-amber-500/30">
+            <Crown className="w-6 h-6" />
           </div>
-          <div>
-            <h2 className="text-md font-bold text-indigo-900">Licencia Permanente PRO</h2>
-            <p className="text-xs text-indigo-700">Sistema activo sin límites de caducidad.</p>
+          <div className="relative">
+            <h2 className="text-base font-black bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-100 bg-clip-text text-transparent">Licencia Permanente PRO</h2>
+            <p className="text-xs text-slate-300">Sistema activo sin límites de caducidad · Edición exclusiva</p>
           </div>
         </div>
 

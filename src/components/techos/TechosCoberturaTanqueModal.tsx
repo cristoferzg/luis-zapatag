@@ -8,14 +8,14 @@
 //   sobretecho opcional. Todo se ve y se metra también en Concreto por pisos.
 // =============================================================================
 import { useMemo, useState } from 'react';
-import { X, Layers, Droplets, Trash2 } from 'lucide-react';
+import { X, Layers, Droplets, Trash2, Compass, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { INVENTARIO_COBERTURAS, INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
-import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS } from './coberturaAuto';
+import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA } from './coberturaAuto';
 
 interface Props {
   engineState: any;
-  modo: 'cobertura' | 'tanque';
+  modo: 'cobertura' | 'tanque' | 'caida';
   onClose: () => void;
 }
 
@@ -58,9 +58,20 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
 
   const zonasTechos = Object.values(zones).filter(z => !z.nodeIdsBoundary.some(id => esTanque(nodes[id])));
   const tanques = useMemo(() => {
-    const m = new Map<string, string>();
-    Object.values(nodes).forEach(n => { const g = grupoTanque(n); const l = /^TQ(\d+)-P/.exec(n.nodeLabel || ''); if (g && l) m.set(g, l[1]); });
-    return [...m.entries()].map(([id, litros]) => ({ id, litros }));
+    const m = new Map<string, { litros: string; xs: number[]; zs: number[]; y: number; techo: boolean }>();
+    Object.values(nodes).forEach(n => {
+      const g = grupoTanque(n); if (!g) return;
+      const t = m.get(g) || { litros: '', xs: [], zs: [], y: 0, techo: false };
+      const l = /^TQ(\d+)-P/.exec(n.nodeLabel || '');
+      if (l) { t.litros = l[1]; t.xs.push(n.x); t.zs.push(n.z); t.y = n.y; }
+      if (/^TQS/.test(n.nodeLabel || '')) t.techo = true;
+      m.set(g, t);
+    });
+    // Orden estable: por id (se crean con la hora) → Tanque 1, 2, 3…
+    return [...m.entries()].filter(([, t]) => t.litros).sort(([a], [b]) => a.localeCompare(b)).map(([id, t]) => ({
+      id, litros: t.litros, techo: t.techo, y: t.y,
+      x: t.xs.reduce((a, b) => a + b, 0) / t.xs.length, z: t.zs.reduce((a, b) => a + b, 0) / t.zs.length,
+    }));
   }, [nodes]);
 
   const cubrir = () => {
@@ -77,7 +88,8 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
   const agregarTanque = () => {
     const g = generarTanque(tq);
     engineState.loadScene({ ...nodes, ...g.nodes }, { ...segments, ...g.segments }, { ...zones, ...g.zones });
-    setMsg(`✓ Tanque de ${tq.litros} L agregado${tq.sobretecho ? ' con sobretecho' : ''}. Se verá también en Concreto por pisos.`);
+    setMsg(`✓ Tanque ${tanques.length + 1} (${tq.litros} L) agregado${tq.sobretecho ? ' con sobretecho' : ''}. Para otro tanque, cambia la posición X/Z y vuelve a agregar.`);
+    setTq(t => ({ ...t, x: Math.round((t.x - (TANQUES_ROTOPLAS[t.litros].diametro + 0.8)) * 100) / 100 }));
   };
   const quitarTanque = (gid: string) => {
     const ids = new Set(Object.values(nodes).filter(n => grupoTanque(n) === gid).map(n => n.id));
@@ -86,6 +98,14 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
     const z2 = Object.fromEntries(Object.entries(zones).filter(([, z]) => !z.nodeIdsBoundary.some(id => ids.has(id))));
     engineState.loadScene(n2, s2, z2);
   };
+
+  const caida = useMemo(() => caidaPrincipal(nodes, segments, zones), [nodes, segments, zones]);
+  const aplicar = (op: Parameters<typeof transformarEscena>[1] | null) => {
+    if (!op) return;
+    engineState.loadScene(transformarEscena(nodes, op), segments, zones);
+    setMsg('✓ Diseño reorientado. Guárdalo para verlo así en Concreto.');
+  };
+  const orientar = (d: DireccionCaida) => { if (caida) aplicar(opParaCaida(caida, d)); };
 
   const selCob = (value: string, onChange: (v: string) => void, cls = '') => (
     <select value={value} onChange={e => onChange(e.target.value)} className={`px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 focus:outline-none ${cls}`}>
@@ -108,14 +128,36 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
               <Layers className="w-3.5 h-3.5" /> Cobertura
             </button>
             <button onClick={() => { setModo('tanque'); setMsg(''); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${modo === 'tanque' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
-              <Droplets className="w-3.5 h-3.5" /> Tanque elevado
+              <Droplets className="w-3.5 h-3.5" /> Tanques
+            </button>
+            <button onClick={() => { setModo('caida'); setMsg(''); }} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${modo === 'caida' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
+              <Compass className="w-3.5 h-3.5" /> Caída
             </button>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 cursor-pointer"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="p-4 space-y-3 overflow-y-auto">
-          {modo === 'cobertura' ? (<>
+          {modo === 'caida' ? (<>
+            <p className="text-xs text-slate-500">Hacia dónde escurre el agua del techo, visto en planta (abajo = adelante / calle). Al cambiarla se gira todo el diseño: columnas, tijerales, correas y cobertura.</p>
+            <p className="text-sm font-black text-slate-800">Caída actual: <span className="text-sky-700">{caida ? NOMBRE_CAIDA[caida] : 'techo plano o sin cobertura'}</span></p>
+            <div className="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">
+              <div />
+              <button disabled={!caida} onClick={() => orientar('atras')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'atras' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowUp className="w-4 h-4" />Atrás</button>
+              <div />
+              <button disabled={!caida} onClick={() => orientar('izquierda')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'izquierda' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowLeft className="w-4 h-4" />Izquierda</button>
+              <div className="flex items-center justify-center text-[10px] font-bold text-slate-400 text-center">planta</div>
+              <button disabled={!caida} onClick={() => orientar('derecha')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'derecha' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowRight className="w-4 h-4" />Derecha</button>
+              <div />
+              <button disabled={!caida} onClick={() => orientar('adelante')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'adelante' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowDown className="w-4 h-4" />Adelante (calle)</button>
+              <div />
+            </div>
+            <div className="flex gap-2 flex-wrap justify-center">
+              <button onClick={() => aplicar('girar90')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"><RotateCw className="w-3.5 h-3.5" /> Girar 90°</button>
+              <button onClick={() => aplicar('reflejarX')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"><FlipHorizontal className="w-3.5 h-3.5" /> Espejo ↔</button>
+              <button onClick={() => aplicar('reflejarZ')} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"><FlipVertical className="w-3.5 h-3.5" /> Espejo ↕</button>
+            </div>
+          </>) : modo === 'cobertura' ? (<>
             <p className="text-xs text-slate-500">Cubre el techo sobre las correas: una zona por cada agua (en techos curvos, una por tramo).</p>
             <div className="flex gap-2 items-center flex-wrap">
               {selCob(cobId, setCobId, 'flex-1 min-w-[200px]')}
@@ -134,7 +176,7 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
               </div>
             )}
           </>) : (<>
-            <p className="text-xs text-slate-500">Torre metálica de 4 patas para tanque tipo Rotoplas, con sobretecho a un agua opcional.</p>
+            <p className="text-xs text-slate-500">Cada tanque lleva su torre metálica de 4 patas y, si quieres, un <b>sobretecho</b> (techito sobre el tanque) con su cobertura. Puedes agregar varios: cambia la posición y vuelve a agregar. El <b>sobrepecho</b> (murete de ladrillo alrededor) se agrega luego en Concreto.</p>
             <div className="grid grid-cols-2 gap-2">
               <label className="text-[11px] font-bold text-slate-600">Tanque
                 <select value={tq.litros} onChange={e => setTq({ ...tq, litros: Number(e.target.value) as 600 | 1100 | 2500 })} className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-bold focus:outline-none">
@@ -169,7 +211,7 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
                 <p className="text-[10px] font-black text-slate-400 uppercase">Tanques en el diseño</p>
                 {tanques.map(t => (
                   <div key={t.id} className="flex items-center justify-between text-[11px] font-bold text-slate-600 bg-slate-50 rounded-lg px-2 py-1">
-                    Tanque {t.litros} L
+                    <span>Tanque {tanques.indexOf(t) + 1} · {t.litros} L · X {t.x.toFixed(2)} Z {t.z.toFixed(2)} · cota {t.y.toFixed(2)} m{t.techo ? ' · con sobretecho' : ''}</span>
                     <button onClick={() => quitarTanque(t.id)} className="p-1 rounded-lg text-rose-400 hover:bg-rose-50 cursor-pointer" title="Quitar tanque"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 ))}

@@ -21,6 +21,7 @@ export default function AdminPurchasesView() {
   const [cursos] = useFirestoreArraySync<CourseCategory>('cursos', 'admin', true);
   const [tutoriales] = useFirestoreArraySync<TutorialVideo>('tutoriales', 'admin', true);
   const [selectedVoucher, setSelectedVoucher] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<Purchase['status']>('pendiente');
 
   const sendNotification = async (title: string, message: string) => {
     await addDoc(collection(db, 'notificaciones'), {
@@ -70,42 +71,52 @@ export default function AdminPurchasesView() {
     await sendNotification('Actualización de Compra', message);
   };
 
+  const ESTADOS: { k: Purchase['status']; l: string }[] = [{ k: 'pendiente', l: 'Pendientes' }, { k: 'validada', l: 'Validadas' }, { k: 'rechazada', l: 'Rechazadas' }];
+  const lista = purchases.filter(p => p.status === filtro).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-6">Gestión de Compras y Vouchers</h2>
-      <div className="grid gap-4">
-        {purchases.filter(p => p.status === 'pendiente').map(purchase => (
-          <div key={purchase.id} className="p-4 bg-white rounded-lg shadow flex justify-between items-center">
-            <div>
-              <h3 className="font-semibold">{purchase.itemName}</h3>
-              <p className="text-sm text-gray-500">Usuario ID: {purchase.userId}</p>
+    <div className="space-y-4">
+      <div className="bg-white rounded-2xl p-5 shadow-xs">
+        <h2 className="text-xl font-black text-slate-900">Gestión de Compras y Vouchers</h2>
+        <p className="text-sm text-slate-500 mt-0.5">Revisa el voucher de cada compra y valídala: el curso, la clase o el plan se habilitan solos al usuario.</p>
+        <div className="mt-3 inline-flex p-1 bg-slate-100 rounded-xl">
+          {ESTADOS.map(e => {
+            const n = purchases.filter(p => p.status === e.k).length;
+            return (
+              <button key={e.k} onClick={() => setFiltro(e.k)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${filtro === e.k ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
+                {e.l} <span className="ml-1 text-[10px] font-black text-slate-400">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="grid gap-3">
+        {lista.length === 0 && (
+          <div className="bg-white rounded-2xl p-8 text-center text-slate-400 shadow-xs">
+            <p className="font-bold text-slate-600">{filtro === 'pendiente' ? 'No hay compras por validar' : 'Sin registros'}</p>
+            <p className="text-xs mt-1">{filtro === 'pendiente' ? 'Cuando un usuario suba un voucher aparecerá aquí.' : 'Aún no hay compras en este estado.'}</p>
+          </div>
+        )}
+        {lista.map(purchase => (
+          <div key={purchase.id} className="p-4 bg-white rounded-2xl shadow-xs flex justify-between items-center gap-3">
+            <div className="min-w-0">
+              <h3 className="font-bold text-slate-800 truncate">{purchase.itemName}</h3>
+              <p className="text-xs text-slate-500 truncate">Usuario: {purchase.userId}{purchase.createdAt ? ` · ${new Date(purchase.createdAt).toLocaleDateString('es-PE')}` : ''}</p>
             </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setSelectedVoucher(purchase.voucherUrl)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-              >
-                <Eye size={20} />
-              </button>
-              <button 
-                onClick={() => handleUpdateStatus(purchase, 'validada')}
-                className="p-2 text-green-600 hover:bg-green-50 rounded"
-              >
-                <Check size={20} />
-              </button>
-              <button 
-                onClick={() => handleUpdateStatus(purchase, 'rechazada')}
-                className="p-2 text-red-600 hover:bg-red-50 rounded"
-              >
-                <X size={20} />
-              </button>
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={() => setSelectedVoucher(purchase.voucherUrl)} title="Ver voucher" className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg cursor-pointer"><Eye size={20} /></button>
+              {purchase.status === 'pendiente' && (<>
+                <button onClick={() => handleUpdateStatus(purchase, 'validada')} title="Validar" className="p-2 text-green-600 hover:bg-green-50 rounded-lg cursor-pointer"><Check size={20} /></button>
+                <button onClick={() => handleUpdateStatus(purchase, 'rechazada')} title="Rechazar" className="p-2 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"><X size={20} /></button>
+              </>)}
             </div>
           </div>
         ))}
       </div>
       {selectedVoucher && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" onClick={() => setSelectedVoucher(null)}>
-          <img src={selectedVoucher} alt="Voucher" className="max-w-full max-h-full" />
+        <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center p-4" onClick={() => setSelectedVoucher(null)}>
+          <img src={selectedVoucher} alt="Voucher" className="max-w-full max-h-full rounded-lg" />
         </div>
       )}
     </div>

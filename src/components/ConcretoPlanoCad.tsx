@@ -26,7 +26,10 @@ import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, Es
 import {
   Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
   regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
+  CAPAS, CapaEstructura, capaDeRol, esNodoTanque, poligonosTecho, KEY_SOBREPECHOS, Sobrepecho, sobrepechoDefault, perimetroSobrepecho,
 } from './concreto/geometriaObra';
+import { INVENTARIO_PERFILES_TUBULARES } from './techos/techosCadCatalog';
+import { caidaDePoligono, nombreDireccion, NOMBRE_CAIDA } from './techos/coberturaAuto';
 import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
@@ -48,6 +51,7 @@ export interface PlanoElem {
   material?: MaterialMuro;
   materialId?: string;
   caras?: 1 | 2;
+  losaMaterial?: 'concreto' | 'osb'; // losa / entrepiso: de concreto o placa OSB sobre vigas
   hastaTecho?: boolean;            // muro: sube hasta el techo siguiendo la pendiente
   aberturas?: Abertura[];          // muro: puertas, ventanas y vanos
 }
@@ -116,6 +120,7 @@ function calcElem(e: PlanoElem): Resultado {
     const vol = e.a * (e.h || 0.4) * largo;
     return { concretoM3: vol, aceroKg: vol * 110, encofradoM2: (2 * (e.h || 0.4) + e.a) * largo, dist: { '5/8"': 0.45, '1/2"': 0.25, '3/8"': 0.3 } };
   }
+  if (e.tipo === 'losa' && e.losaMaterial === 'osb') return { concretoM3: 0, aceroKg: 0, encofradoM2: 0 };
   if (e.tipo === 'losa') {
     // Losa de entrepiso/techo: rectángulo definido por 2 esquinas (x1,y1)-(x2,y2).
     const area = (e.x2 !== undefined && e.y2 !== undefined) ? Math.abs(e.x2 - e.x1) * Math.abs(e.y2 - e.y1) : 0;
@@ -144,6 +149,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   const [vista3d, setVista3d] = useState(false);
   const [verTecho, setVerTecho] = useState(true);
   const [hastaPiso, setHastaPiso] = useState('');
+  const [resaltar, setResaltar] = useState(false);
 
   const [elems, setElems] = useState<PlanoElem[]>(() => safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || []);
   const [precios] = useState(() => safeStorage.getItem<typeof PRECIOS_DEFAULT>('concreto_metrados_precios', PRECIOS_DEFAULT) || PRECIOS_DEFAULT);
@@ -171,22 +177,41 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   useEffect(() => { safeStorage.setItem(KEY_OBRA_TECHOS_ID, techosId); }, [techosId]);
   const disenoVinculado = disenos.find(d => d.id === techosId) || null;
   const estructura = disenoVinculado as unknown as (EstructuraTechos & { updatedAt?: string }) | null;
-  // Planta de la estructura: tramos proyectados (x, z) y nodos para imantar.
+  // Planta de la estructura: tramos proyectados (x, z) con el ancho real del
+  // perfil y su capa (columnas, tijerales, correas…), y nodos para imantar.
+  type LineaPlanta = { x1: number; z1: number; x2: number; z2: number; col: boolean; capa: CapaEstructura; ancho: number; alto: number };
+  const [capasOcultas, setCapasOcultas] = useState<CapaEstructura[]>([]);
   const plantaTechos = useMemo(() => {
-    if (!estructura) return { lineas: [] as { x1: number; z1: number; x2: number; z2: number; col: boolean }[], puntos: [] as { x: number; y: number }[] };
+    if (!estructura) return { lineas: [] as LineaPlanta[], puntos: [] as { x: number; y: number }[], conteo: {} as Partial<Record<CapaEstructura, number>> };
     const N = estructura.nodes || {};
-    const lineas: { x1: number; z1: number; x2: number; z2: number; col: boolean }[] = [];
+    const lineas: LineaPlanta[] = [];
+    const conteo: Partial<Record<CapaEstructura, number>> = {};
     const vistos = new Set<string>();
     Object.values(estructura.segments || {}).forEach(sg => {
       const a = N[sg.nodeAId], b = N[sg.nodeBId];
-      if (!a || !b) return;
+      if (!a || !b || esNodoTanque(a) || esNodoTanque(b)) return;
+      const capa = capaDeRol(sg.rolEstructural);
+      conteo[capa] = (conteo[capa] || 0) + 1;
+      const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sg.profileId);
+      const concreto = sg.rolEstructural === 'columna_concreto';
+      const ancho = concreto ? 0.25 : (p?.anchoMm || 50) / 1000, alto = concreto ? 0.25 : (p?.altoMm || p?.anchoMm || 50) / 1000;
       const col = Math.hypot(a.x - b.x, a.z - b.z) < 0.01;
       if (col) { const k = NK(a.x, a.z); if (vistos.has(k)) return; vistos.add(k); }
-      lineas.push({ x1: a.x, z1: a.z, x2: b.x, z2: b.z, col });
+      lineas.push({ x1: a.x, z1: a.z, x2: b.x, z2: b.z, col, capa, ancho, alto });
     });
     const puntos = [...vistos].map(k => { const [x, y] = k.split('_').map(v => Number(v) / 1000); return { x, y }; });
-    return { lineas, puntos };
+    return { lineas, puntos, conteo };
   }, [estructura]);
+  // Flechas de caída de cada agua del techo (en planta).
+  const caidas = useMemo(() => {
+    if (!estructura) return [];
+    return poligonosTecho(estructura, true).map(p => {
+      const c = caidaDePoligono(p);
+      const cx = p.reduce((s2, q) => s2 + q.x, 0) / p.length, cz = p.reduce((s2, q) => s2 + q.z, 0) / p.length;
+      return c && c.pendientePct > 0 ? { cx, cz, ...c } : null;
+    }).filter((c): c is NonNullable<typeof c> => !!c);
+  }, [estructura]);
+
   // Alto de cada piso según la estructura (hasta el entrepiso siguiente o el techo).
   const alturaPiso = useMemo(() => {
     const out: Record<string, number> = {};
@@ -321,7 +346,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   };
   const addLine = (tipo: PlanoTipo, x1: number, y1: number, x2: number, y2: number) => {
     const d = DEFAULTS[tipo];
-    const extra = tipo === 'muro' ? { nivel: nivelMuro, ...materialMuro, caras: (materialMuro.material === 'osb' ? 1 : 2) as 1 | 2, hastaTecho: !!estructura, ...(alturaPiso[nivelMuro] ? { H: alturaPiso[nivelMuro] } : {}) } : {};
+    const extra = tipo === 'losa' ? { nivel: nivelMuro, losaMaterial: 'concreto' as const } : tipo === 'muro' ? { nivel: nivelMuro, ...materialMuro, caras: (materialMuro.material === 'osb' ? 1 : 2) as 1 | 2, hastaTecho: !!estructura, ...(alturaPiso[nivelMuro] ? { H: alturaPiso[nivelMuro] } : {}) } : {};
     commit(prev => [...prev, { uid: `pc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, tipo, x1, y1, x2, y2, ...d, ...extra }]);
   };
 
@@ -515,6 +540,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
   // Ambientes del piso activo (recintos cerrados por muros) con su nombre.
   const ambientes = useMemo(() => detectarAmbientes(murosActivos).map((a, i) => ({ ...a, nombre: nombresAmb[`${nivelMuro}#${a.key}`] || `Ambiente ${i + 1}` })), [elems, nivelMuro, nombresAmb]); // eslint-disable-line react-hooks/exhaustive-deps
   const tanques = useMemo(() => tanquesEnEstructura(estructura), [estructura]);
+  const [sobrepechos, setSobrepechos] = useState<Record<string, Sobrepecho>>(() => safeStorage.getItem<Record<string, Sobrepecho>>(KEY_SOBREPECHOS, {}) || {});
+  useEffect(() => { safeStorage.setItem(KEY_SOBREPECHOS, sobrepechos); }, [sobrepechos]);
+  const setSobrepecho = (id: string, patch: Partial<Sobrepecho>) => setSobrepechos(prev => ({ ...prev, [id]: { ...(prev[id] || sobrepechoDefault()), ...patch } }));
   // Cielo raso del piso activo: malla y metrado.
   const cieloPiso = useMemo(() => {
     const cfg = cielos[nivelMuro];
@@ -637,7 +665,21 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
           </button>
         )}
         {estructura && (
-          <span className="text-[11px] text-slate-400">{Object.keys(estructura.segments || {}).length} perfiles · {Object.keys(estructura.coverageZones || {}).length} coberturas</span>
+          <span className="text-[11px] text-slate-400">{Object.keys(estructura.segments || {}).length} perfiles · {Object.keys(estructura.coverageZones || {}).length} coberturas{tanques.length ? ` · ${tanques.length} tanque${tanques.length > 1 ? 's' : ''}` : ''}{caidas.length ? ` · caída: ${[...new Set(caidas.map(c => NOMBRE_CAIDA[nombreDireccion(c.dx, c.dz)]))].join(' y ')}` : ''}</span>
+        )}
+        {estructura && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {(Object.keys(CAPAS) as CapaEstructura[]).filter(k => plantaTechos.conteo[k]).map(k => {
+              const oculta = capasOcultas.includes(k);
+              return (
+                <button key={k} onClick={() => setCapasOcultas(prev => oculta ? prev.filter(x => x !== k) : [...prev, k])} title={oculta ? 'Mostrar' : 'Ocultar'}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer ${oculta ? 'bg-slate-50 text-slate-300 line-through' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: oculta ? '#cbd5e1' : CAPAS[k].color }} />
+                  {CAPAS[k].nombre} {plantaTechos.conteo[k]}
+                </button>
+              );
+            })}
+          </div>
         )}
         {!estructura && disenos.length === 0 && <span className="text-[11px] text-slate-400">Guarda un diseño en Techos Metálicos para verlo aquí.</span>}
       </div>
@@ -732,7 +774,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
         {/* VISTA 3D */}
         {vista3d ? (
           <div className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
-            <ConcretoViewer3D key={`${sig3d}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}`} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} />
+            <ConcretoViewer3D key={`${sig3d}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}`} resaltarPerfiles={resaltar} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos} />
             <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
               <button onClick={() => setVerTecho(v => !v)} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verTecho ? 'bg-slate-100 text-slate-700' : 'bg-stone-700 text-white'}`}>
                 {verTecho ? 'Ocultar techo' : 'Mostrar techo'}
@@ -741,8 +783,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                 <option value="">Todos los pisos</option>
                 {pisos.map(n => <option key={n} value={n}>Hasta {n}</option>)}
               </select>
+              {estructura && (
+                <button onClick={() => setResaltar(v => !v)} title="Las secciones se dibujan a su medida real; resaltado las multiplica ×3 solo para verlas mejor"
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${resaltar ? 'bg-stone-700 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                  Perfiles: {resaltar ? 'resaltado ×3' : 'tamaño real'}
+                </button>
+              )}
             </div>
-            {elems.length === 0 && (
+            {elems.length === 0 && !estructura && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm font-bold">Dibuja en 2D para ver el 3D</div>
             )}
             <div className="absolute bottom-3 left-3 text-[10px] font-bold text-slate-500 bg-white/90 rounded-lg px-2 py-1 border border-slate-200 pointer-events-none">
@@ -773,12 +821,31 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             <line x1={0} y1={cy} x2={dims.w} y2={cy} stroke="#cbd5e1" strokeWidth="1.5" />
             <line x1={cx} y1={0} x2={cx} y2={dims.h} stroke="#cbd5e1" strokeWidth="1.5" />
 
-            {/* estructura de Techos (referencia, no editable aquí) */}
-            {plantaTechos.lineas.map((l, i) => {
+            {/* estructura de Techos (referencia, no editable aquí): ancho real del perfil y color por capa */}
+            {plantaTechos.lineas.filter(l => !capasOcultas.includes(l.capa)).sort((p, q) => Number(p.col) - Number(q.col)).map((l, i) => {
               const a = toScreen(l.x1, l.z1), b = toScreen(l.x2, l.z2);
-              return l.col
-                ? <rect key={`tl${i}`} x={a.sx - 5} y={a.sy - 5} width={10} height={10} fill="#475569" opacity={0.75} style={{ pointerEvents: 'none' }} />
-                : <line key={`tl${i}`} x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke="#64748b" strokeWidth={1.2} opacity={0.35} style={{ pointerEvents: 'none' }} />;
+              const color = CAPAS[l.capa].color;
+              if (l.col) {
+                const w = Math.max(8, l.ancho * scale), h = Math.max(8, l.alto * scale);
+                return <rect key={`tl${i}`} x={a.sx - w / 2} y={a.sy - h / 2} width={w} height={h} fill={l.capa === 'columnas' ? '#475569' : color} opacity={0.8} style={{ pointerEvents: 'none' }} />;
+              }
+              return <line key={`tl${i}`} x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke={color} strokeWidth={Math.max(1.2, l.ancho * scale)} strokeLinecap="square" opacity={0.32} style={{ pointerEvents: 'none' }} />;
+            })}
+
+            {/* caída del agua en cada paño del techo */}
+            {caidas.map((c, i) => {
+              const o = toScreen(c.cx, c.cz), L = 46;
+              const fx = o.sx + c.dx * L, fy = o.sy + c.dz * L;
+              const ang = Math.atan2(c.dz, c.dx);
+              const ala = (s2: number) => `${fx - 9 * Math.cos(ang + s2)},${fy - 9 * Math.sin(ang + s2)}`;
+              return (
+                <g key={`cd${i}`} style={{ pointerEvents: 'none' }} opacity={0.85}>
+                  <line x1={o.sx - c.dx * L} y1={o.sy - c.dz * L} x2={fx} y2={fy} stroke="#0284c7" strokeWidth={3.5} />
+                  <polygon points={`${fx + c.dx * 6},${fy + c.dz * 6} ${ala(0.5)} ${ala(-0.5)}`} fill="#0284c7" />
+                  <rect x={o.sx - 34 - c.dz * 30} y={o.sy - 9} width={68} height={18} rx={9} fill="#e0f2fe" opacity={0.95} />
+                  <text x={o.sx - c.dz * 30} y={o.sy + 4} textAnchor="middle" fontSize={11} fontWeight={800} fill="#0369a1">caída {c.pendientePct}%</text>
+                </g>
+              );
             })}
 
             {/* tanques elevados de la estructura */}
@@ -786,7 +853,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
               <g key={t.id} style={{ pointerEvents: 'none' }}>
                 <rect x={c.sx - (t.lado / 2) * scale} y={c.sy - (t.lado / 2) * scale} width={t.lado * scale} height={t.lado * scale} fill="none" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
                 <circle cx={c.sx} cy={c.sy} r={(t.diametro / 2) * scale} fill="#e2e8f0" stroke="#475569" strokeWidth={1.2} />
-                <text x={c.sx} y={c.sy + 3} textAnchor="middle" fontSize={10} fontWeight={800} fill="#334155">{t.litros} L</text>
+                <text x={c.sx} y={c.sy - 2} textAnchor="middle" fontSize={11} fontWeight={900} fill="#0f172a">T{t.numero}</text>
+                <text x={c.sx} y={c.sy + 10} textAnchor="middle" fontSize={9} fontWeight={700} fill="#334155">{t.litros} L</text>
               </g>
             ); })}
 
@@ -937,7 +1005,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
             })()}
           </svg>
 
-          {elems.length === 0 && (
+          {elems.length === 0 && !estructura && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center text-slate-400 max-w-xs px-4">
                 <p className="font-bold text-sm">Dibuja tu plano de cimentación</p>
@@ -1023,6 +1091,25 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
                       {(pisos.length ? pisos : ['Piso 1']).map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                   </label>
+                </div>
+              )}
+              {selElem.tipo === 'losa' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] font-bold text-slate-600">Material
+                    <select value={selElem.losaMaterial || 'concreto'} onChange={e => updateElem(selElem.uid, { losaMaterial: e.target.value as 'concreto' | 'osb', h: e.target.value === 'osb' ? 0.018 : 0.2 })}
+                      className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                      <option value="concreto">Concreto</option><option value="osb">OSB (entrepiso liviano)</option>
+                    </select>
+                  </label>
+                  <label className="text-[10px] font-bold text-slate-600">Techo del piso
+                    <select value={selElem.nivel || pisos[0]} onChange={e => updateElem(selElem.uid, { nivel: e.target.value })}
+                      className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                      {(pisos.length ? pisos : ['Piso 1']).map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
+                  {selElem.x2 !== undefined && selElem.y2 !== undefined && (() => { const area = Math.abs(selElem.x2 - selElem.x1) * Math.abs(selElem.y2 - selElem.y1); const o = catOsb.find(x => x.id === 'osb_18') || catOsb[0]; return (
+                    <p className="col-span-2 text-[10px] font-bold text-slate-500">{area.toFixed(2)} m²{selElem.losaMaterial === 'osb' ? ` de ${o?.tipo || 'OSB'}${o?.precioM2 ? ` · S/ ${(area * o.precioM2).toFixed(2)}` : ''}` : ''} · a {((obra.ctx(selElem.nivel).tope ?? (obra.ctx(selElem.nivel).base + (alturaPiso[selElem.nivel || pisos[0]] || 3)))).toFixed(2)} m</p>
+                  ); })()}
                 </div>
               )}
               {META[selElem.tipo].esLinea && selElem.x2 !== undefined && selElem.y2 !== undefined && (
@@ -1144,16 +1231,50 @@ export default function ConcretoPlanoCad({ onEditarEnTechos }: { onEditarEnTecho
               {cieloPiso.malla.recortado && <p className="text-[10px] font-bold text-amber-700">El techo baja hasta {cieloPiso.malla.alturaMin.toFixed(2)} m: el cielo se ajusta bajo la pendiente en esa zona.</p>}
               {cieloPiso.cfg.modo === 'inclinado' && cieloPiso.malla.area > 0 && <p className="text-[10px] font-bold text-slate-500">Sigue el techo de {cieloPiso.malla.alturaMin.toFixed(2)} a {cieloPiso.malla.alturaMax.toFixed(2)} m.</p>}
             </>)}
-            {tanques.filter(t => t.ySobretecho !== null).map(t => {
-              const k = `tanque:${t.id}`, m = mallaCieloTanque(t), d = catDrywall.find(x => x.id === (cielos[k]?.materialId || 'drywall_standard_125'));
-              return (
-                <label key={k} className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer pt-1">
-                  <input type="checkbox" checked={!!cielos[k]?.activo} onChange={e => setCielo(k, { activo: e.target.checked })} />
-                  Bajo el sobretecho del tanque {t.litros} L · {m.area.toFixed(2)} m²{cielos[k]?.activo && d?.precioM2 ? ` · S/ ${(m.area * d.precioM2).toFixed(2)}` : ''}
-                </label>
-              );
-            })}
           </div>
+
+          {/* Tanques elevados: vienen de Techos (torre + sobretecho); aquí se agrega el sobrepecho */}
+          {tanques.length > 0 && (
+            <div className="rounded-xl bg-sky-50/60 p-2.5 space-y-2">
+              <p className="text-[10px] font-black text-sky-700 uppercase">Tanques elevados ({tanques.length}) · desde Techos</p>
+              {tanques.map(t => {
+                const sp = sobrepechos[t.id];
+                const kc = `tanque:${t.id}`;
+                const lad = catLadrillo.find(l => l.id === (sp?.ladrilloId || 'ladrillo_pandereta'));
+                const areaSp = sp?.activo ? perimetroSobrepecho(t, sp) * sp.alto : 0;
+                return (
+                  <div key={t.id} className="rounded-lg bg-white p-2 space-y-1.5">
+                    <p className="text-[11px] font-black text-slate-800">T{t.numero} · Rotoplas {t.litros} L <span className="font-semibold text-slate-500">· torre {(t.y - t.cotaBase).toFixed(2)} m sobre cota {t.cotaBase.toFixed(2)} m</span></p>
+                    <p className="text-[10px] font-bold text-slate-500">Sobretecho (techito, se edita en Techos): {t.ySobretecho !== null ? `${t.sobretechoCobertura || 'sí'} · ${t.sobretechoM2.toFixed(2)} m²` : 'no tiene'}</p>
+                    <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
+                      <input type="checkbox" checked={!!sp?.activo} onChange={e => setSobrepecho(t.id, { activo: e.target.checked })} />
+                      Sobrepecho (murete de ladrillo alrededor)
+                    </label>
+                    {sp?.activo && (
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <select value={sp.ladrilloId} onChange={e => setSobrepecho(t.id, { ladrilloId: e.target.value })} className="col-span-2 px-2 py-1 rounded-lg bg-slate-50 text-[11px] focus:outline-none">
+                          {catLadrillo.map(l => <option key={l.id} value={l.id}>{l.tipo}</option>)}
+                        </select>
+                        <label className="text-[10px] font-bold text-slate-600">Alto (m)
+                          <input type="number" step="0.1" value={sp.alto} onChange={e => setSobrepecho(t.id, { alto: Math.max(0.2, parseFloat(e.target.value) || 0) })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs font-mono focus:outline-none" />
+                        </label>
+                        <label className="text-[10px] font-bold text-slate-600">Separación (m)
+                          <input type="number" step="0.05" value={sp.holgura} onChange={e => setSobrepecho(t.id, { holgura: Math.max(0, parseFloat(e.target.value) || 0) })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs font-mono focus:outline-none" />
+                        </label>
+                        <p className="col-span-2 text-[10px] font-bold text-slate-500">{areaSp.toFixed(2)} m² · {Math.ceil(areaSp * (lad?.unidadesM2 || 0))} ladrillos</p>
+                      </div>
+                    )}
+                    {t.ySobretecho !== null && (
+                      <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" checked={!!cielos[kc]?.activo} onChange={e => setCielo(kc, { activo: e.target.checked })} />
+                        Cielo raso bajo el sobretecho · {mallaCieloTanque(t).area.toFixed(2)} m²
+                      </label>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide">Metrado automático</h3>
           <div className="grid grid-cols-2 gap-2">

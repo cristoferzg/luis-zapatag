@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   StructuralGeometry, 
   StructureOptions, 
@@ -8,7 +8,8 @@ import {
   BeamElement, 
   PurlinElement 
 } from './structuralTypes';
-import { Printer, Layers } from 'lucide-react';
+import { Layers } from 'lucide-react';
+import BotonImprimir from '../common/BotonImprimir';
 
 interface PlanosProps {
   geometria: StructuralGeometry;
@@ -28,9 +29,7 @@ export const StructuralPlanos: React.FC<PlanosProps> = ({
   const [activeSheet, setActiveSheet] = useState<'E01' | 'E02' | 'E03' | 'E04'>('E01');
   const [blueprintTheme, setBlueprintTheme] = useState<'white' | 'blueprint'>('white');
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const laminaRef = useRef<HTMLDivElement>(null);
 
   const isDark = blueprintTheme === 'blueprint';
   const bgColor = isDark ? '#0f172a' : '#ffffff';
@@ -104,18 +103,13 @@ export const StructuralPlanos: React.FC<PlanosProps> = ({
             </button>
           </div>
 
-          <button
-            onClick={handlePrint}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center space-x-1.5 transition-colors shadow-sm cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir Plano (PDF)</span>
-          </button>
+          <BotonImprimir objetivo={() => laminaRef.current} titulo={`Plano ${activeSheet} ${projectName || ''}`} etiqueta="Imprimir Plano (PDF)" orientacion="landscape" unaHoja
+            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer" />
         </div>
       </div>
 
       {/* Blueprint Canvas Frame */}
-      <div 
+      <div ref={laminaRef}
         className="flex-1 min-h-[560px] rounded-2xl border-2 shadow-lg overflow-hidden relative flex items-center justify-center p-4 transition-colors"
         style={{ backgroundColor: bgColor, borderColor: isDark ? '#334155' : '#cbd5e1' }}
       >

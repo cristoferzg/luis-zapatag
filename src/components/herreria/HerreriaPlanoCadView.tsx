@@ -1,7 +1,7 @@
 // Lámina Técnica de Plano CAD Arquitectónico Imprimible para Herrería y Carpintería Metálica
+import BotonImprimir from '../common/BotonImprimir';
 import React, { useState, useRef } from 'react';
 import { 
-  Printer, 
   Download, 
   Compass, 
   Check
@@ -44,11 +44,6 @@ export const HerreriaPlanoCadView: React.FC<HerreriaPlanoCadViewProps> = ({
   const metrosComprados = totalBarrasComerciales * 6;
   const metrosRetazo = Math.max(0, metrosComprados - metrosUtiles);
   const retazosReutilizables = barras6m.filter(b => b.sobranteMm >= 500).length;
-
-  // Manejo de Impresión directa del Plano
-  const handlePrint = () => {
-    window.print();
-  };
 
   // Exportar SVG como archivo
   const handleExportSVG = () => {
@@ -247,13 +242,8 @@ export const HerreriaPlanoCadView: React.FC<HerreriaPlanoCadViewProps> = ({
             </button>
 
             {/* Botón [ IMPRIMIR PLANO ] */}
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/40 active:scale-95 transition-all"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>IMPRIMIR / PDF</span>
-            </button>
+            <BotonImprimir objetivo={() => document.getElementById('plano-arquitectonico-svg')?.parentElement || null} titulo="Plano de herrería" etiqueta="IMPRIMIR / PDF" orientacion="landscape" unaHoja
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/40 active:scale-95 transition-all cursor-pointer" />
           </div>
         )}
       </div>

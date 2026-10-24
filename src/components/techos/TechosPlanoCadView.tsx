@@ -10,8 +10,9 @@
 // Con cotas automáticas, ejes, cuadro de perfiles reales y modo impresión
 // que aísla la lámina (oculta toda la interfaz de la plataforma).
 // =============================================================================
+import BotonImprimir from '../common/BotonImprimir';
 import React, { useMemo, useState } from 'react';
-import { Compass, Printer, LayoutGrid } from 'lucide-react';
+import { Compass, LayoutGrid } from 'lucide-react';
 import type { Node3D, Segment3D } from './techosCadEngineTypes';
 import type { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
@@ -229,7 +230,6 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
     };
   }, [nodes, segments]);
 
-  const handleImprimir = () => window.print();
   const nombreProy = nombreProyecto || design?.nombre || 'ESTRUCTURA DE TECHO Y COBERTURA METÁLICA';
 
   // --------- Constructores de cada vista (proyección real) ----------------
@@ -453,23 +453,6 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
 
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-6 font-sans select-none">
-      {/* CSS de impresión: oculta TODA la plataforma y deja solo la lámina. */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #techos-plano-lamina, #techos-plano-lamina * { visibility: visible !important; }
-          #techos-plano-lamina {
-            position: absolute; left: 0; top: 0;
-            width: 100% !important; max-width: 100% !important;
-            margin: 0 !important; padding: 0 !important;
-            box-shadow: none !important; border: none !important;
-            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
-          }
-          #techos-plano-lamina * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          @page { size: A4 landscape; margin: 8mm; }
-        }
-      `}</style>
-
       {/* BARRA DE CONTROLES (no se imprime) */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-2.5">
@@ -488,10 +471,8 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
               </button>
             ))}
           </div>
-          <button onClick={handleImprimir}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer">
-            <Printer className="w-4 h-4" /><span>IMPRIMIR PLANO</span>
-          </button>
+          <BotonImprimir objetivo={() => document.getElementById('techos-plano-lamina')} titulo={`Plano CM-02 ${nombreProy}`} etiqueta="IMPRIMIR PLANO" tamano="A3" orientacion="landscape" unaHoja
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer" />
         </div>
       </div>
 

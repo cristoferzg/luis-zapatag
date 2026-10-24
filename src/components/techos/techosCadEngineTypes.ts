@@ -281,6 +281,12 @@ export interface FullTechosBomReport {
   gastosGeneralesYUtilidadSoles: number; // 25%
   igvSoles: number;                      // 18%
   precioVentaFinalSoles: number;
+  costoPerfilesSoles?: number;
+  costoCoberturasSoles?: number;
+  costoAccesoriosSoles?: number;
+  gastosGeneralesSoles?: number;
+  utilidadSoles?: number;
+  subtotalSoles?: number;
 }
 
 // 5. ANÁLISIS ESTRUCTURAL Y PARÁMETROS NORMATIVOS (RNE E.020, E.030, E.050, E.090)

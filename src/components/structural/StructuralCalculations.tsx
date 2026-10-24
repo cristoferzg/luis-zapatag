@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import BotonImprimir from '../common/BotonImprimir';
+import React, { useRef, useState } from 'react';
 import { 
   StructuralGeometry, 
   StructureOptions, 
@@ -9,7 +10,7 @@ import {
   PurlinElement 
 } from './structuralTypes';
 import { getProfileById } from './structuralCatalog';
-import { Calculator, CheckCircle2, ShieldCheck, Printer, Wind, Weight, Activity } from 'lucide-react';
+import { Calculator, CheckCircle2, ShieldCheck, Wind, Weight, Activity } from 'lucide-react';
 
 interface CalculationsProps {
   geometria: StructuralGeometry;
@@ -97,12 +98,10 @@ export const StructuralCalculations: React.FC<CalculationsProps> = ({
   const colCapacityKg = 0.85 * 3150 * columnSample.areaCm2;
   const colRatio = colAxialPu / colCapacityKg;
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const hojaRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="w-full h-full bg-slate-50 overflow-y-auto p-4 md:p-6 space-y-6">
+    <div ref={hojaRef} className="w-full h-full bg-slate-50 overflow-y-auto p-4 md:p-6 space-y-6">
       {/* Header with Title & Action */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center space-x-3">
@@ -119,14 +118,9 @@ export const StructuralCalculations: React.FC<CalculationsProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={handlePrint}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center space-x-1.5 transition-colors cursor-pointer"
-          >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir Memoria</span>
-          </button>
+        <div className="flex items-center space-x-2 no-imprimir">
+          <BotonImprimir objetivo={() => hojaRef.current} titulo="Memoria de cálculo estructural" etiqueta="Imprimir Memoria"
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer" />
         </div>
       </div>
 

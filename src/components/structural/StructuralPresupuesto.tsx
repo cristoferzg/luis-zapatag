@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import BotonImprimir from '../common/BotonImprimir';
+import React, { useRef, useState } from 'react';
 import { 
   StructuralGeometry, 
   StructureOptions, 
@@ -14,7 +15,6 @@ import { safeStorage } from '../../lib/storageManager';
 import { 
   FileSpreadsheet, 
   Send, 
-  Printer, 
   Copy, 
   CheckCircle2, 
   ShieldCheck, 
@@ -327,8 +327,9 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const hojaRef = useRef<HTMLDivElement>(null);
   return (
-    <div className="flex-1 w-full h-full bg-slate-50 overflow-y-auto p-4 md:p-6 space-y-6 select-text">
+    <div ref={hojaRef} className="flex-1 w-full h-full bg-slate-50 overflow-y-auto p-4 md:p-6 space-y-6 select-text">
       {/* 1. CABECERA PRINCIPAL */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-start space-x-3.5">
@@ -365,7 +366,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
         </div>
 
         {/* TOP ACTIONS */}
-        <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto no-imprimir">
           {/* Copy Button */}
           <button
             onClick={copyToClipboard}
@@ -376,13 +377,8 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
           </button>
 
           {/* Print Button */}
-          <button
-            onClick={() => window.print()}
-            className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer border border-slate-200"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            <span className="hidden sm:inline">Imprimir</span>
-          </button>
+          <BotonImprimir objetivo={() => hojaRef.current} titulo="Presupuesto estructural" etiqueta="Imprimir"
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer border border-slate-200" />
 
           {/* [ ENVIAR AL PRESUPUESTO ] PRIMARY BUTTON */}
           <button

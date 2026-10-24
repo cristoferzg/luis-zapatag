@@ -1,6 +1,8 @@
 // Presupuesto Comercial Formal Exclusivo para Techos Metálicos y Coberturas
-import React, { useState } from 'react';
-import { FileText, Printer, Send, CheckCircle, ArrowRight } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { FileText, Send, CheckCircle, ArrowRight } from 'lucide-react';
+import BotonImprimir from '../common/BotonImprimir';
+import { useCostosTechos, totalCuadrilla } from './costosTechos';
 
 interface ProjectOption {
   id: string;
@@ -48,13 +50,27 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
 
   const isBom = design && typeof design.precioVentaFinalSoles === 'number';
 
-  const subtotal = isBom ? design.costoDirectoTotalSoles + design.gastosGeneralesYUtilidadSoles : 12000;
-  const igv = 0;
-  const totalConIgv = subtotal;
-
-  const handleImprimir = () => {
-    window.print();
-  };
+  // Montos tomados del BOM, que ya usa los precios, la cuadrilla y los gastos
+  // operativos editados en "4. Estructura de costos".
+  const costos = useCostosTechos();
+  const subtotal = isBom ? (design.subtotalSoles ?? design.costoDirectoTotalSoles + design.gastosGeneralesYUtilidadSoles) : 0;
+  const igv = isBom ? design.igvSoles || 0 : 0;
+  const totalConIgv = isBom ? design.precioVentaFinalSoles : 0;
+  const [numeroCotizacion] = useState(() => Date.now().toString().slice(-5));
+  const hojaRef = useRef<HTMLDivElement>(null);
+  const partidas: { item: string; desc: string; monto: number; sub?: string[] }[] = isBom ? [
+    { item: '01', desc: 'Materiales e insumos', monto: design.costoDirectoMaterialesSoles, sub: [
+      `Perfilería estructural (${(design.despiecePerfiles || []).reduce((n: number, p: any) => n + p.totalBarrasComerciales6m, 0)} barras de 6 m): S/. ${(design.costoPerfilesSoles ?? 0).toFixed(2)}`,
+      `Cobertura (${(design.resumenCoberturas || []).reduce((n: number, c: any) => n + c.areaEfectivaCalculadaM2, 0).toFixed(1)} m²): S/. ${(design.costoCoberturasSoles ?? 0).toFixed(2)}`,
+      `Placas base, pernos y soldadura: S/. ${(design.costoAccesoriosSoles ?? 0).toFixed(2)}`,
+    ] },
+    { item: '02', desc: 'Mano de obra: fabricación y montaje', monto: design.costoManoObraMontajeSoles,
+      sub: costos.manoObraModo === 'detalle' && totalCuadrilla(costos) > 0 ? costos.cuadrilla.filter(f => f.cantidad * f.jornal * f.dias > 0).map(f => `${f.cargo}: ${f.cantidad} × ${f.dias} días × S/. ${f.jornal.toFixed(2)}`) : undefined },
+    { item: '03', desc: 'Gastos operativos (grúa, transporte, andamios, EPP)', monto: design.costoEquiposGruaSoles,
+      sub: costos.operativosModo === 'detalle' ? costos.operativos.filter(f => f.monto > 0).map(f => `${f.concepto}: S/. ${f.monto.toFixed(2)}`) : undefined },
+    { item: '04', desc: `Gastos generales (${costos.gastosGeneralesPct}%)`, monto: design.gastosGeneralesSoles ?? 0 },
+    { item: '05', desc: `Utilidad (${costos.utilidadPct}%)`, monto: design.utilidadSoles ?? 0 },
+  ] : [];
 
   const handleEnviarAlPresupuesto = () => {
     const especificacionesTexto = 
@@ -113,13 +129,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleImprimir}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
-          >
-            <Printer className="w-4 h-4 text-amber-400" />
-            <span>IMPRIMIR (PDF)</span>
-          </button>
+          <BotonImprimir objetivo={() => hojaRef.current} titulo={`Cotización TM-${numeroCotizacion} ${nombreProyecto}`} etiqueta="IMPRIMIR (PDF)" />
         </div>
       </div>
 
@@ -182,7 +192,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       </div>
 
       {/* HOJA IMPRESA DE COTIZACIÓN */}
-      <div className="bg-white text-slate-900 rounded-2xl p-8 max-w-4xl mx-auto shadow-xl border border-slate-200 font-sans print:shadow-none print:p-0 print:border-none">
+      <div ref={hojaRef} className="bg-white text-slate-900 rounded-2xl p-8 max-w-4xl mx-auto shadow-xl border border-slate-200 font-sans print:shadow-none print:p-0 print:border-none">
         
         {/* CABECERA */}
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
@@ -197,7 +207,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
             </div>
           </div>
           <div className="text-right">
-            <span className="text-xs uppercase font-extrabold text-amber-600 block">Cotización Formal #TM-{Date.now().toString().slice(-4)}</span>
+            <span className="text-xs uppercase font-extrabold text-amber-600 block">Cotización Formal #TM-{numeroCotizacion}</span>
             <span className="text-xs text-slate-500 font-mono">{new Date().toLocaleDateString('es-PE')}</span>
           </div>
         </div>
@@ -234,21 +244,17 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            <tr>
-              <td className="p-2.5 font-bold">01.01</td>
-              <td className="p-2.5">Suministro y habilitado de perfilería tubular estructural A36 / Tubos / Perfiles C/Z</td>
-              <td className="p-2.5 text-right font-mono font-bold">S/. {(subtotal * 0.50).toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td className="p-2.5 font-bold">01.02</td>
-              <td className="p-2.5">Fabricación de tijerales, columnas, vigas y arriostramientos con soldadura homologada AWS</td>
-              <td className="p-2.5 text-right font-mono font-bold">S/. {(subtotal * 0.25).toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td className="p-2.5 font-bold">01.03</td>
-              <td className="p-2.5">Montaje en obra con maniobra de grúa, andamios normados y fijación con pernos EPDM herméticos</td>
-              <td className="p-2.5 text-right font-mono font-bold">S/. {(subtotal * 0.25).toFixed(2)}</td>
-            </tr>
+            {partidas.map(p => (
+              <tr key={p.item} className="align-top">
+                <td className="p-2.5 font-bold">{p.item}</td>
+                <td className="p-2.5">
+                  <span className="font-bold">{p.desc}</span>
+                  {p.sub && p.sub.length > 0 && <ul className="mt-1 space-y-0.5 text-[11px] text-slate-500">{p.sub.map((t, i) => <li key={i}>· {t}</li>)}</ul>}
+                </td>
+                <td className="p-2.5 text-right font-mono font-bold">S/. {(p.monto || 0).toFixed(2)}</td>
+              </tr>
+            ))}
+            {!isBom && <tr><td colSpan={3} className="p-4 text-center text-slate-400">Diseña tu techo en "1. Diseño CAD" para generar la cotización.</td></tr>}
           </tbody>
         </table>
 
@@ -256,11 +262,11 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
         <div className="flex justify-end border-t-2 border-slate-900 pt-4 text-xs font-mono">
           <div className="w-64 space-y-1.5 text-right">
             <div className="flex justify-between">
-              <span className="text-slate-600">SUBTOTAL DIRECTO:</span>
+              <span className="text-slate-600">SUBTOTAL:</span>
               <span className="font-bold">S/. {subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-600">I.G.V. (18%):</span>
+              <span className="text-slate-600">I.G.V. (18%){costos.igv ? '' : ' — no aplicado'}:</span>
               <span className="font-bold">S/. {igv.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-base font-black text-amber-600 border-t border-slate-300 pt-1.5">

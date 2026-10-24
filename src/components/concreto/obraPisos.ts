@@ -9,7 +9,7 @@ import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import type { PlanoElem } from '../ConcretoPlanoCad';
 import {
   ContextoMuro, perfilMuro, areaPerfil, areaAberturas, esNodoTanque, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo,
-  mallaCieloTanque, tanquesEnEstructura, metradoTechosPorPiso, MetradoTechosPiso, CieloRaso,
+  mallaCieloTanque, tanquesEnEstructura, metradoTechosPorPiso, MetradoTechosPiso, CieloRaso, Sobrepecho, perimetroSobrepecho,
 } from './geometriaObra';
 
 export const KEY_TECHOS_DISPONIBLES = 'obra_techos_disponibles';
@@ -97,7 +97,7 @@ export interface EstructuraTechos {
   id: string;
   nombre: string;
   nodes: Record<string, { id: string; x: number; y: number; z: number; nodeLabel?: string }>;
-  segments: Record<string, { id: string; nodeAId: string; nodeBId: string; profileId: string; rolEstructural: string; concretoBaseM?: number }>;
+  segments: Record<string, { id: string; nodeAId: string; nodeBId: string; profileId: string; rolEstructural: string; concretoBaseM?: number; anguloRotacionGrados?: number }>;
   coverageZones: Record<string, { id: string; nombre: string; nodeIdsBoundary: string[]; coberturaMaterialId: string }>;
 }
 
@@ -228,9 +228,12 @@ export interface ObraPiso {
   puertas: number; ventanas: number; vanos: number;
   cielo?: { area: number; perimetro: number; costo: number; nombre: string; modo: string };
   cieloTanque?: { area: number; costo: number };
+  entrepisoOsb?: { area: number; costo: number; nombre: string };
+  tanques?: { numero: number; litros: number; sobretecho?: string; sobretechoM2: number; sobrepechoM2: number; ladrillos: number; costoSobrepecho: number }[];
   costo: number;
 }
-export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, elems: PlanoElem[], cielos: Record<string, CieloRaso>, nombres: Record<string, string>, dry: DrywallItem[]): Record<string, ObraPiso> {
+export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, elems: PlanoElem[], cielos: Record<string, CieloRaso>, nombres: Record<string, string>, dry: DrywallItem[],
+  osb: OsbItem[] = leerCatalogoOsb(), lad: LadrilloItem[] = [], sobrepechos: Record<string, Sobrepecho> = {}): Record<string, ObraPiso> {
   const { pisos, ctx } = contextosObra(niveles, est);
   const metal = metradoTechosPorPiso(est, pisos.map(n => ctx(n).base));
   const tanques = tanquesEnEstructura(est);
@@ -261,6 +264,25 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
         o.cieloTanque = { area, costo }; o.costo += costo;
       }
     }
+    // Entrepisos de OSB dibujados como "techo" de este piso.
+    const losasOsb = elems.filter(e => e.tipo === 'losa' && e.losaMaterial === 'osb' && (e.nivel || pisos[0]) === n && e.x2 !== undefined && e.y2 !== undefined);
+    if (losasOsb.length) {
+      const area = losasOsb.reduce((s2, e) => s2 + Math.abs(e.x2! - e.x1) * Math.abs(e.y2! - e.y1), 0);
+      const p = osb.find(x => x.id === 'osb_18') || osb[0];
+      o.entrepisoOsb = { area, costo: area * (p?.precioM2 || 0), nombre: p?.tipo || 'OSB' };
+      o.costo += o.entrepisoOsb.costo;
+    }
+    // Tanques: se metran en el piso donde apoya su torre.
+    const tq = tanques.filter(t => { const b = t.cotaBase; const sig = pisos[k + 1]; return b >= c.base - 0.05 && (sig === undefined || b < ctx(sig).base - 0.05); });
+    if (tq.length) o.tanques = tq.map(t => {
+      const sp = sobrepechos[t.id];
+      const m2 = sp?.activo ? perimetroSobrepecho(t, sp) * sp.alto : 0;
+      const l = lad.find(x => x.id === sp?.ladrilloId);
+      const ladrillos = Math.ceil(m2 * (l?.unidadesM2 || 0));
+      const costoSobrepecho = ladrillos * (l?.precioxMil || 0) / 1000;
+      o.costo += costoSobrepecho;
+      return { numero: t.numero, litros: t.litros, sobretecho: t.sobretechoCobertura, sobretechoM2: t.sobretechoM2, sobrepechoM2: m2, ladrillos, costoSobrepecho };
+    });
     out[n] = o;
   });
   return out;

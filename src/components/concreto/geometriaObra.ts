@@ -51,9 +51,9 @@ export const esNodoTanque = (n: { nodeLabel?: string } | undefined) => /^TQ/.tes
 
 // Polígonos del techo: las coberturas guardadas o, si no hay, las que se
 // deducen de las correas (mismo cálculo que "Cubrir con correas" en Techos).
-export function poligonosTecho(est: EstructuraTechos): { x: number; y: number; z: number }[][] {
+export function poligonosTecho(est: EstructuraTechos, sinTanques = false): { x: number; y: number; z: number }[][] {
   const N = est.nodes || {};
-  const zonas = Object.values(est.coverageZones || {}).map(z => z.nodeIdsBoundary || []);
+  const zonas = Object.values(est.coverageZones || {}).map(z => z.nodeIdsBoundary || []).filter(l => !sinTanques || !l.some(id => esNodoTanque(N[id] as any)));
   const propias = zonas.filter(l => !l.some(id => esNodoTanque(N[id] as any)));
   const ids = propias.length ? zonas : [...zonas, ...coberturaDesdeCorreas(N, est.segments || {}).map(p => p.ids)];
   return ids.map(l => l.map(id => N[id]).filter(Boolean).map(n => ({ x: n.x, y: n.y, z: n.z }))).filter(p => p.length >= 3);
@@ -237,25 +237,43 @@ export function metradoTechosPorPiso(est: EstructuraTechos | null, bases: number
 }
 
 // Tanques Rotoplas colocados desde Techos (nodos "TQ<litros>-P1..4@<id>").
-export interface TanqueObra { id: string; x: number; y: number; z: number; litros: number; lado: number; diametro: number; alto: number; ySobretecho: number | null }
+export interface TanqueObra {
+  id: string; numero: number; x: number; y: number; z: number; litros: number; lado: number; diametro: number; alto: number;
+  cotaBase: number;              // donde apoya la torre
+  ySobretecho: number | null;    // techito sobre el tanque (se hace en Techos)
+  sobretechoCobertura?: string;  // material del sobretecho
+  sobretechoM2: number;
+}
 export function tanquesEnEstructura(est: EstructuraTechos | null): TanqueObra[] {
   if (!est) return [];
-  const grupos = new Map<string, { xs: number[]; ys: number[]; zs: number[]; litros: number; techo: number[] }>();
+  const grupos = new Map<string, { xs: number[]; ys: number[]; zs: number[]; litros: number; techo: number[]; base: number[] }>();
   Object.values(est.nodes || {}).forEach(n => {
     const lab = n.nodeLabel || '';
     const m = /^TQ(\d+)-P\d@(.+)$/.exec(lab);
     const st = /^TQS-\d@(.+)$/.exec(lab);
-    const gid = m?.[2] || st?.[1];
+    const bs = /^TQB-\d@(.+)$/.exec(lab);
+    const gid = m?.[2] || st?.[1] || bs?.[1];
     if (!gid) return;
-    const g = grupos.get(gid) || { xs: [], ys: [], zs: [], litros: 0, techo: [] };
-    if (m) { g.xs.push(n.x); g.ys.push(n.y); g.zs.push(n.z); g.litros = Number(m[1]); } else g.techo.push(n.y);
+    const g = grupos.get(gid) || { xs: [], ys: [], zs: [], litros: 0, techo: [], base: [] };
+    if (m) { g.xs.push(n.x); g.ys.push(n.y); g.zs.push(n.z); g.litros = Number(m[1]); } else if (st) g.techo.push(n.y); else g.base.push(n.y);
     grupos.set(gid, g);
   });
-  return [...grupos.entries()].filter(([, g]) => g.xs.length).map(([id, g]) => {
+  const zonas = Object.values(est.coverageZones || {});
+  return [...grupos.entries()].filter(([, g]) => g.xs.length).sort(([a], [b]) => a.localeCompare(b)).map(([id, g], k) => {
     const tk = TANQUES_ROTOPLAS[g.litros] || TANQUES_ROTOPLAS[1100];
     const lado = Math.max(...g.xs) - Math.min(...g.xs);
+    const zona = zonas.find(z => z.nodeIdsBoundary.some(nid => (est.nodes[nid]?.nodeLabel || '').endsWith(`@${id}`)));
+    const pts = zona ? zona.nodeIdsBoundary.map(nid => est.nodes[nid]).filter(Boolean) : [];
+    let ax = 0, ay = 0, az = 0;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const u = [pts[i].x - pts[0].x, pts[i].y - pts[0].y, pts[i].z - pts[0].z], v = [pts[i + 1].x - pts[0].x, pts[i + 1].y - pts[0].y, pts[i + 1].z - pts[0].z];
+      ax += u[1] * v[2] - u[2] * v[1]; ay += u[2] * v[0] - u[0] * v[2]; az += u[0] * v[1] - u[1] * v[0];
+    }
     return {
-      id, litros: g.litros, lado, diametro: tk.diametro, alto: tk.alto,
+      id, numero: k + 1, litros: g.litros, lado, diametro: tk.diametro, alto: tk.alto,
+      cotaBase: g.base.length ? Math.min(...g.base) : Math.max(...g.ys),
+      sobretechoCobertura: zona ? (INVENTARIO_COBERTURAS.find(c => c.id === zona.coberturaMaterialId)?.nombre || zona.coberturaMaterialId) : undefined,
+      sobretechoM2: Math.hypot(ax, ay, az) / 2,
       x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length, y: Math.max(...g.ys), z: g.zs.reduce((a, b) => a + b, 0) / g.zs.length,
       ySobretecho: g.techo.length ? Math.min(...g.techo) : null,
     };
@@ -377,4 +395,32 @@ export function mallaCieloTanque(t: TanqueObra): MallaCielo {
     tris: [...v[0], ...v[1], ...v[2], ...v[0], ...v[2], ...v[3]], contornos: [v.flat()],
     area: t.lado * t.lado, areaPlanta: t.lado * t.lado, perimetro: 4 * t.lado, recortado: false, alturaMin: t.alto + 0.15, alturaMax: t.alto + 0.15,
   };
+}
+
+// Sobrepecho: murete de ladrillo alrededor de la plataforma del tanque
+// (opcional, se agrega en Concreto). Clave: id del tanque.
+export const KEY_SOBREPECHOS = 'concreto_sobrepechos';
+export interface Sobrepecho { activo: boolean; ladrilloId: string; alto: number; holgura: number }
+export const sobrepechoDefault = (): Sobrepecho => ({ activo: true, ladrilloId: 'ladrillo_pandereta', alto: 1.0, holgura: 0.3 });
+export const perimetroSobrepecho = (t: TanqueObra, s: Sobrepecho) => 4 * (t.lado + 2 * s.holgura);
+
+// ---------------------------------------------------------------------------
+// Capas de la estructura de Techos según el rol de cada perfil
+// ---------------------------------------------------------------------------
+export type CapaEstructura = 'columnas' | 'tijerales' | 'correas' | 'arriostres' | 'vigas' | 'otros';
+export const CAPAS: Record<CapaEstructura, { nombre: string; color: string; hex: number }> = {
+  columnas: { nombre: 'Columnas', color: '#475569', hex: 0x55606e },
+  tijerales: { nombre: 'Tijerales', color: '#2563eb', hex: 0x5f6f82 },
+  correas: { nombre: 'Correas', color: '#0891b2', hex: 0x6b8796 },
+  arriostres: { nombre: 'Arriostres y tensores', color: '#9333ea', hex: 0x7c6f8e },
+  vigas: { nombre: 'Vigas / entrepiso', color: '#059669', hex: 0x5c7468 },
+  otros: { nombre: 'Otros', color: '#78716c', hex: 0x77736e },
+};
+export function capaDeRol(rol: string): CapaEstructura {
+  if (rol.startsWith('columna') || rol === 'placa_base') return 'columnas';
+  if (['cordon_superior', 'cordon_inferior', 'diagonal', 'montante', 'cartela'].includes(rol)) return 'tijerales';
+  if (rol === 'correa') return 'correas';
+  if (rol === 'arriostre' || rol === 'tensor_viento') return 'arriostres';
+  if (['viga_principal', 'viga_secundaria', 'piso_deck'].includes(rol)) return 'vigas';
+  return 'otros';
 }

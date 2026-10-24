@@ -1,11 +1,11 @@
 // Vista de Presupuesto Formal e Integración de HERRERÍA
 // Incluye: Descripción, Unidad, Cantidad, Metrado, Material, Mano de Obra, Precio, Subtotal, Observaciones
 // Botón: [ ENVIAR AL PRESUPUESTO ] con selector de proyecto o creación de nuevo proyecto
-import React, { useState } from 'react';
+import BotonImprimir from '../common/BotonImprimir';
+import React, { useRef, useState } from 'react';
 import { 
   FileText, 
   Send, 
-  Printer, 
   CheckCircle, 
   Calendar, 
   ArrowRight
@@ -50,6 +50,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
   const [incluirIgv, setIncluirIgv] = useState<boolean>(false);
   const [enviadoExito, setEnviadoExito] = useState<boolean>(false);
   const [modalConfirmacion, setModalConfirmacion] = useState<boolean>(false);
+  const hojaRef = useRef<HTMLDivElement>(null);
 
   // Cálculos matemáticos y presupuesto
   const despiece = generarDespiece(design);
@@ -112,7 +113,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-950 p-4 sm:p-6 overflow-y-auto text-slate-200 select-none">
+    <div ref={hojaRef} className="imprimir-claro w-full h-full flex flex-col bg-slate-950 p-4 sm:p-6 overflow-y-auto text-slate-200 select-none">
       {/* Cabecera Formal de Presupuesto */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
         <div>
@@ -131,7 +132,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 no-imprimir">
           {/* Botón [ ENVIAR AL PRESUPUESTO ] */}
           <button
             onClick={() => setModalConfirmacion(true)}
@@ -141,14 +142,8 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
             <span>ENVIAR AL PRESUPUESTO</span>
           </button>
 
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs border border-slate-700"
-            title="Imprimir Presupuesto"
-          >
-            <Printer className="w-4 h-4" />
-            <span className="hidden sm:inline">Imprimir</span>
-          </button>
+          <BotonImprimir objetivo={() => hojaRef.current} titulo="Presupuesto de herrería" etiqueta="Imprimir"
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 cursor-pointer" />
         </div>
       </div>
 

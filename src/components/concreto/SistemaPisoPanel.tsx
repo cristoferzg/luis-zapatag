@@ -56,7 +56,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
       </div>
 
       {/* AMBIENTES, ABERTURAS Y CIELO RASO (del Plano CAD) */}
-      {obra && (obra.ambientes.length > 0 || obra.puertas + obra.ventanas + obra.vanos > 0 || obra.cielo || obra.cieloTanque) && (
+      {obra && (obra.ambientes.length > 0 || obra.puertas + obra.ventanas + obra.vanos > 0 || obra.cielo || obra.cieloTanque || obra.entrepisoOsb) && (
         <section className="space-y-2">
           <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><LayoutGrid className="w-4 h-4 text-emerald-500" /> Ambientes, puertas y cielo raso</h4>
           {obra.ambientes.length > 0 && (
@@ -76,6 +76,9 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
               </div>
               <span className="text-xs font-bold text-slate-800 shrink-0">{obra.cielo.costo > 0 ? S(obra.cielo.costo) : 'Sin precio'}</span>
             </div>
+          )}
+          {obra.entrepisoOsb && (
+            <p className="text-[11px] font-bold text-slate-600">Entrepiso {obra.entrepisoOsb.nombre}: {obra.entrepisoOsb.area.toFixed(2)} m²{obra.entrepisoOsb.costo > 0 ? ` · ${S(obra.entrepisoOsb.costo)}` : ''}</p>
           )}
           {obra.cieloTanque && (
             <p className="text-[11px] font-bold text-slate-600">Cielo raso bajo el sobretecho del tanque: {obra.cieloTanque.area.toFixed(2)} m²{obra.cieloTanque.costo > 0 ? ` · ${S(obra.cieloTanque.costo)}` : ''}</p>
@@ -172,10 +175,23 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
         )}
       </section>
 
-      {/* TANQUE ELEVADO */}
+      {/* TANQUES ELEVADOS */}
       <section className="space-y-2 pt-2">
+        {obra?.metal ? (<>
+          <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><Droplets className="w-4 h-4 text-sky-500" /> Tanques elevados (desde Techos Metálicos)</h4>
+          {(obra.tanques || []).map(t => (
+            <div key={t.numero} className="rounded-xl bg-sky-50/60 px-3 py-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-slate-800">T{t.numero} · Rotoplas {t.litros} L <span className="text-[10px] font-semibold text-slate-500">· torre incluida en el acero de la estructura</span></p>
+                <p className="text-[11px] text-slate-600">Sobretecho: {t.sobretecho ? `${t.sobretecho} · ${t.sobretechoM2.toFixed(2)} m²` : 'no'} · Sobrepecho: {t.sobrepechoM2 ? `${t.sobrepechoM2.toFixed(2)} m² · ${t.ladrillos} ladrillos` : 'no'}</p>
+              </div>
+              <span className="text-xs font-bold text-slate-800 shrink-0">{t.costoSobrepecho > 0 ? S(t.costoSobrepecho) : ''}</span>
+            </div>
+          ))}
+          {!(obra.tanques || []).length && <p className="text-xs text-slate-400 italic">Ningún tanque apoya en este piso. Se agregan en Techos Metálicos → ⋯ Más → Tanques elevados; el sobrepecho, en el Plano CAD.</p>}
+        </>) : (<>
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><Droplets className="w-4 h-4 text-sky-500" /> Tanque elevado (soporte metálico + sobrepecho)</h4>
+          <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><Droplets className="w-4 h-4 text-sky-500" /> Tanque elevado (torre metálica + sobrepecho de ladrillo)</h4>
           {sistema.tanque ? (
             <button onClick={() => onChange({ ...sistema, tanque: undefined })} className="p-2 rounded-lg hover:bg-rose-100 text-rose-500 cursor-pointer" title="Quitar tanque"><Trash2 className="w-4 h-4" /></button>
           ) : (
@@ -237,6 +253,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
             <p className="text-[11px] font-bold text-slate-600">Acero {S(calc.tanque.costoAcero)} + sobrepecho {S(calc.tanque.costoSobrepecho)} = <span className="text-slate-800">{S(calc.tanque.costo)}</span></p>
           </div>
         )}
+        </>)}
       </section>
     </div>
   );

@@ -140,3 +140,75 @@ export function generarTanque(o: OpcionesTanque): { nodes: Record<string, Node3D
   }
   return { nodes, segments, zones };
 }
+
+// ---------------------------------------------------------------------------
+// Caída del techo y orientación del diseño
+// ---------------------------------------------------------------------------
+export type DireccionCaida = 'izquierda' | 'derecha' | 'adelante' | 'atras';
+export const NOMBRE_CAIDA: Record<DireccionCaida, string> = { izquierda: 'Izquierda', derecha: 'Derecha', adelante: 'Adelante (calle)', atras: 'Atrás' };
+
+// Dirección (en planta) hacia donde escurre el agua de cada polígono del
+// techo: la proyección horizontal de su normal. En planta, +Z es "adelante".
+export function caidaDePoligono(p: { x: number; y: number; z: number }[]): { dx: number; dz: number; pendientePct: number } | null {
+  if (p.length < 3) return null;
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 1; i < p.length - 1; i++) {
+    const u = [p[i].x - p[0].x, p[i].y - p[0].y, p[i].z - p[0].z], v = [p[i + 1].x - p[0].x, p[i + 1].y - p[0].y, p[i + 1].z - p[0].z];
+    nx += u[1] * v[2] - u[2] * v[1]; ny += u[2] * v[0] - u[0] * v[2]; nz += u[0] * v[1] - u[1] * v[0];
+  }
+  if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
+  const h = Math.hypot(nx, nz);
+  if (ny < 1e-9 || h / ny < 0.01) return { dx: 0, dz: 0, pendientePct: 0 }; // plano
+  return { dx: nx / h, dz: nz / h, pendientePct: Math.round((h / ny) * 100) };
+}
+
+export function nombreDireccion(dx: number, dz: number): DireccionCaida {
+  return Math.abs(dx) >= Math.abs(dz) ? (dx > 0 ? 'derecha' : 'izquierda') : (dz > 0 ? 'adelante' : 'atras');
+}
+
+// Caída principal del diseño: la del agua más grande (sin tanques).
+export function caidaPrincipal(nodes: Record<string, NodoMin>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }>): DireccionCaida | null {
+  const propias = Object.values(zones).map(z => z.nodeIdsBoundary).filter(ids => !ids.some(id => /^TQ/.test(nodes[id]?.nodeLabel || '')));
+  const polis = (propias.length ? propias : coberturaDesdeCorreas(nodes, segments).map(p => p.ids)).map(ids => ids.map(id => nodes[id]).filter(Boolean));
+  let mejor: { a: number; d: DireccionCaida } | null = null;
+  polis.forEach(p => {
+    const c = caidaDePoligono(p);
+    if (!c || !c.pendientePct) return;
+    let a = 0; for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; a += p[i].x * q.z - q.x * p[i].z; }
+    if (!mejor || Math.abs(a) > mejor.a) mejor = { a: Math.abs(a), d: nombreDireccion(c.dx, c.dz) };
+  });
+  return mejor ? (mejor as { a: number; d: DireccionCaida }).d : null;
+}
+
+// Gira (múltiplos de 90°) o refleja todo el diseño en planta alrededor de su
+// centro, conservando los ids. Las columnas, tijerales y coberturas se mueven juntos.
+export function transformarEscena<N extends NodoMin>(nodes: Record<string, N>, op: 'girar90' | 'girar180' | 'girar270' | 'reflejarX' | 'reflejarZ'): Record<string, N> {
+  const ns = Object.values(nodes);
+  if (!ns.length) return nodes;
+  const minX = Math.min(...ns.map(n => n.x)), maxX = Math.max(...ns.map(n => n.x)), minZ = Math.min(...ns.map(n => n.z)), maxZ = Math.max(...ns.map(n => n.z));
+  const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+  const f = (x: number, z: number): [number, number] => {
+    const dx = x - cx, dz = z - cz;
+    switch (op) {
+      case 'girar90': return [-dz, dx];
+      case 'girar180': return [-dx, -dz];
+      case 'girar270': return [dz, -dx];
+      case 'reflejarX': return [-dx, dz];
+      default: return [dx, -dz];
+    }
+  };
+  const tmp = ns.map(n => ({ n, p: f(n.x, n.z) }));
+  // Vuelve a apoyar la obra en el mismo origen (esquina mínima).
+  const ox = minX - Math.min(...tmp.map(t => t.p[0])), oz = minZ - Math.min(...tmp.map(t => t.p[1]));
+  const r = (v: number) => Math.round(v * 1000) / 1000;
+  const out: Record<string, N> = {};
+  tmp.forEach(({ n, p }) => { out[n.id] = { ...n, x: r(p[0] + ox), z: r(p[1] + oz) }; });
+  return out;
+}
+
+// Operación que lleva la caída actual a la dirección pedida.
+export function opParaCaida(actual: DireccionCaida, deseada: DireccionCaida): 'girar90' | 'girar180' | 'girar270' | null {
+  const orden: DireccionCaida[] = ['derecha', 'adelante', 'izquierda', 'atras']; // +90° en planta (x→z)
+  const k = (orden.indexOf(deseada) - orden.indexOf(actual) + 4) % 4;
+  return k === 0 ? null : k === 1 ? 'girar90' : k === 2 ? 'girar180' : 'girar270';
+}
