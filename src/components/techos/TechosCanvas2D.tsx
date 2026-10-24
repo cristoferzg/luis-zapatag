@@ -2089,19 +2089,17 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                   </g>
                 )}
 
-                {/* MENSAJE DE LIENZO EN BLANCO */}
-                {Object.keys(nodes).length === 0 && (
-                  <g transform="translate(0, 0)" className="pointer-events-none select-none">
-                    <text x="0" y="-20" fill="#64748b" fontSize="14" fontWeight="extrabold" textAnchor="middle">
-                      LIENZO CAD EN BLANCO
-                    </text>
-                    <text x="0" y="5" fill="#475569" fontSize="11" textAnchor="middle">
-                      Selecciona una herramienta (Viga, Arco, Columna, Tijeral) para comenzar a diseñar.
-                    </text>
-                  </g>
-                )}
               </g>
             </svg>
+            {/* MENSAJE DE LIENZO EN BLANCO: centrado en la pantalla, sin cruzarse con los ejes */}
+            {Object.keys(nodes).length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none p-4">
+                <div className="bg-white/95 border border-slate-200 rounded-2xl shadow-sm px-5 py-4 text-center max-w-xs">
+                  <p className="text-sm font-black text-slate-600">Lienzo en blanco</p>
+                  <p className="text-xs text-slate-500 mt-1">Toca <b className="text-orange-600">Asistente</b> para armar el techo con medidas, o elige una herramienta (Viga, Columna, Tijeral) para dibujar.</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
