@@ -406,7 +406,11 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const handleGenerarEstructura = () => {
     if (!engineState) return;
 
-    const spacingParam = trussSpacingMode === 'espaciado' ? (parseFloat(customMontanteSpacing) || trussSpacingM) : undefined;
+    // N° de espacios → separación equivalente para los tipos que trabajan por
+    // separación (parabólico, una agua, cuatro aguas…); a dos aguas usa el N° directo.
+    const spacingParam = trussSpacingMode === 'espaciado'
+      ? (parseFloat(customMontanteSpacing) || trussSpacingM)
+      : (tipo === 'dos_aguas' ? undefined : luzM / Math.max(1, trussDivisions));
 
     if (tipo === 'parabolico') {
       const peralteArco = trussHeightM || Math.max(0.50, Math.min(1.20, Number((luzM / 18).toFixed(2))));

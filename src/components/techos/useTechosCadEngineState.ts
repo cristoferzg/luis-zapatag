@@ -3,6 +3,7 @@
 
 import { useCostosTechos } from './costosTechos';
 import { safeStorage } from '../../lib/storageManager';
+import { tijeralesDeAlero } from './tijeralesAlero';
 export const KEY_ESCENA_ACTUAL = 'innova_techos_escena_actual';
 import { useCatalogo } from '../../lib/catalogoPrecios';
 import { zonasDesdeCorreas } from './coberturaAuto';
@@ -1190,8 +1191,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       // Celosía interna: Diagonales completas
       // Si es tipo Vierendeel, solo añadimos diagonales si el arriostramiento perimetral está activo
       const isPerimeter = f === 0 || f === numFrames - 1;
-      const useDiagonals = tipoTijeral !== 'escalera_vierendeel' || (isPerimeter && perimetralBracingEnabled);
-      const effectiveTipoTijeral = (isPerimeter && perimetralBracingEnabled && tipoTijeralPerimetral) ? tipoTijeralPerimetral : tipoTijeral;
+      const refuerzoTestero = isPerimeter && (perimetralBracingEnabled || hasPerimetral);
+      const useDiagonals = tipoTijeral !== 'escalera_vierendeel' || refuerzoTestero;
+      const effectiveTipoTijeral = (refuerzoTestero && tipoTijeralPerimetral) ? tipoTijeralPerimetral : tipoTijeral;
 
       if (useDiagonals) {
         for (let i = 1; i <= numSub; i++) {
@@ -1238,22 +1240,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
 
         // TIJERALES LONGITUDINALES (Vigas celosía Warren o Pratt en aleros y cumbrera)
         if (hasLongitudinal) {
-          // 1. Tijeral longitudinal en alero izquierdo (X=0)
-          if (prevLeftTopNodes[0] && leftTopNodes[0] && prevBottomNodes[0] && bottomNodes[0]) {
-            const sLv1 = `s_long_truss_v_l_${f}`;
-            newSegs[sLv1] = { id: sLv1, nodeAId: bottomNodes[0], nodeBId: leftTopNodes[0], profileId: vigaProf, rolEstructural: 'montante' };
-            if (tipoTijeral !== 'escalera_vierendeel' && tipoTijeral !== 'simple_arco') {
-              const sLd1 = `s_long_truss_d_l_${f}`;
-              const nA = tipoTijeral === 'warren' 
-                ? (f % 2 === 1 ? prevBottomNodes[0] : prevLeftTopNodes[0]) 
-                : (f <= numFrames / 2 ? prevBottomNodes[0] : bottomNodes[0]);
-              const nB = tipoTijeral === 'warren'
-                ? (f % 2 === 1 ? leftTopNodes[0] : bottomNodes[0])
-                : (f <= numFrames / 2 ? leftTopNodes[0] : prevLeftTopNodes[0]);
-              newSegs[sLd1] = { id: sLd1, nodeAId: nA, nodeBId: nB, profileId: vigaProf, rolEstructural: 'diagonal' };
-            }
-          }
-
+          // Los tijerales de alero se arman al final con tijeralesDeAlero().
           // 2. Tijeral longitudinal en cumbrera central (X=Luz/2)
           const ridgeTopPrev = prevLeftTopNodes[prevLeftTopNodes.length - 1];
           const ridgeTopCurr = leftTopNodes[leftTopNodes.length - 1];
@@ -1276,25 +1263,6 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
             }
           }
 
-          // 3. Tijeral longitudinal en alero derecho (X=Luz)
-          const rTopPrev = prevRightTopNodes[prevRightTopNodes.length - 1];
-          const rTopCurr = rightTopNodes[rightTopNodes.length - 1];
-          const rBotPrev = prevBottomNodes[prevBottomNodes.length - 1];
-          const rBotCurr = bottomNodes[bottomNodes.length - 1];
-          if (rTopPrev && rTopCurr && rBotPrev && rBotCurr) {
-            const sLv3 = `s_long_truss_v_r_${f}`;
-            newSegs[sLv3] = { id: sLv3, nodeAId: rBotCurr, nodeBId: rTopCurr, profileId: vigaProf, rolEstructural: 'montante' };
-            if (tipoTijeral !== 'escalera_vierendeel' && tipoTijeral !== 'simple_arco') {
-              const sLd3 = `s_long_truss_d_r_${f}`;
-              const nA = tipoTijeral === 'warren' 
-                ? (f % 2 === 1 ? rBotPrev : rTopPrev) 
-                : (f <= numFrames / 2 ? rBotPrev : rBotCurr);
-              const nB = tipoTijeral === 'warren'
-                ? (f % 2 === 1 ? rTopCurr : rBotCurr)
-                : (f <= numFrames / 2 ? rTopCurr : rTopPrev);
-              newSegs[sLd3] = { id: sLd3, nodeAId: nA, nodeBId: nB, profileId: vigaProf, rolEstructural: 'diagonal' };
-            }
-          }
         }
 
         // Tubos de tejido de arriostramiento en cruz (San Andrés) para soporte lateral y antivuelco
@@ -1332,6 +1300,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       prevBottomNodes = [...bottomNodes];
     }
 
+    // Longitudinal / Perimetral / Completo: vigas celosía en ambos aleros.
+    if (hasLongitudinal || hasPerimetral) tijeralesDeAlero(newNodes, newSegs, { peralteM: _peralteM, perfil: vigaProf, perfilCordon: correaProf });
     if (soloDevolver) return { nodes: newNodes, segs: newSegs };
     setNodes(newNodes);
     setSegments(newSegs);
@@ -1549,6 +1519,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       prevBotNodes = [...botNodes];
     }
 
+    if (hasLongitudinal || hasPerimetral) tijeralesDeAlero(newNodes, newSegs, { perfil: vigaProf, perfilCordon: correaProf });
     setNodes(newNodes);
     setSegments(newSegs);
     pushHistory(newNodes, newSegs, coverageZones);
@@ -1592,7 +1563,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const numFrames = framePositions.length;
 
     // Subdivisión del arco proporcional a la luz para espaciamiento óptimo de correas (1.2m a 1.6m)
-    const numPuntos = luzM <= 12 ? 8 : (luzM <= 18 ? 10 : (luzM <= 26 ? 12 : 14));
+    const numPuntos = _customSpacingM && _customSpacingM > 0.1
+      ? Math.max(4, Math.min(40, Math.round(luzM / _customSpacingM)))
+      : (luzM <= 12 ? 8 : (luzM <= 18 ? 10 : (luzM <= 26 ? 12 : 14)));
     const hp = Math.max(0.45, Math.min(1.20, peralteArcoM || Number((luzM / 18).toFixed(2))));
 
     let prevTopArcNodeIds: string[] = [];
@@ -1807,6 +1780,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       prevBotArcNodeIds = [...botArcNodeIds];
     }
 
+    if (hasLongitudinal || hasPerimetral) tijeralesDeAlero(newNodes, newSegs, { perfil: vigaProf, perfilCordon: correaProf });
     setNodes(newNodes);
     setSegments(newSegs);
     pushHistory(newNodes, newSegs, coverageZones);
@@ -2452,7 +2426,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const numFrames = Math.max(1, (numTijerales || 5) - 2);
     let prevFrameTopNodes: string[] = [];
     let prevFrameBotNodes: string[] = [];
-    const numSubPanels = Math.max(2, Math.min(6, Math.round((luzM / 2) / (_customSpacingM || 1.8))));
+    const numSubPanels = Math.max(2, Math.min(20, Math.round((luzM / 2) / (_customSpacingM || 1.8))));
 
     for (let f = 1; f <= numFrames; f++) {
       const u = f / (numFrames + 1);

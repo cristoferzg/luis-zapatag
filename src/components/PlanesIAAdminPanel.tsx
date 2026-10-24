@@ -31,9 +31,9 @@ export default function PlanesIAAdminPanel() {
   };
 
   return (
-    <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-5 animate-fadeIn">
-      <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+    <div className="bg-white p-4 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-5 animate-fadeIn">
+      <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-start gap-3 min-w-0">
           <div className="p-2 bg-amber-500 text-slate-950 rounded-xl">
             <Sparkles className="w-5 h-5" />
           </div>
@@ -44,7 +44,7 @@ export default function PlanesIAAdminPanel() {
             </p>
           </div>
         </div>
-        <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
+        <span className="self-start sm:self-auto shrink-0 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
           Solo Administrador
         </span>
       </div>
