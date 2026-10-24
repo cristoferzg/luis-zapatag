@@ -31,6 +31,19 @@ export interface ItemCatalogo {
   unidad: string;       // unidad de compra
   ref: number;          // precio de referencia (se usa si no pones el tuyo)
   usadoEn: string[];    // apartados que lo usan
+  alias?: string[];     // nombres con que aparece en cada apartado (para buscar)
+}
+
+const NOMBRE_TIPO: Record<string, string> = {
+  tubo_cuadrado: 'Tubo cuadrado', tubo_rectangular: 'Tubo rectangular', tubo_redondo: 'Tubo redondo', perfil_c: 'Perfil C',
+  perfil_z: 'Perfil Z', perfil_h_ipe: 'Viga H / IPE', angulo: 'Ángulo', platina: 'Platina', barra_cuadrada: 'Barra cuadrada', barra_redonda: 'Barra redonda',
+};
+function nombrePerfil(p: { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; nombre?: string; normaAcabado?: string }) {
+  const c = catPerfil(p.categoria);
+  const a = Math.max(p.anchoMm, p.altoMm || p.anchoMm), b = Math.min(p.anchoMm, p.altoMm || p.anchoMm);
+  const med = c === 'tubo_redondo' || c === 'barra_redonda' ? `Ø ${norm(a)}` : `${norm(a)} × ${norm(b)}`;
+  const galv = p.normaAcabado === 'GALVANIZADO' || /galvaniz/i.test(p.nombre || '');
+  return `${NOMBRE_TIPO[c] || p.categoria} ${med} × ${norm(p.espesorMm)} mm${galv ? ' galvanizado' : ''}`;
 }
 
 // ---- Claves -----------------------------------------------------------------
@@ -45,6 +58,11 @@ export function clavePerfil(categoria: string, anchoMm: number, altoMm: number, 
   const a = Math.max(anchoMm, altoMm || anchoMm), b = Math.min(anchoMm, altoMm || anchoMm);
   return `perfil:${c}:${norm(a)}x${norm(b)}x${norm(espesorMm)}`;
 }
+// Clave a partir del perfil (galvanizado ≠ negro aunque tengan la misma medida).
+export function clavePerfilDe(p: { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; nombre?: string; normaAcabado?: string }) {
+  const galv = p.normaAcabado === 'GALVANIZADO' || /galvaniz/i.test(p.nombre || '');
+  return clavePerfil(p.categoria, p.anchoMm, p.altoMm, p.espesorMm) + (galv ? ':galv' : '');
+}
 export const claveCobertura = (id: string) => `cobertura:${id}`;
 export const claveDrywall = (id: string) => `drywall:${id}`;
 export const claveOsb = (id: string) => `osb:${id}`;
@@ -57,7 +75,11 @@ function construirItems(): ItemCatalogo[] {
   const items = new Map<string, ItemCatalogo>();
   const add = (it: ItemCatalogo) => {
     const prev = items.get(it.clave);
-    if (prev) { it.usadoEn.forEach(u => { if (!prev.usadoEn.includes(u)) prev.usadoEn.push(u); }); return; }
+    if (prev) {
+      it.usadoEn.forEach(u => { if (!prev.usadoEn.includes(u)) prev.usadoEn.push(u); });
+      (it.alias || []).forEach(a => { if (!(prev.alias ||= []).includes(a)) prev.alias.push(a); });
+      return;
+    }
     items.set(it.clave, it);
   };
   // Perfiles: CarpiMetal ya está por barra de 6 m; Techos por metro → ×6.
@@ -66,11 +88,11 @@ function construirItems(): ItemCatalogo[] {
       add({ clave: `carpiperfil:${p.id}`, grupo: 'Perfiles de acero', nombre: p.nombre, unidad: 'barra 6 m', ref: p.precioPorBarra6m, usadoEn: ['CarpiMetal'] });
       return;
     }
-    add({ clave: clavePerfil(p.categoria, p.anchoMm, p.altoMm, p.espesorMm), grupo: 'Perfiles de acero', nombre: p.nombre, unidad: 'barra 6 m', ref: p.precioPorBarra6m, usadoEn: ['CarpiMetal'] });
+    add({ clave: clavePerfilDe(p), grupo: 'Perfiles de acero', nombre: nombrePerfil(p), unidad: 'barra 6 m', ref: p.precioPorBarra6m, usadoEn: ['CarpiMetal'], alias: [p.nombre] });
   });
   INVENTARIO_PERFILES_TUBULARES.forEach(p => {
     const largo = p.longitudComercialM || 6;
-    add({ clave: clavePerfil(p.categoria, p.anchoMm, p.altoMm, p.espesorMm), grupo: 'Perfiles de acero', nombre: p.nombre, unidad: `barra ${norm(largo)} m`, ref: Math.round(p.costoMetroSol * largo * 100) / 100, usadoEn: ['Techos'] });
+    add({ clave: clavePerfilDe(p), grupo: 'Perfiles de acero', nombre: nombrePerfil(p), alias: [p.nombre], unidad: `barra ${norm(largo)} m`, ref: Math.round(p.costoMetroSol * largo * 100) / 100, usadoEn: ['Techos'] });
   });
   INVENTARIO_COBERTURAS.forEach(c => add({ clave: claveCobertura(c.id), grupo: 'Coberturas', nombre: c.nombre, unidad: 'm²', ref: c.costoM2Sol, usadoEn: ['Techos'] }));
   add({ clave: 'techos:placa_base', grupo: 'Accesorios de techos', nombre: PLACA_BASE_ESTANDAR.nombre, unidad: 'unidad', ref: PLACA_BASE_ESTANDAR.costoUnidadSol, usadoEn: ['Techos'] });
@@ -164,8 +186,8 @@ export function hidratarCatalogo(remoto?: EstadoCatalogo | null) {
 }
 
 // ---- Atajos por apartado ----------------------------------------------------
-export function precioBarraPerfil(p: { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; id?: string }, refBarra: number) {
-  const k = ['cobertura', 'aluminio_serie', 'especial'].includes(p.categoria) && p.id ? `carpiperfil:${p.id}` : clavePerfil(p.categoria, p.anchoMm, p.altoMm, p.espesorMm);
+export function precioBarraPerfil(p: { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; id?: string; nombre?: string; normaAcabado?: string }, refBarra: number) {
+  const k = ['cobertura', 'aluminio_serie', 'especial'].includes(p.categoria) && p.id ? `carpiperfil:${p.id}` : clavePerfilDe(p);
   return precio(k, refBarra);
 }
 export const precioPlanchaAM2 = (clave: string, refM2: number) => {
@@ -193,13 +215,13 @@ export function importarJornales(trabajadores: { role?: string; dailyRate?: numb
 
 // ---- Migración única de precios guardados antes en cada apartado ------------
 // (Techos guardaba S/ por metro; Obra Civil S/ por m² y S/ por millar.)
-export function migrarPreciosAntiguos(perfilTechos: (id: string) => { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; longitudComercialM?: number } | undefined) {
+export function migrarPreciosAntiguos(perfilTechos: (id: string) => { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; longitudComercialM?: number; nombre?: string; normaAcabado?: string } | undefined) {
   if (safeStorage.getItem<boolean>('innova_catalogo_migrado', false)) return;
   const p = { ...estado.precios };
   const poner = (k: string, v: unknown) => { if (typeof v === 'number' && isFinite(v) && p[k] === undefined) p[k] = Math.round(v * 100) / 100; };
   const ct = safeStorage.getItem<any>('techos_costos_usuario', null);
   if (ct) {
-    Object.entries(ct.precioPerfil || {}).forEach(([id, v]) => { const pf = perfilTechos(id); if (pf) poner(clavePerfil(pf.categoria, pf.anchoMm, pf.altoMm, pf.espesorMm), (v as number) * (pf.longitudComercialM || 6)); });
+    Object.entries(ct.precioPerfil || {}).forEach(([id, v]) => { const pf = perfilTechos(id); if (pf) poner(clavePerfilDe(pf), (v as number) * (pf.longitudComercialM || 6)); });
     Object.entries(ct.precioCobertura || {}).forEach(([id, v]) => poner(claveCobertura(id), v));
     poner('techos:placa_base', ct.placaBase); poner('techos:perno_anclaje', ct.pernoAnclajeCaja); poner('techos:perno_epdm', ct.pernoEpdmCaja); poner('soldadura:kg', ct.soldaduraKg);
     (ct.cuadrilla || []).forEach((f: any) => { if (f.jornal > 0) poner(claveJornal(f.cargo), f.jornal); });

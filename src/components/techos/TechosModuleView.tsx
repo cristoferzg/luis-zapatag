@@ -477,7 +477,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // Estado Central del Motor CAD Paramétrico (PROJECT_MODEL)
   const engineState = useTechosCadEngineState();
 
-  const [nombreProyecto, setNombreProyecto] = useState<string>('Nave Industrial Estructural');
+  const [nombreProyecto, setNombreProyecto] = useState<string>(() => safeStorage.getItem<string>('innova_techos_nombre_actual', 'Nave Industrial Estructural') || 'Nave Industrial Estructural');
+  useEffect(() => { safeStorage.setItem('innova_techos_nombre_actual', nombreProyecto); }, [nombreProyecto]);
   const [activeTab, setActiveTab] = useState<TechosTab>('cad');
   const [isOpenMobileToolbox, setIsOpenMobileToolbox] = useState<boolean>(false);
   const [isOpenMobileProperties, setIsOpenMobileProperties] = useState<boolean>(false);
@@ -496,7 +497,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const [showInspector, setShowInspector] = useState<boolean>(true);
 
   // States for Smart Save and Client Portfolio
-  const [currentEditingDesignId, setCurrentEditingDesignId] = useState<string | null>(null);
+  const [currentEditingDesignId, setCurrentEditingDesignId] = useState<string | null>(() => safeStorage.getItem<string | null>('innova_techos_diseno_actual', null));
+  useEffect(() => { safeStorage.setItem('innova_techos_diseno_actual', currentEditingDesignId); }, [currentEditingDesignId]);
   const [showSaveModal, setShowSaveModal] = useState<boolean>(false);
   const [saveModalNombre, setSaveModalNombre] = useState<string>('Nave Industrial Estructural');
   const [saveModalClientId, setSaveModalClientId] = useState<string>('');

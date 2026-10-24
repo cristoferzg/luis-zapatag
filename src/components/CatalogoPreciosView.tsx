@@ -27,7 +27,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
   const filtrados = items.filter(i =>
     (grupo === 'Todos' || i.grupo === grupo) &&
     (!soloMios || cat.precios[i.clave] !== undefined) &&
-    (!buscar.trim() || `${i.nombre} ${i.unidad} ${i.grupo}`.toLowerCase().includes(buscar.toLowerCase())));
+    (!buscar.trim() || buscar.toLowerCase().split(/\s+/).every(t => `${i.nombre} ${(i.alias || []).join(' ')} ${i.unidad} ${i.grupo}`.toLowerCase().includes(t))));
   const propios = Object.keys(cat.precios).length;
 
   return (
@@ -79,6 +79,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
               <div key={i.clave} className="p-3 grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_110px_150px_auto] gap-x-3 gap-y-1.5 items-center">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-800 truncate">{i.nombre}</p>
+                  {i.alias && i.alias.length > 0 && <p className="text-[10px] text-slate-400 truncate">{i.alias.join(' · ')}</p>}
                   <div className="flex flex-wrap items-center gap-1 mt-0.5">
                     {i.usadoEn.map(u => <span key={u} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${COLOR_APARTADO[u] || 'bg-slate-100 text-slate-600'}`}>{u}</span>)}
                     {propio && cat.fechas[i.clave] && <span className="text-[10px] text-slate-400">actualizado {cat.fechas[i.clave]}</span>}

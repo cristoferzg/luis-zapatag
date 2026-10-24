@@ -2,6 +2,8 @@
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
 
 import { useCostosTechos } from './costosTechos';
+import { safeStorage } from '../../lib/storageManager';
+export const KEY_ESCENA_ACTUAL = 'innova_techos_escena_actual';
 import { useCatalogo } from '../../lib/catalogoPrecios';
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
@@ -242,13 +244,18 @@ function buildDefaultInitialRoof(): { nodes: Record<string, Node3D>; segments: R
 export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, initialSegments?: Record<string, Segment3D>): UseTechosCadEngineReturn {
   
   // Si no se envían nodos explícitos, inicializar con estructura predeterminada lista para visualización 2D/3D
-  const initData = (!initialNodes || Object.keys(initialNodes).length === 0) 
-    ? buildDefaultInitialRoof() 
-    : { nodes: initialNodes, segments: initialSegments || {} };
+  // Diseño en curso: se recuerda al cambiar de apartado y volver (antes se
+  // perdía y aparecía la nave por defecto, cambiando el presupuesto).
+  const [escenaGuardada] = useState(() => safeStorage.getItem<{ nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D> } | null>(KEY_ESCENA_ACTUAL, null));
+  const initData = escenaGuardada && Object.keys(escenaGuardada.nodes || {}).length && (!initialNodes || Object.keys(initialNodes).length === 0)
+    ? { nodes: escenaGuardada.nodes, segments: escenaGuardada.segments || {} }
+    : (!initialNodes || Object.keys(initialNodes).length === 0)
+      ? buildDefaultInitialRoof()
+      : { nodes: initialNodes, segments: initialSegments || {} };
 
   const defaultNodes: Record<string, Node3D> = initData.nodes;
   const defaultSegments: Record<string, Segment3D> = initData.segments;
-  const defaultCoverageZones: Record<string, CoverageZone3D> = {};
+  const defaultCoverageZones: Record<string, CoverageZone3D> = (escenaGuardada && initData.nodes === escenaGuardada.nodes && escenaGuardada.coverageZones) || {};
 
   const [nodes, setNodes] = useState<Record<string, Node3D>>(defaultNodes);
   // Espejo síncrono de `nodes`: permite que operaciones que crean un nodo y
@@ -258,6 +265,10 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   const [segments, setSegments] = useState<Record<string, Segment3D>>(defaultSegments);
   const [coverageZones, setCoverageZones] = useState<Record<string, CoverageZone3D>>(defaultCoverageZones);
+  useEffect(() => {
+    const t = setTimeout(() => safeStorage.setItem(KEY_ESCENA_ACTUAL, { nodes, segments, coverageZones }), 400);
+    return () => clearTimeout(t);
+  }, [nodes, segments, coverageZones]);
   // Altura de concreto (encamisado) por defecto para las columnas mixtas (visual).
   const [columnasConcretoBaseM, setColumnasConcretoBaseMState] = useState<number>(0);
 

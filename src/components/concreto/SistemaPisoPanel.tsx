@@ -9,7 +9,7 @@ import {
   PERFILES_TANQUE, TANQUES, tanqueDefault,
 } from './obraPisos';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
-import { precioBarraPerfil, clavePerfil, fijarPrecio } from '../../lib/catalogoPrecios';
+import { precioBarraPerfil, clavePerfilDe, fijarPrecio } from '../../lib/catalogoPrecios';
 
 interface Props {
   nivel: string;
@@ -219,7 +219,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
                 </select>
               </label>
               <label className="text-[11px] font-bold text-slate-600">Precio perfil (S/ barra)
-                {(() => { const pf = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sistema.tanque!.perfilId); const k = pf ? clavePerfil(pf.categoria, pf.anchoMm, pf.altoMm, pf.espesorMm) : ''; return (
+                {(() => { const pf = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sistema.tanque!.perfilId); const k = pf ? clavePerfilDe(pf) : ''; return (
                   <input type="number" inputMode="decimal" min={0} value={pf ? precioBarraPerfil(pf, pf.costoMetroSol * (pf.longitudComercialM || 6)) : 0} onChange={e => k && fijarPrecio(k, Math.max(0, parseFloat(e.target.value) || 0), 'Obra Civil')} className={inputCls} />
                 ); })()}
               </label>

@@ -7,7 +7,7 @@ import React from 'react';
 import { DollarSign, Plus, Trash2, RotateCcw, Package, HardHat, Truck, Percent } from 'lucide-react';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR, SOLDADURA_AWS_E6011 } from './techosCadCatalog';
 import { useCostosTechos, guardarCostosTechos, totalCuadrilla, totalOperativos, CostosTechos, jornalDe } from './costosTechos';
-import { useCatalogo, precio, fijarPrecio, quitarPrecio, tienePrecioPropio, clavePerfil, claveCobertura, claveJornal } from '../../lib/catalogoPrecios';
+import { useCatalogo, precio, fijarPrecio, quitarPrecio, tienePrecioPropio, clavePerfilDe, claveCobertura, claveJornal } from '../../lib/catalogoPrecios';
 
 interface TechosCostosViewProps {
   design?: any;
@@ -49,7 +49,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
   const coberturas: any[] = bom?.resumenCoberturas || [];
 
   // Precios del catálogo único: perfiles por barra, cobertura por m².
-  const clavePf = (id: string) => { const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id); return p ? clavePerfil(p.categoria, p.anchoMm, p.altoMm, p.espesorMm) : `perfil:${id}`; };
+  const clavePf = (id: string) => { const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id); return p ? clavePerfilDe(p) : `perfil:${id}`; };
   const largoPf = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id)?.longitudComercialM || 6;
   const precioBarra = (id: string) => precio(clavePf(id), (INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)?.costoMetroSol || 0) * largoPf(id));
   const precioCob = (id: string) => precio(claveCobertura(id), INVENTARIO_COBERTURAS.find(p => p.id === id)?.costoM2Sol ?? 0);
