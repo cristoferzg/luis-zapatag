@@ -58,7 +58,9 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
   const costos = calcularCostosDesglosados(design, materialesAgrupados);
   const presupuesto: PresupuestoHerreriaResult = generarPresupuesto(design, costos, despiece);
 
-  const totalFinal = incluirIgv ? presupuesto.totalPresupuestoPEN : presupuesto.subtotalSinIgv;
+  // El IGV (18%) se suma solo si se marca la casilla.
+  const igvFinal = incluirIgv ? Math.round(presupuesto.subtotalSinIgv * 0.18 * 100) / 100 : 0;
+  const totalFinal = presupuesto.subtotalSinIgv + igvFinal;
 
   // Acción [ ENVIAR AL PRESUPUESTO ]
   const handleEnviarAlPresupuesto = () => {
@@ -275,7 +277,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
               />
               <span>Incluir I.G.V. (18%):</span>
             </label>
-            <span>{incluirIgv ? `S/. ${presupuesto.igvMonto.toFixed(2)}` : 'S/. 0.00'}</span>
+            <span>S/. {igvFinal.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-between text-emerald-400 font-bold text-sm pt-2 border-t border-slate-800">

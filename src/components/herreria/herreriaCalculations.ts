@@ -787,13 +787,22 @@ export function calcularCostosDesglosados(design: HerreriaDesign, materialesAgru
   };
 }
 
-// Generador de Presupuesto Formal para el Sistema de Innova Contratistas
+// Generador de Presupuesto Formal para el Sistema de Innova Contratistas.
+// Reparte EXACTAMENTE los mismos costos de la "Estructura de costos" en partidas
+// y aplica los mismos gastos generales y utilidad, para que ambos cuadren.
 export function generarPresupuesto(design: HerreriaDesign, costos: CostoDesglosado, despiece: DespieceResult): PresupuestoHerreriaResult {
   const items: ItemPresupuestoHerreria[] = [];
   const areaM2 = design.anchoM * design.altoM;
+  const areaPintura = Math.max(0.1, areaM2 * 2.2);
+  // Precio de venta / costo directo (incluye gastos generales y utilidad).
+  const factor = costos.costoDirectoTotal > 0 ? costos.subtotal / costos.costoDirectoTotal : 1.3;
+  const partida = (p: Omit<ItemPresupuestoHerreria, 'precioUnitario' | 'subtotal'>): ItemPresupuestoHerreria => {
+    const subtotal = (p.material + p.manoDeObra) * factor;
+    return { ...p, precioUnitario: subtotal / Math.max(0.0001, p.cantidad), subtotal };
+  };
 
   // 1. Estructura y Marco Principal
-  items.push({
+  items.push(partida({
     id: 'item-marco-bastidor',
     descripcion: `Fabricación de marco perimétrico (${design.anchoM.toFixed(2)}m × ${design.altoM.toFixed(2)}m) y bastidores en tubo rectangular de acero estructural`,
     unidad: 'und',
@@ -801,86 +810,71 @@ export function generarPresupuesto(design: HerreriaDesign, costos: CostoDesglosa
     metrado: areaM2,
     material: costos.materiales * 0.55,
     manoDeObra: costos.corte + costos.armado,
-    precioUnitario: (costos.materiales * 0.55 + costos.corte + costos.armado) * 1.30,
-    subtotal: (costos.materiales * 0.55 + costos.corte + costos.armado) * 1.30,
     observaciones: `Peso acero estructural: ~${despiece.pesoTotalAceroKg.toFixed(1)} kg`
-  });
+  }));
 
   // 2. Relleno, Barrotes y Paneles
-  items.push({
+  items.push(partida({
     id: 'item-barrotes-paneles',
     descripcion: `Habilitado y soldado de paños (${design.nombre}), refuerzos y cerramientos según diseño CAD`,
     unidad: 'm²',
-    cantidad: Math.round(areaM2 * 10) / 10,
+    cantidad: Math.max(0.1, Math.round(areaM2 * 10) / 10),
     metrado: areaM2,
     material: costos.materiales * 0.45,
     manoDeObra: costos.soldadura + costos.esmerilado,
-    precioUnitario: ((costos.materiales * 0.45 + costos.soldadura + costos.esmerilado) / Math.max(1, areaM2)) * 1.30,
-    subtotal: (costos.materiales * 0.45 + costos.soldadura + costos.esmerilado) * 1.30,
     observaciones: `${despiece.totalPiezas} piezas cortadas y desbastadas a ras`
-  });
+  }));
 
-  // 3. Accesorios, Cerrajería y Rodajes
-  items.push({
-    id: 'item-accesorios',
-    descripcion: 'Suministro e instalación de bisagras tubulares reforzadas, cerraduras de seguridad, pasadores y herrajes',
-    unidad: 'gl',
-    cantidad: 1,
-    metrado: 1,
-    material: costos.accesorios,
-    manoDeObra: 40,
-    precioUnitario: (costos.accesorios + 40) * 1.25,
-    subtotal: (costos.accesorios + 40) * 1.25,
-    observaciones: 'Herrajes certificados de alta durabilidad'
-  });
+  // 3. Accesorios, Cerrajería y Rodajes (solo si hay)
+  if (costos.accesorios > 0) {
+    items.push(partida({
+      id: 'item-accesorios',
+      descripcion: 'Suministro e instalación de bisagras, cerraduras, pasadores, rieles y herrajes',
+      unidad: 'gl',
+      cantidad: 1,
+      metrado: 1,
+      material: costos.accesorios,
+      manoDeObra: 0,
+      observaciones: 'Herrajes según la lista de materiales'
+    }));
+  }
 
-  // 4. Tratamiento Anticorrosivo y Pintura
-  items.push({
+  // 4. Tratamiento Anticorrosivo y Pintura (mano de obra; la pintura está en materiales)
+  items.push(partida({
     id: 'item-pintura',
-    descripcion: `Limpieza, desengrasado con thinner, 2 manos de base anticorrosiva y esmalte de acabado (${design.acabado.colorNombre})`,
+    descripcion: `Limpieza, desengrasado, 2 manos de base anticorrosiva y esmalte de acabado (${design.acabado.colorNombre})`,
     unidad: 'm²',
-    cantidad: Math.round((areaM2 * 2.2) * 10) / 10,
-    metrado: areaM2 * 2.2,
-    material: 120,
+    cantidad: Math.round(areaPintura * 10) / 10,
+    metrado: areaPintura,
+    material: 0,
     manoDeObra: costos.pintura,
-    precioUnitario: ((120 + costos.pintura) / (areaM2 * 2.2)) * 1.30,
-    subtotal: (120 + costos.pintura) * 1.30,
     observaciones: 'Acabado profesional con pistola / soplete'
-  });
+  }));
 
   // 5. Transporte e Instalación en Obra
-  items.push({
+  items.push(partida({
     id: 'item-montaje',
-    descripcion: 'Transporte desde maestranza, flete, acarreo, izaje, nivelación y anclaje con pernos expansivos a vano',
+    descripcion: 'Transporte desde el taller, flete, acarreo, izaje, nivelación y anclaje con pernos expansivos al vano',
     unidad: 'gl',
     cantidad: 1,
     metrado: 1,
-    material: 50,
+    material: 0,
     manoDeObra: costos.instalacion + costos.transporte,
-    precioUnitario: (50 + costos.instalacion + costos.transporte) * 1.20,
-    subtotal: (50 + costos.instalacion + costos.transporte) * 1.20,
     observaciones: 'Incluye pruebas de cierre, ajuste de cerradura y entrega conforme'
-  });
+  }));
 
-  const costoDirecto = items.reduce((sum, it) => sum + (it.material + it.manoDeObra), 0);
-  const subtotalSinIgv = items.reduce((sum, it) => sum + it.subtotal, 0);
-  const gastosGeneralesMonto = Math.round(costoDirecto * 0.10);
-  const utilidadMonto = Math.round(costoDirecto * 0.20);
-  const igvMonto = 0;
-  const totalPresupuestoPEN = subtotalSinIgv;
-  const costoPorM2PEN = totalPresupuestoPEN / Math.max(0.1, areaM2);
-
+  const totalPresupuestoPEN = costos.subtotal;
   return {
     items,
-    costoDirecto: Math.round(costoDirecto),
+    costoDirecto: costos.costoDirectoTotal,
     gastosGeneralesPct: 10,
-    gastosGeneralesMonto,
+    gastosGeneralesMonto: costos.gastosGenerales,
     utilidadPct: 20,
-    utilidadMonto,
-    subtotalSinIgv: Math.round(subtotalSinIgv),
+    utilidadMonto: costos.utilidad,
+    subtotalSinIgv: costos.subtotal,
     igvPct: 0,
-    igvMonto,
-    totalPresupuestoPEN: Math.round(totalPresupuestoPEN),
-    costoPorM2PEN: Math.round(costoPorM2PEN)
+    igvMonto: 0,
+    totalPresupuestoPEN,
+    costoPorM2PEN: Math.round(totalPresupuestoPEN / Math.max(0.1, areaM2))
   };
 }
