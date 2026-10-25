@@ -896,6 +896,12 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
               </button>
             </div>
 
+            {(activeManagerItem.isFree || !((activeManagerItem.precioSoles || 0) > 0)) ? (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 leading-relaxed">
+                <b>“{activeManagerItem.titulo}” es gratis:</b> todos los usuarios lo pueden ver sin que tengas que habilitarlos uno por uno.
+                Si quieres cobrarlo, edítalo y márcalo “De pago”; entonces aquí eliges quién tiene acceso.
+              </div>
+            ) : (<>
             <div>
               <p className="text-xs text-slate-500">
                 Selecciona los usuarios o colaboradores que tienen permiso para acceder a: <strong>{activeManagerItem.titulo}</strong>
@@ -938,6 +944,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                   );
                 })}
             </div>
+            </>)}
 
             <div className="pt-2 border-t border-slate-100 flex justify-end">
               <button

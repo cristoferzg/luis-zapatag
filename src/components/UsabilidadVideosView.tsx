@@ -462,6 +462,12 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     return false;
   };
 
+  // ¿Gratis para todos? (la clase es gratis y no pertenece a un curso de pago)
+  const hasAccessToVideoParaTodos = (video: TutorialVideo): boolean => {
+    const curso = cursosList.find(c => c.name === video.category);
+    return (video.isFree !== false && !(curso?.isFree === false)) || (!!curso && curso.isFree !== false);
+  };
+
   const handleOpenPurchase = (video: TutorialVideo, e: React.MouseEvent) => {
     e.stopPropagation();
     setTargetPurchaseVideo(video);
@@ -2081,6 +2087,12 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                 Clase: <strong className="text-slate-800">{showAccessManagerVideo.title}</strong>
               </p>
               
+              {hasAccessToVideoParaTodos(showAccessManagerVideo) ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 leading-relaxed">
+                  <b>Esta clase es gratis</b> (o su curso es gratis): todos los alumnos la ven sin habilitarlos uno por uno.
+                  Para cobrarla, edita la clase o el curso y márcalo “De pago”.
+                </div>
+              ) : (
               <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden bg-slate-50/50">
                 {usuariosList.length === 0 ? (
                   <p className="text-xs text-slate-500 p-4 text-center">No hay alumnos registrados en el sistema.</p>
@@ -2108,6 +2120,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   })
                 )}
               </div>
+              )}
             </div>
 
             <div className="p-3 bg-slate-50 border-t border-slate-100 flex justify-end">
