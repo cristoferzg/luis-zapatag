@@ -24,8 +24,13 @@ export default function PlanesIAAdminPanel() {
   const cambiarActiva = async (v: boolean) => {
     setError(null);
     try { await setIAHabilitadaUsuarios(v); setActiva(v); setConfirmar(false); }
-    catch { setError('No se pudo cambiar. Revisa que hayas ingresado como administrador.'); }
+    catch (e) { setError(motivoError(e, 'cambiar')); }
   };
+
+  // Permiso denegado siendo admin = faltan publicar las reglas de Firestore (config_ia).
+  const motivoError = (e: any, accion: string) => /permission|insufficient/i.test(String(e?.code || e?.message || ''))
+    ? `No se pudo ${accion}: el servidor aún no tiene las reglas nuevas. Desde tu PC ejecuta "firebase deploy --only firestore:rules" y vuelve a intentar.`
+    : `No se pudo ${accion}. Revisa tu conexión e intenta de nuevo.`;
 
   const updPlan = (i: number, p: Partial<AIPlan>) => { setPlanes(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x)); setGuardado(false); };
   const updPack = (i: number, p: Partial<PackCreditos>) => { setPacks(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x)); setGuardado(false); };
@@ -34,7 +39,7 @@ export default function PlanesIAAdminPanel() {
   const guardar = async () => {
     setGuardando(true); setError(null);
     try { await setConfigIA(planes, packs.map(k => ({ ...k, id: `p${k.creditos}` }))); setGuardado(true); }
-    catch { setError('No se pudo guardar. Revisa que hayas ingresado como administrador.'); }
+    catch (e) { setError(motivoError(e, 'guardar')); }
     finally { setGuardando(false); }
   };
 

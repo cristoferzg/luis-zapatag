@@ -21,7 +21,7 @@ import {
   SOLDADURA_AWS_E6011 
 } from './techosCadCatalog';
 import { CostosTechos, leerCostosTechos, totalCuadrilla, totalOperativos } from './costosTechos';
-import { precio, precioBarraPerfil, claveCobertura } from '../../lib/catalogoPrecios';
+import { precio, precioBarraPerfil, claveCobertura, largoPlanchaCompra } from '../../lib/catalogoPrecios';
 import { esTensor, metradoTensores } from './tensores';
 
 // 1. CÁLCULO DE DISTANCIA EUCLIDIANA 3D ENTRE NODOS
@@ -141,6 +141,14 @@ export function calcularDespieceOptimizado1D(
   return resumenesDespiece;
 }
 
+// Cuánto sube Y por metro en X o en Z (ajuste por mínimos cuadrados del polígono).
+function regresionPendiente(ns: Node3D[], eje: 'x' | 'z'): number {
+  const v = ns.map(n => (eje === 'x' ? n.x : n.z || 0));
+  const m = v.reduce((a, b) => a + b, 0) / v.length, my = ns.reduce((a, n) => a + n.y, 0) / ns.length;
+  const sxx = v.reduce((a, x) => a + (x - m) ** 2, 0);
+  return sxx > 1e-9 ? v.reduce((a, x, i) => a + (x - m) * (ns[i].y - my), 0) / sxx : 0;
+}
+
 // 3. MOTOR DE CÁLCULO DE COBERTURAS Y PLANCHAS CON ANCHO ÚTIL
 export function calcularMetradoCoberturas(
   coverageZones: Record<string, CoverageZone3D>,
@@ -160,8 +168,9 @@ export function calcularMetradoCoberturas(
     let areaPlantaM2 = 0;
     for (let i = 0; i < boundaryNodes.length; i++) {
       const j = (i + 1) % boundaryNodes.length;
-      areaPlantaM2 += boundaryNodes[i].x * boundaryNodes[j].y;
-      areaPlantaM2 -= boundaryNodes[j].x * boundaryNodes[i].y;
+      // En planta: X y Z (Y es la altura).
+      areaPlantaM2 += boundaryNodes[i].x * (boundaryNodes[j].z || 0);
+      areaPlantaM2 -= boundaryNodes[j].x * (boundaryNodes[i].z || 0);
     }
     areaPlantaM2 = Math.abs(areaPlantaM2) / 2;
 
@@ -172,18 +181,23 @@ export function calcularMetradoCoberturas(
     // Estimación de ancho y largo equivalente de la nave
     const minX = Math.min(...boundaryNodes.map(n => n.x));
     const maxX = Math.max(...boundaryNodes.map(n => n.x));
-    const minY = Math.min(...boundaryNodes.map(n => n.y));
-    const maxY = Math.max(...boundaryNodes.map(n => n.y));
+    const minZ = Math.min(...boundaryNodes.map(n => n.z || 0));
+    const maxZ = Math.max(...boundaryNodes.map(n => n.z || 0));
 
-    const anchoNaveM = Math.max(1, maxX - minX);
-    const largoNaveM = Math.max(1, (maxY - minY) / Math.cos(pendRad));
+    // Las planchas corren en el sentido de la caída: el ancho es la dirección
+    // horizontal (sin pendiente) y el largo es el que baja con la pendiente.
+    const dyX = Math.abs(regresionPendiente(boundaryNodes, 'x')), dyZ = Math.abs(regresionPendiente(boundaryNodes, 'z'));
+    const caeEnX = dyX > dyZ;
+    const anchoNaveM = Math.max(1, caeEnX ? maxZ - minZ : maxX - minX);
+    const largoNaveM = Math.max(1, (caeEnX ? maxX - minX : maxZ - minZ) / Math.cos(pendRad));
 
     // Modulación por Ancho Útil
     const anchoUtilM = coberturaInfo.anchoUtilMm / 1000; // ej. 1.00 m
     const numColsAncho = Math.ceil(anchoNaveM / anchoUtilM);
 
     // Modulación por Filas Longitudinales con Traslape
-    const largoPlanchaM = coberturaInfo.longitudComercialM || 3.00;
+    // Si compras por plancha, se modula con el largo de TU plancha.
+    const largoPlanchaM = largoPlanchaCompra(claveCobertura(coberturaInfo.id)) || coberturaInfo.longitudComercialM || 3.00;
     const traslapeM = (coberturaInfo.traslapeTransversalMinMm || 200) / 1000;
     const largoEfectivoPlanchaM = Math.max(0.5, largoPlanchaM - traslapeM);
 

@@ -161,7 +161,9 @@ let mapa: Map<string, ItemCatalogo> | null = null;
 export const itemCatalogo = (clave: string) => (mapa ||= porClave()).get(clave);
 
 // ---- Estado: precios del usuario -------------------------------------------
-export interface EstadoCatalogo { precios: Record<string, number>; fechas: Record<string, string>; actualizado: number }
+// planchas: coberturas que compras POR PLANCHA → largo de la plancha (m). Sin
+// entrada, la cobertura se compra por m². El precio se guarda siempre por m².
+export interface EstadoCatalogo { precios: Record<string, number>; fechas: Record<string, string>; actualizado: number; planchas?: Record<string, number> }
 const KEY = 'innova_catalogo_precios';
 let estado: EstadoCatalogo = safeStorage.getItem<EstadoCatalogo>(KEY, { precios: {}, fechas: {}, actualizado: 0 }) || { precios: {}, fechas: {}, actualizado: 0 };
 const oyentes = new Set<() => void>();
@@ -179,21 +181,48 @@ export function precio(clave: string, defecto = 0): number {
 }
 export const tienePrecioPropio = (clave: string) => estado.precios[clave] !== undefined;
 export function fijarPrecio(clave: string, valor: number, fuente = 'manual') {
-  estado = { precios: { ...estado.precios, [clave]: Math.max(0, valor) }, fechas: { ...estado.fechas, [clave]: `${new Date().toISOString().slice(0, 10)} · ${fuente}` }, actualizado: Date.now() };
+  estado = { ...estado, precios: { ...estado.precios, [clave]: Math.max(0, valor) }, fechas: { ...estado.fechas, [clave]: `${new Date().toISOString().slice(0, 10)} · ${fuente}` }, actualizado: Date.now() };
   emitir();
 }
 export function quitarPrecio(clave: string) {
   const precios = { ...estado.precios }; delete precios[clave];
   const fechas = { ...estado.fechas }; delete fechas[clave];
-  estado = { precios, fechas, actualizado: Date.now() };
+  estado = { ...estado, precios, fechas, actualizado: Date.now() };
   emitir();
 }
 // Llega desde la nube (configuración del usuario): gana el más reciente.
 export function hidratarCatalogo(remoto?: EstadoCatalogo | null) {
   if (!remoto || !remoto.precios || (remoto.actualizado || 0) <= estado.actualizado) return;
-  estado = { precios: { ...remoto.precios }, fechas: { ...(remoto.fechas || {}) }, actualizado: remoto.actualizado };
+  estado = { precios: { ...remoto.precios }, fechas: { ...(remoto.fechas || {}) }, actualizado: remoto.actualizado, planchas: { ...(remoto.planchas || {}) } };
   emitir();
 }
+
+// ---- Coberturas: por m² o por plancha ----------------------------------------
+const coberturaDe = (clave: string) => INVENTARIO_COBERTURAS.find(c => claveCobertura(c.id) === clave);
+/** Largo de plancha (m) si esta cobertura se compra por plancha; si no, undefined. */
+export const largoPlanchaCompra = (clave: string): number | undefined => estado.planchas?.[clave];
+/** m² que trae una plancha (ancho total × largo). */
+export function m2PorPlancha(clave: string, largoM = largoPlanchaCompra(clave)): number {
+  const c = coberturaDe(clave);
+  return c && largoM ? (c.anchoTotalMm / 1000) * largoM : 0;
+}
+/** Cambia cómo se compra la cobertura. El precio se guarda por m² y se convierte para mostrarlo. */
+export function fijarCompraCobertura(clave: string, largoM: number | null) {
+  const planchas = { ...(estado.planchas || {}) };
+  if (largoM && largoM > 0) planchas[clave] = Math.round(largoM * 100) / 100; else delete planchas[clave];
+  estado = { ...estado, planchas, actualizado: Date.now() };
+  emitir();
+}
+export const esCobertura = (clave: string) => clave.startsWith('cobertura:');
+/** Unidad y precio tal como el usuario compra (plancha o m²). */
+export function unidadCompra(clave: string, unidadBase: string): string {
+  const L = largoPlanchaCompra(clave);
+  const c = coberturaDe(clave);
+  return L && c ? `plancha ${(c.anchoTotalMm / 1000).toFixed(2)} × ${L.toFixed(2)} m` : unidadBase;
+}
+export const precioEnUnidad = (clave: string) => { const k = m2PorPlancha(clave); return k ? precio(clave) * k : precio(clave); };
+export const fijarPrecioEnUnidad = (clave: string, valor: number, fuente = 'manual') => { const k = m2PorPlancha(clave); fijarPrecio(clave, k ? valor / k : valor, fuente); };
+export const refEnUnidad = (clave: string, ref: number) => { const k = m2PorPlancha(clave); return k ? ref * k : ref; };
 
 // ---- Atajos por apartado ----------------------------------------------------
 export function precioBarraPerfil(p: { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; id?: string; nombre?: string; normaAcabado?: string }, refBarra: number) {

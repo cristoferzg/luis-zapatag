@@ -7,7 +7,7 @@ import React from 'react';
 import { DollarSign, Plus, Trash2, RotateCcw, Package, HardHat, Truck, Percent } from 'lucide-react';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR, SOLDADURA_AWS_E6011 } from './techosCadCatalog';
 import { useCostosTechos, guardarCostosTechos, totalCuadrilla, totalOperativos, CostosTechos, jornalDe } from './costosTechos';
-import { useCatalogo, precio, fijarPrecio, quitarPrecio, tienePrecioPropio, clavePerfilDe, claveCobertura, claveJornal } from '../../lib/catalogoPrecios';
+import { useCatalogo, precio, fijarPrecio, quitarPrecio, tienePrecioPropio, clavePerfilDe, claveCobertura, claveJornal, largoPlanchaCompra, precioEnUnidad, fijarPrecioEnUnidad, fijarCompraCobertura } from '../../lib/catalogoPrecios';
 
 interface TechosCostosViewProps {
   design?: any;
@@ -52,7 +52,6 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
   const clavePf = (id: string) => { const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id); return p ? clavePerfilDe(p) : `perfil:${id}`; };
   const largoPf = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id)?.longitudComercialM || 6;
   const precioBarra = (id: string) => precio(clavePf(id), (INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)?.costoMetroSol || 0) * largoPf(id));
-  const precioCob = (id: string) => precio(claveCobertura(id), INVENTARIO_COBERTURAS.find(p => p.id === id)?.costoM2Sol ?? 0);
 
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-3 sm:p-6 overflow-y-auto space-y-4 font-sans">
@@ -98,7 +97,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         {coberturas.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[520px]">
-              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Cobertura</th><th className="text-right">m² a comprar</th><th className="text-right w-32">Precio S/ por m²</th><th className="text-right">Subtotal</th><th /></tr></thead>
+              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Cobertura</th><th className="text-right">A comprar</th><th className="text-right w-40">Precio S/</th><th className="text-right">Subtotal</th><th /></tr></thead>
               <tbody>
                 {[...new Map(coberturas.map(z => [z.coberturaMaterialId, z])).values()].map(z => {
                   const filas = coberturas.filter(x => x.coberturaMaterialId === z.coberturaMaterialId);
@@ -106,8 +105,19 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
                   return (
                     <tr key={z.coberturaMaterialId} className="border-t border-slate-100">
                       <td className="py-1.5 pr-2 font-bold text-slate-700">{z.nombreCobertura}</td>
-                      <td className="text-right font-mono text-slate-500">{filas.reduce((s, x) => s + x.areaEfectivaCalculadaM2, 0).toFixed(2)} m²</td>
-                      <td className="pl-2"><input type="number" step="0.1" value={precioCob(z.coberturaMaterialId)} onChange={e => fijarPrecio(claveCobertura(z.coberturaMaterialId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} /></td>
+                      <td className="text-right font-mono text-slate-500">{largoPlanchaCompra(claveCobertura(z.coberturaMaterialId))
+                        ? `${filas.reduce((s, x) => s + x.totalPlanchasEstimadas, 0)} planchas`
+                        : `${filas.reduce((s, x) => s + x.areaEfectivaCalculadaM2, 0).toFixed(2)} m²`}</td>
+                      <td className="pl-2">
+                        <div className="flex items-center gap-1 justify-end">
+                          <input type="number" step="0.1" value={Math.round(precioEnUnidad(claveCobertura(z.coberturaMaterialId)) * 100) / 100} onChange={e => fijarPrecioEnUnidad(claveCobertura(z.coberturaMaterialId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} />
+                          <select value={largoPlanchaCompra(claveCobertura(z.coberturaMaterialId)) ? 'plancha' : 'm2'} title="Cómo te venden esta cobertura"
+                            onChange={e => fijarCompraCobertura(claveCobertura(z.coberturaMaterialId), e.target.value === 'plancha' ? (INVENTARIO_COBERTURAS.find(c => c.id === z.coberturaMaterialId)?.longitudComercialM || 3.66) : null)}
+                            className="px-1 py-1 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600 cursor-pointer">
+                            <option value="m2">/ m²</option><option value="plancha">/ plancha</option>
+                          </select>
+                        </div>
+                      </td>
                       <td className="text-right font-mono font-bold">{S(filas.reduce((s, x) => s + x.costoTotalCoberturaSoles, 0))}</td>
                       <td className="text-right">{editado && <button title="Volver al precio de catálogo" onClick={() => quitarPrecio(claveCobertura(z.coberturaMaterialId))} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}</td>
                     </tr>

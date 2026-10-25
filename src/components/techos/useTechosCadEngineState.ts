@@ -93,6 +93,8 @@ export interface UseTechosCadEngineReturn {
   saveHistorySnapshot: () => void;
   updateSegmentProfile: (segmentId: string, profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
   updateMultipleSegmentsProfile: (segmentIds: string[], profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
+  /** Varios cambios de perfil a la vez (id de barra → id de perfil), en un solo paso de historial. */
+  updateSegmentsProfiles: (cambios: Record<string, string>) => void;
   
   deleteSelectedElements: () => void;
   clearScene: () => void;
@@ -707,6 +709,18 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
         };
         changed = true;
       }
+    });
+    if (changed) {
+      setSegments(newSegs);
+      pushHistory(nodes, newSegs, coverageZones);
+    }
+  }, [nodes, segments, coverageZones, pushHistory]);
+
+  const updateSegmentsProfiles = useCallback((cambios: Record<string, string>) => {
+    const newSegs = { ...segments };
+    let changed = false;
+    Object.entries(cambios).forEach(([id, profileId]) => {
+      if (newSegs[id] && newSegs[id].profileId !== profileId) { newSegs[id] = { ...newSegs[id], profileId }; changed = true; }
     });
     if (changed) {
       setSegments(newSegs);
@@ -4043,6 +4057,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     saveHistorySnapshot,
     updateSegmentProfile,
     updateMultipleSegmentsProfile,
+    updateSegmentsProfiles,
     deleteSelectedElements,
     clearScene,
     loadScene,

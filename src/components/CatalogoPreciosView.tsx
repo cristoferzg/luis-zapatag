@@ -7,7 +7,8 @@
 // =============================================================================
 import { useMemo, useState } from 'react';
 import { Search, RotateCcw, Users, Tag } from 'lucide-react';
-import { itemsCatalogo, useCatalogo, precio, fijarPrecio, quitarPrecio, importarJornales, GrupoCatalogo } from '../lib/catalogoPrecios';
+import { itemsCatalogo, useCatalogo, quitarPrecio, importarJornales, GrupoCatalogo, esCobertura, unidadCompra, largoPlanchaCompra, fijarCompraCobertura, precioEnUnidad, fijarPrecioEnUnidad, refEnUnidad } from '../lib/catalogoPrecios';
+import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
 import { PreciosView } from './PreciosView';
 
 // Búsqueda tolerante: sin tildes, "40x40x2" = "40 × 40 × 2", medidas en
@@ -133,15 +134,30 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
                     {propio && cat.fechas[i.clave] && <span className="text-[10px] text-slate-400">actualizado {cat.fechas[i.clave]}</span>}
                   </div>
                 </div>
-                <span className="hidden sm:block text-xs font-bold text-slate-500 text-right">por {i.unidad}</span>
+                <span className="hidden sm:block text-xs font-bold text-slate-500 text-right">por {unidadCompra(i.clave, i.unidad)}</span>
                 <div className="flex items-center gap-1 justify-end">
                   <span className="text-xs font-bold text-slate-400">S/</span>
-                  <input type="number" step="0.1" min={0} value={propio ? cat.precios[i.clave] : ''} placeholder={S(i.ref)}
-                    onChange={e => e.target.value === '' ? quitarPrecio(i.clave) : fijarPrecio(i.clave, parseFloat(e.target.value) || 0, 'Catálogo')}
+                  <input type="number" step="0.1" min={0} value={propio ? Math.round(precioEnUnidad(i.clave) * 100) / 100 : ''} placeholder={S(refEnUnidad(i.clave, i.ref))}
+                    onChange={e => e.target.value === '' ? quitarPrecio(i.clave) : fijarPrecioEnUnidad(i.clave, parseFloat(e.target.value) || 0, 'Catálogo')}
                     className={`w-28 px-2 py-1.5 rounded-lg text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-amber-300 ${propio ? 'bg-amber-50 ring-1 ring-amber-300 text-slate-900' : 'bg-slate-100 text-slate-700'}`} />
                 </div>
                 <div className="col-span-2 sm:col-span-1 flex items-center justify-between sm:justify-end gap-2">
-                  <span className="sm:hidden text-[11px] font-bold text-slate-500">por {i.unidad} · vigente S/ {S(precio(i.clave))}</span>
+                  <span className="sm:hidden text-[11px] font-bold text-slate-500">por {unidadCompra(i.clave, i.unidad)} · vigente S/ {S(precioEnUnidad(i.clave))}</span>
+                  {esCobertura(i.clave) && (() => {
+                    const L = largoPlanchaCompra(i.clave);
+                    const largoDef = INVENTARIO_COBERTURAS.find(c => `cobertura:${c.id}` === i.clave)?.longitudComercialM || 3.66;
+                    return (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
+                        Compro por
+                        <select value={L ? 'plancha' : 'm2'} onChange={e => fijarCompraCobertura(i.clave, e.target.value === 'plancha' ? largoDef : null)}
+                          className="px-1.5 py-1 rounded-lg bg-slate-100 text-slate-700 cursor-pointer focus:outline-none">
+                          <option value="m2">m²</option><option value="plancha">plancha</option>
+                        </select>
+                        {L && <><span>de</span><input type="number" step="0.01" min={0.5} defaultValue={L} key={L} onBlur={e => { const v = parseFloat(e.target.value); if (v > 0) fijarCompraCobertura(i.clave, v); }}
+                          className="w-16 px-1.5 py-1 rounded-lg bg-slate-100 font-mono text-right focus:outline-none" /><span>m</span></>}
+                      </span>
+                    );
+                  })()}
                   {propio && <button onClick={() => quitarPrecio(i.clave)} title="Volver al precio de referencia" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}
                 </div>
               </div>

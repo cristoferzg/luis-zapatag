@@ -39,8 +39,15 @@ export function calcularEspaciadoReja(
   };
 }
 
+// Lienzo en blanco sin nada dibujado: no hay piezas, materiales ni costos.
+export const disenoSinContenido = (d: HerreriaDesign) =>
+  !!d.isLienzoBlanco && !(d.piezas?.length) && !(d.accesoriosCad?.length) && !(d.paneles?.length) && !(d.accesorios?.length);
+
 // Generador automático de lista de corte (Despiece)
 export function generarDespiece(design: HerreriaDesign): DespieceResult {
+  if (disenoSinContenido(design)) {
+    return { piezas: [], totalPiezas: 0, longitudTotalPerfilesM: 0, pesoTotalAceroKg: 0, barrasComerciales6m: 0, desperdicioEstimadoPct: 0, optimizacionBarras: [] };
+  }
   // 1. PRIORIDAD: Si el usuario está en el Centro CAD Paramétrico con piezas personalizadas
   if (design.piezas && design.piezas.length > 0) {
 
@@ -459,6 +466,7 @@ export function optimizarCortes(piezas: PiezaDespiece[], longitudBarraM: number 
 
 // Generador de Materiales Agrupados
 export function generarMaterialesAgrupados(design: HerreriaDesign, despiece: DespieceResult): MaterialAgrupado[] {
+  if (disenoSinContenido(design)) return [];
   const agrupados: { [cat: string]: any[] } = {
     perfiles: [],
     planchas: [],
@@ -742,6 +750,10 @@ export function calcularCostosDesglosados(design: HerreriaDesign, materialesAgru
     .reduce((sum, m) => sum + m.subtotalCategoria, 0);
 
   const mo = design.manoDeObra;
+  if (disenoSinContenido(design)) {
+    return { materiales: 0, corte: 0, soldadura: 0, armado: 0, esmerilado: 0, pintura: 0, accesorios: 0, instalacion: 0, transporte: 0,
+      costoDirectoTotal: 0, gastosGenerales: 0, utilidad: 0, subtotal: 0, igv: 0, precioTotalVenta: 0 };
+  }
 
   const corte = mo.costoCorteHoras || 80;
   const soldadura = mo.costoSoldaduraHoras || 150;

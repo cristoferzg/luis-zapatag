@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
+import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
+import { propsPerfil, factorK, limitesLambda, seAnaliza, perfilRecomendado } from './propiedadesPerfil';
 
 interface TechosEstructuralAnalysisViewProps {
   engineState: UseTechosCadEngineReturn;
@@ -33,45 +35,63 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
 
   const isOK = structuralReport.resultadoGlobal === 'CUMPLE';
 
-  // Cálculos de Pandeo por Elemento
+  const perfilDe = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id);
+  const [avisoAplicar, setAvisoAplicar] = useState<string | null>(null);
+
+  // Cálculos de pandeo por elemento con la sección REAL de su perfil.
   const bucklingAnalysis = Object.values(segments).map(seg => {
     const nA = nodes[seg.nodeAId];
     const nB = nodes[seg.nodeBId];
-    if (!nA || !nB) return null;
-
-    const dx = nB.x - nA.x;
-    const dy = nB.y - nA.y;
-    const dz = (nB.z || 0) - (nA.z || 0);
-    const lengthM = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-    // Asumimos perfil tubular cuadrado promedio 100x100x2.0mm
-    // Radio de giro r = sqrt(I / A) ~ 3.8 cm = 0.038m
-    const rRadioGiroM = 0.038;
-    const KFactor = seg.rolEstructural === 'columna' ? 1.0 : 0.8; // Factor de longitud efectiva
-    const lambdaEsbeltez = (KFactor * lengthM) / rRadioGiroM;
-
-    // Límite RNE E.090 a compresión lambda <= 200
-    const esbeltezOk = lambdaEsbeltez <= 200;
-
-    // Carga crítica Euler Pcr = (pi^2 * E * I) / (K * L)^2
-    const EModulusGPa = 200; // Acero A36
-    const IMomentInertiaCm4 = 110; // 110 cm4
-    const PcrkN = (Math.PI * Math.PI * (EModulusGPa * 1e6) * (IMomentInertiaCm4 * 1e-8)) / Math.pow(KFactor * lengthM, 2);
-
-    let riesgoPandeo: 'BAJO' | 'MEDIO' | 'ALTO' = 'BAJO';
-    if (lambdaEsbeltez > 200 || lengthM > 6.0) riesgoPandeo = 'ALTO';
-    else if (lambdaEsbeltez > 150 || lengthM > 4.5) riesgoPandeo = 'MEDIO';
-
+    if (!nA || !nB || !seAnaliza(seg.rolEstructural)) return null;
+    const lengthM = Math.hypot(nB.x - nA.x, nB.y - nA.y, (nB.z || 0) - (nA.z || 0));
+    const perfil = perfilDe(seg.profileId);
+    const pr = propsPerfil(perfil) || { areaCm2: 4, iMinCm4: 6, rMinCm: 1.2 };
+    const K = factorK(seg.rolEstructural);
+    const lambdaEsbeltez = (K * lengthM * 100) / pr.rMinCm;
+    const lim = limitesLambda(seg.rolEstructural);
+    const esbeltezOk = lambdaEsbeltez <= lim.maximo;
+    // Carga crítica de Euler: Pcr = π²·E·I / (K·L)², acero A36 (E = 200 GPa).
+    const PcrkN = (Math.PI ** 2 * 200e6 * (pr.iMinCm4 * 1e-8)) / Math.pow(K * Math.max(lengthM, 0.01), 2);
+    const riesgoPandeo: 'BAJO' | 'MEDIO' | 'ALTO' = lambdaEsbeltez > lim.maximo ? 'ALTO' : lambdaEsbeltez > lim.bajo ? 'MEDIO' : 'BAJO';
     return {
       id: seg.id,
       rol: seg.rolEstructural,
+      perfil: perfil?.nombre || seg.profileId,
       longitudM: lengthM.toFixed(2),
       lambdaEsbeltez: lambdaEsbeltez.toFixed(0),
+      limite: lim.maximo,
       esbeltezOk,
       PcrkN: PcrkN.toFixed(1),
       riesgoPandeo
     };
-  }).filter(Boolean);
+  }).filter(Boolean) as any[];
+
+  // Por cada rol y perfil actual, cambia al perfil más liviano que deja el tramo
+  // más largo en riesgo BAJO. No cambia los roles ni los elementos que ya cumplen.
+  const aplicarRecomendados = () => {
+    const grupos = new Map<string, { ids: string[]; rol: any; perfil: string; Lmax: number }>();
+    bucklingAnalysis.forEach(b => {
+      if (b.riesgoPandeo === 'BAJO') return;
+      const seg = segments[b.id];
+      const k = `${seg.rolEstructural}|${seg.profileId}`;
+      const g = grupos.get(k) || { ids: [], rol: seg.rolEstructural, perfil: seg.profileId, Lmax: 0 };
+      g.ids.push(b.id); g.Lmax = Math.max(g.Lmax, parseFloat(b.longitudM)); grupos.set(k, g);
+    });
+    if (!grupos.size) { setAvisoAplicar('Todos los elementos ya están en riesgo bajo: no hay nada que cambiar.'); return; }
+    const cambios: string[] = [];
+    const nuevos: Record<string, string> = {};
+    let sinOpcion = 0;
+    grupos.forEach(g => {
+      const rec = perfilRecomendado(INVENTARIO_PERFILES_TUBULARES, perfilDe(g.perfil), g.rol, g.Lmax);
+      if (!rec) { sinOpcion += g.ids.length; return; }
+      if (rec.id === g.perfil) return;
+      g.ids.forEach(id => { nuevos[id] = rec.id; });
+      cambios.push(`${g.ids.length} ${String(g.rol).replace(/_/g, ' ')} → ${rec.nombre}`);
+    });
+    engineState.updateSegmentsProfiles(nuevos);
+    setAvisoAplicar((cambios.length ? `✓ Cambiado: ${cambios.join(' · ')}.` : 'No hubo cambios.') + (sinOpcion ? ` ${sinOpcion} tramo(s) son muy largos para cualquier perfil del catálogo: agrega un apoyo o arriostre intermedio.` : ''));
+    setTimeout(() => setAvisoAplicar(null), 12000);
+  };
 
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-6 font-sans select-none">
@@ -93,25 +113,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
         {/* Estado de Cumplimiento Global y Acción Rápida */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => {
-              const { updateMultipleSegmentsProfile } = engineState;
-              const colSegs: string[] = [];
-              const diagSegs: string[] = [];
-              const cordonSegs: string[] = [];
-              const correaSegs: string[] = [];
-
-              Object.values(segments).forEach(seg => {
-                if (seg.rolEstructural === 'columna') colSegs.push(seg.id);
-                else if (seg.rolEstructural === 'diagonal' || seg.rolEstructural === 'montante') diagSegs.push(seg.id);
-                else if (seg.rolEstructural === 'cordon_superior' || seg.rolEstructural === 'cordon_inferior' || seg.rolEstructural === 'viga_principal') cordonSegs.push(seg.id);
-                else if (seg.rolEstructural === 'correa' || seg.rolEstructural === 'arriostre') correaSegs.push(seg.id);
-              });
-
-              if (colSegs.length > 0) updateMultipleSegmentsProfile(colSegs, 'perfil_sq_4x4_30', 'columna');
-              if (cordonSegs.length > 0) updateMultipleSegmentsProfile(cordonSegs, 'perfil_rec_4x2_25', 'cordon_superior');
-              if (diagSegs.length > 0) updateMultipleSegmentsProfile(diagSegs, 'perfil_sq_2x2_20', 'diagonal');
-              if (correaSegs.length > 0) updateMultipleSegmentsProfile(correaSegs, 'perfil_c_4x2_20', 'correa');
-            }}
+            onClick={aplicarRecomendados}
             className="px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
             title="Aplica con un solo clic las dimensiones óptimas para cumplir la norma E.090"
           >
@@ -129,6 +131,10 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
           </div>
         </div>
       </div>
+
+      {avisoAplicar && (
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900">{avisoAplicar}</div>
+      )}
 
       {/* DISCLAIMER OBLIGATORIO */}
       <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3 text-amber-900 text-xs leading-relaxed shadow-2xs">
@@ -347,6 +353,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
               <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 uppercase text-[10px] font-black">
                 <th className="p-3">ID Elemento</th>
                 <th className="p-3">Rol Estructural</th>
+                <th className="p-3">Perfil</th>
                 <th className="p-3">Longitud</th>
                 <th className="p-3">Esbeltez (λ = KL/r)</th>
                 <th className="p-3">Carga Crítica (Pcr)</th>
@@ -356,7 +363,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
             <tbody className="divide-y divide-slate-100">
               {bucklingAnalysis.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-6 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="p-6 text-center text-slate-400 font-medium">
                     No hay elementos trazados en el modelo CAD para simular pandeo.
                   </td>
                 </tr>
@@ -365,9 +372,10 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
                   <tr key={b.id} className="hover:bg-slate-50/80 transition-colors font-mono">
                     <td className="p-3 text-amber-700 font-bold">{b.id}</td>
                     <td className="p-3 text-slate-700 capitalize font-sans">{b.rol.replace('_', ' ')}</td>
+                    <td className="p-3 text-slate-600 font-sans text-[11px]">{b.perfil}</td>
                     <td className="p-3 text-slate-600">{b.longitudM} m</td>
                     <td className={`p-3 font-bold ${b.esbeltezOk ? 'text-emerald-700' : 'text-rose-600'}`}>
-                      {b.lambdaEsbeltez} {b.esbeltezOk ? '✓ (<=200)' : '⚠️ Excesiva (>200)'}
+                      {b.lambdaEsbeltez} {b.esbeltezOk ? `✓ (<=${b.limite})` : `⚠️ Excesiva (>${b.limite})`}
                     </td>
                     <td className="p-3 text-sky-700 font-bold">{b.PcrkN} kN</td>
                     <td className="p-3">
