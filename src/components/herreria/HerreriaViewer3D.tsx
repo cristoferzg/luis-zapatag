@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { HerreriaDesign } from './herreriaTypes';
 import { PERFILES_CATALOGO } from './herreriaCatalog';
+import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
 
 // Helper para generar textura procedural de Plancha Estriada / Estrellada (Diamond plate / Alfajor)
 function createPlanchaEstriadaTexture(colorHex: string): THREE.CanvasTexture {
@@ -215,40 +216,22 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
   const autoRotateRef = useRef(false);
   // Grabación de video del visor 3D (giro lento + descarga)
   const [isRecording, setIsRecording] = useState(false);
-  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderRef = useRef<{ detener: () => void } | null>(null);
   const handleRecord3D = useCallback(() => {
-    if (isRecording) { recorderRef.current?.stop(); return; }
+    if (isRecording) { recorderRef.current?.detener(); return; }
     const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
-    if (!canvas || typeof (canvas as any).captureStream !== 'function' || typeof MediaRecorder === 'undefined') {
+    if (!canvas || !puedeGrabar(canvas)) {
       alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.');
       return;
     }
     try {
-      const stream = (canvas as any).captureStream(30) as MediaStream;
-      const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
-        .find(m => (MediaRecorder as any).isTypeSupported?.(m)) || 'video/webm';
-      const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
-      recorderRef.current = recorder;
-      const chunks: BlobPart[] = [];
-      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mime });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `herreria_3d_${new Date().toISOString().split('T')[0]}.webm`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-        setIsRecording(false);
-      };
       const prevAuto = autoRotateRef.current;
+      // Giro lento automático durante la grabación (~14 s = una vuelta).
       setAutoRotate(true);
-      recorder.start();
+      const g = grabarCanvas(canvas, 'carpimetal_3d', { duracionMs: 14000, onFin: () => { setIsRecording(false); recorderRef.current = null; if (!prevAuto) setAutoRotate(false); } });
+      if (!g) throw new Error('formato de video no disponible');
+      recorderRef.current = g;
       setIsRecording(true);
-      window.setTimeout(() => {
-        if (recorderRef.current && recorderRef.current.state !== 'inactive') recorderRef.current.stop();
-        if (!prevAuto) setAutoRotate(false);
-      }, 14000);
     } catch (err: any) {
       console.warn('No se pudo iniciar la grabación 3D:', err);
       alert('No se pudo iniciar la grabación: ' + (err?.message || err));

@@ -9,7 +9,8 @@
 //   - el piso de cada ambiente, el cielo raso y los tanques elevados.
 // Órbita: arrastrar para girar, rueda o pellizco para acercar.
 // =============================================================================
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Video, Square as StopIcon } from 'lucide-react';
 import * as THREE from 'three';
 import type { PlanoElem } from './ConcretoPlanoCad';
 import { EstructuraTechos, contextosObra } from './concreto/obraPisos';
@@ -18,6 +19,7 @@ import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes
 import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
 import { coberturaDesdeCorreas } from './techos/coberturaAuto';
 import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
+import { grabarCanvas, puedeGrabar } from '../lib/grabarVideo';
 import { perfilTechos } from './techos/tensores';
 import { Bloque, muebleDe, geometriaCarpi, GeomCarpi } from './concreto/bloques';
 import { leerDisenosCarpi } from './concreto/carpiObra';
@@ -132,6 +134,10 @@ const camaras = new Map<string, { az: number; pol: number; rad: number; obj: [nu
 
 export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '', bloques = [] }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const girar = useRef(false); // giro lento automático mientras se graba
+  const grabacion = useRef<{ detener: () => void } | null>(null);
+  const [grabando, setGrabando] = useState(false);
   const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques });
   datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques };
 
@@ -145,6 +151,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
+    canvasRef.current = renderer.domElement;
     Object.assign(renderer.domElement.style, { width: '100%', height: '100%', touchAction: 'none', cursor: 'grab' });
 
     scene.add(new THREE.AmbientLight(0xffffff, 1.9));
@@ -534,10 +541,11 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     const ro = new ResizeObserver(resize); ro.observe(mount); resize();
 
     let raf = 0;
-    const loop = () => { renderer.render(scene, camera); raf = requestAnimationFrame(loop); };
+    const loop = () => { if (girar.current) { az += (2 * Math.PI) / (14 * 60); actualizar(); } renderer.render(scene, camera); raf = requestAnimationFrame(loop); };
     loop();
 
     return () => {
+      grabacion.current?.detener();
       cancelAnimationFrame(raf); ro.disconnect();
       el.removeEventListener('pointerdown', onDown); el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp); el.removeEventListener('pointercancel', onUp);
@@ -549,6 +557,24 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     };
   }, []);
 
+  const grabar = () => {
+    if (grabacion.current) { grabacion.current.detener(); return; }
+    const c = canvasRef.current;
+    if (!c || !puedeGrabar(c)) { alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.'); return; }
+    girar.current = true;
+    grabacion.current = grabarCanvas(c, 'obra_3d', { duracionMs: 14000, onFin: () => { girar.current = false; grabacion.current = null; setGrabando(false); } });
+    if (grabacion.current) setGrabando(true); else girar.current = false;
+  };
+
   // El padre remonta el visor (key) cuando cambia la escena.
-  return <div ref={mountRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mountRef} className="w-full h-full" />
+      <button onClick={grabar} title={grabando ? 'Detener y descargar el video' : 'Grabar un video MP4 girando el modelo'}
+        className={`absolute top-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow cursor-pointer border ${grabando ? 'bg-rose-600 text-white border-rose-600 animate-pulse' : 'bg-white/95 text-slate-700 border-slate-200 hover:bg-slate-100'}`}>
+        {grabando ? <StopIcon className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+        {grabando ? 'Detener' : 'Grabar video'}
+      </button>
+    </div>
+  );
 }
