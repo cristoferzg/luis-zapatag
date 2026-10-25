@@ -4,7 +4,7 @@
 // Simulador Sísmico Reactivo con Desglose Detallado de Zonas Críticas y Mejoras por Tubo (Norma E.090 / E.030),
 // Giroscopio Espacial y Controles Táctiles/Pointer Originales Suaves,
 // e Iluminación Simplificada en 2 Modos Únicos: Claro y Oscuro
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import { 
   RotateCw, 
@@ -45,11 +45,26 @@ interface TechosViewer3DProps {
   selectedElementId?: string | null;
 }
 
+/** Modelo 3D que corresponde a una cobertura del catálogo de Techos (id cob_…). */
+export function modeloDesdeCobertura(coberturaId?: string): string | null {
+  if (!coberturaId) return null;
+  const id = coberturaId.toLowerCase();
+  if (id.includes('teja_andina')) return 'eternit_teja';
+  if (id.includes('eternit')) return 'eternit_p4';
+  if (id.includes('tr5')) return id.includes('060') ? 'tr5_060' : 'tr5_050';
+  if (id.includes('calamina')) return 'ondulada_025';
+  if (id.includes('policarbonato')) return 'tr4_poly_trans';
+  if (id.includes('sandwich')) return id.includes('50') ? 'sandwich_pur_50' : 'st1000_sand';
+  if (id.includes('upvc') || id.includes('termo')) return 'st1000_sand';
+  if (id.includes('aluzinc')) { const m = /(0\d\d)$/.exec(id); const e = m ? m[1] : '030'; return ['025', '030', '035', '040', '045', '050'].includes(e) ? `tr4_${e}` : 'tr4_030'; }
+  return null;
+}
+
 export interface ModeloAluzincPeru {
   id: string;
   nombre: string;
   espesorMm: number;
-  tipo: 'aluzinc_tr4' | 'aluzinc_tr5' | 'calamina_ondulada' | 'policarbonato' | 'termoacustico';
+  tipo: 'aluzinc_tr4' | 'aluzinc_tr5' | 'calamina_ondulada' | 'policarbonato' | 'termoacustico' | 'fibrocemento' | 'teja_andina';
   opacidadDefecto: number;
   colorDefectoHex: number;
   ribHeightMm: number;
@@ -126,6 +141,8 @@ export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
   { id: 'tr4_poly_trans', nombre: 'Policarbonato TR-4 Alveolar Traslúcido (Tragazul 6mm)', espesorMm: 6.0, tipo: 'policarbonato', opacidadDefecto: 0.45, colorDefectoHex: 0x38bdf8, ribHeightMm: 35, ribCountPerMeter: 4 },
   { id: 'tr5_poly_opal', nombre: 'Policarbonato TR-5 Opalino (Luz Difusa 6mm)', espesorMm: 6.0, tipo: 'policarbonato', opacidadDefecto: 0.60, colorDefectoHex: 0xf8fafc, ribHeightMm: 38, ribCountPerMeter: 5.2 },
   { id: 'st1000_sand', nombre: 'Panel Termoacústico ST-1000 (Sandwich PUR 30mm)', espesorMm: 30.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x15803d, ribHeightMm: 40, ribCountPerMeter: 3 },
+  { id: 'eternit_p4', nombre: 'Eternit Fibrocemento Perfil 4 (Gran Onda 5 mm)', espesorMm: 5.0, tipo: 'fibrocemento', opacidadDefecto: 1.0, colorDefectoHex: 0x9ca3af, ribHeightMm: 52, ribCountPerMeter: 5.65 },
+  { id: 'eternit_teja', nombre: 'Eternit Teja Andina (Fibrocemento)', espesorMm: 5.0, tipo: 'teja_andina', opacidadDefecto: 1.0, colorDefectoHex: 0xb45309, ribHeightMm: 60, ribCountPerMeter: 4.2 },
   { id: 'sandwich_pur_50', nombre: 'Panel Sándwich PUR Industrial 50mm (Aislante Térmico)', espesorMm: 50.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x047857, ribHeightMm: 45, ribCountPerMeter: 3 }
 ];
 
@@ -1069,7 +1086,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     height: number,
     tipo: string
   ): { offset: number; slopeZ: number } => {
-    if (tipo === 'calamina_ondulada') {
+    if (tipo === 'calamina_ondulada' || tipo === 'fibrocemento' || tipo === 'teja_andina') {
       const period = 1 / Math.max(1, freq);
       const phase = ((zPos % period) + period) % period;
       const angle = (phase / period) * Math.PI * 2;
@@ -1141,20 +1158,39 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     const minX = topPoints[0]?.x ?? 0;
     const maxX = topPoints[topPoints.length - 1]?.x ?? 12;
-    const totalSpanX = (maxX - minX) + overhangX * 2;
-    const totalZ = (maxZ - minZ) + overhangZ * 2;
-
     // Alta resolución de malla para facetado trapezoidal nítido
     const ribFreq = Math.max(3, activeModel.ribCountPerMeter);
     const ribHeightM = (activeModel.ribHeightMm || 35) / 1000; // 0.035m a 0.045m
     const sheetThicknessM = Math.max(0.002, (activeModel.espesorMm || 0.40) / 1000);
 
-    // Cantidad de subdivisiones en Z para capturar cada flanco trapezoidal
-    const segmentsZ = Math.max(140, Math.round(totalZ * ribFreq * 6));
-    const segmentsX = Math.max(100, Math.round(totalSpanX * 16));
-
-    const dx = totalSpanX / segmentsX;
-    const dz = totalZ / segmentsZ;
+    // Malla mínima y nítida (clave para que vaya fluido en el celular):
+    //  • En X (a lo largo de la pendiente) el techo es recto entre quiebres, así
+    //    que solo hacen falta los puntos del perfil (alero, cumbrera, curvas)
+    //    más una división cada ~2 m para la iluminación.
+    //  • En Z (a lo largo de la nave) solo los puntos donde cambia la onda: las
+    //    4 esquinas de cada cresta trapezoidal, o 12 puntos por onda redonda.
+    const x0 = minX - overhangX, x1 = maxX + overhangX;
+    const quiebres = [x0, ...topPoints.map(p => p.x).filter(x => x > x0 + 1e-3 && x < x1 - 1e-3), x1];
+    const xs: number[] = [];
+    for (let i = 0; i + 1 < quiebres.length; i++) {
+      const n = Math.max(1, Math.ceil((quiebres[i + 1] - quiebres[i]) / 2));
+      for (let k = 0; k < n; k++) xs.push(quiebres[i] + (quiebres[i + 1] - quiebres[i]) * k / n);
+    }
+    xs.push(x1);
+    const z0 = minZ - overhangZ, z1 = maxZ + overhangZ;
+    const periodo = 1 / ribFreq;
+    const esTR5Malla = activeModel.tipo === 'aluzinc_tr5';
+    const ondaRedonda = activeModel.tipo === 'calamina_ondulada' || activeModel.tipo === 'fibrocemento' || activeModel.tipo === 'teja_andina';
+    const fracciones = ondaRedonda
+      ? Array.from({ length: 12 }, (_, i) => i / 12)
+      : (esTR5Malla ? [0, 0.22, 0.34, 0.56] : [0, 0.15, 0.35, 0.50]);
+    const zs: number[] = [];
+    for (let k = Math.floor(z0 / periodo) - 1; k * periodo <= z1 + periodo; k++) {
+      fracciones.forEach(f => { const z = (k + f) * periodo; if (z > z0 && z < z1) zs.push(z); });
+    }
+    zs.unshift(z0); zs.push(z1);
+    const segmentsZ = zs.length - 1;
+    const segmentsX = xs.length - 1;
 
     // Asiento exacto sobre las correas superiores
     const purlinClearance = 0.040; // 40mm sobre el eje del cordón/correa
@@ -1165,11 +1201,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // Cara Superior (Top Shell)
     const vertexOffsetTop = 0;
     for (let iz = 0; iz <= segmentsZ; iz++) {
-      const zWorld = (minZ - overhangZ) + iz * dz;
+      const zWorld = zs[iz];
       const { offset: ribVal } = getRibHeightProfile(zWorld, ribFreq, ribHeightM, activeModel.tipo);
 
       for (let ix = 0; ix <= segmentsX; ix++) {
-        const xWorld = (minX - overhangX) + ix * dx;
+        const xWorld = xs[ix];
         const { y: yBase, nx, ny } = evaluateRoofHeightAtX(xWorld, topPoints);
 
         const totalElev = topClearance + ribVal;
@@ -1198,12 +1234,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // Cara Inferior (Bottom Shell para paneles sándwich y vista interior sólida)
     const vertexOffsetBottom = (segmentsZ + 1) * (segmentsX + 1);
     for (let iz = 0; iz <= segmentsZ; iz++) {
-      const zWorld = (minZ - overhangZ) + iz * dz;
+      const zWorld = zs[iz];
       // Para sándwich o plancha, la base inferior es lisa o con micro-nervaduras
       const ribBottom = isSandwich ? 0 : getRibHeightProfile(zWorld, ribFreq, ribHeightM * 0.95, activeModel.tipo).offset;
 
       for (let ix = 0; ix <= segmentsX; ix++) {
-        const xWorld = (minX - overhangX) + ix * dx;
+        const xWorld = xs[ix];
         const { y: yBase, nx, ny } = evaluateRoofHeightAtX(xWorld, topPoints);
 
         const totalElev = bottomClearance + ribBottom;
@@ -2133,8 +2169,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const topPointsMap: Record<number, number> = {};
     const allNodeArray = Object.values(nodes);
     
+    // Las piezas de los tanques elevados (ids "tq…_") tienen su propio sobretecho:
+    // no cuentan para la forma de la cobertura principal.
+    const esDeTanque = (id: string) => /^tq[0-9a-z]+_/.test(id);
     const topSegments = Object.values(segments).filter(
-      s => s.rolEstructural === 'cordon_superior' || s.rolEstructural === 'correa' || s.rolEstructural === 'viga_principal'
+      s => !esDeTanque(s.id) && (s.rolEstructural === 'cordon_superior' || s.rolEstructural === 'correa' || s.rolEstructural === 'viga_principal')
     );
     
     if (topSegments.length > 0) {
@@ -2394,13 +2433,31 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       }
     }
 
+    // 6b. Sobretecho de cada tanque elevado (techito propio sobre el tanque)
+    if (mostrarCobertura) {
+      Object.values(engineState?.coverageZones || {}).filter(z => /^tq[0-9a-z]+_/.test(z.id)).forEach(z => {
+        const pts = z.nodeIdsBoundary.map(id => nodes[id]).filter(Boolean).map(n => new THREE.Vector3(n.x, n.y + 0.03, n.z || 0));
+        if (pts.length < 3) return;
+        const pos: number[] = [];
+        for (let i = 1; i + 1 < pts.length; i++) [pts[0], pts[i], pts[i + 1]].forEach(v => pos.push(v.x, v.y, v.z));
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.computeVertexNormals();
+        const mod = MODELOS_ALUZINC_PERU.find(m => m.id === modeloDesdeCobertura(z.coberturaMaterialId)) || MODELOS_ALUZINC_PERU[0];
+        const mat = new THREE.MeshStandardMaterial({ color: mod.colorDefectoHex, metalness: 0.6, roughness: 0.45, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(g, mat);
+        mesh.name = 'cobertura_tanque';
+        modeloGroup.add(mesh);
+      });
+    }
+
     // 7. SISTEMA DE LÍNEAS DE LLUVIA DE ALTA FIDELIDAD
     const rainLines = createRainLineSystem(minX, maxX, minZ, maxZ, maxY, topProfilePoints, roofMeta);
     rainLines.visible = (simulacionModoRef.current === 'lluvia');
     scene.add(rainLines);
     rainLinesRef.current = rainLines;
 
-  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto]);
+  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, engineState?.coverageZones]);
 
   // Inicialización de WebGL
   useEffect(() => {
@@ -2746,6 +2803,19 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       construirModelo3D(sceneRef.current);
     }
   }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarCobertura, mostrarConcreto, construirModelo3D]);
+
+  // La plancha del 3D sigue a la cobertura elegida en "Cobertura" (zona principal,
+  // sin contar sobretechos de tanques). El selector de arriba sigue permitiendo probar otras.
+  const coberturaPrincipal = useMemo(() => {
+    const zs = Object.values(engineState?.coverageZones || {}).filter(z => !/^tq[0-9a-z]+_/.test(z.id));
+    return zs[0]?.coberturaMaterialId;
+  }, [engineState?.coverageZones]);
+  useEffect(() => {
+    const m = modeloDesdeCobertura(coberturaPrincipal);
+    if (m && m !== selectedModeloId) handleModeloChange(m);
+    // Si el techo ya está cubierto, la plancha se ve sin tener que activarla.
+    if (coberturaPrincipal) setMostrarCobertura(true);
+  }, [coberturaPrincipal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cambiar modelo de aluzinc
   const handleModeloChange = (modeloId: string) => {

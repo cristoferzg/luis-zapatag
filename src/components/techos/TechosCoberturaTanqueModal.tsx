@@ -58,6 +58,27 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
     return { minX: Math.min(...ns.map(n => n.x)), maxX: Math.max(...ns.map(n => n.x)), minZ: Math.min(...ns.map(n => n.z)), maxZ: Math.max(...ns.map(n => n.z)), losa };
   }, [nodes, segments]);
 
+  // Altura del techo en un punto (x): la misma que usa el 3D para la plancha
+  // (lo más alto de cordones superiores, correas y vigas, sin contar tanques).
+  const perfilTecho = useMemo(() => {
+    const m = new Map<number, number>();
+    Object.values(segments).forEach(s => {
+      if (!['cordon_superior', 'correa', 'viga_principal'].includes(s.rolEstructural)) return;
+      [nodes[s.nodeAId], nodes[s.nodeBId]].forEach(n => { if (n && !esTanque(n) && !/^TQ/.test(n.nodeLabel || '')) { const k = Math.round(n.x * 100) / 100; m.set(k, Math.max(m.get(k) ?? -Infinity, n.y)); } });
+    });
+    return [...m.entries()].map(([x, y]) => ({ x, y })).sort((a, b) => a.x - b.x);
+  }, [nodes, segments]);
+  const alturaTechoEn = (x: number) => {
+    const p = perfilTecho;
+    if (!p.length) return 0;
+    if (x <= p[0].x) return p[0].y;
+    if (x >= p[p.length - 1].x) return p[p.length - 1].y;
+    for (let i = 0; i + 1 < p.length; i++) if (x >= p[i].x && x <= p[i + 1].x) { const t = (x - p[i].x) / Math.max(1e-6, p[i + 1].x - p[i].x); return p[i].y + (p[i + 1].y - p[i].y) * t; }
+    return p[0].y;
+  };
+  const hayTecho = perfilTecho.length >= 2;
+  const [ubicacion, setUbicacion] = useState<'techo' | 'cota'>(() => (hayTecho ? 'techo' : 'cota'));
+
   const [tq, setTq] = useState(() => ({
     litros: 1100 as 600 | 1100 | 2500,
     x: Math.round((caja.maxX - 1.0) * 100) / 100,
@@ -100,7 +121,10 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
   const quitarZona = (id: string) => { const z = { ...zones }; delete z[id]; engineState.loadScene(nodes, segments, z); };
 
   const agregarTanque = () => {
-    const g = generarTanque(tq);
+    // Sobre el techo: cada pata apoya a la altura del techo en su punto (+12 cm de soporte sobre la plancha).
+    const h = Math.round((TANQUES_ROTOPLAS[tq.litros].diametro + 0.2) * 100) / 200;
+    const cotaPorPata = ubicacion === 'techo' && hayTecho ? [-h, h, h, -h].map(dx => Math.round((alturaTechoEn(tq.x + dx) + 0.12) * 100) / 100) : undefined;
+    const g = generarTanque({ ...tq, cotaPorPata });
     engineState.loadScene({ ...nodes, ...g.nodes }, { ...segments, ...g.segments }, { ...zones, ...g.zones });
     setMsg(`✓ Tanque ${tanques.length + 1} (${tq.litros} L) agregado${tq.sobretecho ? ' con sobretecho' : ''}. Para otro tanque, cambia la posición X/Z y vuelve a agregar.`);
     setTq(t => ({ ...t, x: Math.round((t.x - (TANQUES_ROTOPLAS[t.litros].diametro + 0.8)) * 100) / 100 }));
@@ -289,7 +313,16 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
               </label>
               {num('Centro X (m)', tq.x, v => setTq({ ...tq, x: v }))}
               {num('Centro Z (m)', tq.z, v => setTq({ ...tq, z: v }))}
-              {num('Apoya a la cota (m)', tq.cotaBase, v => setTq({ ...tq, cotaBase: Math.max(0, v) }))}
+              <div className="col-span-2">
+                <p className="text-[11px] font-bold text-slate-600 mb-0.5">¿Dónde se apoya?</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button type="button" disabled={!hayTecho} onClick={() => setUbicacion('techo')} className={`px-2 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer disabled:opacity-40 ${ubicacion === 'techo' ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-white border-slate-200 text-slate-600'}`}>Sobre el techo</button>
+                  <button type="button" onClick={() => setUbicacion('cota')} className={`px-2 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer ${ubicacion === 'cota' ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-white border-slate-200 text-slate-600'}`}>Piso o losa (cota)</button>
+                </div>
+              </div>
+              {ubicacion === 'cota'
+                ? num('Apoya a la cota (m)', tq.cotaBase, v => setTq({ ...tq, cotaBase: Math.max(0, v) }))
+                : <p className="text-[11px] text-slate-600 self-end pb-1">Apoya a <b>{alturaTechoEn(tq.x).toFixed(2)} m</b> (techo en ese punto)</p>}
               {num('Alto de la torre (m)', tq.alturaSoporte, v => setTq({ ...tq, alturaSoporte: Math.max(0.3, v) }))}
             </div>
             <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">

@@ -101,6 +101,7 @@ export interface OpcionesTanque {
   litros: 600 | 1100 | 2500;
   x: number; z: number;        // centro en planta (m)
   cotaBase: number;            // donde apoyan las patas (m)
+  cotaPorPata?: number[];      // sobre el techo: altura de apoyo de cada pata (4)
   alturaSoporte: number;       // alto de la torre (m)
   perfilId: string;
   sobretecho: boolean;
@@ -115,12 +116,15 @@ export function generarTanque(o: OpcionesTanque): { nodes: Record<string, Node3D
   const gid = `tq${Date.now().toString(36)}`;
   const tk = TANQUES_ROTOPLAS[o.litros] || TANQUES_ROTOPLAS[1100];
   const h = Math.round((tk.diametro + 0.2) * 100) / 200; // medio lado
-  const yP = o.cotaBase + o.alturaSoporte;
   const esq = [[-h, -h], [h, -h], [h, h], [-h, h]];
+  const apoyo = esq.map((_, i) => o.cotaPorPata?.[i] ?? o.cotaBase);
+  // La plataforma queda horizontal: sobre la pata más alta + alto de la torre.
+  const yP = Math.max(...apoyo) + o.alturaSoporte;
   const nodes: Record<string, Node3D> = {}, segments: Record<string, Segment3D> = {}, zones: Record<string, CoverageZone3D> = {};
   const N = (id: string, x: number, y: number, z: number, label: string, fijo = false) => { nodes[id] = { id, x, y, z, nodeLabel: label, isFixedSupport: fijo }; return id; };
   const S = (id: string, a: string, b: string, rol: Segment3D['rolEstructural']) => { segments[id] = { id, nodeAId: a, nodeBId: b, profileId: o.perfilId, rolEstructural: rol }; };
-  const base = esq.map(([dx, dz], i) => N(`${gid}_b${i}`, o.x + dx, o.cotaBase, o.z + dz, `TQB-${i + 1}@${gid}`, true));
+  // Solo las patas que llegan al suelo llevan zapata; sobre el techo van empernadas a la estructura.
+  const base = esq.map(([dx, dz], i) => N(`${gid}_b${i}`, o.x + dx, apoyo[i], o.z + dz, `TQB-${i + 1}@${gid}`, apoyo[i] < 0.05));
   const plat = esq.map(([dx, dz], i) => N(`${gid}_p${i}`, o.x + dx, yP, o.z + dz, `TQ${o.litros}-P${i + 1}@${gid}`));
   for (let i = 0; i < 4; i++) {
     S(`${gid}_col${i}`, base[i], plat[i], 'columna');
