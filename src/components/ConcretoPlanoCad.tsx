@@ -142,6 +142,10 @@ function calcElem(e: PlanoElem): Resultado {
 // tabiques de drywall/OSB, aberturas y cielo raso, y su metrado detallado.
 export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { onEditarEnTechos?: (d: SavedTechosDesign) => void; modo?: 'obra' | 'drywall' } = {}) {
   const esDrywall = modo === 'drywall';
+  // En Drywall lo de Obra Civil (columnas, vigas, losas, muros de ladrillo) y la
+  // estructura de Techos se ven de FONDO y no se tocan: aquí solo se dibujan y
+  // editan tabiques de drywall/OSB (también fuera del perímetro), vanos y cielos.
+  const bloqueado = (e: PlanoElem) => esDrywall && !(e.tipo === 'muro' && (e.material === 'drywall' || e.material === 'osb'));
   const containerRef = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [tool, setTool] = useState<Herramienta>(esDrywall ? 'muro' : 'columna');
@@ -234,6 +238,21 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     }).filter((c): c is NonNullable<typeof c> => !!c);
   }, [estructura]);
 
+  // Alto para los muros nuevos: el último que escribió el usuario (se recuerda);
+  // si no, la altura hasta la losa de arriba; bajo el techo, 2.60 m.
+  const [altoMuroNuevo, setAltoMuroNuevoState] = useState<number>(() => safeStorage.getItem<number>('concreto_alto_muro', 0));
+  const setAltoMuroNuevo = (v: number) => { setAltoMuroNuevoState(v); safeStorage.setItem('concreto_alto_muro', v); };
+  const altoHastaLosa = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (!estructura) return out;
+    const ent = entrepisosDesdeTechos(estructura);
+    (pisos.length ? pisos : ['Piso 1']).forEach((n, k) => {
+      const base = k === 0 ? 0 : (ent[k - 1] ?? 0);
+      if (ent[k] !== undefined && ent[k] - base > 0.5) out[n] = Math.round((ent[k] - base) * 100) / 100;
+    });
+    return out;
+  }, [estructura, pisos]);
+
   // Alto de cada piso según la estructura (hasta el entrepiso siguiente o el techo).
   const alturaPiso = useMemo(() => {
     const out: Record<string, number> = {};
@@ -324,7 +343,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   const toScreen = (x: number, y: number) => ({ sx: cx + x * scale, sy: cy + y * scale });
   const snap = (v: number) => Math.round(v / GRID_M) * GRID_M;
 
-  const nodos = useMemo(() => derivarNodos(elems), [elems]);
+  const nodos = useMemo(() => derivarNodos(esDrywall ? elems.filter(e => !bloqueado(e)) : elems), [elems, esDrywall]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Coordenada de mundo cruda (sin snap) desde coords de pantalla.
   const rawWorld = (clientX: number, clientY: number) => {
@@ -368,7 +387,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   };
   const addLine = (tipo: PlanoTipo, x1: number, y1: number, x2: number, y2: number) => {
     const d = DEFAULTS[tipo];
-    const extra = tipo === 'losa' ? { nivel: nivelMuro, losaMaterial: 'concreto' as const } : tipo === 'muro' ? { nivel: nivelMuro, ...materialMuro, caras: (materialMuro.material === 'osb' ? 1 : 2) as 1 | 2, hastaTecho: !!estructura, ...(alturaPiso[nivelMuro] ? { H: alturaPiso[nivelMuro] } : {}) } : {};
+    const extra = tipo === 'losa' ? { nivel: nivelMuro, losaMaterial: 'concreto' as const } : tipo === 'muro' ? { nivel: nivelMuro, ...materialMuro, caras: (materialMuro.material === 'osb' ? 1 : 2) as 1 | 2, hastaTecho: false, H: altoMuroNuevo || altoHastaLosa[nivelMuro] || 2.6 } : {};
     commit(prev => [...prev, { uid: `pc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, tipo, x1, y1, x2, y2, ...d, ...extra }]);
   };
 
@@ -392,6 +411,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     const w = rawWorld(clientX, clientY);
     let best: { e: PlanoElem; t: number; L: number } | null = null, bestD = Infinity;
     murosActivos.forEach(e => {
+      if (bloqueado(e)) return;
       const p = proyectar(e, w.x, w.y);
       if (p.t < -0.05 || p.t > p.L + 0.05) return;
       if (p.d <= Math.max(e.a / 2 + 0.2, 12 / scale) && p.d < bestD) { bestD = p.d; best = { e, t: p.t, L: p.L }; }
@@ -814,6 +834,11 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             Editar en Techos
           </button>
         )}
+        {esDrywall && (
+          <p className="w-full text-[11px] font-bold text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1.5">
+            Lo de Obra Civil y la estructura de Techos se ven de fondo (no se modifican aquí). Dibuja tus tabiques de drywall u OSB, también fuera del perímetro.
+          </p>
+        )}
         {estructura && !esDrywall && (
           <button onClick={cimentacionAutomatica} title="Zapata bajo cada columna y cimiento corrido entre columnas vecinas"
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 cursor-pointer hover:bg-amber-100">
@@ -900,7 +925,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             <Trash2 className="w-3.5 h-3.5" /> Eliminar
           </button>
         )}
-        <button onClick={() => { if (confirm('¿Vaciar el plano?')) { commit([]); setSelUid(null); setSelNode(null); } }}
+        <button onClick={() => { if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Vaciar el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-500 border border-slate-200 cursor-pointer hover:bg-slate-100">
           <Trash2 className="w-3.5 h-3.5" /> Vaciar
         </button>
@@ -1047,7 +1072,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 const rx = Math.min(p1.sx, p2.sx), ry = Math.min(p1.sy, p2.sy);
                 const rw = Math.abs(p2.sx - p1.sx), rh = Math.abs(p2.sy - p1.sy);
                 return (
-                  <g key={e.uid} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
+                  <g key={e.uid} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
                     <rect x={rx} y={ry} width={rw} height={rh} fill={m.color} opacity={0.18} stroke={m.color} strokeWidth={sel ? 3 : 1.5} strokeDasharray="6 4" />
                     {(sel || con) && <rect x={rx - 3} y={ry - 3} width={rw + 6} height={rh + 6} fill="none" stroke="#0ea5e9" strokeWidth="2" />}
                   </g>
@@ -1068,7 +1093,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 abs.forEach(a => { const ini = Math.max(t0, a.t - a.w / 2); if (ini > t0 + 0.005) tramos.push([t0, ini]); t0 = Math.max(t0, a.t + a.w / 2); });
                 if (L > t0 + 0.005) tramos.push([t0, L]);
                 return (
-                  <g key={e.uid} opacity={otroPiso ? 0.22 : 1} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); setSelAb(null); if (otroPiso && e.nivel) setNivelMuro(e.nivel); } }} className="cursor-pointer">
+                  <g key={e.uid} opacity={otroPiso ? 0.22 : 1} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); setSelAb(null); if (otroPiso && e.nivel) setNivelMuro(e.nivel); } }} className="cursor-pointer">
                     {tramos.map(([a, b], i) => { const A = P(a), B = P(b); return (
                       <g key={i}>
                         <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke={col} strokeWidth={wPx} strokeLinecap="butt" />
@@ -1112,7 +1137,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 const p2 = toScreen(e.x2, e.y2);
                 const wPx = Math.max(4, (e.a) * scale);
                 return (
-                  <g key={e.uid} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
+                  <g key={e.uid} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
                     <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={m.color} strokeWidth={wPx} strokeLinecap="round" opacity={0.85} />
                     {(sel || con) && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#0ea5e9" strokeWidth={wPx + 4} strokeLinecap="round" opacity={0.35} />}
                   </g>
@@ -1121,7 +1146,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               // punto (columna / zapata)
               const sPx = Math.max(10, (e.a) * scale);
               return (
-                <g key={e.uid} onClick={ev => { if (tool !== 'select') return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
+                <g key={e.uid} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
                   {(sel || con) && <rect x={p1.sx - sPx / 2 - 3} y={p1.sy - sPx / 2 - 3} width={sPx + 6} height={sPx + 6} rx="3" fill="none" stroke="#0ea5e9" strokeWidth="2.5" />}
                   <rect x={p1.sx - sPx / 2} y={p1.sy - sPx / 2} width={sPx} height={sPx} rx="2" fill={m.color} opacity={e.tipo === 'zapata' ? 0.35 : 0.9} stroke={m.color} strokeWidth="1.5" />
                   {e.tipo === 'zapata' && <rect x={p1.sx - 5} y={p1.sy - 5} width={10} height={10} rx="1" fill={META.columna.color} />}
@@ -1301,11 +1326,17 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                {CAMPOS[selElem.tipo].filter(c => !(selElem.tipo === 'muro' && selElem.hastaTecho && c.key === 'H')).map(c => (
+                {CAMPOS[selElem.tipo].map(c => (
                   <label key={String(c.key)} className="text-[10px] font-bold text-slate-600">
-                    {c.label}
+                    {c.label}{selElem.tipo === 'muro' && c.key === 'H' && selElem.hastaTecho ? ' · sigue el techo' : ''}
                     <input type="number" step="0.05" value={(selElem[c.key] as number) ?? 0}
-                      onChange={e => updateElem(selElem.uid, { [c.key]: Math.max(0, parseFloat(e.target.value) || 0) } as Partial<PlanoElem>, String(c.key))}
+                      onChange={e => {
+                        const v = Math.max(0, parseFloat(e.target.value) || 0);
+                        // Escribir el alto de un muro fija esa altura (deja de seguir el techo).
+                        const extra = selElem.tipo === 'muro' && c.key === 'H' ? { hastaTecho: false } : {};
+                        if (selElem.tipo === 'muro' && c.key === 'H' && v > 0) setAltoMuroNuevo(v);
+                        updateElem(selElem.uid, { [c.key]: v, ...extra } as Partial<PlanoElem>, String(c.key));
+                      }}
                       className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2"
                       style={{ boxShadow: 'none' }} />
                   </label>

@@ -1,4 +1,5 @@
 // Módulo Exclusivo para Techos Metálicos, Mezzanine y Cubiertas Estructurales - Innova Contratistas
+import { KEY_OBRA_TECHOS_ID } from '../concreto/obraPisos';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -711,7 +712,30 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // PUENTE TECHOS → CONCRETO (Etapa A): toma las posiciones de las columnas del
   // esqueleto metálico y genera columnas + zapatas en el CAD de Concreto para
   // diseñar la cimentación que soporta la nave. Se comunican por localStorage.
+  // → Obra Civil: guarda el diseño, lo vincula como la estructura de la obra
+  // (Obra Civil y Drywall la dibujan en planta y 3D) y, la primera vez, ofrece
+  // crear columnas, zapatas, vigas de cimentación y muros perimetrales.
   const handleEnviarAConcreto = () => {
+    if (!Object.keys(engineState.segments || {}).length) { alert('Dibuja o genera un techo antes de enviarlo a Obra Civil.'); return; }
+    // El guardado actualiza la copia local al instante y sincroniza con la nube
+    // en segundo plano: no se espera a internet para seguir.
+    const pendiente = saveOrUpdateTechosDesign({
+      id: currentEditingDesignId || undefined,
+      nombre: nombreProyecto.trim() || 'Techo metálico',
+      authorName: currentUserName,
+      authorRole: isAdmin ? 'Administrador' : 'Colaborador',
+      nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones,
+    }, true);
+    const idObra = (currentEditingDesignId && getCachedTechosDesigns().some(d => d.id === currentEditingDesignId)) ? currentEditingDesignId : getCachedTechosDesigns()[0]?.id;
+    if (idObra) { safeStorage.setItem(KEY_OBRA_TECHOS_ID, idObra); setCurrentEditingDesignId(idObra); }
+    pendiente.then(() => loadSavedList()).catch(err => console.warn('No se pudo sincronizar la estructura', err));
+    const yaTieneCimentacion = (safeStorage.getItem<any[]>('concreto_plano_elems', []) || []).some((e: any) => /^tc_/.test(String(e.uid)));
+    if (!yaTieneCimentacion) enviarCimentacion();
+    safeStorage.setItem('concreto_modo', 'cad'); // abre directo el plano
+    window.dispatchEvent(new CustomEvent('innova_navigate_tab', { detail: 'concreto' }));
+  };
+
+  const enviarCimentacion = () => {
     const nodes: any = engineState.nodes;
     const segs: any = engineState.segments;
     const bases = new Map<string, { x: number; z: number; H: number }>();
@@ -726,12 +750,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
         if (!bases.has(key)) bases.set(key, { x: base.x, z: base.z || 0, H });
       }
     });
-    if (bases.size === 0) {
-      alert('No se encontraron columnas en el diseño de techo para enviar a Concreto.');
-      return;
-    }
+    if (bases.size === 0) return;
     const prev = (safeStorage.getItem<any[]>('concreto_plano_elems', []) || []);
-    if (!window.confirm(`Se enviarán ${bases.size} columnas (con sus zapatas) al CAD de Concreto para diseñar la cimentación.${prev.length ? ' Se agregarán a lo que ya tengas ahí.' : ''}\n\n¿Continuar?`)) return;
+    if (!window.confirm(`La estructura ya quedó vinculada a Obra Civil.\n\n¿Crear también la cimentación? ${bases.size} columnas de concreto con sus zapatas y vigas de cimentación.${prev.length ? ' Se agregan a lo que ya tengas ahí.' : ''}`)) return;
     const nuevos: any[] = [];
     let i = 0;
     const pts: { x: number; z: number }[] = [];
@@ -758,7 +779,6 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     };
     byX.forEach(arr => { arr.sort((a, b) => a.z - b.z); for (let k = 1; k < arr.length; k++) addViga(arr[k - 1], arr[k]); });
     byZ.forEach(arr => { arr.sort((a, b) => a.x - b.x); for (let k = 1; k < arr.length; k++) addViga(arr[k - 1], arr[k]); });
-    const nVigas = nuevos.filter(n => n.tipo === 'viga').length;
 
     // Muros de ladrillo en el perímetro (entre columnas exteriores contiguas).
     let nMuros = 0;
@@ -780,7 +800,6 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     }
 
     safeStorage.setItem('concreto_plano_elems', [...prev, ...nuevos]);
-    alert(`✓ Enviado a Concreto: ${bases.size} columnas + zapatas + ${nVigas} vigas de cimentación${nMuros ? ` + ${nMuros} muros de ladrillo en el perímetro` : ''}.\n\nAbre "Obra Civil" → modo "Plano CAD". Con la herramienta "Muro" puedes dibujar más muros de ladrillo o drywall por piso.`);
   };
 
   // PUENTE TECHOS → OBRA POR PISOS: guarda un resumen del presupuesto del techo
@@ -987,7 +1006,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           <button
             onClick={handleEnviarAConcreto}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
-            title="Enviar las columnas del techo al CAD de Concreto para diseñar la cimentación"
+            title="Llevar esta estructura a Obra Civil (planta y 3D) y crear su cimentación"
           >
             <Box className="w-3.5 h-3.5 text-stone-600 shrink-0" />
             <span className="text-[11px] font-bold hidden lg:inline">→ Obra Civil</span>
@@ -1035,7 +1054,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                     { l: '+ Nuevo', I: Plus, on: handleNuevo },
                     { l: 'Cargar', I: FolderOpen, on: () => { loadSavedList(); setShowLoadModal(true); } },
                     { l: 'Exportar', I: Download, on: handleExportar },
-                    { l: '→ Enviar a Concreto', I: Box, on: handleEnviarAConcreto },
+                    { l: '→ Obra Civil', I: Box, on: handleEnviarAConcreto },
                     { l: '→ Obra por pisos', I: Layers, on: handleEnviarAObraPisos },
                     { l: 'Ayuda', I: HelpCircle, on: () => setShowTutorialModal(true) },
                   ].map(a => {
