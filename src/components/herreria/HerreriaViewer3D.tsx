@@ -563,6 +563,30 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
           }
         });
       };
+      if (isPlancha && pz.sectorPeldano) {
+        // Peldaño en gajo (escalera caracol): sector de anillo con espesor real.
+        const { rIn, rOut, a0Deg, a1Deg } = pz.sectorPeldano;
+        const a0 = (a0Deg * Math.PI) / 180, a1 = (a1Deg * Math.PI) / 180;
+        const esp = Math.max(0.003, (pz.espesorPlanchaMm || 3) / 1000);
+        // La forma se dibuja en XY y se gira -90° en X: (x, y) → (x, ·, -y).
+        const shape = new THREE.Shape();
+        const pts = 16;
+        for (let i = 0; i <= pts; i++) { const a = a0 + (a1 - a0) * i / pts; const px = rOut * Math.cos(a), py = -rOut * Math.sin(a); if (i === 0) shape.moveTo(px, py); else shape.lineTo(px, py); }
+        for (let i = pts; i >= 0; i--) { const a = a0 + (a1 - a0) * i / pts; shape.lineTo(rIn * Math.cos(a), -rIn * Math.sin(a)); }
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: esp + 0.02, bevelEnabled: false, curveSegments: 4 });
+        const colorHex = pz.colorHex || d.acabado.colorHex || '#334155';
+        const tex = createPlanchaEstriadaTexture(colorHex);
+        tex.repeat.set(Math.max(2, Math.round((rOut - rIn) / 0.08)), Math.max(2, Math.round(rOut * (a1 - a0) / 0.08)));
+        const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorHex), map: tex, bumpMap: tex, bumpScale: 0.06, metalness: 0.85, roughness: 0.3, wireframe: isWire });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.set(0, pz.y1 - 0.02, 0);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        attachPieceData(mesh);
+        modeloGroup.add(mesh);
+        return;
+      }
+
       if (isPlancha) {
         const minX = Math.min(pz.x1, pz.x2);
         const minY = Math.min(pz.y1, pz.y2);

@@ -1259,6 +1259,32 @@ export const PERFILES_CATALOGO: PerfilCatalogo[] = [
     descripcion: 'Pasamanos principal de barandas y postes'
   },
   {
+    id: 'red-4-3.0',
+    nombre: 'Tubo Redondo 4" x 3.0mm',
+    familia: 'acero',
+    categoria: 'tubo_redondo',
+    dimensiones: 'Ø 114.3 x 3.0 mm',
+    anchoMm: 114,
+    altoMm: 114,
+    espesorMm: 3.0,
+    pesoKgPorMetro: 8.23,
+    precioPorBarra6m: 0,
+    descripcion: 'Poste central de escalera caracol y columnas'
+  },
+  {
+    id: 'red-1-1.5',
+    nombre: 'Tubo Redondo 1" x 1.5mm',
+    familia: 'acero',
+    categoria: 'tubo_redondo',
+    dimensiones: 'Ø 25.4 x 1.5 mm',
+    anchoMm: 25,
+    altoMm: 25,
+    espesorMm: 1.5,
+    pesoKgPorMetro: 0.88,
+    precioPorBarra6m: 0,
+    descripcion: 'Parantes (balaustres) de barandas'
+  },
+  {
     id: 'red-1.5-1.5',
     nombre: 'Tubo Redondo 1 1/2" x 1.5mm',
     familia: 'acero',
@@ -2687,145 +2713,114 @@ export function generarPiezasCadDesdeDiseno(design: HerreriaDesign): {
     return { piezas, accesoriosCad, cotasCad };
   }
 
-  // CASO ESPECIAL 2C: ESCALERA CARACOL (Mástil Central Redondo, Peldaños en Espiral y Pasamanos Helicoidal)
+  // CASO ESPECIAL 2C: ESCALERA CARACOL (poste central, peldaños en gajo que giran
+  // alrededor del poste, baranda exterior helicoidal y descanso de llegada).
   if (design.tipoElemento === 'escalera_caracol') {
-    const H = Math.max(2.4, altoM); // Altura total (ej. 2.80m)
-    const R = Math.max(0.70, anchoM / 2 || 0.85); // Radio total de la caracol (~0.85m -> Diámetro 1.70m)
-    const numPeldanos = Math.max(12, Math.round(H / 0.18)); // ~14-16 peldaños
-    const dy = H / numPeldanos; // ~0.18m
-    const anguloPorPeldanoDeg = 25; // 25° por peldaño
-    const rMastil = 0.06; // Radio del mástil central tubo 4" (114mm diám)
+    const H = Math.max(2.4, altoM);                         // altura de piso a piso
+    const R = Math.max(0.70, anchoM / 2 || 0.80);           // radio (ancho = diámetro)
+    const numPeldanos = Math.max(10, Math.round(H / 0.19)); // contrapaso ~19 cm
+    const dy = H / (numPeldanos + 1);                       // el último paso es el descanso
+    const angPaso = 27;                                     // ° que gira cada peldaño (~13 por vuelta)
+    const rMastil = 0.057;                                  // tubo 4" (Ø114 mm)
+    const ts = Date.now();
 
-    const pMastil = 'red-4-3.0'; // Tubo redondo 4"
-    const pBrazo = 'cuad-1.5x1.5-1.5';
-    const pPasamanos = 'red-1.5-2.0';
+    const pMastil = 'red-4-3.0';
+    const pBrazo = 'cuad-1.5x1.5-2.0';
+    const pPasamanos = 'red-2-2.0';
     const pPoste = 'red-1-1.5';
+    const rad = (g: number) => (g * Math.PI) / 180;
+    const enRadio = (r: number, g: number) => ({ x: r * Math.cos(rad(g)), z: r * Math.sin(rad(g)) });
 
-    // 1. Mástil Central Tubular Redondo Continuo
+    // 1. Poste central continuo
     piezas.push({
-      id: `caracol-mastil-${Date.now()}`,
-      marca: 'MC-01',
-      nombre: 'Mástil Central Tubular Redondo 4" x 3.0mm',
+      id: `caracol-mastil-${ts}`, marca: 'MC-01', nombre: 'Poste central tubo redondo 4" x 3.0mm',
       tipo: 'perfil', material: 'acero', perfilId: pMastil,
-      x1: 0, y1: 0, z1: 0,
-      x2: 0, y2: H, z2: 0,
-      longitudM: H, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°',
-      cantidad: 1, grupo: 'estructura'
+      x1: 0, y1: 0, z1: 0, x2: 0, y2: H + 0.95, z2: 0,
+      longitudM: H + 0.95, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°', cantidad: 1, grupo: 'estructura'
     });
 
-    // 2. Placa Base Circular/Cuadrada de Anclaje al Piso
+    // 2. Placa base de anclaje
     piezas.push({
-      id: `caracol-pb-piso-${Date.now()}`,
-      marca: 'PB-MC',
-      nombre: 'Placa Base Circular de Anclaje 300mm x 3/8"',
+      id: `caracol-pb-piso-${ts}`, marca: 'PB-MC', nombre: 'Placa base de anclaje 300 x 300 x 3/8"',
       tipo: 'plancha', material: 'acero', perfilId: 'plancha-6mm',
-      x1: -0.15, y1: 0, z1: -0.15,
-      x2: 0.15, y2: 0.015, z2: 0.15,
+      x1: -0.15, y1: 0, z1: -0.15, x2: 0.15, y2: 0, z2: 0.15,
       longitudM: 0.30, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°',
-      esPlancha: true, anchoPlanchaM: 0.30, altoPlanchaM: 0.30, espesorPlanchaMm: 8,
-      subtipoPlancha: 'lisa', tipoRelleno: 'plancha',
-      cantidad: 1, grupo: 'anclaje'
+      esPlancha: true, anchoPlanchaM: 0.30, altoPlanchaM: 0.30, espesorPlanchaMm: 9.5,
+      subtipoPlancha: 'lisa', tipoRelleno: 'plancha', cantidad: 1, grupo: 'anclaje'
     });
 
-    // 3. Peldaños Radiales en Abanico Helicoidal Ascendente
-    let prevPosteTop: { x: number; y: number; z: number } | null = null;
-
+    // 3. Peldaños: gajo de plancha estriada + 2 brazos radiales que lo cargan
+    let prevTope: { x: number; y: number; z: number } | null = null;
     for (let k = 1; k <= numPeldanos; k++) {
-      const thetaDeg = (k - 1) * anguloPorPeldanoDeg;
-      const thetaRad = (thetaDeg * Math.PI) / 180;
-      const yPeld = k * dy;
-
-      const cosT = Math.cos(thetaRad);
-      const sinT = Math.sin(thetaRad);
-
-      const inX = rMastil * cosT;
-      const inZ = rMastil * sinT;
-      const outX = R * cosT;
-      const outZ = R * sinT;
-
-      // Brazo soporte radial del peldaño
-      piezas.push({
-        id: `caracol-brazo-${k}-${Date.now()}`,
-        marca: `BR-${String(k).padStart(2, '0')}`,
-        nombre: `Brazo Radial Peldaño Caracol #${k}`,
-        tipo: 'perfil', material: 'acero', perfilId: pBrazo,
-        x1: inX, y1: yPeld, z1: inZ,
-        x2: outX, y2: yPeld, z2: outZ,
-        longitudM: R - rMastil, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°',
-        cantidad: 1, grupo: 'peldanos'
-      });
-
-      // Huella en plancha estriada alfajor en abanico
-      const nextThetaRad = ((thetaDeg + anguloPorPeldanoDeg * 0.8) * Math.PI) / 180;
-      const outX2 = R * Math.cos(nextThetaRad);
-      const outZ2 = R * Math.sin(nextThetaRad);
+      const a0 = (k - 1) * angPaso;
+      const a1 = a0 + angPaso + 3; // 3° de traslape bajo el siguiente peldaño
+      const y = k * dy;
+      const marca = String(k).padStart(2, '0');
+      const anchoHuella = R - rMastil;
 
       piezas.push({
-        id: `caracol-huella-${k}-${Date.now()}`,
-        marca: `HC-${String(k).padStart(2, '0')}`,
-        nombre: `Huella Estriada Alfajor Abanico #${k}`,
-        tipo: 'plancha', material: 'acero', perfilId: 'plancha-estriada-2.5mm',
-        x1: inX, y1: yPeld, z1: inZ,
-        x2: (outX + outX2) / 2, y2: yPeld, z2: (outZ + outZ2) / 2,
-        longitudM: R - rMastil, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°',
-        esPlancha: true, anchoPlanchaM: R - rMastil, altoPlanchaM: 0.32, espesorPlanchaMm: 2.5,
+        id: `caracol-huella-${k}-${ts}`, marca: `HC-${marca}`, nombre: `Peldaño en gajo #${k} (plancha estriada 3 mm)`,
+        tipo: 'plancha', material: 'acero', perfilId: 'plancha-estriada-3.0mm',
+        x1: enRadio(rMastil, a0).x, y1: y, z1: enRadio(rMastil, a0).z,
+        x2: enRadio(R, a1).x, y2: y, z2: enRadio(R, a1).z,
+        longitudM: anchoHuella, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°',
+        esPlancha: true, anchoPlanchaM: anchoHuella, altoPlanchaM: R * rad(angPaso), espesorPlanchaMm: 3,
         subtipoPlancha: 'estriada', tipoRelleno: 'plancha_estriada',
+        sectorPeldano: { rIn: rMastil, rOut: R, a0Deg: a0, a1Deg: a1 },
         cantidad: 1, grupo: 'peldanos'
       });
-
-      // Balaustre vertical exterior de baranda
-      const balaustreTopX = outX;
-      const balaustreTopY = yPeld + 0.90;
-      const balaustreTopZ = outZ;
-
-      piezas.push({
-        id: `caracol-balaustre-${k}-${Date.now()}`,
-        marca: `BL-${String(k).padStart(2, '0')}`,
-        nombre: `Balaustre Exterior Baranda Caracol #${k}`,
-        tipo: 'perfil', material: 'acero', perfilId: pPoste,
-        x1: outX, y1: yPeld, z1: outZ,
-        x2: balaustreTopX, y2: balaustreTopY, z2: balaustreTopZ,
-        longitudM: 0.90, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°',
-        cantidad: 1, grupo: 'baranda'
-      });
-
-      // Segmento de pasamanos helicoidal curvo uniendo balaustres
-      if (prevPosteTop) {
+      // Brazos bajo los dos bordes del gajo (soldados al poste)
+      for (const [lado, g] of [['A', a0 + 2], ['B', a1 - 2]] as const) {
+        const i = enRadio(rMastil, g), o = enRadio(R - 0.02, g);
         piezas.push({
-          id: `caracol-pasamanos-seg-${k}-${Date.now()}`,
-          marca: `PS-${String(k).padStart(2, '0')}`,
-          nombre: `Pasamanos Helicoidal Segmento #${k}`,
-          tipo: 'perfil', material: 'acero', perfilId: pPasamanos,
-          x1: prevPosteTop.x, y1: prevPosteTop.y, z1: prevPosteTop.z,
-          x2: balaustreTopX, y2: balaustreTopY, z2: balaustreTopZ,
-          longitudM: Math.hypot(balaustreTopX - prevPosteTop.x, balaustreTopY - prevPosteTop.y, balaustreTopZ - prevPosteTop.z),
-          rotacionDeg: 0, corteInicio: '45°', corteFin: '45°',
-          cantidad: 1, grupo: 'baranda'
+          id: `caracol-brazo-${k}${lado}-${ts}`, marca: `BR-${marca}${lado}`, nombre: `Brazo de peldaño #${k}${lado}`,
+          tipo: 'perfil', material: 'acero', perfilId: pBrazo,
+          x1: i.x, y1: y - 0.02, z1: i.z, x2: o.x, y2: y - 0.02, z2: o.z,
+          longitudM: R - 0.02 - rMastil, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°', cantidad: 1, grupo: 'peldanos'
         });
       }
 
-      prevPosteTop = { x: balaustreTopX, y: balaustreTopY, z: balaustreTopZ };
+      // Parante de baranda en el borde exterior, al centro del peldaño
+      const gp = a0 + angPaso / 2;
+      const b = enRadio(R - 0.03, gp);
+      const tope = { x: b.x, y: y + 0.90, z: b.z };
+      piezas.push({
+        id: `caracol-balaustre-${k}-${ts}`, marca: `BL-${marca}`, nombre: `Parante de baranda #${k}`,
+        tipo: 'perfil', material: 'acero', perfilId: pPoste,
+        x1: b.x, y1: y, z1: b.z, x2: tope.x, y2: tope.y, z2: tope.z,
+        longitudM: 0.90, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°', cantidad: 1, grupo: 'baranda'
+      });
+      // Pasamanos helicoidal (tramos entre parantes)
+      if (prevTope) {
+        piezas.push({
+          id: `caracol-pasamanos-seg-${k}-${ts}`, marca: `PS-${marca}`, nombre: `Pasamanos helicoidal tramo #${k}`,
+          tipo: 'perfil', material: 'acero', perfilId: pPasamanos,
+          x1: prevTope.x, y1: prevTope.y, z1: prevTope.z, x2: tope.x, y2: tope.y, z2: tope.z,
+          longitudM: Math.hypot(tope.x - prevTope.x, tope.y - prevTope.y, tope.z - prevTope.z),
+          rotacionDeg: 0, corteInicio: '45°', corteFin: '45°', cantidad: 1, grupo: 'baranda'
+        });
+      }
+      prevTope = tope;
     }
 
-    // 4. Descanso Superior de Llegada a Losa
+    // 4. Descanso de llegada (cuarto de círculo después del último peldaño)
+    const aD0 = numPeldanos * angPaso, aD1 = aD0 + 90;
     piezas.push({
-      id: `caracol-descanso-top-${Date.now()}`,
-      marca: 'DC-TOP',
-      nombre: 'Descanso Superior Cuadrado Llegada Caracol',
+      id: `caracol-descanso-top-${ts}`, marca: 'DC-TOP', nombre: 'Descanso de llegada (plancha estriada 3 mm)',
       tipo: 'plancha', material: 'acero', perfilId: 'plancha-estriada-3.0mm',
-      x1: 0, y1: H, z1: 0,
-      x2: R, y2: H, z2: R,
+      x1: enRadio(rMastil, aD0).x, y1: H, z1: enRadio(rMastil, aD0).z,
+      x2: enRadio(R, aD1).x, y2: H, z2: enRadio(R, aD1).z,
       longitudM: R, rotacionDeg: 0, corteInicio: '90°', corteFin: '90°',
-      esPlancha: true, anchoPlanchaM: R, altoPlanchaM: R, espesorPlanchaMm: 3.0,
+      esPlancha: true, anchoPlanchaM: R, altoPlanchaM: (Math.PI * R) / 2, espesorPlanchaMm: 3,
       subtipoPlancha: 'estriada', tipoRelleno: 'plancha_estriada',
+      sectorPeldano: { rIn: rMastil, rOut: R, a0Deg: aD0, a1Deg: aD1 },
       cantidad: 1, grupo: 'peldanos'
     });
 
-    // Cotas
     cotasCad.push(
-      { id: `cota-caracol-alto-${Date.now()}`, x1: -R - 0.15, y1: 0, x2: -R - 0.15, y2: H, valorM: H, eje: 'Y', etiqueta: `Altura Total Caracol: ${H.toFixed(2)}m` },
-      { id: `cota-caracol-diam-${Date.now()}`, x1: -R, y1: -0.15, x2: R, y2: -0.15, valorM: R * 2, eje: 'X', etiqueta: `Diámetro Total Caracol: ${(R * 2).toFixed(2)}m` },
-      { id: `cota-caracol-paso-${Date.now()}`, x1: rMastil, y1: dy + 0.05, x2: R, y2: dy + 0.05, valorM: R - rMastil, eje: 'X', etiqueta: `Paso Libre: ${(R - rMastil).toFixed(2)}m` }
+      { id: `cota-caracol-alto-${ts}`, x1: -R - 0.15, y1: 0, x2: -R - 0.15, y2: H, valorM: H, eje: 'Y', etiqueta: `Altura de piso a piso: ${H.toFixed(2)}m` },
+      { id: `cota-caracol-diam-${ts}`, x1: -R, y1: -0.15, x2: R, y2: -0.15, valorM: R * 2, eje: 'X', etiqueta: `Diámetro: ${(R * 2).toFixed(2)}m` },
+      { id: `cota-caracol-paso-${ts}`, x1: rMastil, y1: dy + 0.05, x2: R, y2: dy + 0.05, valorM: R - rMastil, eje: 'X', etiqueta: `Ancho de paso: ${(R - rMastil).toFixed(2)}m · contrapaso ${(dy * 100).toFixed(0)} cm` }
     );
 
     return { piezas, accesoriosCad, cotasCad };
@@ -4561,7 +4556,7 @@ function crearDisenoPorElementoRaw(tipo: TipoElementoHerreria): any {
         profundidadMarcoMm: 114,
         perfilMarcoId: 'red-4-3.0',
         perfilBastidorId: 'cuad-1.5x1.5-1.5',
-        perfilRefuerzoId: 'red-1.5-2.0',
+        perfilRefuerzoId: 'red-2-2.0',
         numHojas: 1,
         hojas: [{ id: 'h1', numero: 1, anchoM: 1.70, apertura: 'fija' }],
         sentidoAperturaTexto: 'Escalera de caracol helicoidal autoportante',

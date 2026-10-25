@@ -272,6 +272,9 @@ export interface PiezaCad {
   anchoPlanchaM?: number;
   altoPlanchaM?: number;
   espesorPlanchaMm?: number;
+  // Plancha en forma de gajo (peldaño de escalera caracol): anillo entre rIn y
+  // rOut, de a0Deg a a1Deg alrededor del eje vertical, a la altura y1.
+  sectorPeldano?: { rIn: number; rOut: number; a0Deg: number; a1Deg: number };
   subtipoPlancha?: 'lisa' | 'estriada' | 'perforada' | 'acanalada' | 'machihembrada' | 'corrugada';
   tipoRelleno?: TipoRellenoPanel;
   conPernos?: boolean; // Opción de colocar pernos en esquinas (desactivado por defecto)
