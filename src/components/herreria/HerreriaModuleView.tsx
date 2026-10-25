@@ -1,5 +1,6 @@
 // Módulo Principal e Independiente de HERRERÍA para Innova Contratistas Manager
 // Cumple estrictamente todos los lineamientos solicitados para el módulo de Herrería
+import { importarDisenoJson } from './importarDisenoJson';
 import { useCatalogo } from '../../lib/catalogoPrecios';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
@@ -213,22 +214,16 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
     }
   };
 
-  // Importar archivo JSON
+  // Importar archivo JSON (diseño de CarpiMetal o formato inspector_cad).
+  const [avisoImport, setAvisoImport] = useState<{ ok: boolean; texto: string } | null>(null);
   const handleImportJson = (jsonData: any, fileName: string) => {
-    try {
-      const loaded = asegurarCad(jsonData);
-      if (!loaded.nombre) {
-        loaded.nombre = fileName.replace(/\.json$/i, '');
-      }
-      setDesign(loaded);
-      setSelectedElementId(null);
-      setSelectedType(null);
-      setActiveTab('cad');
-      setShowSavedNotification(true);
-      setTimeout(() => setShowSavedNotification(false), 2500);
-    } catch (e) {
-      console.error('Error importando JSON en Herrería:', e);
-    }
+    const r = importarDisenoJson(jsonData, fileName);
+    if (!r.ok) { setAvisoImport({ ok: false, texto: r.error }); return; }
+    setDesign(r.design);
+    setSelectedElementId(null);
+    setSelectedType(null);
+    setActiveTab('cad');
+    setAvisoImport({ ok: true, texto: `✓ "${r.design.nombre}" importado con ${r.design.piezas.length} piezas.${r.avisos.length ? ' ' + r.avisos.join(' ') : ''}` });
   };
 
   // Exportar archivo AutoCAD DXF
@@ -718,6 +713,13 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
       {/* ==========================================
           MODAL: SUBIR / IMPORTAR CAD (AUTOCAD DXF / JSON)
       ========================================== */}
+      {avisoImport && (
+        <div className={`fixed left-1/2 -translate-x-1/2 bottom-6 z-[90] max-w-md w-[92%] rounded-xl border px-4 py-3 text-xs font-bold shadow-xl flex items-start gap-3 ${avisoImport.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'}`}>
+          <span className="flex-1 leading-relaxed">{avisoImport.texto}</span>
+          <button onClick={() => setAvisoImport(null)} className="shrink-0 cursor-pointer" aria-label="Cerrar">✕</button>
+        </div>
+      )}
+
       <CadFileUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
