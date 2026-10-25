@@ -1,8 +1,7 @@
-import CatalogoPreciosView from './components/CatalogoPreciosView';
 import { useCatalogo, migrarPreciosAntiguos, hidratarCatalogo, EstadoCatalogo } from './lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from './components/techos/techosCadCatalog';
 import { EmpresaProvider, datosDesdeSettings, settingsDesdeDatos, DatosEmpresa } from './lib/empresa';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { 
   Briefcase, Calculator, Users, DollarSign, Activity, 
   Settings, AlertCircle, TrendingUp, TrendingDown, Home, CreditCard, Menu, Plus, 
@@ -18,34 +17,39 @@ import { auth, authReady } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { useFirestoreArraySync } from './lib/db';
 import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
-import CotizadorRapidoView from './components/CotizadorRapidoView';
-import UsuariosView from './components/UsuariosView';
-import { Ticket } from './components/TicketsView';
-import { Asesoria } from './components/AsesoriasView';
-import SoporteYAsesoriasView from './components/SoporteYAsesoriasView';
-import MaterialesYGastosView from './components/MaterialesYGastosView';
-import SettingsView from './components/SettingsView';
+import type { Ticket } from './components/TicketsView';
+import type { Asesoria } from './components/AsesoriasView';
 import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye } from 'lucide-react';
-import DiseñadorView from './components/DiseñadorView';
-import HerreriaModuleView from './components/herreria/HerreriaModuleView';
-import TechosModuleView from './components/techos/TechosModuleView';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
-import BibliotecaPremiumView, { BibliotecaItem } from './components/BibliotecaPremiumView';
-import AdminPurchasesView from './components/AdminPurchasesView';
+import type { BibliotecaItem } from './components/BibliotecaPremiumView';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
-import SupervisionView from './components/SupervisionView';
-import ContratosYEPPView from './components/ContratosYEPPView';
-import ProyectosYClientesView from './components/ProyectosYClientesView';
-import PersonalYAsistenciaView from './components/PersonalYAsistenciaView';
-import UsabilidadVideosView, { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
-import ConcretoMetradosView from './components/ConcretoMetradosView';
-import DrywallView from './components/DrywallView';
+import type { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import defaultAdminLogo from './assets/images/logo_innova_oficial_1791000137990.jpg';
 
 import { formatCurrencyWithSymbol } from './lib/currency';
+
+// Módulos pesados: se descargan recién al abrirlos (arranque más rápido en el celular).
+const CatalogoPreciosView = lazy(() => import('./components/CatalogoPreciosView'));
+const CotizadorRapidoView = lazy(() => import('./components/CotizadorRapidoView'));
+const UsuariosView = lazy(() => import('./components/UsuariosView'));
+const SoporteYAsesoriasView = lazy(() => import('./components/SoporteYAsesoriasView'));
+const MaterialesYGastosView = lazy(() => import('./components/MaterialesYGastosView'));
+const SettingsView = lazy(() => import('./components/SettingsView'));
+const DiseñadorView = lazy(() => import('./components/DiseñadorView'));
+const HerreriaModuleView = lazy(() => import('./components/herreria/HerreriaModuleView'));
+const TechosModuleView = lazy(() => import('./components/techos/TechosModuleView'));
+const AdminPurchasesView = lazy(() => import('./components/AdminPurchasesView'));
+const SupervisionView = lazy(() => import('./components/SupervisionView'));
+const ContratosYEPPView = lazy(() => import('./components/ContratosYEPPView'));
+const ProyectosYClientesView = lazy(() => import('./components/ProyectosYClientesView'));
+const PersonalYAsistenciaView = lazy(() => import('./components/PersonalYAsistenciaView'));
+const ConcretoMetradosView = lazy(() => import('./components/ConcretoMetradosView'));
+const DrywallView = lazy(() => import('./components/DrywallView'));
+const BibliotecaPremiumView = lazy(() => import('./components/BibliotecaPremiumView'));
+const UsabilidadVideosView = lazy(() => import('./components/UsabilidadVideosView'));
 
 export * from './types';
 import { ViewType, Project, Client, FinanceRecord, SystemUser, SystemConfig, GlobalNotification } from './types';
@@ -1568,6 +1572,9 @@ export default function App() {
     });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Apartados ya abiertos (Diseñador y Calculadora se quedan montados después).
+  const vistasAbiertas = useRef(new Set<string>());
+  vistasAbiertas.current.add(currentView);
   // Interruptor de la IA para usuarios (lo enciende el admin en Configuración).
   const [, setIaUsuarios] = useState(false);
   useEffect(() => { if (user) cargarEstadoIA().then(setIaUsuarios); }, [user?.id]);
@@ -2019,6 +2026,12 @@ export default function App() {
     />
   );
 
+  const cargandoModulo = (
+    <div className="w-full h-full min-h-[40vh] flex items-center justify-center">
+      <div className="w-7 h-7 border-[3px] border-slate-300 border-t-emerald-500 rounded-full animate-spin" aria-label="Cargando" />
+    </div>
+  );
+
   const renderView = () => {
     // Si un usuario (no admin) entra a un apartado en desarrollo, mostramos la
     // pantalla de mantenimiento en vez del módulo real.
@@ -2455,27 +2468,33 @@ export default function App() {
           </header>
         )}
         
-        {/* Persistent Techos Metálicos Designer View Wrapper */}
+        {/* Diseñador y Calculadora se mantienen vivos al cambiar de apartado, pero
+            solo se montan la primera vez que se abren (antes cargaban al arrancar). */}
+        {vistasAbiertas.current.has('designer') && (
         <div className={currentView === 'designer' ? 'flex-1 min-h-0 w-full overflow-hidden flex flex-col' : 'hidden'}>
+          <Suspense fallback={cargandoModulo}>
           <DiseñadorView 
             onOpenCarpinteria={() => setCurrentView('herreria')} 
             onToggleMenu={() => setIsMobileMenuOpen(true)}
             onGoBack={() => setCurrentView('dashboard')}
           />
+          </Suspense>
         </div>
+        )}
 
-        {/* Persistent Calculadora Estructural View Wrapper */}
+        {vistasAbiertas.current.has('calculator') && (
         <div className={currentView === 'calculator' ? 'flex-1 overflow-y-auto bg-slate-50/50 p-4 xl:p-8 scroll-smooth' : 'hidden'}>
           <div className="max-w-7xl mx-auto h-full">
-            {vistaBloqueada('calculator') ? renderMantenimiento() : <CotizadorRapidoView />}
+            {vistaBloqueada('calculator') ? renderMantenimiento() : <Suspense fallback={cargandoModulo}><CotizadorRapidoView /></Suspense>}
           </div>
         </div>
+        )}
 
         {/* Other Views Container */}
         {currentView !== 'designer' && currentView !== 'calculator' && (
           <main className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth"}>
             <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
-              <EmpresaProvider value={empresaCtx}>{renderView()}</EmpresaProvider>
+              <EmpresaProvider value={empresaCtx}><Suspense fallback={cargandoModulo}>{renderView()}</Suspense></EmpresaProvider>
             </div>
           </main>
         )}
