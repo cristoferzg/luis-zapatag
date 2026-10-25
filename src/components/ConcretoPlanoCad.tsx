@@ -18,7 +18,7 @@
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2 } from 'lucide-react';
+import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon } from 'lucide-react';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
@@ -40,7 +40,7 @@ import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
 
 export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento' | 'losa' | 'muro';
-type Herramienta = 'select' | 'pan' | 'abertura' | 'bloque' | PlanoTipo;
+type Herramienta = 'select' | 'grupo' | 'pan' | 'abertura' | 'bloque' | PlanoTipo;
 export type { Abertura } from './concreto/geometriaObra';
 
 export interface PlanoElem {
@@ -454,7 +454,42 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   };
   const didDrag = useRef(false);
 
+  // ---- Selección en grupo (recuadro) ----
+  const [grupo, setGrupo] = useState<string[]>([]);
+  const [recuadro, setRecuadro] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const enGrupo = (e: PlanoElem, r: { x1: number; y1: number; x2: number; y2: number }) => {
+    if (bloqueado(e)) return false;
+    if ((e.tipo === 'muro' || e.tipo === 'losa') && (e.nivel || pisos[0]) !== nivelMuro) return false;
+    const minX = Math.min(r.x1, r.x2), maxX = Math.max(r.x1, r.x2), minY = Math.min(r.y1, r.y2), maxY = Math.max(r.y1, r.y2);
+    const dentro = (x: number, y: number) => x >= minX && x <= maxX && y >= minY && y <= maxY;
+    return dentro(e.x1, e.y1) && (e.x2 === undefined || e.y2 === undefined || dentro(e.x2, e.y2));
+  };
+  const cerrarRecuadro = () => {
+    if (!recuadro) return;
+    const r = recuadro;
+    if (Math.abs(r.x2 - r.x1) + Math.abs(r.y2 - r.y1) > 0.05) setGrupo(elems.filter(e => enGrupo(e, r)).map(e => e.uid));
+    setRecuadro(null);
+    didDrag.current = true;
+  };
+  const elemsGrupo = elems.filter(e => grupo.includes(e.uid));
+  const moverGrupo = (dx: number, dy: number) => commit(prev => prev.map(e => !grupo.includes(e.uid) ? e : {
+    ...e, x1: e.x1 + dx, y1: e.y1 + dy, ...(e.x2 !== undefined ? { x2: e.x2 + dx } : {}), ...(e.y2 !== undefined ? { y2: e.y2 + dy } : {}),
+  }), 'mover-grupo');
+  const duplicarGrupo = () => {
+    const sufijo = Date.now().toString(36);
+    const copias = elemsGrupo.map((e, i) => ({ ...e, uid: `${e.uid}_c${sufijo}${i}`, x1: e.x1 + 0.5, y1: e.y1 + 0.5, ...(e.x2 !== undefined ? { x2: e.x2 + 0.5 } : {}), ...(e.y2 !== undefined ? { y2: e.y2 + 0.5 } : {}) }));
+    commit(prev => [...prev, ...copias]);
+    setGrupo(copias.map(c => c.uid));
+  };
+  const borrarGrupo = () => { commit(prev => prev.filter(e => !grupo.includes(e.uid))); setGrupo([]); };
+  const cambiarGrupo = (p: Partial<PlanoElem>, clave: string) => commit(prev => prev.map(e => grupo.includes(e.uid) && e.tipo === 'muro' ? { ...e, ...p } : e), clave);
+
   const onMouseDown = (e: React.MouseEvent) => {
+    if (tool === 'grupo' && e.button === 0) {
+      const w = rawWorld(e.clientX, e.clientY);
+      setRecuadro({ x1: w.x, y1: w.y, x2: w.x, y2: w.y });
+      return;
+    }
     if (tool === 'pan' || e.button === 1 || e.button === 2) {
       setIsPanning(true);
       panStart.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
@@ -491,6 +526,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     }
   };
   const onMouseMove = (e: React.MouseEvent) => {
+    if (recuadro) { const w = rawWorld(e.clientX, e.clientY); setRecuadro(r => r && { ...r, x2: w.x, y2: w.y }); return; }
     if (isPanning) {
       const dx = e.clientX - panStart.current.x, dy = e.clientY - panStart.current.y;
       if (Math.abs(dx) + Math.abs(dy) > 3) didDrag.current = true;
@@ -529,6 +565,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     setCursor(s);
   };
   const onMouseUp = () => {
+    if (recuadro) { cerrarRecuadro(); return; }
     setIsPanning(false);
     if (dragBloque.current) {
       const d = dragBloque.current; dragBloque.current = null;
@@ -555,10 +592,12 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   const toque = useRef<{ x: number; y: number; px: number; py: number; d: number; z: number } | null>(null);
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches;
+    if (tool === 'grupo' && t.length === 1) { const w = rawWorld(t[0].clientX, t[0].clientY); setRecuadro({ x1: w.x, y1: w.y, x2: w.x, y2: w.y }); return; }
     const c = t.length === 2 ? { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 } : { x: t[0].clientX, y: t[0].clientY };
     toque.current = { ...c, px: pan.x, py: pan.y, d: t.length === 2 ? Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) : 0, z: zoom };
   };
   const onTouchMove = (e: React.TouchEvent) => {
+    if (recuadro && e.touches.length === 1) { const w = rawWorld(e.touches[0].clientX, e.touches[0].clientY); setRecuadro(r => r && { ...r, x2: w.x, y2: w.y }); return; }
     const t = e.touches, s0 = toque.current;
     if (!s0) return;
     if (t.length === 2) {
@@ -572,10 +611,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       if (Math.abs(dx) + Math.abs(dy) > 6) { didDrag.current = true; setPan({ x: s0.px + dx, y: s0.py + dy }); }
     }
   };
-  const onTouchEnd = () => { toque.current = null; };
+  const onTouchEnd = () => { toque.current = null; if (recuadro) cerrarRecuadro(); };
 
   const onClick = (e: React.MouseEvent) => {
-    if (tool === 'pan') return;
+    if (tool === 'pan' || tool === 'grupo') return;
     if (didDrag.current) { didDrag.current = false; return; } // acabamos de arrastrar un nodo
     const w = snapWorld(e.clientX, e.clientY);
     if (tool === 'select') { setSelUid(null); setSelNode(null); setSelAb(null); setSelBloque(null); return; }
@@ -804,6 +843,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
 
   const HERRAMIENTAS: { id: Herramienta; label: string; icon: any }[] = [
     { id: 'select', label: 'Seleccionar', icon: MousePointer },
+    { id: 'grupo', label: 'Grupo', icon: BoxSelect },
     { id: 'columna', label: 'Columna', icon: Columns },
     { id: 'zapata', label: 'Zapata', icon: Square },
     { id: 'viga', label: 'Viga', icon: Minus },
@@ -813,7 +853,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     { id: 'abertura', label: 'Abertura', icon: DoorOpen },
     { id: 'bloque', label: 'Bloques', icon: Armchair },
     { id: 'pan', label: 'Mover lienzo', icon: Hand },
-  ].filter(t => !esDrywall || ['select', 'muro', 'abertura', 'bloque', 'pan'].includes(t.id)) as { id: Herramienta; label: string; icon: any }[];
+  ].filter(t => !esDrywall || ['select', 'grupo', 'muro', 'abertura', 'bloque', 'pan'].includes(t.id)) as { id: Herramienta; label: string; icon: any }[];
 
   const canUndo = undoRef.current.length > 0;
   const canRedo = redoRef.current.length > 0;
@@ -871,7 +911,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           const act = tool === t.id;
           const col = (t.id in META) ? META[t.id as PlanoTipo].color : t.id === 'abertura' ? '#0284c7' : '#334155';
           return (
-            <button key={t.id} onClick={() => { setTool(t.id); setPending(null); }}
+            <button key={t.id} onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }}
               className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
                 act ? 'text-white border-transparent shadow-xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
               }`}
@@ -909,11 +949,11 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {/* Deshacer / Rehacer */}
         <button onClick={undo} disabled={!canUndo} title="Deshacer (Ctrl+Z)"
           className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
-          <Undo2 className="w-3.5 h-3.5" />
+          <Undo2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Atrás</span>
         </button>
         <button onClick={redo} disabled={!canRedo} title="Rehacer (Ctrl+Y)"
           className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
-          <Redo2 className="w-3.5 h-3.5" />
+          <Redo2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Adelante</span>
         </button>
         <button onClick={encuadrar} disabled={elems.length === 0 && !plantaTechos.lineas.length} title="Encuadrar (ver todo)"
           className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
@@ -1000,6 +1040,18 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           style={{ touchAction: 'none' }}
         >
           <svg className="absolute inset-0 w-full h-full">
+            {/* Tramas de muros según material (como en un plano de arquitectura) */}
+            <defs>
+              <pattern id="pt-ladrillo" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="7" height="7" fill="#fed7aa" /><line x1="0" y1="0" x2="0" y2="7" stroke="#ea580c" strokeWidth="1.6" />
+              </pattern>
+              <pattern id="pt-osb" width="12" height="8" patternUnits="userSpaceOnUse">
+                <rect width="12" height="8" fill="#f3d9a4" /><path d="M1 2h4M7 5h4M3 7h3M8 1h2" stroke="#b07a2a" strokeWidth="1" />
+              </pattern>
+              <pattern id="pt-drywall" width="6" height="6" patternUnits="userSpaceOnUse">
+                <rect width="6" height="6" fill="#f1f5f9" /><circle cx="3" cy="3" r="0.6" fill="#94a3b8" />
+              </pattern>
+            </defs>
             <defs>
               <pattern id="pc-grid" width={scale * (1 / 4)} height={scale * (1 / 4)} patternUnits="userSpaceOnUse" patternTransform={`translate(${cx % (scale / 4)}, ${cy % (scale / 4)})`}>
                 <path d={`M ${scale / 4} 0 L 0 0 0 ${scale / 4}`} fill="none" stroke="#e2e8f0" strokeWidth="1" />
@@ -1082,7 +1134,6 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 const p2 = toScreen(e.x2, e.y2);
                 const wPx = Math.max(5, e.a * scale);
                 const otroPiso = (e.nivel || pisos[0]) !== nivelMuro;
-                const col = COLOR_MURO[e.material || 'ladrillo'];
                 const L = largoMuro(e), ux = (e.x2 - e.x1) / (L || 1), uy = (e.y2 - e.y1) / (L || 1);
                 // Punto a t m del inicio y n m hacia un costado (en px de pantalla).
                 const P = (t: number, n = 0) => ({ x: p1.sx + (ux * t - uy * n) * scale, y: p1.sy + (uy * t + ux * n) * scale });
@@ -1094,12 +1145,25 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 if (L > t0 + 0.005) tramos.push([t0, L]);
                 return (
                   <g key={e.uid} opacity={otroPiso ? 0.22 : 1} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); setSelAb(null); if (otroPiso && e.nivel) setNivelMuro(e.nivel); } }} className="cursor-pointer">
-                    {tramos.map(([a, b], i) => { const A = P(a), B = P(b); return (
-                      <g key={i}>
-                        <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke={col} strokeWidth={wPx} strokeLinecap="butt" />
-                        {e.material !== 'drywall' && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#fff7ed" strokeWidth={Math.max(1, wPx * 0.18)} strokeDasharray="7 5" />}
-                      </g>
-                    ); })}
+                    {tramos.map(([a, b], i) => {
+                      const mat = e.material || 'ladrillo';
+                      const hw = Math.max(e.a, 5 / scale) / 2; // medio espesor (m), mínimo visible
+                      const q = [P(a, -hw), P(b, -hw), P(b, hw), P(a, hw)];
+                      const pts = q.map(v => `${v.x},${v.y}`).join(' ');
+                      // Drywall: 2 placas (bordes) y parantes cada 40 cm.
+                      const parantes: number[] = [];
+                      if (mat === 'drywall') for (let t = Math.ceil(a / 0.4) * 0.4; t < b - 0.02; t += 0.4) parantes.push(t);
+                      return (
+                        <g key={i}>
+                          <polygon points={pts} fill={`url(#pt-${mat})`} stroke={mat === 'ladrillo' ? '#c2410c' : mat === 'osb' ? '#92400e' : '#475569'} strokeWidth={sel ? 2.5 : 1.2} />
+                          {mat === 'drywall' && <>
+                            <line x1={q[0].x} y1={q[0].y} x2={q[1].x} y2={q[1].y} stroke="#334155" strokeWidth={Math.max(1.5, 0.0125 * scale)} />
+                            <line x1={q[3].x} y1={q[3].y} x2={q[2].x} y2={q[2].y} stroke="#334155" strokeWidth={Math.max(1.5, 0.0125 * scale)} />
+                            {parantes.map(t => { const u = P(t, -hw), v = P(t, hw); return <line key={t} x1={u.x} y1={u.y} x2={v.x} y2={v.y} stroke="#64748b" strokeWidth={1} />; })}
+                          </>}
+                        </g>
+                      );
+                    })}
                     {!otroPiso && abs.map(a => {
                       const iz = a.t - a.w / 2, de = a.t + a.w / 2, r = a.w * scale;
                       const marcada = selAb?.uid === e.uid && selAb.id === a.id;
@@ -1210,8 +1274,20 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               );
             })}
 
+            {/* selección en grupo: recuadro y elementos marcados */}
+            {elemsGrupo.map(e => {
+              const a = toScreen(e.x1, e.y1);
+              if (e.x2 === undefined || e.y2 === undefined) return <circle key={`g-${e.uid}`} cx={a.sx} cy={a.sy} r={12} fill="#2563eb" fillOpacity={0.12} stroke="#2563eb" strokeWidth={2} strokeDasharray="4 3" style={{ pointerEvents: 'none' }} />;
+              const b = toScreen(e.x2, e.y2);
+              return <line key={`g-${e.uid}`} x1={a.sx} y1={a.sy} x2={b.sx} y2={b.sy} stroke="#2563eb" strokeWidth={9} strokeOpacity={0.35} strokeLinecap="round" style={{ pointerEvents: 'none' }} />;
+            })}
+            {recuadro && (() => {
+              const a = toScreen(recuadro.x1, recuadro.y1), b = toScreen(recuadro.x2, recuadro.y2);
+              return <rect x={Math.min(a.sx, b.sx)} y={Math.min(a.sy, b.sy)} width={Math.abs(b.sx - a.sx)} height={Math.abs(b.sy - a.sy)} fill="#3b82f6" fillOpacity={0.08} stroke="#2563eb" strokeWidth={1.5} strokeDasharray="6 4" style={{ pointerEvents: 'none' }} />;
+            })()}
+
             {/* cursor fantasma (resalta cuando se imanta a un nodo) */}
-            {tool !== 'select' && tool !== 'pan' && (() => {
+            {tool !== 'select' && tool !== 'pan' && tool !== 'grupo' && (() => {
               const c = toScreen(cursor.x, cursor.y);
               const col = META[tool as PlanoTipo]?.color || '#334155';
               return (
@@ -1223,6 +1299,45 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               );
             })()}
           </svg>
+
+          {tool === 'grupo' && grupo.length === 0 && !recuadro && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-blue-800 bg-blue-50/95 border border-blue-200 rounded-xl px-3 py-1.5 pointer-events-none whitespace-nowrap">
+              Arrastra un recuadro para seleccionar varios elementos
+            </div>
+          )}
+          {grupo.length > 0 && (() => {
+            const muros = elemsGrupo.filter(e => e.tipo === 'muro');
+            const btn = 'p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
+            return (
+              <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                <span className="font-black text-amber-800 mr-1">{grupo.length} seleccionado{grupo.length === 1 ? '' : 's'}</span>
+                <button className={btn} title="Mover a la izquierda 10 cm" onClick={() => moverGrupo(-0.1, 0)}><ArrowLeft className="w-4 h-4" /></button>
+                <button className={btn} title="Mover arriba 10 cm" onClick={() => moverGrupo(0, -0.1)}><ArrowUp className="w-4 h-4" /></button>
+                <button className={btn} title="Mover abajo 10 cm" onClick={() => moverGrupo(0, 0.1)}><ArrowDown className="w-4 h-4" /></button>
+                <button className={btn} title="Mover a la derecha 10 cm" onClick={() => moverGrupo(0.1, 0)}><ArrowRight className="w-4 h-4" /></button>
+                <button className={`${btn} inline-flex items-center gap-1 font-bold`} title="Duplicar" onClick={duplicarGrupo}><Copy className="w-4 h-4" /> Duplicar</button>
+                <button className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer inline-flex items-center gap-1 font-bold" title="Borrar" onClick={borrarGrupo}><Trash2 className="w-4 h-4" /> Borrar</button>
+                {muros.length > 0 && (
+                  <>
+                    <label className="inline-flex items-center gap-1 font-bold text-slate-600 ml-1">Alto
+                      <input type="number" step="0.05" min="0.3" defaultValue={muros[0].H || 2.6} key={`h-${grupo.join()}`}
+                        onBlur={e => { const v = parseFloat(e.target.value); if (v > 0) cambiarGrupo({ H: v, hastaTecho: false }, 'alto-grupo'); }}
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
+                    </label>
+                    <select value={`${muros[0].material || 'ladrillo'}:${muros[0].materialId || ''}`}
+                      onChange={e => { const [material, materialId] = e.target.value.split(':') as [MaterialMuro, string]; cambiarGrupo({ material, materialId }, 'material-grupo'); }}
+                      className="px-2 py-1 rounded-lg bg-orange-50 font-bold text-orange-800 cursor-pointer max-w-[170px]">
+                      {!esDrywall && <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>}
+                      <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
+                      <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
+                    </select>
+                  </>
+                )}
+                <button className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer ml-auto" title="Quitar selección" onClick={() => setGrupo([])}><XIcon className="w-4 h-4" /></button>
+              </div>
+            );
+          })()}
 
           {elems.length === 0 && !estructura && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
