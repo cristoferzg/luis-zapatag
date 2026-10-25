@@ -368,6 +368,9 @@ export const analyzeRoofPlan = onCall(
       'y márcalo en "confianza":"baja".',
       'Responde SOLO con un JSON válido, sin texto adicional ni explicaciones, con estas claves exactas:',
       '{"anchoM": number, "largoM": number, "alturaColM": number,',
+      '"perimetro": [{"x": number, "z": number}],',
+      '"caida": "arriba"|"abajo"|"izquierda"|"derecha"|"ninguna",',
+      '"alturaAltaM": number|null, "alturaBajaM": number|null,',
       '"columnas": [{"x": number, "z": number}],',
       '"vigas": [{"x1": number, "z1": number, "x2": number, "z2": number, "tipo": "viga"|"tijeral"}],',
       '"confianza": "alta"|"media"|"baja", "notas": string}.',
@@ -375,6 +378,13 @@ export const analyzeRoofPlan = onCall(
       '- "columnas": una por cada apoyo detectado, con su posición (x,z) en metros.',
       '- "vigas": cada línea estructural entre dos puntos; "tipo":"tijeral" si parece una cercha/celosía',
       '  (líneas con montantes o escalera entre dos cordones), si no "viga".',
+      '- Si la hoja tiene varios dibujos (cortes, elevaciones, detalles), usa SOLO la vista en planta del área a techar.',
+      '- "perimetro": vértices del contorno del área a techar, en orden (horario o antihorario), aunque no tenga columnas;',
+      '  respeta formas en L o trapecios y las medidas escritas en cada lado. Las zonas marcadas como "vacío" o ya techadas no van.',
+      '- "caida": hacia dónde escurre el agua VISTO EN EL DIBUJO (arriba = parte superior de la hoja), según flechas o textos',
+      '  como "caída", "caída para la calle" o "caída hacia adelante" (y dónde está la calle). Si no se indica, "ninguna".',
+      '- "alturaAltaM"/"alturaBajaM": alturas del lado alto y bajo del techo si están escritas; si solo hay una altura, ponla en',
+      '  "alturaColM" y deja las otras en null.',
       '- "alturaColM": altura de columnas si el plano lo indica; si no, usa 3.0.',
       '- Coordenadas redondeadas a 0.05 m. No inventes columnas que no estén dibujadas.',
       '- "notas": una frase corta en español con lo que asumiste (p. ej. escala o medidas usadas).'
@@ -427,7 +437,13 @@ export const analyzeRoofPlan = onCall(
       }))
       .filter((v) => v.x1 !== null && v.z1 !== null && v.x2 !== null && v.z2 !== null) : [];
 
-    if (!columnas.length && !vigas.length) await devolver();
+    const perimetro = Array.isArray(parsed.perimetro) ? parsed.perimetro
+      .map((p) => ({ x: num(p?.x, null), z: num(p?.z, null) }))
+      .filter((p) => p.x !== null && p.z !== null) : [];
+    const caida = ['arriba', 'abajo', 'izquierda', 'derecha', 'ninguna'].includes(parsed.caida) ? parsed.caida : 'ninguna';
+    const altura = (v) => { const n = num(v, null); return n !== null && n > 0 ? n : null; };
+
+    if (!columnas.length && !vigas.length && perimetro.length < 3) await devolver();
 
     return {
       anchoM: num(parsed.anchoM, 0),
@@ -435,6 +451,10 @@ export const analyzeRoofPlan = onCall(
       alturaColM: num(parsed.alturaColM, 3.0),
       columnas,
       vigas,
+      perimetro,
+      caida,
+      alturaAltaM: altura(parsed.alturaAltaM),
+      alturaBajaM: altura(parsed.alturaBajaM),
       confianza: ['alta', 'media', 'baja'].includes(parsed.confianza) ? parsed.confianza : 'media',
       notas: typeof parsed.notas === 'string' ? parsed.notas : ''
     };

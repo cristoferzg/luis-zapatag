@@ -47,8 +47,9 @@ import TechosColumnasExactasModal from './TechosColumnasExactasModal';
 import TechosCoberturaTanqueModal from './TechosCoberturaTanqueModal';
 import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
-import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
-import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64 } from '../../lib/roofPlanScan';
+import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64, OPCIONES_PLANO_DEFECTO, OpcionesPlano } from '../../lib/roofPlanScan';
+import { safeStorage } from '../../lib/storageManager';
 import { checkAIAccess, iaVisibleParaUI, motivoErrorIA, getAICtx } from '../../lib/aiAccess';
 import PlanesIAModal from '../PlanesIAModal';
 import { 
@@ -143,8 +144,16 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       else setIaNotice('La lectura de planos con IA está en pruebas internas. Pronto estará disponible.');
       return;
     }
-    iaInputRef.current?.click();
+    setShowOpcionesPlano(true);
   };
+
+  // Datos que el usuario conoce del techo (lo que deje vacío se lee del dibujo).
+  const [showOpcionesPlano, setShowOpcionesPlano] = useState(false);
+  const [opcionesPlano, setOpcionesPlano] = useState<OpcionesPlano>(() => ({
+    ...OPCIONES_PLANO_DEFECTO, coberturaId: INVENTARIO_COBERTURAS[0]?.id || '',
+    ...(safeStorage.getItem<Partial<OpcionesPlano>>('innova_techos_opciones_plano', {}) || {}),
+  }));
+  const setOpc = (p: Partial<OpcionesPlano>) => setOpcionesPlano(prev => { const n = { ...prev, ...p }; safeStorage.setItem('innova_techos_opciones_plano', n); return n; });
 
   const handleIaPlanUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -157,12 +166,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       const plan = await analyzeRoofPlanWithAI(base64, mimeType);
       const nCols = plan.columnas?.length || 0;
       const nVig = plan.vigas?.length || 0;
-      if (nCols === 0 && nVig === 0) {
+      if (nCols === 0 && nVig === 0 && (plan.perimetro?.length || 0) < 3) {
         setIaNotice('La IA no detectó columnas ni vigas. Prueba con una foto más nítida y recta del plano.');
       } else {
-        const { nodes: nN, segments: nS } = buildSceneFromPlan(plan, engineState.activeProfileId);
-        engineState.loadScene(nN, nS, {});
-        setIaNotice(`✓ IA: ${nCols} columnas y ${nVig} barras (confianza ${plan.confianza}). ${plan.notas || ''} Revisa y ajusta con las herramientas.`);
+        const correaProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || engineState.activeProfileId;
+        const { nodes: nN, segments: nS, zones: nZ, resumen } = buildSceneFromPlan(plan, engineState.activeProfileId, opcionesPlano, correaProf);
+        engineState.loadScene(nN, nS, nZ);
+        setIaNotice(`✓ Plano leído (confianza ${plan.confianza}): ${resumen} ${plan.notas || ''} Revisa y ajusta con las herramientas.`);
       }
     } catch (err: any) {
       const code = String(err?.code || err?.message || '');
@@ -2656,6 +2666,56 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </p>
           </div>
         )}
+
+        {/* DATOS DEL TECHO ANTES DE LEER EL PLANO */}
+        {showOpcionesPlano && (() => {
+          const o = opcionesPlano;
+          const num = (v: string) => { const n = parseFloat(v.replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
+          const lbl = 'block text-[10px] font-black text-slate-500 uppercase mb-1';
+          const inp = 'w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 focus:outline-none focus:border-amber-400';
+          return (
+            <div className="fixed inset-0 z-[90] bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowOpcionesPlano(false)}>
+              <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2"><Sparkles className="w-5 h-5 text-amber-500" /> Leer plano a mano</h3>
+                <p className="text-[11px] text-slate-500 mt-1 mb-4">Indica lo que sepas del techo. Lo que dejes vacío se lee del dibujo. Usa la foto de la <b>planta</b> (vista desde arriba) con sus medidas.</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className={lbl}>¿Hacia dónde cae el agua? (según el dibujo)</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([['leer', 'Leer del plano'], ['arriba', '↑ Arriba'], ['abajo', '↓ Abajo'], ['izquierda', '← Izquierda'], ['derecha', '→ Derecha'], ['ninguna', 'Plano (sin caída)']] as const).map(([v, t]) => (
+                        <button key={v} type="button" onClick={() => setOpc({ caida: v })}
+                          className={`py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${o.caida === v ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-white border-slate-200 text-slate-600'}`}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><label className={lbl}>Altura lado bajo (m)</label>
+                      <input className={inp} inputMode="decimal" placeholder="Del plano" defaultValue={o.alturaBajaM ?? ''} onChange={e => setOpc({ alturaBajaM: num(e.target.value) })} /></div>
+                    <div><label className={lbl}>Altura lado alto (m)</label>
+                      <input className={inp} inputMode="decimal" placeholder="Por pendiente" defaultValue={o.alturaAltaM ?? ''} onChange={e => setOpc({ alturaAltaM: num(e.target.value) })} /></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div><label className={lbl}>Pendiente %</label>
+                      <input className={inp} inputMode="decimal" defaultValue={o.pendientePct} onChange={e => setOpc({ pendientePct: num(e.target.value) ?? 10 })} /></div>
+                    <div><label className={lbl}>Columnas cada (m)</label>
+                      <input className={inp} inputMode="decimal" placeholder="Solo dibujadas" defaultValue={o.columnasCadaM || ''} onChange={e => setOpc({ columnasCadaM: num(e.target.value) ?? 0 })} /></div>
+                    <div><label className={lbl}>Correas cada (m)</label>
+                      <input className={inp} inputMode="decimal" defaultValue={o.correasCadaM} onChange={e => setOpc({ correasCadaM: num(e.target.value) ?? 1 })} /></div>
+                  </div>
+                  <p className="text-[10px] text-slate-500 -mt-1">La pendiente se usa si no pones la altura del lado alto. "Columnas cada" agrega columnas en las esquinas y donde el borde no las tiene (vacío = solo las dibujadas).</p>
+                  <div><label className={lbl}>Cobertura</label>
+                    <select className={inp} value={o.coberturaId} onChange={e => setOpc({ coberturaId: e.target.value })}>
+                      {INVENTARIO_COBERTURAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                    </select></div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-5">
+                  <button type="button" onClick={() => setShowOpcionesPlano(false)} className="py-3 rounded-2xl bg-slate-100 text-slate-700 text-sm font-bold cursor-pointer">Cancelar</button>
+                  <button type="button" onClick={() => { setShowOpcionesPlano(false); iaInputRef.current?.click(); }} className="py-3 rounded-2xl bg-amber-500 text-slate-950 text-sm font-black cursor-pointer">Elegir foto del plano</button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* MODAL DE PLANES DE IA (si el usuario no tiene acceso) */}
         {showPlanesIA && <PlanesIAModal motivo={showPlanesIA} onClose={() => setShowPlanesIA(false)} />}
