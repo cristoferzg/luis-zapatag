@@ -260,8 +260,12 @@ function ContratosSubView({
 
     if (setSettings) {
       setSettings(prev => {
-        const cur = prev[0] || { id: 'settings_default', appName: contratistaNombre, currency: 'PEN', theme: 'light', logoBase64: '' };
-        return [{
+        // Solo se toca el documento de ESTA cuenta. (Antes se tomaba prev[0] y se
+        // devolvía una lista de un solo elemento: para el admin eso pisaba la
+        // configuración de otro usuario y borraba la de los demás.)
+        const miId = (currentSettings as any)?.id;
+        const cur = prev.find(s => s.id === miId) || currentSettings || { id: miId || 'settings_default', appName: contratistaNombre, currency: 'PEN', theme: 'light', logoBase64: '' };
+        const nuevo = {
           ...cur,
           appName: contratistaNombre,
           contratistaDni: contratistaRuc,
@@ -276,7 +280,8 @@ function ContratosSubView({
           pagoDetracciones,
           pagoCciDetracciones,
           pagoYape
-        }];
+        } as any;
+        return prev.some(s => s.id === nuevo.id) ? prev.map(s => s.id === nuevo.id ? nuevo : s) : [...prev, nuevo];
       });
       if (savedMsg) savedMsg += ' y Configuración'; else savedMsg += 'Configuración';
     }
