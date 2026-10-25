@@ -14,7 +14,7 @@ import { performAdminBackup } from './lib/backupService';
 import { User } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
-import { auth } from './lib/firebase';
+import { auth, authReady } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { useFirestoreArraySync } from './lib/db';
 import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
@@ -1556,6 +1556,18 @@ export default function App() {
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
   // Contexto para el control de acceso a la IA (admin ilimitado; usuarios por plan).
   useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
+  // Sesiones antiguas (anónimas, de antes del ingreso seguro por PIN) no tienen
+  // permisos para leer/guardar configuraciones globales (p. ej. los apartados
+  // desactivados por el admin). Se pide el PIN una sola vez para renovarla.
+  useEffect(() => {
+    if (!user || safeStorage.getItem<boolean>('innova_sesion_v2', false)) return;
+    authReady.then(() => {
+      if (auth.currentUser && !auth.currentUser.isAnonymous) { safeStorage.setItem('innova_sesion_v2', true); return; }
+      setPinError('Actualizamos la seguridad de la plataforma: vuelve a ingresar tu PIN (solo esta vez).');
+      handleLogout();
+    });
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Interruptor de la IA para usuarios (lo enciende el admin en Configuración).
   const [, setIaUsuarios] = useState(false);
   useEffect(() => { if (user) cargarEstadoIA().then(setIaUsuarios); }, [user?.id]);
@@ -1737,6 +1749,7 @@ export default function App() {
         : { id: result.workspace.replace(/^user_/, ''), name: result.name || 'Usuario', role: 'user', pin: '', isActive: true, lastLogin: nowStr };
       setUser(sessionUser);
       safeStorage.setItem('savedUser', sessionUser);
+      safeStorage.setItem('innova_sesion_v2', true);
       if (result.role === 'admin') {
         safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
       }
@@ -1772,6 +1785,7 @@ export default function App() {
         };
 
         safeStorage.setItem('savedUser', adminSystemUser);
+        safeStorage.setItem('innova_sesion_v2', true);
         safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
         setUser(adminSystemUser);
         setCurrentView('dashboard');
@@ -1812,6 +1826,7 @@ export default function App() {
 
       setUser(userData);
       safeStorage.setItem('savedUser', userData);
+      safeStorage.setItem('innova_sesion_v2', true);
       setCurrentView('dashboard');
     } catch (error: any) {
       console.warn('Firestore PIN check error, checking local cache fallback:', error);
@@ -2458,7 +2473,7 @@ export default function App() {
 
         {/* Other Views Container */}
         {currentView !== 'designer' && currentView !== 'calculator' && (
-          <main className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : "flex-1 overflow-y-auto bg-slate-50/50 p-4 xl:p-8 scroll-smooth"}>
+          <main className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth"}>
             <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
               <EmpresaProvider value={empresaCtx}>{renderView()}</EmpresaProvider>
             </div>

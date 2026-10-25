@@ -56,15 +56,15 @@ export const CostsCatalogView: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) =>
   if (!isAdmin) return null;
 
   return (
-    <div className="space-y-6 p-6 bg-slate-50">
-      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+    <div className="space-y-6 p-3 sm:p-6 bg-slate-50">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900 mb-4">Catálogos de Costos</h3>
 
         {/* TABS */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-6">
           <button
             onClick={() => setActiveTab('material')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-bold whitespace-nowrap transition-all ${
               activeTab === 'material'
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -75,7 +75,7 @@ export const CostsCatalogView: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) =>
           </button>
           <button
             onClick={() => setActiveTab('labor')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-bold whitespace-nowrap transition-all ${
               activeTab === 'labor'
                 ? 'bg-emerald-600 text-white'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -86,7 +86,7 @@ export const CostsCatalogView: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) =>
           </button>
           <button
             onClick={() => setActiveTab('operational')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold transition-all ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-bold whitespace-nowrap transition-all ${
               activeTab === 'operational'
                 ? 'bg-amber-600 text-white'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
