@@ -9,6 +9,7 @@ import {
   Save
 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import HojaA4Ajustable from './common/HojaA4Ajustable';
 import { Project, Client, SystemConfig } from '../types';
 import defaultAdminLogo from '../assets/images/logo_innova_oficial_1791000137990.jpg';
 import { safeStorage } from '../lib/storageManager';
@@ -146,6 +147,8 @@ function ContratosSubView({
   const [cloudNotice, setCloudNotice] = useState<string | null>(null);
 
   const contratoRef = useRef<HTMLDivElement>(null);
+  // En el celular: una pestaña para llenar los datos y otra para ver la hoja.
+  const [vistaMovil, setVistaMovil] = useState<'datos' | 'documento'>('datos');
 
   // Sync settings when loaded
   useEffect(() => {
@@ -415,9 +418,16 @@ function ContratosSubView({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+      {/* Celular: alternar entre llenar datos y ver el documento */}
+      <div className="lg:hidden sticky top-0 z-20 grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-sm">
+        {([['datos', '1. Llenar datos'], ['documento', '2. Ver contrato']] as const).map(([id, txt]) => (
+          <button key={id} type="button" onClick={() => { setVistaMovil(id); window.scrollTo({ top: 0 }); }}
+            className={`py-2.5 rounded-xl text-xs font-black cursor-pointer ${vistaMovil === id ? 'bg-slate-900 text-white shadow' : 'text-slate-600'}`}>{txt}</button>
+        ))}
+      </div>
       {/* LEFT INPUT FORM SIDEBAR */}
-      <div className="lg:col-span-1 space-y-4 bg-white p-5 md:p-6 rounded-3xl border border-slate-200/80 shadow-3xs h-fit text-xs">
+      <div className={`lg:col-span-1 space-y-4 bg-white p-5 md:p-6 rounded-3xl border border-slate-200/80 shadow-3xs h-fit text-xs ${vistaMovil === 'documento' ? 'hidden lg:block' : ''}`}>
         <h2 className="text-base font-black text-slate-800 mb-2 flex items-center gap-2 border-b border-slate-100 pb-2">
           <FileSignature className="w-5 h-5 text-slate-700" />
           Configurador de Contrato
@@ -616,9 +626,14 @@ function ContratosSubView({
       </div>
 
       {/* DOCUMENT PREVIEW CONTAINER (Lienzo Profesional A4 con proporciones reales 210 x 297 mm) */}
-      <div className="lg:col-span-2 bg-slate-800/20 p-2 sm:p-6 rounded-3xl border border-slate-300 shadow-inner overflow-x-auto flex flex-col items-center">
+      <div className={`lg:col-span-2 bg-slate-800/20 p-2 sm:p-6 rounded-3xl border border-slate-300 shadow-inner min-w-0 overflow-hidden flex-col items-center ${vistaMovil === 'datos' ? 'hidden lg:flex' : 'flex'}`}>
+        {/* Celular: acciones a la mano mientras se lee la hoja */}
+        <div className="lg:hidden w-full grid grid-cols-2 gap-2 mb-3">
+          <button type="button" onClick={() => setVistaMovil('datos')} className="py-2.5 rounded-2xl bg-white border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer">Editar datos</button>
+          <button type="button" onClick={handleGeneratePDF} className="py-2.5 rounded-2xl bg-slate-900 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer"><Download className="w-4 h-4" /> Descargar PDF</button>
+        </div>
         {/* Banner de Especificación Técnica A4 */}
-        <div className="w-full max-w-[210mm] mb-3 flex flex-wrap items-center justify-between text-xs text-slate-300 px-1 gap-2">
+        <div className="w-full max-w-[210mm] mb-3 hidden lg:flex flex-wrap items-center justify-between text-xs text-slate-300 px-1 gap-2">
           <span className="font-bold tracking-wide uppercase text-[10px] text-slate-300 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             Formato A4 Vertical (210 × 297 mm)
@@ -700,7 +715,7 @@ function ContratosSubView({
           }
         `}</style>
 
-        <div className="w-full flex justify-center overflow-x-auto py-2">
+        <HojaA4Ajustable className="py-2">
           {/* Contenedor A4 Profesional Hoja de Papel */}
           <div
             id="contract-a4-print-wrapper"
@@ -850,7 +865,7 @@ function ContratosSubView({
 
             </div>
           </div>
-        </div>
+        </HojaA4Ajustable>
       </div>
     </div>
   );
@@ -1026,8 +1041,8 @@ function EPPSubView({
               </div>
             </div>
             
-            <div className="p-3 sm:p-6 overflow-x-auto bg-slate-200 flex-1">
-              <div className="min-w-[210mm] flex justify-center">
+            <div className="p-3 sm:p-6 bg-slate-200 flex-1 min-w-0">
+              <HojaA4Ajustable>
                 <style>{`
                   #epp-a4-content, #epp-a4-content * {
                     box-sizing: border-box;
@@ -1096,7 +1111,7 @@ function EPPSubView({
                     </div>
                   </div>
                 </div>
-              </div>
+              </HojaA4Ajustable>
             </div>
           </>
         ) : (
