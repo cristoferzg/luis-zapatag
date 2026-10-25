@@ -44,3 +44,28 @@ export function usarPlantilla(p: Plantilla, nombre: string) {
   safeStorage.setItem(clave, copia);
   window.dispatchEvent(new CustomEvent('innova_navigate_tab', { detail: VISTA[p.modulo] }));
 }
+
+/**
+ * Reconoce un diseño editable dentro de un JSON (exportado de CarpiMetal,
+ * escena de Techos, cotización de Drywall o formato inspector_cad) y lo
+ * devuelve como plantilla lista para abrir en su apartado.
+ */
+export async function detectarPlantilla(json: any, nombreArchivo = ''): Promise<Plantilla | null> {
+  if (!json || typeof json !== 'object') return null;
+  if (json.nodes && json.segments && typeof json.nodes === 'object') {
+    return { modulo: 'techos', datos: { nodes: json.nodes, segments: json.segments, coverageZones: json.coverageZones || {} } };
+  }
+  if (Array.isArray(json.partidas)) return { modulo: 'drywall', datos: json };
+  if ((json.schema && /inspector_cad/i.test(String(json.schema))) || typeof json.tipoElemento === 'string' || Array.isArray(json.piezas)) {
+    const { importarDisenoJson } = await import('../components/herreria/importarDisenoJson');
+    const r = importarDisenoJson(json, nombreArchivo);
+    return r.ok ? { modulo: 'carpimetal', datos: r.design } : null;
+  }
+  return null;
+}
+
+/** Igual que detectarPlantilla, desde un archivo elegido en el equipo. */
+export async function plantillaDesdeArchivo(f: File): Promise<Plantilla | null> {
+  if (!/\.json$/i.test(f.name) && f.type !== 'application/json') return null;
+  try { return await detectarPlantilla(JSON.parse(await f.text()), f.name); } catch { return null; }
+}

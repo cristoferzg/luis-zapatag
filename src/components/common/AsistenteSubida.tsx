@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { uploadFileToFirebaseStorage } from '../../lib/storage';
 import { safeStorage } from '../../lib/storageManager';
-import { Plantilla, ModuloPlantilla, NOMBRE_MODULO, capturarDiseno, pesoKB } from '../../lib/plantillas';
+import { Plantilla, ModuloPlantilla, NOMBRE_MODULO, capturarDiseno, pesoKB, plantillaDesdeArchivo } from '../../lib/plantillas';
 
 export interface AdjuntoSubido { nombre: string; url: string; tipo: string; tamano?: number }
 
@@ -136,6 +136,12 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
     if (!f) return;
     if (modo === 'clase' && !f.type.startsWith('video/')) { setError('Para la clase elige un archivo de video (MP4, MOV, WEBM).'); return; }
     setError(null);
+    // Un diseño editable (JSON de CarpiMetal, Techos o Drywall) se publica como
+    // plantilla: el usuario lo abre directo en su apartado.
+    if (modo === 'recurso') {
+      const pl = await plantillaDesdeArchivo(f);
+      if (pl) set({ plantilla: pl });
+    }
     const url = await subir(f, modo === 'clase' ? 'videos' : 'biblioteca', modo === 'recurso');
     if (!url) return;
     const autoTitulo = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();

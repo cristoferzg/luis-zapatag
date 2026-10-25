@@ -24,7 +24,7 @@ import { SystemUser } from '../types';
 import { deleteRecord, useFirestoreArraySync, updateRecord } from '../lib/db';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
 import SliderDestacados from './common/SliderDestacados';
-import { usarPlantilla, NOMBRE_MODULO } from '../lib/plantillas';
+import { usarPlantilla, NOMBRE_MODULO, detectarPlantilla } from '../lib/plantillas';
 import { comprasPermitidas } from '../lib/plataforma';
 import { 
   getCompanyCurrency, 
@@ -329,6 +329,28 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
       window.open(whatsappUrl, '_blank');
     }
     setPurchasingItem(null);
+  };
+
+  // Recursos que son diseños editables (archivo .json de CarpiMetal, Techos o Drywall).
+  const esDisenoEditable = (item: BibliotecaItem) => /\.json$/i.test(item.fileName || '');
+  const [avisoRecurso, setAvisoRecurso] = useState<string | null>(null);
+  const abrirEnSuApartado = async (item: BibliotecaItem) => {
+    if (item.plantilla) { setPlantillaAUsar(item); return; }
+    try {
+      const url = await resolveMediaUrl(item);
+      const texto = url.startsWith('data:') ? atob(url.split(',')[1] || '') : await (await fetch(url)).text();
+      const pl = await detectarPlantilla(JSON.parse(texto), item.fileName || '');
+      if (!pl) throw new Error('formato');
+      setPlantillaAUsar({ ...item, plantilla: pl });
+    } catch {
+      setAvisoRecurso('No se pudo abrir este diseño directamente. Descárgalo con el botón ⬇ y súbelo en su apartado (Subir CAD). Si eres el administrador, edita el recurso y vuelve a subir el archivo para que se abra solo.');
+    }
+  };
+  const descargarRecurso = async (item: BibliotecaItem) => {
+    const url = await resolveMediaUrl(item);
+    const a = document.createElement('a');
+    a.href = url; a.download = item.fileName || 'recurso'; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    document.body.appendChild(a); a.click(); a.remove();
   };
 
   // Asistente de subida (crear / editar)
@@ -681,14 +703,22 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                     {/* Footer y Botones de Acción */}
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        {unlocked && item.plantilla ? (
-                          <button
-                            onClick={() => setPlantillaAUsar(item)}
-                            className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
-                          >
-                            <LayoutTemplate className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">Usar plantilla</span>
-                          </button>
+                        {unlocked && (item.plantilla || esDisenoEditable(item)) ? (
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => abrirEnSuApartado(item)}
+                              className="flex-1 min-w-0 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                            >
+                              <LayoutTemplate className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{item.plantilla ? `Abrir en ${NOMBRE_MODULO[item.plantilla.modulo]}` : 'Abrir en su apartado'}</span>
+                            </button>
+                            {item.enlaceDescargaUrl && (
+                              <button onClick={() => descargarRecurso(item)} title="Descargar el archivo"
+                                className="shrink-0 px-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl cursor-pointer" aria-label="Descargar">
+                                <Download className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         ) : unlocked ? (
                           <button
                             onClick={async () => {
@@ -843,6 +873,13 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {avisoRecurso && (
+        <div className="fixed left-1/2 -translate-x-1/2 bottom-6 z-[90] max-w-md w-[92%] rounded-xl border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 text-xs font-bold shadow-xl flex items-start gap-3">
+          <span className="flex-1 leading-relaxed">{avisoRecurso}</span>
+          <button onClick={() => setAvisoRecurso(null)} className="shrink-0 cursor-pointer" aria-label="Cerrar">✕</button>
         </div>
       )}
 
