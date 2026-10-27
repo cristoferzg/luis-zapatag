@@ -4,6 +4,7 @@
 // y el servidor los usa para recargar y cobrar.
 // =============================================================================
 import { useEffect, useState } from 'react';
+import { auth } from '../lib/firebase';
 import { Sparkles, Save, Check, Coins } from 'lucide-react';
 import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios } from '../lib/aiAccess';
 
@@ -24,13 +25,18 @@ export default function PlanesIAAdminPanel() {
   const cambiarActiva = async (v: boolean) => {
     setError(null);
     try { await setIAHabilitadaUsuarios(v); setActiva(v); setConfirmar(false); }
-    catch (e) { setError(motivoError(e, 'cambiar')); }
+    catch (e) { setError(await motivoError(e, 'activar')); }
   };
 
-  // Permiso denegado siendo admin = faltan publicar las reglas de Firestore (config_ia).
-  const motivoError = (e: any, accion: string) => /permission|insufficient/i.test(String(e?.code || e?.message || ''))
-    ? `No se pudo ${accion}: el servidor aún no tiene las reglas nuevas. Desde tu PC ejecuta "firebase deploy --only firestore:rules" y vuelve a intentar.`
-    : `No se pudo ${accion}. Revisa tu conexión e intenta de nuevo.`;
+  // Si el servidor niega el permiso, se revisa la sesión para decir la causa real.
+  const motivoError = async (e: any, accion: string): Promise<string> => {
+    if (!/permission|insufficient/i.test(String(e?.code || e?.message || ''))) return `No se pudo ${accion}. Revisa tu conexión e intenta de nuevo.`;
+    const u = auth.currentUser;
+    if (!u || u.isAnonymous) return `No se pudo ${accion}: tu sesión es antigua y no tiene permiso de administrador. Cierra sesión y vuelve a entrar con tu PIN de administrador.`;
+    const rol = (await u.getIdTokenResult().catch(() => null))?.claims?.role;
+    if (rol !== 'admin') return `No se pudo ${accion}: tu sesión no es de administrador. Cierra sesión y entra con el PIN de administrador. Si sigue igual, el PIN guardado en el servidor (ADMIN_PIN) es distinto.`;
+    return `No se pudo ${accion}: el servidor no tiene las reglas nuevas. Ejecuta "firebase deploy --only firestore:rules".`;
+  };
 
   const updPlan = (i: number, p: Partial<AIPlan>) => { setPlanes(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x)); setGuardado(false); };
   const updPack = (i: number, p: Partial<PackCreditos>) => { setPacks(prev => prev.map((x, k) => k === i ? { ...x, ...p } : x)); setGuardado(false); };
@@ -39,7 +45,7 @@ export default function PlanesIAAdminPanel() {
   const guardar = async () => {
     setGuardando(true); setError(null);
     try { await setConfigIA(planes, packs.map(k => ({ ...k, id: `p${k.creditos}` }))); setGuardado(true); }
-    catch (e) { setError(motivoError(e, 'guardar')); }
+    catch (e) { setError(await motivoError(e, 'guardar')); }
     finally { setGuardando(false); }
   };
 
@@ -78,6 +84,7 @@ export default function PlanesIAAdminPanel() {
               <button onClick={() => setConfirmar(false)} className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold cursor-pointer">Cancelar</button>
               <button onClick={() => cambiarActiva(true)} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-black cursor-pointer">Sí, activar</button>
             </div>
+            {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}
           </div>
         )}
       </div>
