@@ -183,6 +183,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       if (sinCreditos) {
         setShowPlanesIA(sinCreditos);
         setIaNotice(comprasPermitidas() ? 'No te alcanzan los créditos para leer el plano. Recarga créditos o sube de plan.' : 'No te alcanzan los créditos de este mes para leer el plano.');
+      } else if (code.includes('failed-precondition') && getAICtx().isAdmin && /clave|saldo|permiso/i.test(String(err?.message || ''))) {
+        setIaNotice(`IA: ${err.message}`);
       } else if (code.includes('failed-precondition')) {
         setIaNotice(getAICtx().isAdmin
           ? 'La lectura por IA aún no está activada: falta configurar la clave del servicio y desplegar las funciones (ver la guía PDF). Mientras tanto, usa "Imagen ref." para calcar.'
@@ -191,6 +193,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         setIaNotice('Inicia sesión para usar la lectura por IA.');
       } else if (code.includes('resource-exhausted')) {
         setIaNotice('El servicio de IA está ocupado. Intenta de nuevo en un momento.');
+      } else if (code.includes('invalid-argument') && err?.message) {
+        setIaNotice(String(err.message));
       } else {
         setIaNotice('No se pudo leer el plano por IA. Intenta de nuevo, o usa "Imagen ref." para calcarlo a mano.');
       }

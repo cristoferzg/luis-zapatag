@@ -48,17 +48,37 @@ export const OPCIONES_PLANO_DEFECTO: OpcionesPlano = {
   caida: 'leer', alturaBajaM: null, alturaAltaM: null, pendientePct: 10, columnasCadaM: 5, correasCadaM: 1, coberturaId: '',
 };
 
-/** Convierte un File de imagen a base64 (sin el prefijo data:). */
-export function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
+/**
+ * Convierte la foto del plano a base64 (sin el prefijo data:). Las fotos del
+ * celular pesan varios MB: se reducen a 2000 px de lado mayor en JPEG, que basta
+ * para leer el dibujo y queda muy por debajo del límite de la API (5 MB).
+ */
+export function fileToBase64(file: File, maxLado = 2000): Promise<{ base64: string; mimeType: string }> {
+  if (file.type === 'application/pdf') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => { const r = String(reader.result || ''); resolve({ base64: r.slice(r.indexOf(',') + 1), mimeType: 'application/pdf' }); };
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+      reader.readAsDataURL(file);
+    });
+  }
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result || '');
-      const comma = result.indexOf(',');
-      resolve({ base64: comma >= 0 ? result.slice(comma + 1) : result, mimeType: file.type || 'image/jpeg' });
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, maxLado / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const ctx = c.getContext('2d');
+      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen.')); return; }
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      const d = c.toDataURL('image/jpeg', 0.85);
+      resolve({ base64: d.slice(d.indexOf(',') + 1), mimeType: 'image/jpeg' });
     };
-    reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
-    reader.readAsDataURL(file);
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen.')); };
+    img.src = url;
   });
 }
 
