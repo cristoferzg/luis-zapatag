@@ -57,10 +57,23 @@ export const CadFileUploadModal: React.FC<CadFileUploadModalProps> = ({
 
     const ext = file.name.split('.').pop()?.toLowerCase();
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
+    // En Android, un archivo elegido desde WhatsApp, Drive o la galería a veces
+    // no se deja leer con FileReader: se prueban varias formas antes de fallar.
+    const leerTexto = async (): Promise<string> => {
+      try { if (typeof file.text === 'function') return await file.text(); } catch { /* siguiente forma */ }
+      try { if (typeof file.arrayBuffer === 'function') return new TextDecoder('utf-8').decode(await file.arrayBuffer()); } catch { /* siguiente forma */ }
+      return await new Promise<string>((ok, mal) => {
+        const reader = new FileReader();
+        reader.onload = () => ok(String(reader.result ?? ''));
+        reader.onerror = () => mal(reader.error);
+        reader.readAsText(file);
+      });
+    };
+
+    leerTexto().then(texto => {
+      const content = texto.replace(/^\uFEFF/, '');
       try {
+        if (!content.trim()) throw new Error('el archivo llegó vacío. Descárgalo completo al teléfono y vuelve a elegirlo.');
         if (ext === 'dxf') {
           const parsed = parseDxfContent(content);
           if (parsed.entities.length === 0) {
@@ -95,14 +108,10 @@ export const CadFileUploadModal: React.FC<CadFileUploadModalProps> = ({
       } finally {
         setIsProcessing(false);
       }
-    };
-
-    reader.onerror = () => {
-      setFileError('Error al abrir el archivo del sistema.');
+    }).catch(() => {
+      setFileError('No se pudo abrir el archivo en este teléfono. Si lo recibiste por WhatsApp o Drive, primero descárgalo (queda en "Descargas") y vuelve a elegirlo desde Archivos › Descargas.');
       setIsProcessing(false);
-    };
-
-    reader.readAsText(file);
+    });
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -199,7 +208,7 @@ export const CadFileUploadModal: React.FC<CadFileUploadModalProps> = ({
             <input 
               ref={fileInputRef}
               type="file" 
-              accept=".dxf,.json,.txt"
+              accept=".dxf,.json,.txt,application/json,application/dxf,image/vnd.dxf,text/plain,application/octet-stream"
               className="hidden" 
               onChange={(e) => {
                 if (e.target.files && e.target.files[0]) {
