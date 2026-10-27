@@ -842,18 +842,26 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   };
 
   const HERRAMIENTAS: { id: Herramienta; label: string; icon: any }[] = [
-    { id: 'select', label: 'Seleccionar', icon: MousePointer },
+    { id: 'select', label: 'Selec.', icon: MousePointer },
     { id: 'grupo', label: 'Grupo', icon: BoxSelect },
     { id: 'columna', label: 'Columna', icon: Columns },
     { id: 'zapata', label: 'Zapata', icon: Square },
     { id: 'viga', label: 'Viga', icon: Minus },
     { id: 'cimiento', label: 'Cimiento', icon: Minus },
-    { id: 'losa', label: 'Losa / Entrepiso', icon: Layers },
-    { id: 'muro', label: 'Muro', icon: BrickWall },
-    { id: 'abertura', label: 'Abertura', icon: DoorOpen },
-    { id: 'bloque', label: 'Bloques', icon: Armchair },
-    { id: 'pan', label: 'Mover lienzo', icon: Hand },
-  ].filter(t => !esDrywall || ['select', 'grupo', 'muro', 'abertura', 'bloque', 'pan'].includes(t.id)) as { id: Herramienta; label: string; icon: any }[];
+    { id: 'losa', label: 'Losa', icon: Layers },
+    { id: 'muro', label: esDrywall ? 'Tabique' : 'Muro', icon: BrickWall },
+    { id: 'abertura', label: 'Vano', icon: DoorOpen },
+    { id: 'bloque', label: 'Accesorios', icon: Armchair },
+    { id: 'pan', label: 'Mover', icon: Hand },
+  ].filter(t => esDrywall
+    ? ['select', 'grupo', 'muro', 'abertura', 'bloque', 'pan'].includes(t.id)
+    : t.id !== 'bloque') as { id: Herramienta; label: string; icon: any }[];
+  // Riel de herramientas como en Techos: vertical en PC, dock abajo en el celular.
+  const [esPC, setEsPC] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
+  useEffect(() => {
+    const f = () => setEsPC(window.innerWidth >= 1024);
+    window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
+  }, []);
 
   const canUndo = undoRef.current.length > 0;
   const canRedo = redoRef.current.length > 0;
@@ -905,22 +913,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {!estructura && disenos.length === 0 && <span className="text-[11px] text-slate-400">Guarda un diseño en Techos Metálicos para verlo aquí.</span>}
       </div>
       {/* Barra de herramientas */}
-      <div className="flex items-center gap-1.5 p-2 bg-white border-b border-slate-200 flex-wrap">
-        {HERRAMIENTAS.map(t => {
-          const Ic = t.icon;
-          const act = tool === t.id;
-          const col = (t.id in META) ? META[t.id as PlanoTipo].color : t.id === 'abertura' ? '#0284c7' : '#334155';
-          return (
-            <button key={t.id} onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
-                act ? 'text-white border-transparent shadow-xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-              style={act ? { backgroundColor: col } : undefined}>
-              <Ic className="w-3.5 h-3.5" /> {t.label}
-            </button>
-          );
-        })}
-        <div className="h-5 w-px bg-slate-200 mx-1" />
+      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0">
         {/* Piso activo para muros + material del próximo muro */}
         <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
           Piso
@@ -946,15 +939,6 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           </select>
         )}
         <div className="h-5 w-px bg-slate-200 mx-1" />
-        {/* Deshacer / Rehacer */}
-        <button onClick={undo} disabled={!canUndo} title="Deshacer (Ctrl+Z)"
-          className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
-          <Undo2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Atrás</span>
-        </button>
-        <button onClick={redo} disabled={!canRedo} title="Rehacer (Ctrl+Y)"
-          className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
-          <Redo2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Adelante</span>
-        </button>
         <button onClick={encuadrar} disabled={elems.length === 0 && !plantaTechos.lineas.length} title="Encuadrar (ver todo)"
           className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
           <Maximize className="w-3.5 h-3.5" />
@@ -1300,6 +1284,41 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             })()}
           </svg>
 
+          {/* Riel de herramientas (como en Techos Metálicos) */}
+          {(() => {
+            const parar = (e: React.SyntheticEvent) => e.stopPropagation();
+            const boton = (t: { id: Herramienta; label: string; icon: any }) => {
+              const Ic = t.icon;
+              const act = tool === t.id;
+              const col = (t.id in META) ? META[t.id as PlanoTipo].color : t.id === 'abertura' ? '#0284c7' : t.id === 'bloque' ? '#7c3aed' : '#0f172a';
+              return (
+                <button key={t.id} type="button" title={t.label}
+                  onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }}
+                  className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'min-w-[56px] py-1.5 px-1'} rounded-xl text-[10px] font-bold cursor-pointer transition-all ${act ? 'text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}
+                  style={act ? { backgroundColor: col } : undefined}>
+                  <Ic className="w-4 h-4" />{t.label}
+                </button>
+              );
+            };
+            const histBtn = (fn: () => void, ok: boolean, Ic: any, txt: string, tip: string) => (
+              <button type="button" onClick={fn} disabled={!ok} title={tip}
+                className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'min-w-[56px] py-1.5 px-1'} rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:cursor-default`}>
+                <Ic className="w-4 h-4" />{txt}
+              </button>
+            );
+            return (
+              <div onMouseDown={parar} onClick={parar} onTouchStart={parar} onTouchMove={parar} onTouchEnd={parar} onWheel={parar}
+                className={esPC
+                  ? 'absolute left-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1.5 shadow-xl max-h-[calc(100%-24px)] overflow-y-auto'
+                  : 'absolute left-2 right-14 bottom-2 z-20 flex items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1 shadow-xl overflow-x-auto'}>
+                {HERRAMIENTAS.map(boton)}
+                <div className={esPC ? 'h-px bg-slate-200 my-1' : 'w-px self-stretch bg-slate-200 mx-1'} />
+                {histBtn(undo, canUndo, Undo2, 'Atrás', 'Deshacer (Ctrl+Z)')}
+                {histBtn(redo, canRedo, Redo2, 'Adelante', 'Rehacer (Ctrl+Y)')}
+              </div>
+            );
+          })()}
+
           {tool === 'grupo' && grupo.length === 0 && !recuadro && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-blue-800 bg-blue-50/95 border border-blue-200 rounded-xl px-3 py-1.5 pointer-events-none whitespace-nowrap">
               Arrastra un recuadro para seleccionar varios elementos
@@ -1309,7 +1328,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             const muros = elemsGrupo.filter(e => e.tipo === 'muro');
             const btn = 'p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
             return (
-              <div className="absolute top-3 left-3 right-3 sm:right-auto z-10 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+              <div className="absolute top-3 left-3 lg:left-24 right-3 sm:right-auto z-30 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                 <span className="font-black text-amber-800 mr-1">{grupo.length} seleccionado{grupo.length === 1 ? '' : 's'}</span>
                 <button className={btn} title="Mover a la izquierda 10 cm" onClick={() => moverGrupo(-0.1, 0)}><ArrowLeft className="w-4 h-4" /></button>
                 <button className={btn} title="Mover arriba 10 cm" onClick={() => moverGrupo(0, -0.1)}><ArrowUp className="w-4 h-4" /></button>
@@ -1342,8 +1361,13 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           {elems.length === 0 && !estructura && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="text-center text-slate-400 max-w-xs px-4">
-                <p className="font-bold text-sm">Dibuja tu plano de cimentación</p>
-                <p className="text-xs mt-1">Elige <b>Columna</b> o <b>Zapata</b> y haz clic para colocarlas. Para <b>Viga</b>, <b>Cimiento</b>, <b>Losa</b> o <b>Muro</b>, haz clic en el inicio y luego en el fin.</p>
+                {esDrywall ? (<>
+                  <p className="font-bold text-sm">Dibuja tus tabiques</p>
+                  <p className="text-xs mt-1">Elige <b>Tabique</b> y haz clic en el inicio y luego en el fin. Con <b>Vano</b> pones puertas y ventanas, y con <b>Accesorios</b> closets, nichos y muebles.</p>
+                </>) : (<>
+                  <p className="font-bold text-sm">Dibuja tu plano de cimentación</p>
+                  <p className="text-xs mt-1">Elige <b>Columna</b> o <b>Zapata</b> y haz clic para colocarlas. Para <b>Viga</b>, <b>Cimiento</b>, <b>Losa</b> o <b>Muro</b>, haz clic en el inicio y luego en el fin.</p>
+                </>)}
                 <p className="text-[11px] mt-2 text-slate-400">Con <b>Seleccionar</b> puedes arrastrar los <b>nodos</b> (puntos) y todo lo conectado se mueve junto.</p>
               </div>
             </div>
@@ -1357,7 +1381,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
 
           {(tool === 'abertura' || tool === 'bloque' || aviso) && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold text-sky-800 bg-sky-50/95 rounded-lg px-2.5 py-1 pointer-events-none">
-              {aviso || (tool === 'bloque' ? (aColocar ? `Clic en ${nivelMuro} para colocar: ${aColocar.origen === 'mueble' ? muebleDe(aColocar.refId)?.nombre : disenosCarpi.find(d => d.id === aColocar.refId)?.nombre}` : 'Elige un bloque en el panel de la derecha') : `Clic sobre un muro de ${nivelMuro} para colocar: ${PRESETS_ABERTURA[tipoAbertura].nombre}`)}
+              {aviso || (tool === 'bloque' ? (aColocar ? `Clic en ${nivelMuro} para colocar: ${aColocar.origen === 'mueble' ? muebleDe(aColocar.refId)?.nombre : disenosCarpi.find(d => d.id === aColocar.refId)?.nombre}` : 'Elige un accesorio en el panel') : `Clic sobre un muro de ${nivelMuro} para colocar: ${PRESETS_ABERTURA[tipoAbertura].nombre}`)}
             </div>
           )}
           {/* pista de nodos */}
@@ -1374,7 +1398,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           {/* Biblioteca de bloques (herramienta Bloques) */}
           {tool === 'bloque' && (
             <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-3 space-y-2.5">
-              <p className="text-xs font-black text-sky-800 uppercase tracking-wide">Bloques a escala</p>
+              <p className="text-xs font-black text-sky-800 uppercase tracking-wide">Accesorios a escala</p>
               <p className="text-[10px] text-slate-500">Elige uno y haz clic en el plano. Cerca de un muro se pega y se gira solo.</p>
               <p className="text-[10px] font-black text-slate-400 uppercase">Mis diseños de CarpiMetal</p>
               {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una mesa, reja, baranda, portón o puerta en CarpiMetal para colocarla aquí.</p>}
@@ -1386,15 +1410,20 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                   </button>
                 ); })}
               </div>
-              <p className="text-[10px] font-black text-slate-400 uppercase pt-1">Muebles de referencia (no suman costo)</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase pt-1">Muebles y accesorios de referencia (no suman costo)</p>
+              {[...new Set(MUEBLES.map(m => m.grupo))].sort((a, b) => (esDrywall ? Number(b === 'Drywall y acabados') - Number(a === 'Drywall y acabados') : 0)).map(grupoM => (
+              <div key={grupoM} className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500">{grupoM}</p>
               <div className="grid grid-cols-2 gap-1">
-                {MUEBLES.map(m => { const act = aColocar?.origen === 'mueble' && aColocar.refId === m.id; return (
+                {MUEBLES.filter(m => m.grupo === grupoM).map(m => { const act = aColocar?.origen === 'mueble' && aColocar.refId === m.id; return (
                   <button key={m.id} onClick={() => setAColocar({ origen: 'mueble', refId: m.id })}
                     className={`text-left px-2 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${act ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'}`}>
                     {m.emoji} {m.nombre}<span className={`block text-[9px] font-semibold ${act ? 'text-slate-300' : 'text-slate-400'}`}>{m.ancho} × {m.fondo} m</span>
                   </button>
                 ); })}
               </div>
+              </div>
+              ))}
             </div>
           )}
 
@@ -1403,7 +1432,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             <div className="rounded-2xl border border-sky-200 bg-white p-3 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-black text-sky-800 uppercase tracking-wide truncate">{b.origen === 'carpi' ? 'CarpiMetal' : 'Mueble'} · {b.nombre}</span>
-                <button onClick={() => { setBloques(prev => prev.filter(x => x.uid !== b.uid)); setSelBloque(null); }} className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer" title="Quitar bloque"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => { setBloques(prev => prev.filter(x => x.uid !== b.uid)); setSelBloque(null); }} className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer" title="Quitar accesorio"><Trash2 className="w-4 h-4" /></button>
               </div>
               <p className="text-[11px] font-bold text-slate-500">{b.ancho.toFixed(2)} × {b.fondo.toFixed(2)} m en planta · {b.alto.toFixed(2)} m de alto</p>
               <div className="flex gap-1.5">
@@ -1618,8 +1647,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             </div>
           )}
 
-          {/* Cielo raso (falso techo) */}
-          <div className="rounded-xl bg-slate-50 p-2.5 space-y-1.5">
+          {/* Cielo raso (falso techo): es de Drywall */}
+          <div className={`rounded-xl bg-slate-50 p-2.5 space-y-1.5 ${esDrywall ? '' : 'hidden'}`}>
             <label className="flex items-center gap-2 text-[11px] font-black text-slate-700 cursor-pointer">
               <input type="checkbox" checked={!!cielos[nivelMuro]?.activo} onChange={e => setCielo(nivelMuro, { activo: e.target.checked })} />
               Cielo raso · {nivelMuro}

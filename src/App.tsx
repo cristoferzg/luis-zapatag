@@ -1572,6 +1572,14 @@ export default function App() {
     });
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Si la sesión sigue siendo anónima (ingreso antiguo o el servidor no respondió),
+  // el servidor no deja leer comunicados ni configuraciones globales: se avisa.
+  const [sesionLimitada, setSesionLimitada] = useState(false);
+  useEffect(() => {
+    if (!user) { setSesionLimitada(false); return; }
+    authReady.then(() => setSesionLimitada(!!auth.currentUser?.isAnonymous));
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Apartados ya abiertos (Diseñador y Calculadora se quedan montados después).
   const vistasAbiertas = useRef(new Set<string>());
   vistasAbiertas.current.add(currentView);
@@ -2491,6 +2499,13 @@ export default function App() {
         )}
 
         {/* Other Views Container */}
+        {sesionLimitada && (
+          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-amber-100 border-b border-amber-300 text-amber-900 text-xs font-bold">
+            <span>Tu sesión es antigua: no puedes ver los comunicados ni algunas configuraciones. Vuelve a ingresar tu PIN.</span>
+            <button type="button" onClick={() => { setPinError('Ingresa tu PIN para renovar la sesión.'); handleLogout(); }}
+              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black cursor-pointer">Renovar sesión</button>
+          </div>
+        )}
         {currentView !== 'designer' && currentView !== 'calculator' && (
           <main className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth"}>
             <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>

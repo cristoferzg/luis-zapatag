@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Users, Key, Plus, Trash2, RefreshCw, Clock, Search, ShieldCheck, 
   CheckCircle2, UserCheck, Download, Upload, Database, 
-  FileSpreadsheet, Shield, RotateCcw, AlertTriangle, X, Check
+  FileSpreadsheet, Shield, RotateCcw, AlertTriangle, X, Check, Copy
 } from 'lucide-react';
 import { useFirestoreArraySync } from '../lib/db';
 import { safeStorage } from '../lib/storageManager';
@@ -137,6 +137,17 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
       setUsuarios(usuarios.map(u => u.id === id ? { ...u, pin: newPin } : u));
       notify(`✓ Nuevo PIN generado: ${newPin}`);
     }
+  };
+
+  const [pinCopiado, setPinCopiado] = useState<string | null>(null);
+  const copiarPin = async (id: string, pin?: string) => {
+    if (!pin) return;
+    try { await navigator.clipboard.writeText(pin); }
+    catch {
+      const t = document.createElement('textarea'); t.value = pin; document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); } finally { document.body.removeChild(t); }
+    }
+    setPinCopiado(id); setTimeout(() => setPinCopiado(c => (c === id ? null : c)), 1800);
   };
 
   const toggleUserStatus = (id: string) => {
@@ -744,10 +755,14 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
                       </div>
 
                       <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
-                        <div className="bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200 text-center shrink-0">
-                          <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">PIN</span>
-                          <span className="font-mono font-black text-sm text-slate-800 tracking-widest">{u.pin}</span>
-                        </div>
+                        <button type="button" onClick={() => copiarPin(u.id, u.pin)} title="Copiar PIN"
+                          className={`px-3.5 py-1.5 rounded-xl border text-center shrink-0 flex items-center gap-2.5 cursor-pointer transition-all ${pinCopiado === u.id ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
+                          <span>
+                            <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">{pinCopiado === u.id ? '¡Copiado!' : 'PIN'}</span>
+                            <span className="font-mono font-black text-sm text-slate-800 tracking-widest">{u.pin}</span>
+                          </span>
+                          {pinCopiado === u.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-400" />}
+                        </button>
 
                         <div className="flex items-center gap-1.5">
                           <button
