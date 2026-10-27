@@ -93,6 +93,8 @@ export interface UseTechosCadEngineReturn {
   saveHistorySnapshot: () => void;
   updateSegmentProfile: (segmentId: string, profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
   updateMultipleSegmentsProfile: (segmentIds: string[], profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
+  /** Cambia peralte, número de espacios o tipo de un tijeral dibujado, sin redibujarlo. */
+  rehacerTijeral: (tijeralId: string, cambios: { h?: number; n?: number; tipo?: TipoTijeral }) => void;
   /** Varios cambios de perfil a la vez (id de barra → id de perfil), en un solo paso de historial. */
   updateSegmentsProfiles: (cambios: Record<string, string>) => void;
   /** Mueve/gira varios nodos a la vez (un paso de historial). */
@@ -104,7 +106,7 @@ export interface UseTechosCadEngineReturn {
   assignCoverageToSelectedZones: (coverageId: string) => void;
 
   // Generadores Paramétricos Automáticos que generan Nodos y Segmentos reales en PROJECT_MODEL
-  generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => void;
+  generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => string | void;
   generateRoofGable: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral, numTijerales?: number, posicionesTijeralesCustom?: number[], numDivisionsOrPanels?: number, customSpacingM?: number, peralteM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
   generateRoofMonoslope: (luzM: number, largoM?: number, alturaCol1M?: number, alturaCol2M?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, peralteTijeralM?: number, orientacionTijeral?: OrientacionTijeral, posicionesTijeralesCustom?: number[], customSpacingM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
   generateRoofParabolic: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, tipoTijeral?: TipoTijeral, peralteArcoM?: number, orientacionTijeral?: OrientacionTijeral, numTijerales?: number, posicionesTijeralesCustom?: number[], customSpacingM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
@@ -244,6 +246,53 @@ function buildDefaultInitialRoof(): { nodes: Record<string, Node3D>; segments: R
   }
 
   return { nodes: newNodes, segments: newSegs };
+}
+
+// Arma un tijeral entre dos nodos (modifica los mapas recibidos). Cada barra lleva
+// los datos del tijeral para poder cambiar su peralte y espacios después.
+let contadorTijeral = 0;
+function armarTijeral(
+  nodes: Record<string, Node3D>, segs: Record<string, Segment3D>,
+  startNodeId: string, endNodeId: string, heightM: number, type: TipoTijeral, numPanels: number, profileId: string, idExistente?: string,
+): string {
+  const nA = nodes[startNodeId], nB = nodes[endNodeId];
+  const tid = idExistente || `tj_${Date.now().toString(36)}_${++contadorTijeral}`;
+  if (!nA || !nB) return tid;
+  const meta = { id: tid, a: startNodeId, b: endNodeId, h: heightM, n: numPanels, tipo: type };
+  const sfx = `${Date.now().toString(36)}${++contadorTijeral}`;
+  const dx = (nB.x - nA.x) / numPanels, dy = (nB.y - nA.y) / numPanels, dz = ((nB.z || 0) - (nA.z || 0)) / numPanels;
+  const bottom: string[] = [startNodeId];
+  for (let i = 1; i < numPanels; i++) {
+    const id = `node_truss_b_${i}_${sfx}`;
+    nodes[id] = { id, x: nA.x + dx * i, y: nA.y + dy * i, z: (nA.z || 0) + dz * i, nodeLabel: `N-TB${i}` };
+    bottom.push(id);
+  }
+  bottom.push(endNodeId);
+  const top: string[] = [];
+  for (let i = 0; i <= numPanels; i++) {
+    const bN = nodes[bottom[i]];
+    const id = `node_truss_t_${i}_${sfx}`;
+    nodes[id] = { id, x: bN.x, y: bN.y + heightM, z: bN.z, nodeLabel: `N-TT${i}` };
+    top.push(id);
+  }
+  const seg = (id: string, a: string, b: string, rol: RolEstructuralSegmento) => { segs[id] = { id, nodeAId: a, nodeBId: b, profileId, rolEstructural: rol, tijeral: meta }; };
+  for (let i = 0; i < numPanels; i++) {
+    seg(`seg_tb_${i}_${sfx}`, bottom[i], bottom[i + 1], 'cordon_inferior');
+    seg(`seg_tt_${i}_${sfx}`, top[i], top[i + 1], 'cordon_superior');
+  }
+  const conMontantes = ['escalera_vierendeel', 'pratt', 'howe', 'fink', 'plano_viga', 'parabolico_pratt'].includes(type);
+  if (conMontantes) for (let i = 0; i <= numPanels; i++) seg(`seg_mon_${i}_${sfx}`, bottom[i], top[i], 'montante');
+  // Diagonales según tipología (la escalera Vierendeel no lleva: vanos limpios).
+  if (type !== 'escalera_vierendeel') {
+    for (let i = 0; i < numPanels; i++) {
+      let from: string, to: string;
+      if (type === 'howe') { from = i < numPanels / 2 ? bottom[i] : bottom[i + 1]; to = i < numPanels / 2 ? top[i + 1] : top[i]; }
+      else if (type === 'pratt' || type === 'parabolico_pratt') { from = i < numPanels / 2 ? bottom[i + 1] : bottom[i]; to = i < numPanels / 2 ? top[i] : top[i + 1]; }
+      else { from = i % 2 === 0 ? bottom[i] : bottom[i + 1]; to = i % 2 === 0 ? top[i + 1] : top[i]; }
+      seg(`seg_diag_${i}_${sfx}`, from, to, 'diagonal');
+    }
+  }
+  return tid;
 }
 
 export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, initialSegments?: Record<string, Segment3D>): UseTechosCadEngineReturn {
@@ -987,95 +1036,35 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       numPanels = Math.max(1, Math.round(totalLength / customSpacingM));
     }
 
-    const dx = (nB.x - nA.x) / numPanels;
-    const dy = (nB.y - nA.y) / numPanels;
-    const dz = ((nB.z || 0) - (nA.z || 0)) / numPanels;
-
     const newNodes = { ...liveNodes };
     const newSegs = { ...segments };
-
-    const bottomNodeIds: string[] = [startNodeId];
-    const topNodeIds: string[] = [];
-
-    for (let i = 1; i < numPanels; i++) {
-      const id = `node_truss_b_${i}_${Date.now()}`;
-      newNodes[id] = { 
-        id, 
-        x: nA.x + dx * i, 
-        y: nA.y + dy * i, 
-        z: (nA.z || 0) + dz * i, 
-        nodeLabel: `N-TB${i}` 
-      };
-      bottomNodeIds.push(id);
-    }
-    bottomNodeIds.push(endNodeId);
-
-    // Cordón superior
-    for (let i = 0; i <= numPanels; i++) {
-      const bNode = newNodes[bottomNodeIds[i]] || liveNodes[bottomNodeIds[i]];
-      const id = `node_truss_t_${i}_${Date.now()}`;
-      newNodes[id] = { 
-        id, 
-        x: bNode.x, 
-        y: bNode.y + heightM, 
-        z: bNode.z, 
-        nodeLabel: `N-TT${i}` 
-      };
-      topNodeIds.push(id);
-    }
-
-    // Trazar cordones
-    for (let i = 0; i < numPanels; i++) {
-      const idBot = `seg_tb_${i}_${Date.now()}`;
-      newSegs[idBot] = { id: idBot, nodeAId: bottomNodeIds[i], nodeBId: bottomNodeIds[i + 1], profileId: activeProfileId, rolEstructural: 'cordon_inferior' };
-
-      const idTop = `seg_tt_${i}_${Date.now()}`;
-      newSegs[idTop] = { id: idTop, nodeAId: topNodeIds[i], nodeBId: topNodeIds[i + 1], profileId: activeProfileId, rolEstructural: 'cordon_superior' };
-    }
-
-    // Montantes verticales (en escalera_vierendeel, pratt, howe, fink, plano_viga, parabolico_pratt)
-    const isLadderOrVertical = 
-      type === 'escalera_vierendeel' || 
-      type === 'pratt' || 
-      type === 'howe' || 
-      type === 'fink' || 
-      type === 'plano_viga' || 
-      type === 'parabolico_pratt';
-
-    if (isLadderOrVertical) {
-      for (let i = 0; i <= numPanels; i++) {
-        const idMon = `seg_mon_${i}_${Date.now()}`;
-        newSegs[idMon] = { id: idMon, nodeAId: bottomNodeIds[i], nodeBId: topNodeIds[i], profileId: activeProfileId, rolEstructural: 'montante' };
-      }
-    }
-
-    // Diagonales según tipología (en escalera_vierendeel NO se generan diagonales para dejar vanos limpios tipo escalera)
-    if (type !== 'escalera_vierendeel') {
-      for (let i = 0; i < numPanels; i++) {
-        const idDiag = `seg_diag_${i}_${Date.now()}`;
-        if (type === 'howe') {
-          // Howe: Diagonales hacia los apoyos
-          const fromNode = i < numPanels / 2 ? bottomNodeIds[i] : bottomNodeIds[i + 1];
-          const toNode = i < numPanels / 2 ? topNodeIds[i + 1] : topNodeIds[i];
-          newSegs[idDiag] = { id: idDiag, nodeAId: fromNode, nodeBId: toNode, profileId: activeProfileId, rolEstructural: 'diagonal' };
-        } else if (type === 'pratt' || type === 'parabolico_pratt') {
-          // Pratt: Diagonales hacia el centro
-          const fromNode = i < numPanels / 2 ? bottomNodeIds[i + 1] : bottomNodeIds[i];
-          const toNode = i < numPanels / 2 ? topNodeIds[i] : topNodeIds[i + 1];
-          newSegs[idDiag] = { id: idDiag, nodeAId: fromNode, nodeBId: toNode, profileId: activeProfileId, rolEstructural: 'diagonal' };
-        } else {
-          // Warren: Alternada en zig-zag continuo
-          const fromNode = i % 2 === 0 ? bottomNodeIds[i] : bottomNodeIds[i + 1];
-          const toNode = i % 2 === 0 ? topNodeIds[i + 1] : topNodeIds[i];
-          newSegs[idDiag] = { id: idDiag, nodeAId: fromNode, nodeBId: toNode, profileId: activeProfileId, rolEstructural: 'diagonal' };
-        }
-      }
-    }
-
+    const id = armarTijeral(newNodes, newSegs, startNodeId, endNodeId, heightM, type, numPanels, activeProfileId);
     setNodes(newNodes);
     setSegments(newSegs);
     pushHistory(newNodes, newSegs, coverageZones);
+    return id;
   }, [nodes, segments, coverageZones, activeProfileId, pushHistory]);
+
+  // Cambia el peralte, los espacios o el tipo de un tijeral ya dibujado, sin redibujarlo:
+  // se quitan sus barras y nodos internos y se arma de nuevo entre los mismos apoyos.
+  const rehacerTijeral = useCallback((tijeralId: string, cambios: { h?: number; n?: number; tipo?: TipoTijeral }) => {
+    const propios = Object.values(segments).filter(sg => sg.tijeral?.id === tijeralId);
+    const meta = propios[0]?.tijeral;
+    if (!meta) return;
+    const newSegs = { ...segments };
+    const newNodes = { ...nodesRef.current };
+    const perfil = propios.find(sg => sg.rolEstructural === 'cordon_inferior')?.profileId || activeProfileId;
+    const tocados = new Set<string>();
+    propios.forEach(sg => { delete newSegs[sg.id]; tocados.add(sg.nodeAId); tocados.add(sg.nodeBId); });
+    const usados = new Set<string>();
+    Object.values(newSegs).forEach(sg => { usados.add(sg.nodeAId); usados.add(sg.nodeBId); });
+    tocados.forEach(nid => { if (nid !== meta.a && nid !== meta.b && !usados.has(nid)) delete newNodes[nid]; });
+    if (!newNodes[meta.a] || !newNodes[meta.b]) return;
+    armarTijeral(newNodes, newSegs, meta.a, meta.b, cambios.h ?? meta.h, (cambios.tipo ?? meta.tipo) as TipoTijeral, Math.max(1, Math.round(cambios.n ?? meta.n)), perfil, tijeralId);
+    setNodes(newNodes);
+    setSegments(newSegs);
+    pushHistory(newNodes, newSegs, coverageZones);
+  }, [segments, coverageZones, activeProfileId, pushHistory]);
 
   // Generador de Techo Dos Aguas en Nodos / Segmentos Reales 3D con Tijerales Fink, Pratt o Warren
   const generateRoofGable = useCallback((
@@ -4069,6 +4058,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     updateMultipleSegmentsProfile,
     updateSegmentsProfiles,
     transformNodes,
+    rehacerTijeral,
     deleteSelectedElements,
     clearScene,
     loadScene,

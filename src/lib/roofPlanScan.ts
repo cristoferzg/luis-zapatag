@@ -91,7 +91,7 @@ export async function analyzeRoofPlanWithAI(
   // Solo en desarrollo: probar el armado con una respuesta ya escrita (sin gastar créditos).
   if (import.meta.env.DEV && (window as any).__planSimulado) return (window as any).__planSimulado as RoofPlanData;
   const functions = getFunctions(app, region);
-  const callable = httpsCallable<{ imageBase64: string; mimeType: string }, RoofPlanData>(functions, 'analyzeRoofPlan');
+  const callable = httpsCallable<{ imageBase64: string; mimeType: string }, RoofPlanData>(functions, 'analyzeRoofPlan', { timeout: 300000 });
   const res = await callable({ imageBase64: base64, mimeType });
   return res.data;
 }

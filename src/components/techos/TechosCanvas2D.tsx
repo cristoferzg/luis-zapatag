@@ -32,7 +32,7 @@ import {
   Copy,
   Clipboard,
   ChevronDown,
-  MoreHorizontal, Undo2, Redo2,
+  MoreHorizontal, Undo2, Redo2, Camera,
   Image as ImageIcon,
   Droplets,
   Compass
@@ -388,12 +388,34 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [selectedTrussType, setSelectedTrussType] = useState<TipoTijeral>('escalera_vierendeel');
   const [trussHeightSetting, setTrussHeightSetting] = useState<number>(0.50);
   const [trussDivisionsSetting, setTrussDivisionsSetting] = useState<number>(6);
+  // Último tijeral dibujado: la barra del tijeral lo ajusta en vivo (peralte, espacios, tipo).
+  const [ultimoTijeralId, setUltimoTijeralId] = useState<string | null>(null);
   const [trussSpacingSettingM, setTrussSpacingSettingM] = useState<number>(0.60);
   const [trussSpacingMode, setTrussSpacingMode] = useState<'divisiones' | 'espaciado'>('divisiones');
 
   const nodes = engineState?.nodes || {};
   const segments = engineState?.segments || {};
   const selectedElementIds = engineState?.selectedElementIds || [];
+  // Tijeral a ajustar desde la barra: el seleccionado o, si no, el último dibujado.
+  const tijeralSel = selectedElementIds.map(id => engineState?.segments?.[id]?.tijeral?.id).find(Boolean) || null;
+  const tijeralObjetivo = tijeralSel || (ultimoTijeralId && Object.values(engineState?.segments || {}).some(sg => sg.tijeral?.id === ultimoTijeralId) ? ultimoTijeralId : null);
+  const ajustarTijeral = (c: { h?: number; n?: number; sp?: number; tipo?: TipoTijeral }) => {
+    if (!engineState || !tijeralObjetivo) return;
+    let n = c.n;
+    if (c.sp) {
+      const meta = Object.values(engineState.segments).find(sg => sg.tijeral?.id === tijeralObjetivo)?.tijeral;
+      const A = meta && engineState.nodes[meta.a], B = meta && engineState.nodes[meta.b];
+      if (A && B) n = Math.max(1, Math.round(Math.hypot(B.x - A.x, B.y - A.y, (B.z || 0) - (A.z || 0)) / c.sp));
+    }
+    engineState.rehacerTijeral(tijeralObjetivo, { h: c.h, n, tipo: c.tipo });
+  };
+  // Al seleccionar un tijeral, la barra muestra sus valores reales.
+  useEffect(() => {
+    if (!tijeralSel || !engineState) return;
+    const meta = Object.values(engineState.segments).find(sg => sg.tijeral?.id === tijeralSel)?.tijeral;
+    if (!meta) return;
+    setTrussHeightSetting(meta.h); setTrussDivisionsSetting(meta.n); setSelectedTrussType(meta.tipo as TipoTijeral); setTrussSpacingMode('divisiones');
+  }, [tijeralSel]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeTool: ToolModoCad = engineState?.activeTool || 'select';
 
   // Herramientas que dibujan sobre el lienzo (no selección/paneo).
@@ -1035,7 +1057,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         setChainFirstNodeId(targetNodeId);
         engineState.setSelectedElementIds([targetNodeId]);
       } else if (drawingStartNodeId !== targetNodeId) {
-        engineState.generateTrussFreehand(drawingStartNodeId, targetNodeId, trussHeightSetting, selectedTrussType);
+        const tid = engineState.generateTrussFreehand(drawingStartNodeId, targetNodeId, trussHeightSetting, selectedTrussType, trussSpacingMode === 'divisiones' ? trussDivisionsSetting : undefined, trussSpacingMode === 'espaciado' ? trussSpacingSettingM : undefined);
+        if (tid) setUltimoTijeralId(tid);
         setDrawingStartNodeId(null);
         setChainFirstNodeId(null);
         setClosedPerimeterNotice(`¡Tijeral ${CATALOGO_TIJERALES_INFO[selectedTrussType]?.nombre || ''} generado con éxito!`);
@@ -1180,7 +1203,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       } else if (drawingStartNodeId === nodeId) {
         return;
       } else {
-        engineState.generateTrussFreehand(
+        const tid = engineState.generateTrussFreehand(
           drawingStartNodeId, 
           nodeId, 
           trussHeightSetting, 
@@ -1188,6 +1211,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           trussSpacingMode === 'divisiones' ? trussDivisionsSetting : undefined,
           trussSpacingMode === 'espaciado' ? trussSpacingSettingM : undefined
         );
+        if (tid) setUltimoTijeralId(tid);
         setDrawingStartNodeId(null);
         setChainFirstNodeId(null);
         setClosedPerimeterNotice(`¡Tijeral ${CATALOGO_TIJERALES_INFO[selectedTrussType]?.nombre || ''} generado con éxito!`);
@@ -1451,6 +1475,18 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
         )}
 
+        {/* LEER PLANO CON IA: visible siempre (antes estaba dentro de "Más") */}
+        {iaVisibleParaUI() && (
+          <button
+            onClick={() => { if (vista !== 'planta') handleSetVista('planta'); handleIaButtonClick(); }}
+            disabled={iaReading}
+            className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0 disabled:opacity-60"
+            title="Sube la foto de tu plano dibujado a mano y la IA arma el techo"
+          >
+            <Camera className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-xs font-black">{iaReading ? 'Leyendo…' : 'Leer plano'}</span>
+          </button>
+        )}
         {/* BOTÓN ORTO 90°: fuerza el trazo a horizontal/vertical exacto */}
         {vista !== '3d' && (
           <button
@@ -1559,6 +1595,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <Sparkles className="w-3.5 h-3.5 fill-slate-950 shrink-0" />
             <span className="text-xs font-black">Asistente</span>
           </button>
+
 
           {/* BOTÓN MÓVIL PROPIEDADES (Inspector de Sección, Materiales y Perfiles) */}
           {onOpenMobileProperties && (
@@ -2135,7 +2172,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none p-4">
                 <div className="bg-white/95 border border-slate-200 rounded-2xl shadow-sm px-5 py-4 text-center max-w-xs">
                   <p className="text-sm font-black text-slate-600">Lienzo en blanco</p>
-                  <p className="text-xs text-slate-500 mt-1">Toca <b className="text-orange-600">Asistente</b> para armar el techo con medidas, o elige una herramienta (Viga, Columna, Tijeral) para dibujar.</p>
+                  <p className="text-xs text-slate-500 mt-1">Toca <b className="text-orange-600">Asistente</b> para armar el techo con medidas, <b className="text-violet-600">Leer plano</b> para subir la foto de tu dibujo, o elige una herramienta (Viga, Columna, Tijeral) para dibujar.</p>
                 </div>
               </div>
             )}
@@ -2315,14 +2352,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {/* ------------------------------------------------------------- */}
         {/* BARRA FLOTANTE DE DIBUJO DE TIJERAL (CATÁLOGO CENTRALIZADO EN ASISTENTE) */}
         {/* ------------------------------------------------------------- */}
-        {activeTool === 'draw_tijeral' && !draggingNodeId && (
+        {(activeTool === 'draw_tijeral' || (activeTool === 'select' && tijeralSel)) && !draggingNodeId && (
           <div className="absolute top-2 inset-x-2 sm:inset-x-3 max-w-2xl mx-auto z-40 bg-slate-950/95 text-white px-2.5 py-1.5 rounded-xl shadow-xl border border-emerald-500 backdrop-blur-md flex flex-wrap items-center gap-x-2 gap-y-1.5 animate-in fade-in">
             {/* Tipo de tijeral (ocupa el ancho disponible) */}
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               <Layers className="w-4 h-4 text-emerald-400 shrink-0 hidden sm:block" />
               <select
                 value={selectedTrussType}
-                onChange={(e) => setSelectedTrussType(e.target.value as TipoTijeral)}
+                onChange={(e) => { setSelectedTrussType(e.target.value as TipoTijeral); ajustarTijeral({ tipo: e.target.value as TipoTijeral }); }}
                 className="min-w-0 flex-1 bg-slate-900 border border-emerald-400/50 rounded-lg px-2 py-1 text-[11px] font-black text-emerald-300 outline-none cursor-pointer"
               >
                 <option value="escalera_vierendeel">🪜 Tijeral Escalera (Vierendeel)</option>
@@ -2332,7 +2369,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 <option value="warren">⚡ Warren (Zig-zag)</option>
                 <option value="parabolico_warren">🏟️ Parabólico Warren</option>
               </select>
-              <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black text-[9px] shrink-0">2 clics</span>
+              {tijeralObjetivo
+                ? <button onClick={() => { setUltimoTijeralId(null); engineState?.setSelectedElementIds([]); }} title="Dejar de ajustar este tijeral y dibujar uno nuevo"
+                    className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black text-[9px] shrink-0 cursor-pointer">Ajustando ✕</button>
+                : <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 font-black text-[9px] shrink-0">2 clics</span>}
             </div>
 
             {/* Peralte + espaciado rápido — ahora también visible en MÓVIL, compacto */}
@@ -2341,7 +2381,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <input
                 type="number" step="0.05" min="0.20" max="2.50"
                 value={trussHeightSetting}
-                onChange={(e) => setTrussHeightSetting(Math.max(0.20, parseFloat(e.target.value) || 0.5))}
+                onChange={(e) => { const h = Math.max(0.20, parseFloat(e.target.value) || 0.5); setTrussHeightSetting(h); ajustarTijeral({ h }); }}
                 className="w-11 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-emerald-300 font-bold text-center"
               />
               <span className="text-slate-500">m</span>
@@ -2357,11 +2397,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <div className="flex items-center gap-0.5 bg-slate-900 rounded-lg border border-slate-700 px-1 py-0.5">
                 {trussSpacingMode === 'divisiones'
                   ? [4, 6, 8, 10].map(d => (
-                      <button key={d} onClick={() => setTrussDivisionsSetting(d)}
+                      <button key={d} onClick={() => { setTrussDivisionsSetting(d); ajustarTijeral({ n: d }); }}
                         className={`px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${trussDivisionsSetting === d ? 'bg-amber-400 text-slate-950 font-black' : 'text-slate-300 hover:text-white'}`}>{d}</button>
                     ))
                   : [0.40, 0.50, 0.60, 0.80].map(sp => (
-                      <button key={sp} onClick={() => setTrussSpacingSettingM(sp)}
+                      <button key={sp} onClick={() => { setTrussSpacingSettingM(sp); ajustarTijeral({ sp }); }}
                         className={`px-1 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${trussSpacingSettingM === sp ? 'bg-amber-400 text-slate-950 font-black' : 'text-slate-300 hover:text-white'}`}>{sp.toFixed(2)}</button>
                     ))}
               </div>
@@ -2380,7 +2420,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="font-extrabold text-emerald-300 text-xs block truncate">
-                  {arcNotice ? 'Arco Creado' : 'Perímetro Cerrado'}
+                  {arcNotice ? 'Arco Creado' : /tijeral/i.test(closedPerimeterNotice || '') ? 'Tijeral creado' : 'Perímetro Cerrado'}
                 </span>
                 <span className="text-[11px] text-emerald-100 block truncate">
                   {arcNotice || closedPerimeterNotice}

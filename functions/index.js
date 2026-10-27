@@ -225,7 +225,7 @@ async function cobrarUsoIA(request, accion) {
 const RECEIPT_MODEL = 'claude-haiku-5-5';
 
 export const scanReceipt = onCall(
-  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 60 },
+  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 120 },
   async (request) => {
     // Solo sesiones autenticadas (anónimo o por PIN) pueden usarlo.
     if (!request.auth) {
@@ -351,7 +351,7 @@ export const scanReceipt = onCall(
 const ROOFPLAN_MODEL = 'claude-haiku-5-5';
 
 export const analyzeRoofPlan = onCall(
-  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 120 },
+  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 300 },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión para leer planos con IA.');
@@ -368,37 +368,53 @@ export const analyzeRoofPlan = onCall(
     }
 
     const prompt = [
-      'Eres un ingeniero estructural que interpreta planos de techos metálicos dibujados A MANO',
-      'sobre papel cuadriculado (vista en PLANTA, mirando desde arriba).',
-      'En el dibujo: los CUADRADOS/MANCHAS rellenas en las esquinas e intersecciones son COLUMNAS;',
-      'las LÍNEAS rectas que unen columnas son VIGAS o TIJERALES; los números escritos son MEDIDAS en metros.',
-      'Define un sistema de coordenadas con ORIGEN en la esquina inferior-izquierda del plano,',
-      'eje X hacia la derecha (ancho) y eje Z hacia arriba (largo/profundidad), en METROS.',
-      'Usa las medidas escritas para fijar la escala; si no hay medidas claras, estima con la cuadrícula',
-      'y márcalo en "confianza":"baja".',
-      'Responde SOLO con un JSON válido, sin texto adicional ni explicaciones, con estas claves exactas:',
+      'Eres un ingeniero que ayuda a contratistas de techos metálicos en Perú a pasar a la computadora el plano que dibujaron a mano.',
+      'La foto viene del celular y casi nunca es perfecta: puede estar girada o en perspectiva, con líneas chuecas, sobre papel',
+      'cuadriculado o una libreta, con notas, precios o cuentas en los márgenes, y a veces con varios dibujos en la misma hoja.',
+      'Tu trabajo es entender la INTENCIÓN del dibujo y devolver la PLANTA del área a techar en metros.',
+      '',
+      'Cómo leer el dibujo:',
+      '- Busca la vista en PLANTA (vista desde arriba) del área a techar. Ignora cortes, elevaciones, detalles, notas de precios,',
+      '  listas de personal y cualquier otro dibujo de la hoja.',
+      '- Los cuadraditos rellenos, rayados o marcados sobre las líneas del contorno son COLUMNAS. Una cota pequeña junto a uno',
+      '  (p. ej. 0.30 x 0.30) es el tamaño de la columna, no una separación.',
+      '- Las líneas con marcas en los extremos (rayitas, flechas o cruces) y un número son COTAS (medidas), no vigas.',
+      '- Las líneas que cruzan el área de un lado a otro entre columnas son VIGAS. Dos líneas paralelas unidas por travesaños',
+      '  (como una escalera) son un TIJERAL.',
+      '- Unidades: decide por el tamaño del número y el contexto. En planos de casas y locales los lados suelen medir de 3 a 40 m.',
+      '  Números como 11.23 o 4.40 están en metros; números de 3 cifras como 330, 440 o 280 suelen estar en centímetros;',
+      '  números de 4 o 5 cifras como 4100 o 15000 suelen estar en milímetros. Todo lo devuelves en METROS.',
+      '- Cotas en cadena: si un lado tiene varias medidas parciales y una total, la total manda; usa las parciales para ubicar',
+      '  columnas a lo largo de ese lado. Si no hay total, súmalas.',
+      '- El dibujo no está a escala exacta: manda lo que está ESCRITO. Si los lados opuestos miden distinto (p. ej. 11.23 y 11.07,',
+      '  o 13 y 16), el contorno es un trapecio o polígono irregular: respeta cada medida escrita, no lo conviertas en rectángulo.',
+      '- Si las medidas no cuadran entre sí, quédate con la interpretación más razonable y menciónalo en "notas".',
+      '- Zonas marcadas como "ya está techado", "no se techa", "vacío" o "existente" quedan fuera del contorno.',
+      '- "CALLE", "VECINO" o "frente" indican los lados del terreno; úsalos para la caída si dicen "caída para la calle".',
+      '',
+      'Coordenadas: origen en la esquina inferior izquierda del área a techar TAL COMO SE VE EN LA FOTO; X hacia la derecha y',
+      'Z hacia arriba de la foto, en metros, redondeadas a 0.05 m.',
+      '',
+      'Responde SOLO con un JSON válido, sin texto antes ni después, con estas claves:',
       '{"anchoM": number, "largoM": number, "alturaColM": number,',
       '"perimetro": [{"x": number, "z": number}],',
       '"caida": "arriba"|"abajo"|"izquierda"|"derecha"|"ninguna",',
       '"alturaAltaM": number|null, "alturaBajaM": number|null,',
       '"columnas": [{"x": number, "z": number}],',
       '"vigas": [{"x1": number, "z1": number, "x2": number, "z2": number, "tipo": "viga"|"tijeral"}],',
-      '"confianza": "alta"|"media"|"baja", "notas": string}.',
-      'Reglas:',
-      '- "columnas": una por cada apoyo detectado, con su posición (x,z) en metros.',
-      '- "vigas": cada línea estructural entre dos puntos; "tipo":"tijeral" si parece una cercha/celosía',
-      '  (líneas con montantes o escalera entre dos cordones), si no "viga".',
-      '- Si la hoja tiene varios dibujos (cortes, elevaciones, detalles), usa SOLO la vista en planta del área a techar.',
-      '- "perimetro": vértices del contorno del área a techar, en orden (horario o antihorario), aunque no tenga columnas;',
-      '  respeta formas en L o trapecios y las medidas escritas en cada lado. Las zonas marcadas como "vacío" o ya techadas no van.',
-      '- "caida": hacia dónde escurre el agua VISTO EN EL DIBUJO (arriba = parte superior de la hoja), según flechas o textos',
-      '  como "caída", "caída para la calle" o "caída hacia adelante" (y dónde está la calle). Si no se indica, "ninguna".',
-      '- "alturaAltaM"/"alturaBajaM": alturas del lado alto y bajo del techo si están escritas; si solo hay una altura, ponla en',
-      '  "alturaColM" y deja las otras en null.',
-      '- "alturaColM": altura de columnas si el plano lo indica; si no, usa 3.0.',
-      '- Coordenadas redondeadas a 0.05 m. No inventes columnas que no estén dibujadas.',
-      '- "notas": una frase corta en español con lo que asumiste (p. ej. escala o medidas usadas).'
-    ].join(' ');
+      '"confianza": "alta"|"media"|"baja", "notas": string}',
+      '',
+      'Detalles de cada clave:',
+      '- "perimetro": vértices del contorno del área a techar, en orden, aunque no tenga columnas (formas en L o trapecios incluidas).',
+      '- "columnas": una por cada columna dibujada o indicada por cotas de separación sobre un lado; no inventes otras.',
+      '- "vigas": solo las vigas o tijerales dibujados DENTRO del área (no repitas los lados del contorno).',
+      '- "caida": hacia dónde escurre el agua visto en la foto (arriba = parte superior de la foto), por flechas o textos como',
+      '  "caída", "caída para la calle", "caída hacia adelante". Si no se indica, "ninguna".',
+      '- "alturaAltaM"/"alturaBajaM": si están escritas; si solo hay una altura, ponla en "alturaColM" y deja las otras en null.',
+      '  Si no hay ninguna altura, "alturaColM": 3.0.',
+      '- "confianza": "alta" si las medidas escritas cuadran; "media" si tuviste que interpretar; "baja" si estimaste con la cuadrícula.',
+      '- "notas": hasta 2 frases cortas en español con lo que asumiste (unidades, medidas que no cuadraban, zonas excluidas).'
+    ].join('\n');
 
     const devolver = await cobrarUsoIA(request, 'croquis');
     const anthropic = new Anthropic({ apiKey });
@@ -411,7 +427,7 @@ export const analyzeRoofPlan = onCall(
       const msg = await anthropic.messages.create({
         model: ROOFPLAN_MODEL,
         max_tokens: 16000,
-        output_config: { effort: 'medium' },
+        output_config: { effort: 'high' }, // planos imperfectos: mejor razonar más
         messages: [{ role: 'user', content: [fileBlock, { type: 'text', text: prompt }] }]
       });
       const block = (msg.content || []).find((b) => b.type === 'text');

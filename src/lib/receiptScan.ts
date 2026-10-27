@@ -183,7 +183,7 @@ function fileToBase64(file: File): Promise<string> {
 /** Llama a la Cloud Function de IA de visión (requiere despliegue). */
 export async function scanReceiptWithAI(base64: string, mimeType: string, region = 'us-central1'): Promise<ReceiptData> {
   const functions = getFunctions(app, region);
-  const callable = httpsCallable<{ imageBase64: string; mimeType: string }, ReceiptData>(functions, 'scanReceipt');
+  const callable = httpsCallable<{ imageBase64: string; mimeType: string }, ReceiptData>(functions, 'scanReceipt', { timeout: 120000 });
   const { data } = await callable({ imageBase64: base64, mimeType });
   return data || {};
 }
