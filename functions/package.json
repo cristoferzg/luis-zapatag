@@ -1,7 +1,7 @@
 {
   "name": "innova-functions",
   "description": "Cloud Functions for Innova Contratistas - server-side PIN auth",
-  "engines": { "node": "20" },
+  "engines": { "node": "22" },
   "main": "index.js",
   "type": "module",
   "scripts": {
