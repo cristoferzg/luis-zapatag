@@ -22,7 +22,7 @@ export const AREA_PLANCHA_M2 = 1.22 * 2.44; // plancha estándar de drywall / OS
 
 export type GrupoCatalogo =
   | 'Perfiles de acero' | 'Coberturas' | 'Accesorios de techos' | 'Accesorios de CarpiMetal' | 'Planchas, vidrio y malla'
-  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Mano de obra (jornal por día)';
+  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Mano de obra (jornal por día)' | 'Mis materiales';
 
 export interface ItemCatalogo {
   clave: string;
@@ -155,15 +155,26 @@ function construirItems(): ItemCatalogo[] {
 }
 
 let cacheItems: ItemCatalogo[] | null = null;
-export const itemsCatalogo = () => (cacheItems ||= construirItems());
-const porClave = () => new Map(itemsCatalogo().map(i => [i.clave, i]));
-let mapa: Map<string, ItemCatalogo> | null = null;
-export const itemCatalogo = (clave: string) => (mapa ||= porClave()).get(clave);
+let cacheTodos: { base: ItemCatalogo[]; propios?: ItemCatalogo[]; lista: ItemCatalogo[] } | null = null;
+export const itemsCatalogo = () => {
+  const base = (cacheItems ||= construirItems());
+  if (!cacheTodos || cacheTodos.base !== base || cacheTodos.propios !== estado.propios || cacheTodos.lista.length !== base.length + (estado.propios?.length || 0)) {
+    cacheTodos = { base, propios: estado.propios, lista: [...(estado.propios || []), ...base] };
+  }
+  return cacheTodos.lista;
+};
+let mapa: { lista: ItemCatalogo[]; m: Map<string, ItemCatalogo> } | null = null;
+export const itemCatalogo = (clave: string) => {
+  const lista = itemsCatalogo();
+  if (!mapa || mapa.lista !== lista) mapa = { lista, m: new Map(lista.map(i => [i.clave, i])) };
+  return mapa.m.get(clave);
+};
 
 // ---- Estado: precios del usuario -------------------------------------------
 // planchas: coberturas que compras POR PLANCHA → largo de la plancha (m). Sin
 // entrada, la cobertura se compra por m². El precio se guarda siempre por m².
-export interface EstadoCatalogo { precios: Record<string, number>; fechas: Record<string, string>; actualizado: number; planchas?: Record<string, number> }
+// propios: materiales que agrega el usuario (clave 'propio:…').
+export interface EstadoCatalogo { precios: Record<string, number>; fechas: Record<string, string>; actualizado: number; planchas?: Record<string, number>; propios?: ItemCatalogo[] }
 const KEY = 'innova_catalogo_precios';
 let estado: EstadoCatalogo = safeStorage.getItem<EstadoCatalogo>(KEY, { precios: {}, fechas: {}, actualizado: 0 }) || { precios: {}, fechas: {}, actualizado: 0 };
 const oyentes = new Set<() => void>();
@@ -193,9 +204,25 @@ export function quitarPrecio(clave: string) {
 // Llega desde la nube (configuración del usuario): gana el más reciente.
 export function hidratarCatalogo(remoto?: EstadoCatalogo | null) {
   if (!remoto || !remoto.precios || (remoto.actualizado || 0) <= estado.actualizado) return;
-  estado = { precios: { ...remoto.precios }, fechas: { ...(remoto.fechas || {}) }, actualizado: remoto.actualizado, planchas: { ...(remoto.planchas || {}) } };
+  estado = { precios: { ...remoto.precios }, fechas: { ...(remoto.fechas || {}) }, actualizado: remoto.actualizado, planchas: { ...(remoto.planchas || {}) }, propios: [...(remoto.propios || [])] };
   emitir();
 }
+
+// ---- Materiales propios del usuario -----------------------------------------
+export function agregarPropio(it: { nombre: string; grupo: GrupoCatalogo | string; unidad: string; precio: number; usadoEn: string[] }) {
+  const clave = `propio:${Date.now().toString(36)}`;
+  const nuevo: ItemCatalogo = { clave, grupo: it.grupo as GrupoCatalogo, nombre: it.nombre.trim(), unidad: it.unidad.trim() || 'unidad', ref: 0, usadoEn: it.usadoEn.length ? it.usadoEn : ['Mis materiales'] };
+  estado = { ...estado, propios: [...(estado.propios || []), nuevo], precios: { ...estado.precios, [clave]: Math.max(0, it.precio) },
+    fechas: { ...estado.fechas, [clave]: `${new Date().toISOString().slice(0, 10)} · propio` }, actualizado: Date.now() };
+  emitir();
+  return clave;
+}
+export function quitarPropio(clave: string) {
+  const precios = { ...estado.precios }; delete precios[clave];
+  estado = { ...estado, propios: (estado.propios || []).filter(p => p.clave !== clave), precios, actualizado: Date.now() };
+  emitir();
+}
+export const esPropio = (clave: string) => clave.startsWith('propio:');
 
 // ---- Coberturas: por m² o por plancha ----------------------------------------
 const coberturaDe = (clave: string) => INVENTARIO_COBERTURAS.find(c => claveCobertura(c.id) === clave);
@@ -243,7 +270,7 @@ export function importarJornales(trabajadores: { role?: string; dailyRate?: numb
     if (!itemCatalogo(k)) {
       const nombre = k.slice('jornal:'.length);
       cacheItems?.push({ clave: k, grupo: 'Mano de obra (jornal por día)', nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1), unidad: 'día', ref: 0, usadoEn: ['Personal'] });
-      mapa = null;
+      mapa = null; cacheTodos = null;
     }
     estado.precios[k] = prom; estado.fechas[k] = `${new Date().toISOString().slice(0, 10)} · Personal`;
   });

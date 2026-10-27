@@ -8,6 +8,7 @@ export interface LaminaSlider {
   titulo: string;
   descripcion?: string;
   imagen?: string;
+  video?: string;          // demostración: MP4 o YouTube (se ve en silencio, primeros 15 s en bucle)
   etiqueta?: string;
   precio?: number;        // undefined o 0 con gratis = "Gratis"
   precioAntes?: number;
@@ -18,6 +19,27 @@ export interface LaminaSlider {
   textoBoton: string;
   onAccion: () => void;
 }
+
+const idYoutube = (u?: string) => u?.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/)?.[1];
+const esVideoArchivo = (u?: string) => !!u && (/\.(mp4|webm|mov)(\?|#|$)/i.test(u) || /^blob:|^data:video/i.test(u) || /video%2F|\/videos?\//i.test(u));
+
+// Fondo de video en silencio; solo los primeros 15 s (es una demostración).
+function FondoVideo({ url, activo }: { url: string; activo: boolean }) {
+  const yt = idYoutube(url);
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => { const v = ref.current; if (!v) return; if (activo) v.play().catch(() => {}); else v.pause(); }, [activo]);
+  if (yt) {
+    return activo ? (
+      <iframe title="demo" className="absolute inset-0 w-full h-full pointer-events-none scale-[1.35]" allow="autoplay; encrypted-media"
+        src={`https://www.youtube-nocookie.com/embed/${yt}?autoplay=1&mute=1&controls=0&loop=1&playlist=${yt}&start=0&end=15&modestbranding=1&playsinline=1&rel=0`} />
+    ) : <img src={`https://i.ytimg.com/vi/${yt}/hqdefault.jpg`} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />;
+  }
+  return (
+    <video ref={ref} src={url} muted playsInline loop preload="metadata" className="absolute inset-0 w-full h-full object-cover"
+      onTimeUpdate={e => { if (e.currentTarget.currentTime > 15) e.currentTarget.currentTime = 0; }} />
+  );
+}
+export const videoDemo = (u?: string) => (idYoutube(u) || esVideoArchivo(u) ? u : undefined);
 
 const restante = (hasta?: string) => {
   if (!hasta) return null;
@@ -68,7 +90,9 @@ export default function SliderDestacados({ laminas }: { laminas: LaminaSlider[] 
           const antes = l.gratis ? 0 : conDescuento ? (l.precio || 0) : (l.precioAntes || 0) > final ? l.precioAntes! : 0;
           return (
             <div key={l.id} className="relative w-full shrink-0 min-h-[200px] sm:min-h-[240px]">
-              {l.imagen
+              {l.video
+                ? <FondoVideo url={l.video} activo={laminas[i]?.id === l.id} />
+                : l.imagen
                 ? <img src={l.imagen} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
                 : <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 via-slate-800 to-slate-900" />}
               <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/60 to-slate-950/10" />

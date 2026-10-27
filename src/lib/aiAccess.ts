@@ -33,8 +33,8 @@ export interface AIPlan {
 export interface PackCreditos { id: string; creditos: number; precioSoles: number }
 
 export const PLANES_IA_DEFAULT: AIPlan[] = [
-  { id: 'gratis', nombre: 'Gratis', precioSoles: 0, creditosMes: 15,
-    beneficios: ['Prueba la lectura de boletas', '1 plano a mano al mes'] },
+  { id: 'gratis', nombre: 'Gratis', precioSoles: 0, creditosMes: 0,
+    beneficios: ['Lectura de boletas con código QR', 'La IA se usa con un plan o una recarga'] },
   { id: 'maestro', nombre: 'Maestro', precioSoles: 19.90, creditosMes: 200,
     beneficios: ['Registra tus gastos con una foto', 'Hasta 20 planos a mano al mes', 'Recargas cuando las necesites'] },
   { id: 'taller', nombre: 'Taller Pro', precioSoles: 49.90, creditosMes: 600, destacado: true,
@@ -136,7 +136,7 @@ export interface AICheck {
 
 /** Saldo efectivo como lo calcula el servidor (recarga mensual / vencimiento). */
 export function saldoEfectivo(a: AIAccess | null, planes: AIPlan[]): { planId: string; mes: number; extra: number } {
-  const gratis = planes.find(p => p.id === 'gratis')?.creditosMes ?? 15;
+  const gratis = planes.find(p => p.id === 'gratis')?.creditosMes ?? 0;
   if (!a) return { planId: 'gratis', mes: gratis, extra: 0 };
   const vencido = !!a.venceEl && new Date(a.venceEl).getTime() < Date.now();
   const planId = vencido ? 'gratis' : (a.planId || 'gratis');

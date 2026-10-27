@@ -20,6 +20,7 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon } from 'lucide-react';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
+import { generateDxfContent } from '../lib/dxfParser';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
 import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo } from './concreto/obraPisos';
@@ -805,6 +806,31 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     return { concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, varillas, porTipo };
   }, [elems, precios]);
 
+  // Plano para AutoCAD (.DXF, en metros; una capa por tipo de elemento).
+  const exportarDxf = () => {
+    const L: { x1: number; y1: number; x2: number; y2: number; layer: string }[] = [];
+    const add = (x1: number, y1: number, x2: number, y2: number, layer: string) => L.push({ x1, y1: -y1, x2, y2: -y2, layer });
+    const rect = (cx: number, cy: number, w: number, h: number, layer: string) => {
+      const a = [cx - w / 2, cy - h / 2], b = [cx + w / 2, cy + h / 2];
+      add(a[0], a[1], b[0], a[1], layer); add(b[0], a[1], b[0], b[1], layer); add(b[0], b[1], a[0], b[1], layer); add(a[0], b[1], a[0], a[1], layer);
+    };
+    elems.forEach(e => {
+      const capa = (e.tipo === 'muro' ? `MURO_${(e.material || 'ladrillo')}_${e.nivel || pisos[0] || 'PISO_1'}` : e.tipo).toUpperCase();
+      if (e.x2 === undefined || e.y2 === undefined) { rect(e.x1, e.y1, e.a || 0.25, e.b || e.a || 0.25, capa); return; }
+      const dx = e.x2 - e.x1, dy = e.y2 - e.y1, len = Math.hypot(dx, dy) || 1;
+      const nx = (-dy / len) * (e.a || 0.15) / 2, ny = (dx / len) * (e.a || 0.15) / 2;
+      add(e.x1 + nx, e.y1 + ny, e.x2 + nx, e.y2 + ny, capa); add(e.x1 - nx, e.y1 - ny, e.x2 - nx, e.y2 - ny, capa);
+      add(e.x1 + nx, e.y1 + ny, e.x1 - nx, e.y1 - ny, capa); add(e.x2 + nx, e.y2 + ny, e.x2 - nx, e.y2 - ny, capa);
+      add(e.x1, e.y1, e.x2, e.y2, `${capa}_EJE`);
+    });
+    bloques.forEach(b => rect(b.x, b.y, b.ancho, b.fondo, `ACCESORIO_${b.nombre}`.toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 30)));
+    const txt = generateDxfContent(L, esDrywall ? 'Drywall' : 'Obra_Civil');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([txt], { type: 'application/dxf' }));
+    a.download = `${esDrywall ? 'drywall' : 'obra_civil'}_${new Date().toISOString().slice(0, 10)}.dxf`;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
   const exportar = () => {
     let txt = `INNOVA CONTRATISTAS — OBRA CIVIL (PLANO CAD)\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
     txt += `============================================================\n`;
@@ -956,6 +982,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         <button onClick={exportar} disabled={elems.length === 0}
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-stone-700 text-white cursor-pointer hover:bg-stone-800 disabled:opacity-40">
           <Download className="w-3.5 h-3.5" /> Exportar
+        </button>
+        <button onClick={exportarDxf} disabled={elems.length === 0} title="Plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 text-white cursor-pointer hover:bg-blue-700 disabled:opacity-40">
+          <Download className="w-3.5 h-3.5" /> DXF AutoCAD
         </button>
         {!vista3d && (
           <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded-lg">

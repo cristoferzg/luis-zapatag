@@ -23,7 +23,7 @@ import {
 import { SystemUser } from '../types';
 import { deleteRecord, useFirestoreArraySync, updateRecord } from '../lib/db';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
-import SliderDestacados from './common/SliderDestacados';
+import SliderDestacados, { videoDemo } from './common/SliderDestacados';
 import { usarPlantilla, NOMBRE_MODULO, detectarPlantilla } from '../lib/plantillas';
 import { comprasPermitidas } from '../lib/plataforma';
 import { 
@@ -554,6 +554,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                 titulo: item.titulo,
                 descripcion: item.descripcion,
                 imagen: item.previewImageUrl,
+                video: videoDemo(item.enlaceVideoUrl) || (item.tipo === 'video' ? videoDemo(item.enlaceDescargaUrl) : undefined),
                 etiqueta: item.isMasComprado ? 'Más comprado' : item.categoria,
                 gratis: !!item.isFree,
                 sinPrecio: !comprasPermitidas(),

@@ -1005,6 +1005,16 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <span className="text-[11px] font-bold hidden md:inline">Exportar</span>
           </button>
 
+          {/* [ DXF AUTOCAD ] */}
+          <button
+            onClick={handleExportDxf}
+            className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
+            title="Descargar el plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="text-[11px] font-bold hidden md:inline">DXF AutoCAD</span>
+          </button>
+
           {/* [ ENVIAR A CONCRETO ] — puente de cimentación, solo escritorio */}
           <button
             onClick={handleEnviarAConcreto}
@@ -1057,6 +1067,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                     { l: '+ Nuevo', I: Plus, on: handleNuevo },
                     { l: 'Cargar', I: FolderOpen, on: () => { loadSavedList(); setShowLoadModal(true); } },
                     { l: 'Exportar', I: Download, on: handleExportar },
+                    { l: 'DXF AutoCAD', I: Download, on: handleExportDxf },
                     { l: '→ Obra Civil', I: Box, on: handleEnviarAConcreto },
                     { l: '→ Obra por pisos', I: Layers, on: handleEnviarAObraPisos },
                     { l: 'Ayuda', I: HelpCircle, on: () => setShowTutorialModal(true) },

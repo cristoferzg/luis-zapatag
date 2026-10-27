@@ -69,7 +69,17 @@ export function imprimirElemento(el: HTMLElement, opts: OpcionesImpresion) {
   doc.body.appendChild(nodo);
   // Planos: se escala para que la lámina entera entre en una sola hoja.
   const ajustar = () => {
-    if (!opts.unaHoja) return;
+    // Documentos (presupuestos, informes): se arman con el ancho de una hoja A4 y
+    // se amplían al papel elegido, así se ven iguales en A3, A2… o Carta.
+    if (!opts.unaHoja) {
+      const baseW = ((opts.orientacion === 'portrait' ? 210 : 297) - 2 * MARGEN_MM) * pxMm;
+      const k = anchoPx / baseW;
+      if (Math.abs(k - 1) > 0.03) {
+        nodo.style.setProperty('width', `${baseW}px`, 'important');
+        (doc.body.style as any).zoom = String(k.toFixed(3));
+      }
+      return;
+    }
     nodo.style.setProperty('width', `${anchoPx}px`, 'important');
     const alto = nodo.scrollHeight;
     if (alto <= altoPx) return;

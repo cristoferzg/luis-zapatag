@@ -2,6 +2,7 @@
 import { comprasPermitidas } from '../../lib/plataforma';
 import { createPortal } from 'react-dom';
 import { useDeslizarHorizontal } from '../../hooks/useDeslizarHorizontal';
+import GuiaBocetoPlano, { EjemploBoceto } from './GuiaBocetoPlano';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { 
   Grid, 
@@ -150,6 +151,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Datos que el usuario conoce del techo (lo que deje vacío se lee del dibujo).
   const [showOpcionesPlano, setShowOpcionesPlano] = useState(false);
+  const [verGuiaBoceto, setVerGuiaBoceto] = useState(false);
   const [opcionesPlano, setOpcionesPlano] = useState<OpcionesPlano>(() => ({
     ...OPCIONES_PLANO_DEFECTO, coberturaId: INVENTARIO_COBERTURAS[0]?.id || '',
     ...(safeStorage.getItem<Partial<OpcionesPlano>>('innova_techos_opciones_plano', {}) || {}),
@@ -2674,6 +2676,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           </div>
         )}
 
+        {verGuiaBoceto && <GuiaBocetoPlano onClose={() => setVerGuiaBoceto(false)} />}
+
         {/* DATOS DEL TECHO ANTES DE LEER EL PLANO */}
         {showOpcionesPlano && (() => {
           const o = opcionesPlano;
@@ -2684,7 +2688,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <div className="fixed inset-0 z-[90] bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowOpcionesPlano(false)}>
               <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2"><Sparkles className="w-5 h-5 text-amber-500" /> Leer plano a mano</h3>
-                <p className="text-[11px] text-slate-500 mt-1 mb-4">Indica lo que sepas del techo. Lo que dejes vacío se lee del dibujo. Usa la foto de la <b>planta</b> (vista desde arriba) con sus medidas.</p>
+                <p className="text-[11px] text-slate-500 mt-1 mb-2">Indica lo que sepas del techo. Lo que dejes vacío se lee del dibujo. Usa la foto de la <b>planta</b> (vista desde arriba) con sus medidas.</p>
+                <button type="button" onClick={() => setVerGuiaBoceto(true)} className="mb-4 w-full flex items-center gap-3 p-2 rounded-2xl border border-sky-200 bg-sky-50 text-left cursor-pointer hover:bg-sky-100">
+                  <EjemploBoceto className="w-16 h-16 rounded-lg border border-sky-200 shrink-0" />
+                  <span className="text-[11px] text-sky-900"><b className="block text-xs">¿Cómo dibujar el plano?</b>Mira el ejemplo y las reglas para que se lea bien (y la hoja modelo para imprimir).</span>
+                </button>
                 <div className="space-y-3">
                   <div>
                     <label className={lbl}>¿Hacia dónde cae el agua? (según el dibujo)</label>

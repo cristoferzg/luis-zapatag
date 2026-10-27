@@ -503,24 +503,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
         {/* CONTENIDO SCROLLABLE */}
         <div className="p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-5 text-xs">
           
-          {/* VINCULACIÓN DE PROYECTO (Compact, Responsive and Essential) */}
-          <div className="p-3 sm:p-4 bg-gradient-to-r from-amber-50/90 to-orange-50/20 rounded-2xl border border-amber-200/60 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          {/* VINCULACIÓN DE PROYECTO: una sola fila compacta (obra + guardar) */}
+          <div className="p-2.5 bg-amber-50/70 rounded-2xl border border-amber-200/60 space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="text-base shrink-0">📁</span>
-              <div className="min-w-0">
-                <h4 className="font-extrabold text-slate-800 text-[11px] uppercase tracking-wider flex flex-wrap items-center gap-1.5">
-                  <span>Vincular con Obra Activa</span>
-                  {saveStatusMsg && (
-                    <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-md animate-pulse">
-                      {saveStatusMsg}
-                    </span>
-                  )}
-                </h4>
-                <p className="text-[10px] text-slate-500 truncate">Guarda o carga el plano en este proyecto.</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto shrink-0 min-w-0">
+              <span className="text-[10px] font-black uppercase text-amber-800 shrink-0">📁 Obra</span>
               <select
                 value={selectedProjectId}
                 onChange={(e) => {
@@ -529,23 +515,25 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     handleLoadProjectConfig(e.target.value);
                   }
                 }}
-                className="w-full sm:w-56 bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 shadow-3xs cursor-pointer truncate"
+                className="flex-1 min-w-0 bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-amber-500 cursor-pointer truncate"
               >
-                <option value="">-- Seleccionar obra --</option>
+                <option value="">Sin vincular (opcional)</option>
                 {projectList.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
-
               <button
                 type="button"
                 onClick={handleSaveProjectConfig}
-                className="w-full sm:w-auto px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-3xs shrink-0 active:scale-98"
+                disabled={!selectedProjectId}
+                title={selectedProjectId ? 'Guardar este plano en la obra elegida' : 'Elige una obra para guardar el plano en ella'}
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-default"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>Guardar Plano</span>
+                <span className="hidden sm:inline">Guardar en la obra</span>
               </button>
             </div>
+            {saveStatusMsg && <p className="text-[10px] font-bold text-emerald-700">{saveStatusMsg}</p>}
           </div>
 
           {/* PASO 1: SELECCIONAR TIPO DE TECHO */}

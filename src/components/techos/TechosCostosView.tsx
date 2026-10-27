@@ -69,6 +69,33 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         </div>
       </div>
 
+      {/* RESUMEN: cómo se forma el precio, paso a paso */}
+      {bom && (() => {
+        const fila = (txt: string, ayuda: string, v: number | undefined, fuerte = false, signo = '+') => (
+          <div className={`flex items-center justify-between gap-3 px-3 py-2 ${fuerte ? 'bg-slate-900 text-white rounded-xl' : 'border-b border-slate-100'}`}>
+            <div className="min-w-0">
+              <span className={`text-xs font-black ${fuerte ? '' : 'text-slate-800'}`}>{!fuerte && <span className="text-slate-400 mr-1">{signo}</span>}{txt}</span>
+              <span className={`block text-[10px] ${fuerte ? 'text-slate-300' : 'text-slate-500'}`}>{ayuda}</span>
+            </div>
+            <span className="font-mono font-bold text-sm shrink-0">{S(v || 0)}</span>
+          </div>
+        );
+        return (
+          <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs">
+            <p className="text-xs font-black text-slate-800 mb-1">¿Cómo se forma tu precio?</p>
+            <p className="text-[11px] text-slate-500 mb-2">Cada número sale de los apartados de abajo; cambia un precio y todo se recalcula.</p>
+            {fila('Materiales', 'Perfiles, cobertura, placas, pernos y soldadura (apartado 1)', bom.costoDirectoMaterialesSoles, false, '')}
+            {fila('Mano de obra', 'Tu cuadrilla o un % de los materiales (apartado 2)', bom.costoManoObraMontajeSoles)}
+            {fila('Gastos operativos', 'Grúa, transporte, andamios… (apartado 3)', bom.costoEquiposGruaSoles)}
+            {fila('= Costo directo', 'Lo que te cuesta hacer la obra', bom.costoDirectoTotalSoles, false, '')}
+            {fila(`Gastos generales (${c.gastosGeneralesPct}%)`, 'Oficina, herramientas, movilidad (apartado 4)', bom.gastosGeneralesSoles)}
+            {fila(`Utilidad (${c.utilidadPct}%)`, 'Tu ganancia (apartado 4)', bom.utilidadSoles)}
+            {c.igv && fila('IGV 18 %', 'Si emites factura', bom.igvSoles)}
+            <div className="mt-2">{fila('Precio de venta', 'Es el total del Presupuesto Formal', bom.precioVentaFinalSoles, true)}</div>
+          </div>
+        );
+      })()}
+
       {/* 1. MATERIALES */}
       <Seccion icono={<Package className="w-4 h-4 text-amber-600" />} titulo="1. Materiales (precios de tu proveedor)" total={bom?.costoDirectoMaterialesSoles}>
         <p className="text-[11px] text-slate-500">Estos precios son los del <b>Catálogo de precios</b> (menú Precios): si los cambias aquí, cambian también en CarpiMetal y Obra Civil.</p>

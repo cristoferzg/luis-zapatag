@@ -12,6 +12,7 @@ import {
   solicitarPlanIA, solicitarCreditos, getAICtx,
 } from '../lib/aiAccess';
 import { comprasPermitidas } from '../lib/plataforma';
+import { safeStorage } from '../lib/storageManager';
 
 const WA_ADMIN = '51966000500';
 const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -30,6 +31,9 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
   const [anual, setAnual] = useState(false);
   const [enviado, setEnviado] = useState<string | null>(null);
   const ctx = getAICtx();
+  // Condiciones de uso: se aceptan una vez antes de pedir un plan o recarga.
+  const [acepto, setAcepto] = useState(() => !!safeStorage.getItem<boolean>('innova_ia_condiciones_ok', false));
+  const aceptar = (v: boolean) => { setAcepto(v); safeStorage.setItem('innova_ia_condiciones_ok', v); };
 
   useEffect(() => {
     getConfigIA().then(async c => {
@@ -39,6 +43,7 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
   }, [ctx.userId]);
 
   const pedirPlan = async (plan: AIPlan) => {
+    if (!acepto) return;
     const periodo = anual && plan.precioAnualSoles ? 'anual' : 'mensual';
     try { if (ctx.userId) await solicitarPlanIA(ctx.userId, ctx.userName, plan, periodo); } catch { /* ignore */ }
     setEnviado(plan.id);
@@ -47,6 +52,7 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
   };
 
   const pedirPack = async (p: PackCreditos) => {
+    if (!acepto) return;
     try { if (ctx.userId) await solicitarCreditos(ctx.userId, ctx.userName, p); } catch { /* ignore */ }
     setEnviado(p.id);
     abrirWhatsApp(`Hola Innova Contratistas, quiero una *recarga de ${p.creditos} créditos* (S/ ${p.precioSoles.toFixed(2)}).\n👤 Mi usuario: ${ctx.userName || ctx.userId}`);
@@ -120,7 +126,7 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
                   <ul className="text-xs text-slate-600 mt-3 space-y-1.5 flex-1">
                     {(p.beneficios || []).map(b => <li key={b} className="flex items-start gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />{b}</li>)}
                   </ul>
-                  <button disabled={deshabilitado} onClick={() => pedirPlan(p)}
+                  <button disabled={deshabilitado || !acepto} onClick={() => pedirPlan(p)}
                     className={`mt-4 w-full py-2.5 rounded-xl text-sm font-black cursor-pointer active:scale-95 disabled:cursor-not-allowed ${enviado === p.id ? 'bg-emerald-500 text-white' : p.destacado ? 'bg-amber-400 hover:bg-amber-300 text-amber-950' : 'bg-slate-900 hover:bg-slate-700 text-white'}`}>
                     {enviado === p.id ? '✓ Solicitud enviada' : saldo?.planId === p.id ? 'Renovar' : 'Elegir plan'}
                   </button>
@@ -136,8 +142,8 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
               <p className="text-[11px] text-slate-500 mb-3">Las recargas no vencen: se usan cuando se acaban los créditos del mes.</p>
               <div className="grid grid-cols-3 gap-2">
                 {packs.map(k => (
-                  <button key={k.id} onClick={() => pedirPack(k)}
-                    className={`rounded-xl border p-3 text-left cursor-pointer active:scale-95 ${enviado === k.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50'}`}>
+                  <button key={k.id} disabled={!acepto} onClick={() => pedirPack(k)}
+                    className={`rounded-xl border p-3 text-left cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-default ${enviado === k.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50'}`}>
                     <span className="block text-lg font-black text-slate-900">+{k.creditos}</span>
                     <span className="block text-[11px] text-slate-500">créditos</span>
                     <span className="block text-sm font-black text-slate-800 mt-1">{enviado === k.id ? '✓ Enviado' : `S/ ${k.precioSoles.toFixed(2)}`}</span>
@@ -148,6 +154,24 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
           )}
 
           </>)}
+
+          {comprasPermitidas() && (
+            <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600 leading-snug" open={!acepto}>
+              <summary className="font-black text-slate-800 cursor-pointer">Condiciones de uso de las funciones inteligentes</summary>
+              <ul className="list-disc pl-4 mt-2 space-y-1">
+                <li>Las funciones inteligentes (leer boletas sin QR y planos a mano) se usan con un plan pagado o una recarga de créditos. La lectura de boletas con código QR sigue siendo gratis.</li>
+                <li>Cada lectura descuenta créditos: boleta sin QR = {COSTO_CREDITOS.boleta}, plano a mano = {COSTO_CREDITOS.croquis}. Si la lectura falla o no detecta nada, los créditos se devuelven.</li>
+                <li>Los créditos del plan se renuevan cada mes mientras el plan esté vigente y no se acumulan; las recargas no vencen.</li>
+                <li>El resultado es una propuesta: revisa y corrige medidas, cantidades y montos antes de usarlos en una cotización o en obra. No reemplaza el criterio de un profesional.</li>
+                <li>Sube solo fotos tuyas o de tus clientes con su permiso. Las imágenes se usan solo para leerlas y no se publican.</li>
+                <li>Los pagos se validan por el administrador; no hay devoluciones de créditos ya usados.</li>
+              </ul>
+              <label className="mt-2 flex items-center gap-2 font-bold text-slate-800 cursor-pointer">
+                <input type="checkbox" checked={acepto} onChange={e => aceptar(e.target.checked)} /> Leí y acepto las condiciones de uso
+              </label>
+            </details>
+          )}
+          {comprasPermitidas() && !acepto && <p className="text-[11px] font-bold text-amber-700">Acepta las condiciones de uso para pedir un plan o una recarga.</p>}
 
           {comprasPermitidas() && <p className="text-[11px] text-slate-400 leading-snug">
             Al elegir se envía tu pedido al administrador por WhatsApp. Cuando valide tu pago, los créditos se cargan solos. Los créditos del plan se renuevan cada mes mientras esté vigente.

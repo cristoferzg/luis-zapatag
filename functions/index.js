@@ -121,10 +121,10 @@ export const loginWithPin = onCall(
 // descuento se hace AQUÍ, dentro de una transacción.
 // =============================================================================
 const COSTO_CREDITOS = { boleta: 1, croquis: 10 };
-const CREDITOS_GRATIS_DEFAULT = 15;
+const CREDITOS_GRATIS_DEFAULT = 0; // la IA es de pago: el plan Gratis no trae créditos
 // Igual que PLANES_IA_DEFAULT del cliente (src/lib/aiAccess.ts).
 const PLANES_DEFAULT = [
-  { id: 'gratis', creditosMes: 15 },
+  { id: 'gratis', creditosMes: 0 },
   { id: 'maestro', creditosMes: 200 },
   { id: 'taller', creditosMes: 600 },
   { id: 'empresa', creditosMes: 2000 },

@@ -360,6 +360,16 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             <span className="hidden md:inline">EXPORTAR</span>
           </button>
 
+          {/* [ DXF AUTOCAD ] */}
+          <button
+            onClick={handleExportDxf}
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            title="Descargar el plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
+          >
+            <Download className="w-3.5 h-3.5 text-blue-600" />
+            <span className="hidden md:inline">DXF</span>
+          </button>
+
           {/* [ AYUDA ] */}
           <button
             onClick={() => setShowHelpModal(true)}

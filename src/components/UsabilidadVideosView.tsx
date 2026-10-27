@@ -10,7 +10,7 @@ import {
 import { useFirestoreArraySync, updateRecord, deleteRecord } from '../lib/db';
 import { safeStorage } from '../lib/storageManager';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
-import SliderDestacados from './common/SliderDestacados';
+import SliderDestacados, { videoDemo } from './common/SliderDestacados';
 import { comprasPermitidas } from '../lib/plataforma';
 import { getCompanyCurrency, convertAmount, formatCurrencyWithSymbol } from '../lib/currency';
 
@@ -1059,7 +1059,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             };
           }),
           ...activeVideos.filter(v => v.enSlider && (comprasPermitidas() || hasAccessToVideo(v))).map(v => ({
-            id: v.id, titulo: v.title, descripcion: v.description, imagen: v.thumbnailUrl,
+            id: v.id, titulo: v.title, descripcion: v.description, imagen: v.thumbnailUrl, video: videoDemo(v.videoUrl),
             etiqueta: `Clase · ${v.category}`, gratis: v.isFree !== false && !isPaidCourseVideo(v), sinPrecio: !comprasPermitidas(), precio: getEffectivePrice(v),
             textoBoton: hasAccessToVideo(v) ? 'Ver clase' : 'Adquirir',
             onAccion: () => handlePlayVideoClick(v),

@@ -6,8 +6,8 @@
 //   • Referencia de mercado: la tabla comparativa de siempre.
 // =============================================================================
 import { useMemo, useState } from 'react';
-import { Search, RotateCcw, Users, Tag } from 'lucide-react';
-import { itemsCatalogo, useCatalogo, quitarPrecio, importarJornales, GrupoCatalogo, esCobertura, unidadCompra, largoPlanchaCompra, fijarCompraCobertura, precioEnUnidad, fijarPrecioEnUnidad, refEnUnidad } from '../lib/catalogoPrecios';
+import { Search, RotateCcw, Users, Tag, Plus, Trash2 } from 'lucide-react';
+import { itemsCatalogo, useCatalogo, quitarPrecio, importarJornales, GrupoCatalogo, esCobertura, unidadCompra, largoPlanchaCompra, fijarCompraCobertura, precioEnUnidad, fijarPrecioEnUnidad, refEnUnidad, agregarPropio, quitarPropio, esPropio } from '../lib/catalogoPrecios';
 import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
 import { PreciosView } from './PreciosView';
 
@@ -54,7 +54,7 @@ function puntaje(nombre: string, extra: string, tokens: string[], cerca: boolean
 }
 
 const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const COLOR_APARTADO: Record<string, string> = { Techos: 'bg-amber-50 text-amber-800', CarpiMetal: 'bg-sky-50 text-sky-800', 'Obra Civil': 'bg-stone-100 text-stone-700', Drywall: 'bg-violet-50 text-violet-800', Personal: 'bg-emerald-50 text-emerald-800' };
+const COLOR_APARTADO: Record<string, string> = { 'Mis materiales': 'bg-amber-100 text-amber-900', Techos: 'bg-amber-50 text-amber-800', CarpiMetal: 'bg-sky-50 text-sky-800', 'Obra Civil': 'bg-stone-100 text-stone-700', Drywall: 'bg-violet-50 text-violet-800', Personal: 'bg-emerald-50 text-emerald-800' };
 
 export default function CatalogoPreciosView({ projects = [] }: { projects?: any[] }) {
   const [pestana, setPestana] = useState<'mios' | 'mercado'>('mios');
@@ -62,6 +62,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
   const [grupo, setGrupo] = useState<GrupoCatalogo | 'Todos'>('Todos');
   const [soloMios, setSoloMios] = useState(false);
   const [aviso, setAviso] = useState('');
+  const [nuevo, setNuevo] = useState<null | { nombre: string; grupo: string; unidad: string; precio: string; usadoEn: string[] }>(null);
   const cat = useCatalogo();
   const items = itemsCatalogo();
   const grupos = useMemo(() => [...new Set(items.map(i => i.grupo))], [items]);
@@ -105,6 +106,10 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
             <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 cursor-pointer">
               <input type="checkbox" checked={soloMios} onChange={e => setSoloMios(e.target.checked)} /> Solo con mi precio ({propios})
             </label>
+            <button onClick={() => setNuevo(v => v ? null : { nombre: '', grupo: 'Mis materiales', unidad: 'unidad', precio: '', usadoEn: [] })}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-black cursor-pointer hover:bg-amber-400">
+              <Plus className="w-4 h-4" /> Agregar material propio
+            </button>
             <button onClick={() => { const n = importarJornales(trabajadores); setAviso(n ? `✓ ${n} jornales importados desde Personal (promedio por cargo).` : 'No hay trabajadores con jornal diario en Personal.'); setTimeout(() => setAviso(''), 4000); }}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold cursor-pointer hover:bg-emerald-100">
               <Users className="w-4 h-4" /> Jornales desde Personal
@@ -116,6 +121,31 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
             ))}
           </div>
           {aviso && <p className="text-xs font-bold text-emerald-700 bg-emerald-50 rounded-lg px-2.5 py-1.5">{aviso}</p>}
+          {nuevo && (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50/60 p-3 space-y-2">
+              <p className="text-xs font-black text-amber-900">Nuevo material (tu propio producto, en tu unidad de compra)</p>
+              <div className="grid grid-cols-1 sm:grid-cols-[2fr_1.3fr_1fr_1fr] gap-2">
+                <input value={nuevo.nombre} onChange={e => setNuevo({ ...nuevo, nombre: e.target.value })} placeholder="Nombre (ej. Pintura epóxica gris)" className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm" />
+                <select value={nuevo.grupo} onChange={e => setNuevo({ ...nuevo, grupo: e.target.value })} className="px-2 py-2 rounded-xl bg-white border border-slate-200 text-sm cursor-pointer">
+                  {['Mis materiales', ...grupos.filter(g => g !== 'Mis materiales')].map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <input value={nuevo.unidad} onChange={e => setNuevo({ ...nuevo, unidad: e.target.value })} placeholder="Unidad (galón, bolsa…)" className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm" />
+                <input type="number" min={0} step="0.1" value={nuevo.precio} onChange={e => setNuevo({ ...nuevo, precio: e.target.value })} placeholder="Precio S/" className="px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm font-mono" />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-600">
+                Se usa en:
+                {['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall'].map(u => (
+                  <label key={u} className="inline-flex items-center gap-1 cursor-pointer">
+                    <input type="checkbox" checked={nuevo.usadoEn.includes(u)} onChange={e => setNuevo({ ...nuevo, usadoEn: e.target.checked ? [...nuevo.usadoEn, u] : nuevo.usadoEn.filter(x => x !== u) })} /> {u}
+                  </label>
+                ))}
+                <span className="flex-1" />
+                <button onClick={() => setNuevo(null)} className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 cursor-pointer">Cancelar</button>
+                <button disabled={!nuevo.nombre.trim()} onClick={() => { agregarPropio({ ...nuevo, precio: parseFloat(nuevo.precio) || 0 }); setAviso(`✓ "${nuevo.nombre.trim()}" agregado a tu catálogo.`); setNuevo(null); setGrupo('Todos'); setTimeout(() => setAviso(''), 4000); }}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 text-white cursor-pointer disabled:opacity-40">Guardar material</button>
+              </div>
+            </div>
+          )}
           <p className="text-[11px] text-slate-500">Escribe el precio de tu proveedor en la unidad en que compras (barra de 6 m, plancha, millar, bolsa, día…). Si lo dejas sin tocar se usa el precio de referencia (en gris).</p>
         </div>
 
@@ -158,7 +188,8 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
                       </span>
                     );
                   })()}
-                  {propio && <button onClick={() => quitarPrecio(i.clave)} title="Volver al precio de referencia" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}
+                  {esPropio(i.clave) && <button onClick={() => { if (confirm(`¿Quitar "${i.nombre}" de tu catálogo?`)) quitarPropio(i.clave); }} title="Quitar este material" className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>}
+                  {propio && !esPropio(i.clave) && <button onClick={() => quitarPrecio(i.clave)} title="Volver al precio de referencia" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}
                 </div>
               </div>
             );
