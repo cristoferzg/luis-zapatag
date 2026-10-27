@@ -1579,6 +1579,27 @@ export default function App() {
     if (!user) { setSesionLimitada(false); return; }
     authReady.then(() => setSesionLimitada(!!auth.currentUser?.isAnonymous));
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // En lugar de una barra: al abrir, una ventanita pide el PIN una sola vez.
+  // "Ahora no" (o si el servidor no responde) la oculta hasta el día siguiente.
+  const hoyISO = () => new Date().toISOString().slice(0, 10);
+  const [renovar, setRenovar] = useState({ pin: '', error: '', cargando: false, oculto: safeStorage.getItem<string>('innova_renovar_omitido', '') === hoyISO() });
+  const omitirRenovar = () => { safeStorage.setItem('innova_renovar_omitido', hoyISO()); setRenovar(r => ({ ...r, oculto: true })); };
+  const enviarRenovar = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!/^\d{6}$/.test(renovar.pin)) { setRenovar(r => ({ ...r, error: 'El PIN tiene 6 dígitos.' })); return; }
+    setRenovar(r => ({ ...r, cargando: true, error: '' }));
+    try {
+      const res = await loginWithPinViaFunction(renovar.pin);
+      const mismo = user?.role === 'admin' ? res.role === 'admin' : res.workspace.replace(/^user_/, '') === String(user?.id || '').replace(/^user_/, '');
+      if (!mismo) { setRenovar(r => ({ ...r, cargando: false, error: 'Ese PIN es de otra cuenta.' })); return; }
+      safeStorage.setItem('innova_sesion_v2', true);
+      window.location.reload(); // vuelve a abrir todo con la sesión nueva
+    } catch (err: any) {
+      const code = String(err?.code || '');
+      if (/not-found|invalid|permission|unauth/i.test(code)) setRenovar(r => ({ ...r, cargando: false, error: 'PIN incorrecto.' }));
+      else { setRenovar(r => ({ ...r, cargando: false, error: 'No se pudo renovar ahora. Se intentará mañana.' })); setTimeout(omitirRenovar, 2500); }
+    }
+  };
 
   // Apartados ya abiertos (Diseñador y Calculadora se quedan montados después).
   const vistasAbiertas = useRef(new Set<string>());
@@ -2499,11 +2520,19 @@ export default function App() {
         )}
 
         {/* Other Views Container */}
-        {sesionLimitada && (
-          <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-amber-100 border-b border-amber-300 text-amber-900 text-xs font-bold">
-            <span>Tu sesión es antigua: no puedes ver los comunicados ni algunas configuraciones. Vuelve a ingresar tu PIN.</span>
-            <button type="button" onClick={() => { setPinError('Ingresa tu PIN para renovar la sesión.'); handleLogout(); }}
-              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black cursor-pointer">Renovar sesión</button>
+        {sesionLimitada && !renovar.oculto && (
+          <div className="fixed inset-0 z-[150] bg-slate-900/50 flex items-center justify-center p-4">
+            <form onSubmit={enviarRenovar} className="bg-white w-full max-w-xs rounded-3xl shadow-2xl p-5 space-y-3 text-center">
+              <p className="text-sm font-black text-slate-900">Confirma tu PIN</p>
+              <p className="text-[11px] text-slate-500 leading-snug">Solo esta vez, para ver los comunicados y tu configuración.</p>
+              <input autoFocus inputMode="numeric" maxLength={6} value={renovar.pin} onChange={e => setRenovar(r => ({ ...r, pin: e.target.value.replace(/\D/g, ''), error: '' }))}
+                className="w-full text-center tracking-[0.5em] font-mono text-xl font-black px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:border-amber-400" placeholder="••••••" />
+              {renovar.error && <p className="text-[11px] font-bold text-rose-600">{renovar.error}</p>}
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={omitirRenovar} className="py-2.5 rounded-2xl bg-slate-100 text-slate-600 text-xs font-bold cursor-pointer">Ahora no</button>
+                <button type="submit" disabled={renovar.cargando} className="py-2.5 rounded-2xl bg-amber-500 text-slate-950 text-xs font-black cursor-pointer disabled:opacity-50">{renovar.cargando ? 'Verificando…' : 'Confirmar'}</button>
+              </div>
+            </form>
           </div>
         )}
         {currentView !== 'designer' && currentView !== 'calculator' && (
