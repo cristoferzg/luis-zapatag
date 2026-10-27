@@ -112,6 +112,8 @@ export interface SystemUser {
   // Workspace owner this user belongs to; preserved across backup/restore so a
   // restored user keeps access to their own projects/clients/finances.
   userId?: string;
+  // Pago con el que se dio el acceso (leído del comprobante; opcional).
+  pago?: { nroOperacion?: string; monto?: number; fecha?: string; metodo?: string };
   materiales?: Material[];
   personal?: Worker[];
   cobros?: Cobro[];

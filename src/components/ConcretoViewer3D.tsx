@@ -23,6 +23,7 @@ import { grabarCanvas, puedeGrabar } from '../lib/grabarVideo';
 import { perfilTechos } from './techos/tensores';
 import { Bloque, muebleDe, geometriaCarpi, GeomCarpi } from './concreto/bloques';
 import { leerDisenosCarpi } from './concreto/carpiObra';
+import { tipoLadrillo, texturaLadrillo, texturaOsb, texturaDrywall } from './concreto/texturasObra';
 
 const C = {
   concreto: 0xcfcfca, zapata: 0xc8c4bc, cimiento: 0xbdb8ae, losa: 0xdcdcd7, acero: 0x5f6f82,
@@ -41,24 +42,6 @@ function texturaCanvas(draw: (g: CanvasRenderingContext2D) => void) {
 const hex = (n: number) => '#' + n.toString(16).padStart(6, '0');
 
 const TEX = {
-  ladrillo: () => texturaCanvas(g => {
-    g.fillStyle = hex(C.ladrillo); g.fillRect(0, 0, 256, 256);
-    g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3;
-    for (let r = 0; r < 8; r++) {
-      const y = r * 32; g.beginPath(); g.moveTo(0, y); g.lineTo(256, y); g.stroke();
-      for (let k = 0; k < 4; k++) { const x = k * 64 + (r % 2 ? 32 : 0); g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 32); g.stroke(); }
-    }
-  }),
-  osb: () => texturaCanvas(g => {
-    g.fillStyle = hex(C.osb); g.fillRect(0, 0, 256, 256);
-    // Semilla fija: el mismo patrón en cada render.
-    let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 260; i++) {
-      g.fillStyle = `rgba(${120 + rnd() * 60},${80 + rnd() * 40},${30 + rnd() * 30},${0.18 + rnd() * 0.2})`;
-      g.save(); g.translate(rnd() * 256, rnd() * 256); g.rotate(rnd() * 3.14); g.fillRect(-14, -3, 28, 6); g.restore();
-    }
-    g.strokeStyle = 'rgba(90,60,25,.6)'; g.lineWidth = 3; g.strokeRect(0, 0, 256, 256);
-  }),
   ondulada: (base: number) => texturaCanvas(g => {
     g.fillStyle = hex(base); g.fillRect(0, 0, 256, 256);
     for (let x = 0; x < 256; x += 16) { g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x, 0, 5, 256); g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(x + 8, 0, 4, 256); }
@@ -381,16 +364,16 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const ctx = obra.ctx(e.nivel);
           const tope = e.nivel ? (ctx.tope ?? ctx.base + 3) : vigaElev + esp;
           let mat: THREE.Material = M.losa;
-          if (esOsb) { const t = TEX.osb(); t.repeat.set(Math.abs(e.x2 - e.x1) / 2.44, Math.abs(e.y2 - e.y1) / 1.22); mat = new THREE.MeshLambertMaterial({ map: t }); }
+          if (esOsb) { const t = texturaOsb(false, Math.abs(e.x2 - e.x1), Math.abs(e.y2 - e.y1)); mat = new THREE.MeshLambertMaterial({ map: t }); }
           if (pisoVisible(e.nivel) || !e.nivel) caja(Math.abs(e.x2 - e.x1), Math.max(esp, 0.03), Math.abs(e.y2 - e.y1), (e.x1 + e.x2) / 2, tope - esp / 2, (e.y1 + e.y2) / 2, mat);
         } else if (e.x2 !== undefined && e.y2 !== undefined) {
           const dx = e.x2 - e.x1, dz = e.y2 - e.y1, L = Math.hypot(dx, dz);
           const cx = (e.x1 + e.x2) / 2, cz = (e.y1 + e.y2) / 2, rotY = -Math.atan2(dz, dx);
           if (e.tipo === 'muro') {
             const ctx = obra.ctx(e.nivel), mat = e.material || 'ladrillo';
-            let material: THREE.Material = M.drywall;
-            if (mat === 'ladrillo') { const t = TEX.ladrillo(); t.repeat.set(1 / 1.2, 1 / 0.6); material = new THREE.MeshLambertMaterial({ map: t }); }
-            if (mat === 'osb') { const t = TEX.osb(); t.repeat.set(1 / 1.22, 1 / 2.44); material = new THREE.MeshLambertMaterial({ map: t }); }
+            let material: THREE.Material = new THREE.MeshLambertMaterial({ map: texturaDrywall() });
+            if (mat === 'ladrillo') material = new THREE.MeshLambertMaterial({ map: texturaLadrillo(tipoLadrillo(e.materialId)) });
+            if (mat === 'osb') material = new THREE.MeshLambertMaterial({ map: texturaOsb() });
             if (L > 0.02) muro3d(e, ctx.base, material, ctx);
           } else if (e.tipo === 'viga') caja(L, h, a, cx, vigaElev - h / 2, cz, M.concreto, rotY);
           else caja(L, h, a, cx, -h / 2, cz, M.cimiento, rotY);
@@ -449,7 +432,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         const sp = sps[t.id];
         if (sp?.activo) {
           const l = t.lado + 2 * sp.holgura, e = 0.13;
-          const tex = TEX.ladrillo(); tex.repeat.set(l / 1.2, sp.alto / 0.6);
+          const tex = texturaLadrillo('kingkong', false, l, sp.alto);
           const mat = new THREE.MeshLambertMaterial({ map: tex });
           [[0, -l / 2, 0], [0, l / 2, 0], [-l / 2, 0, Math.PI / 2], [l / 2, 0, Math.PI / 2]].forEach(([dx, dz, rot]) =>
             caja(l + e, sp.alto, e, t.x + dx, t.y + sp.alto / 2, t.z + dz, mat, rot));
@@ -482,6 +465,9 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     // Shift + arrastre o dos dedos = mover el modelo; rueda o pellizco = zoom.
     const guardada = claveCamara ? camaras.get(claveCamara) : undefined;
     let az = guardada?.az ?? -0.72, pol = guardada?.pol ?? 0.98, rad = guardada?.rad ?? Math.max(8, Math.max(tam.x, tam.z, tam.y) * 2.1);
+    // Pantalla vertical (celular): alejar la cámara para que entre todo a lo ancho.
+    const aspecto = mount.clientWidth / Math.max(1, mount.clientHeight);
+    if (!guardada && aspecto < 1) rad = rad / Math.max(0.5, aspecto);
     const objetivo = guardada ? new THREE.Vector3(...guardada.obj) : new THREE.Vector3(centro.x, Math.max(1, tam.y * 0.4), centro.z);
     const polMax = verCimentacion ? Math.PI - 0.25 : Math.PI / 2 - 0.03; // con cimentación se puede mirar desde abajo
     const actualizar = () => {
@@ -557,12 +543,25 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     };
   }, []);
 
+  // Segundos que faltan de la grabación y aviso al terminar.
+  const [seg, setSeg] = useState(0);
+  const [listo, setListo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!grabando) return;
+    const t = window.setInterval(() => setSeg(s => Math.max(0, s - 1)), 1000);
+    return () => window.clearInterval(t);
+  }, [grabando]);
   const grabar = () => {
     if (grabacion.current) { grabacion.current.detener(); return; }
     const c = canvasRef.current;
     if (!c || !puedeGrabar(c)) { alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.'); return; }
     girar.current = true;
-    grabacion.current = grabarCanvas(c, 'obra_3d', { duracionMs: 14000, onFin: () => { girar.current = false; grabacion.current = null; setGrabando(false); } });
+    setListo(null); setSeg(14);
+    grabacion.current = grabarCanvas(c, 'obra_3d', { duracionMs: 14000, onFin: ext => {
+      girar.current = false; grabacion.current = null; setGrabando(false);
+      setListo(`Video ${ext.toUpperCase()} descargado · búscalo en Descargas`);
+      window.setTimeout(() => setListo(null), 5000);
+    } });
     if (grabacion.current) setGrabando(true); else girar.current = false;
   };
 
@@ -571,10 +570,13 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     <div className="relative w-full h-full">
       <div ref={mountRef} className="w-full h-full" />
       <button onClick={grabar} title={grabando ? 'Detener y descargar el video' : 'Grabar un video MP4 girando el modelo'}
-        className={`absolute top-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold shadow cursor-pointer border ${grabando ? 'bg-rose-600 text-white border-rose-600 animate-pulse' : 'bg-white/95 text-slate-700 border-slate-200 hover:bg-slate-100'}`}>
+        className={`absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg cursor-pointer border ${grabando ? 'bg-rose-600 text-white border-rose-600 animate-pulse' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}>
         {grabando ? <StopIcon className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
-        {grabando ? 'Detener' : 'Grabar video'}
+        {grabando ? `Detener · ${seg}s` : 'Grabar video'}
       </button>
+      {listo && (
+        <div className="absolute bottom-14 right-3 z-10 max-w-[240px] text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 shadow">{listo}</div>
+      )}
     </div>
   );
 }

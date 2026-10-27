@@ -1708,11 +1708,11 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
   {
     id: 'cob_aluzinc_tr5_050',
     categoria: 'aluzinc_tr5',
-    nombre: 'Aluzinc TR-5 Estructural 5 Crestas e=0.50mm',
+    nombre: 'Aluzinc TR-5 Estructural Cresta Alta e=0.50mm',
     anchoTotalMm: 1050,
     anchoUtilMm: 950,
     espesorMm: 0.50,
-    tipoOnda: 'Trapezoidal TR-5 (5 Crestas Carga Alta)',
+    tipoOnda: 'Trapezoidal TR-5 (como TR-4, cresta más alta)',
     longitudComercialM: 3.0,
     pesoM2Kg: 4.90,
     costoM2Sol: 49.00,

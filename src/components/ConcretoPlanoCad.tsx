@@ -27,6 +27,7 @@ import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, Es
 import { useCatalogo } from '../lib/catalogoPrecios';
 import { leerDisenosCarpi, costoDisenoCarpi, tipoAberturaDe } from './concreto/carpiObra';
 import { metradoDrywall } from './concreto/metradoDrywall';
+import { ESTILO_LADRILLO, tipoLadrillo } from './concreto/texturasObra';
 import { Bloque, KEY_BLOQUES, MUEBLES, muebleDe, geometriaCarpi, plantaCarpi, dentroBloque, Prim2D, SUELTOS } from './concreto/bloques';
 import { NOMBRE_TIPO_CARPI } from './concreto/carpiObra';
 import {
@@ -881,7 +882,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     { id: 'pan', label: 'Mover', icon: Hand },
   ].filter(t => esDrywall
     ? ['select', 'grupo', 'muro', 'abertura', 'bloque', 'pan'].includes(t.id)
-    : t.id !== 'bloque') as { id: Herramienta; label: string; icon: any }[];
+    : t.id !== 'bloque' && t.id !== 'abertura') as { id: Herramienta; label: string; icon: any }[];
   // Riel de herramientas como en Techos: vertical en PC, dock abajo en el celular.
   const [esPC, setEsPC] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
   useEffect(() => {
@@ -894,7 +895,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   void histVer; // re-render al cambiar el historial
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-50">
+    <div className="lg:w-full h-full flex flex-col bg-slate-50 max-lg:-mx-4">
       {/* Estructura de Techos vinculada */}
       <div className="flex items-center gap-2 px-2 py-2 bg-white border-b border-slate-100 flex-wrap">
         <span className="text-[11px] font-bold text-slate-500">Estructura (Techos Metálicos)</span>
@@ -909,8 +910,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           </button>
         )}
         {esDrywall && (
-          <p className="w-full text-[11px] font-bold text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-2.5 py-1.5">
-            Lo de Obra Civil y la estructura de Techos se ven de fondo (no se modifican aquí). Dibuja tus tabiques de drywall u OSB, también fuera del perímetro.
+          <p className="w-full text-[10px] sm:text-[11px] font-bold text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5">
+            Obra Civil y Techos se ven de fondo (no se modifican aquí). Dibuja tabiques de drywall u OSB, también fuera del perímetro.
           </p>
         )}
         {estructura && !esDrywall && (
@@ -936,7 +937,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             })}
           </div>
         )}
-        {!estructura && disenos.length === 0 && <span className="text-[11px] text-slate-400">Guarda un diseño en Techos Metálicos para verlo aquí.</span>}
+        {!estructura && disenos.length === 0 && <span className="hidden sm:inline text-[11px] text-slate-400">Guarda un diseño en Techos Metálicos para verlo aquí.</span>}
       </div>
       {/* Barra de herramientas */}
       <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0">
@@ -1008,9 +1009,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* VISTA 3D */}
         {vista3d ? (
-          <div className="relative flex-1 min-h-[320px] overflow-hidden bg-slate-100">
+          <div className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-170px)] max-lg:min-h-[420px] overflow-hidden bg-slate-100">
             <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}`} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos} />
-            <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+            <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 overflow-x-auto px-3 py-2.5 [&>*]:shrink-0 [&>*]:whitespace-nowrap [&>*]:shadow [&>*]:border [&>*]:border-slate-200">
               <button onClick={() => setVerTecho(v => !v)} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verTecho ? 'bg-slate-100 text-slate-700' : 'bg-stone-700 text-white'}`}>
                 {verTecho ? 'Ocultar techo' : 'Mostrar techo'}
               </button>
@@ -1032,15 +1033,16 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             {elems.length === 0 && !estructura && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm font-bold">Dibuja en 2D para ver el 3D</div>
             )}
-            <div className="absolute bottom-3 left-3 text-[10px] font-bold text-slate-500 bg-white/90 rounded-lg px-2 py-1 border border-slate-200 pointer-events-none">
-              Arrastra: girar · clic derecho, Shift o 2 dedos: mover · rueda o pellizco: zoom
+            <div className="absolute bottom-3 left-3 max-w-[calc(100%-150px)] text-[10px] font-bold text-slate-500 bg-white/90 rounded-lg px-2 py-1 border border-slate-200 pointer-events-none">
+              <span className="sm:hidden">1 dedo: girar · 2 dedos: mover y zoom</span>
+              <span className="hidden sm:inline">Arrastra: girar · clic derecho, Shift o 2 dedos: mover · rueda o pellizco: zoom</span>
             </div>
           </div>
         ) : (
         /* LIENZO 2D */
         <div
           ref={containerRef}
-          className={`relative flex-1 min-h-[320px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : (dragNode.current ? 'cursor-grabbing' : 'cursor-crosshair')}`}
+          className={`relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-170px)] max-lg:min-h-[420px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : (dragNode.current ? 'cursor-grabbing' : 'cursor-crosshair')}`}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
@@ -1056,11 +1058,23 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           <svg className="absolute inset-0 w-full h-full">
             {/* Tramas de muros según material (como en un plano de arquitectura) */}
             <defs>
-              <pattern id="pt-ladrillo" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                <rect width="7" height="7" fill="#fed7aa" /><line x1="0" y1="0" x2="0" y2="7" stroke="#ea580c" strokeWidth="1.6" />
+              {/* Cada modelo de ladrillo con su propia trama */}
+              <pattern id="pt-ladrillo-kingkong" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="7" height="7" fill={ESTILO_LADRILLO.kingkong.fondo} /><line x1="0" y1="0" x2="0" y2="7" stroke={ESTILO_LADRILLO.kingkong.trama} strokeWidth="1.6" />
               </pattern>
-              <pattern id="pt-osb" width="12" height="8" patternUnits="userSpaceOnUse">
-                <rect width="12" height="8" fill="#f3d9a4" /><path d="M1 2h4M7 5h4M3 7h3M8 1h2" stroke="#b07a2a" strokeWidth="1" />
+              <pattern id="pt-ladrillo-industrial" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="5" height="5" fill={ESTILO_LADRILLO.industrial.fondo} /><line x1="0" y1="0" x2="0" y2="5" stroke={ESTILO_LADRILLO.industrial.trama} strokeWidth="2" />
+              </pattern>
+              <pattern id="pt-ladrillo-pandereta" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="9" height="9" fill={ESTILO_LADRILLO.pandereta.fondo} /><line x1="0" y1="0" x2="0" y2="9" stroke={ESTILO_LADRILLO.pandereta.trama} strokeWidth="1" strokeDasharray="3 2" />
+              </pattern>
+              <pattern id="pt-ladrillo-bloque" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="8" height="8" fill={ESTILO_LADRILLO.bloque.fondo} /><path d="M0 0V8M0 0H8" stroke={ESTILO_LADRILLO.bloque.trama} strokeWidth="1.1" />
+              </pattern>
+              <pattern id="pt-osb" width="16" height="12" patternUnits="userSpaceOnUse">
+                <rect width="16" height="12" fill="#e9c98f" />
+                <path d="M1 2l5 1M8 1l6 2M3 6l4-1M9 7l5 1M2 10l5 1M10 11l4-1" stroke="#a9773e" strokeWidth="1.3" strokeLinecap="round" />
+                <path d="M6 5l3 1M12 4l3-1M5 9l2 0" stroke="#c89b5c" strokeWidth="1.6" strokeLinecap="round" />
               </pattern>
               <pattern id="pt-drywall" width="6" height="6" patternUnits="userSpaceOnUse">
                 <rect width="6" height="6" fill="#f1f5f9" /><circle cx="3" cy="3" r="0.6" fill="#94a3b8" />
@@ -1161,6 +1175,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                   <g key={e.uid} opacity={otroPiso ? 0.22 : 1} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); setSelAb(null); if (otroPiso && e.nivel) setNivelMuro(e.nivel); } }} className="cursor-pointer">
                     {tramos.map(([a, b], i) => {
                       const mat = e.material || 'ladrillo';
+                      const tipoL = tipoLadrillo(e.materialId, catLadrillo.find(l => l.id === e.materialId)?.tipo);
                       const hw = Math.max(e.a, 5 / scale) / 2; // medio espesor (m), mínimo visible
                       const q = [P(a, -hw), P(b, -hw), P(b, hw), P(a, hw)];
                       const pts = q.map(v => `${v.x},${v.y}`).join(' ');
@@ -1169,7 +1184,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                       if (mat === 'drywall') for (let t = Math.ceil(a / 0.4) * 0.4; t < b - 0.02; t += 0.4) parantes.push(t);
                       return (
                         <g key={i}>
-                          <polygon points={pts} fill={`url(#pt-${mat})`} stroke={mat === 'ladrillo' ? '#c2410c' : mat === 'osb' ? '#92400e' : '#475569'} strokeWidth={sel ? 2.5 : 1.2} />
+                          <polygon points={pts} fill={`url(#pt-${mat === 'ladrillo' ? `ladrillo-${tipoL}` : mat})`} stroke={mat === 'ladrillo' ? ESTILO_LADRILLO[tipoL].borde : mat === 'osb' ? '#92400e' : '#475569'} strokeWidth={sel ? 2.5 : 1.2} />
                           {mat === 'drywall' && <>
                             <line x1={q[0].x} y1={q[0].y} x2={q[1].x} y2={q[1].y} stroke="#334155" strokeWidth={Math.max(1.5, 0.0125 * scale)} />
                             <line x1={q[3].x} y1={q[3].y} x2={q[2].x} y2={q[2].y} stroke="#334155" strokeWidth={Math.max(1.5, 0.0125 * scale)} />

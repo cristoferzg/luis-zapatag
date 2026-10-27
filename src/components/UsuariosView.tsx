@@ -8,6 +8,7 @@ import { useFirestoreArraySync } from '../lib/db';
 import { safeStorage } from '../lib/storageManager';
 import { UploadProgressBar } from './common/UploadProgressBar';
 import { SystemUser } from '../types';
+import LectorComprobante, { DatosPago } from './common/LectorComprobante';
 export type { SystemUser };
 
 interface UsuariosViewProps {
@@ -72,6 +73,8 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
   };
   const [name, setName] = useState('');
   const [currentPin, setCurrentPin] = useState(generatePIN());
+  const [pago, setPago] = useState<DatosPago | null>(null);
+  const [lectorKey, setLectorKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Estados para Descarga e Importación / Resguardo
@@ -114,11 +117,18 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
       pin: currentPin,
       lastLogin: formattedNow,
       lastLoginTimestamp: Date.now(),
-      isActive: true
+      isActive: true,
+      ...(pago?.nroOperacion || pago?.monto !== undefined ? { pago: {
+        ...(pago.nroOperacion ? { nroOperacion: pago.nroOperacion } : {}),
+        ...(pago.monto !== undefined ? { monto: pago.monto } : {}),
+        ...(pago.fecha ? { fecha: pago.fecha } : {}),
+        ...(pago.metodo ? { metodo: pago.metodo } : {}),
+      } } : {}),
     };
     
     setUsuarios([...usuarios, newUser]);
     setName('');
+    setPago(null); setLectorKey(k => k + 1);
     setCurrentPin(generatePIN());
     notify(`✓ Acceso registrado para ${sanitizedName} (PIN: ${currentPin})`);
   };
@@ -460,6 +470,7 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
     return usuarios.filter(u => 
       (u.name && u.name.toLowerCase().includes(q)) ||
       (u.pin && u.pin.includes(q)) ||
+      (u.pago?.nroOperacion && u.pago.nroOperacion.toLowerCase().includes(q)) ||
       (u.role && u.role.toLowerCase().includes(q))
     );
   }, [usuarios, searchQuery]);
@@ -671,6 +682,13 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Pago del acceso (opcional)</label>
+                <LectorComprobante key={lectorKey} onLeido={setPago}
+                  usados={usuarios.filter(u => u.pago?.nroOperacion).map(u => ({ codigo: u.pago!.nroOperacion!, quien: u.name }))} />
+                <p className="text-[10px] text-slate-400 mt-1">Sube la captura de Yape, Plin o transferencia: se extrae el N° de operación y se guarda con este acceso.</p>
+              </div>
+
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-500 leading-relaxed">
                 El colaborador usará este PIN directamente en la pantalla de inicio para entrar a sus módulos de trabajo.
               </div>
@@ -694,7 +712,7 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Buscar colaborador por nombre o PIN..."
+              placeholder="Buscar por nombre, PIN o N° de operación..."
               className="w-full bg-transparent border-none text-slate-800 text-xs font-medium focus:outline-none placeholder-slate-400"
             />
             {searchQuery && (
@@ -747,6 +765,11 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
                               <Clock className="w-3 h-3 text-slate-400" />
                               <span>Último acceso: {u.lastLogin || 'Ninguno'}</span>
                             </span>
+                            {u.pago?.nroOperacion && (
+                              <span className="text-[10px] font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200" title={`Pago${u.pago.metodo ? ` por ${u.pago.metodo}` : ''}${u.pago.fecha ? ` el ${u.pago.fecha}` : ''}`}>
+                                Op. {u.pago.nroOperacion}{u.pago.monto !== undefined ? ` · S/ ${u.pago.monto.toFixed(2)}` : ''}
+                              </span>
+                            )}
                             <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="Volumen de datos / utilidad registrada">
                               💾 {getUserMB(u.id, u.name)}
                             </span>
