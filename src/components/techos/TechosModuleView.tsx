@@ -1,5 +1,6 @@
 // Módulo Exclusivo para Techos Metálicos, Mezzanine y Cubiertas Estructurales - Innova Contratistas
 import { KEY_OBRA_TECHOS_ID } from '../concreto/obraPisos';
+import { useDeslizarHorizontal } from '../../hooks/useDeslizarHorizontal';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
@@ -473,6 +474,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   isAdmin = false,
   currentUserName = 'Usuario'
 }) => {
+  const navDeslizable = useDeslizarHorizontal<HTMLElement>();
+  const accionesDeslizables = useDeslizarHorizontal<HTMLDivElement>();
   const { isMobile, isDesktop } = useTechosDimensions();
 
   // Estado Central del Motor CAD Paramétrico (PROJECT_MODEL)
@@ -939,7 +942,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
 
         {/* Botones de Acción Principal. En móvil solo "Guardar" + menú "⋯";
             el resto se oculta para dejar la barra limpia (solo lo esencial). */}
-        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5 relative">
+        <div ref={accionesDeslizables} className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5 relative">
           {/* [ SUBIR ARCHIVO / AUTOCAD ] — solo escritorio */}
           <button
             onClick={() => setShowUploadModal(true)}
@@ -1077,11 +1080,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
 
       {/* 2. BARRA DE PESTAÑAS NAVEGACIÓN PRINCIPAL (ESTILO HERRERÍA) */}
       <nav 
-        onWheel={(e) => {
-          if (e.currentTarget) {
-            e.currentTarget.scrollLeft += e.deltaY;
-          }
-        }}
+        ref={navDeslizable}
         className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-3 flex items-center justify-between overflow-x-auto shrink-0 z-10 select-none scrollbar-none"
       >
         <div className="flex items-center gap-1">

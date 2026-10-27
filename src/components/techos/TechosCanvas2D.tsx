@@ -1,11 +1,11 @@
 // Lienzo CAD Vectorial 2D/3D con Soporte Táctil, Panning, Snapping, Acoplamiento, Arrastre de Nodos, Trazo de Arcos y Sumilla de Controles
 import { comprasPermitidas } from '../../lib/plataforma';
 import { createPortal } from 'react-dom';
+import { useDeslizarHorizontal } from '../../hooks/useDeslizarHorizontal';
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { 
   Grid, 
   Move, 
-  Maximize2, 
   RotateCcw, 
   RotateCw,
   X, 
@@ -31,7 +31,7 @@ import {
   Copy,
   Clipboard,
   ChevronDown,
-  MoreHorizontal,
+  MoreHorizontal, Undo2, Redo2,
   Image as ImageIcon,
   Droplets,
   Compass
@@ -85,6 +85,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   showInspector,
   setShowInspector
 }) => {
+  const barraDeslizable = useDeslizarHorizontal<HTMLDivElement>();
   const { isDesktop } = useTechosDimensions();
   const containerRef = useRef<HTMLDivElement>(null);
   const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
@@ -216,7 +217,6 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Estados de Vista
   const [vista, setVista] = useState<VistaTechoCAD>(activeVista || 'planta');
-  const [vistaAmplia, setVistaAmplia] = useState<boolean>(false);
 
   useEffect(() => {
     if (activeVista && activeVista !== vista) {
@@ -296,6 +296,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Medición puntual (herramienta 'measure')
   const [measureStartPoint, setMeasureStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [measureDistanceM, setMeasureDistanceM] = useState<number | null>(null);
+  // Regla: la última medida queda dibujada; se puede ajustar el largo y trazar una viga exacta.
+  const [ultimaMedida, setUltimaMedida] = useState<{ a: { x: number; y: number }; b: { x: number; y: number }; d: number } | null>(null);
 
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
@@ -821,6 +823,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const handleNodeTouchStart = (nodeId: string, e: React.TouchEvent) => {
     if (activeTool === 'select' && e.touches.length === 1) {
       e.stopPropagation();
+      // El lienzo no recibe este toque (se detuvo arriba): se marca aquí el inicio
+      // para que el movimiento del dedo arrastre el nodo.
+      touchPanStartRef.current = { x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y };
       setDraggingNodeId(nodeId);
       setHasMovedNode(false);
       engineState?.setSelectedElementIds([nodeId]);
@@ -843,14 +848,6 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     el.addEventListener('wheel', onWheelNative, { passive: false });
     return () => el.removeEventListener('wheel', onWheelNative);
   }, []);
-
-  // NAVEGACIÓN HORIZONTAL CON RUEDA DE RATÓN EN BARRAS FLOTANTES
-  const handleHorizontalWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    if (e.currentTarget) {
-      e.currentTarget.scrollLeft += e.deltaY;
-    }
-  };
 
   // ENMARCAR VISTA COMPLETA (FIT TO VIEW)
   const handleFitView = useCallback(() => {
@@ -984,6 +981,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       } else {
         const dist = Math.hypot(clickCoords.x - measureStartPoint.x, clickCoords.y - measureStartPoint.y);
         setMeasureDistanceM(Number(dist.toFixed(2)));
+        setUltimaMedida({ a: measureStartPoint, b: { x: clickCoords.x, y: clickCoords.y }, d: Number(dist.toFixed(2)) });
         setMeasureStartPoint(null);
       }
       return;
@@ -1144,6 +1142,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         } else {
           const dist = Math.hypot(n.x - measureStartPoint.x, nY - measureStartPoint.y);
           setMeasureDistanceM(Number(dist.toFixed(2)));
+          setUltimaMedida({ a: measureStartPoint, b: { x: n.x, y: nY }, d: Number(dist.toFixed(2)) });
           setMeasureStartPoint(null);
         }
       }
@@ -1364,11 +1363,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`w-full h-full flex flex-col bg-slate-50 text-slate-800 relative overflow-hidden select-none font-sans ${vistaAmplia ? 'fixed inset-0 z-50' : ''}`}>
+    <div ref={containerRef} className={`w-full h-full flex flex-col bg-slate-50 text-slate-800 relative overflow-hidden select-none font-sans`}>
       
       {/* 1. SUB-BARRA DE VISTA: PLANTA / SECCIÓN / 3D WEBGL (CON SOPORTE DE SCROLL POR RUEDA DE RATÓN) */}
       <div 
-        onWheel={handleHorizontalWheel}
+        ref={barraDeslizable}
         className="h-9 sm:h-10 bg-white border-b border-slate-200 px-2 sm:px-3 flex items-center justify-between shrink-0 z-20 shadow-2xs gap-1 sm:gap-2 overflow-x-auto scrollbar-none"
       >
         {/* Izquierda: Vistas + Herramienta (acceso rápido estilo Herrería) */}
@@ -1604,14 +1603,6 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               accesos de ayuda: queda "Ayuda" en el encabezado y "Guía / Tutorial"
               + "Controles y atajos" dentro de "⋯ Más".) */}
 
-          {/* BOTÓN PANTALLA COMPLETA */}
-          <button
-            onClick={() => setVistaAmplia(!vistaAmplia)}
-            className="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 cursor-pointer shadow-2xs transition-colors shrink-0"
-            title={vistaAmplia ? "Salir de vista amplia" : "Vista completa de lienzo"}
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 
@@ -1984,6 +1975,22 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                     ))}
                   </g>
                 )}
+
+                {/* REGLA: ÚLTIMA MEDIDA (queda dibujada como una cota) */}
+                {activeTool === 'measure' && ultimaMedida && !measureStartPoint && (() => {
+                  const Y = (v: number) => (vista === 'planta' ? v : -v) * scale;
+                  const x1 = ultimaMedida.a.x * scale, y1 = Y(ultimaMedida.a.y), x2 = ultimaMedida.b.x * scale, y2 = Y(ultimaMedida.b.y);
+                  return (
+                    <g className="pointer-events-none">
+                      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#0284c7" strokeWidth="2.5" />
+                      <circle cx={x1} cy={y1} r="5" fill="#0284c7" /><circle cx={x2} cy={y2} r="5" fill="#0284c7" />
+                      <g transform={`translate(${(x1 + x2) / 2}, ${(y1 + y2) / 2 - 14})`}>
+                        <rect x="-34" y="-11" width="68" height="22" rx="6" fill="#0284c7" />
+                        <text x="0" y="4" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">{ultimaMedida.d.toFixed(2)} m</text>
+                      </g>
+                    </g>
+                  );
+                })()}
 
                 {/* HERRAMIENTA MEDIR: LÍNEA DE COTA DINÁMICA */}
                 {activeTool === 'measure' && measureStartPoint && (
@@ -2721,6 +2728,71 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {showPlanesIA && <PlanesIAModal motivo={showPlanesIA} onClose={() => setShowPlanesIA(false)} />}
 
         {/* AVISO / RESULTADO DE LA LECTURA DE PLANO POR IA */}
+        {/* REGLA: ajustar el largo medido y trazar una viga exacta */}
+        {activeTool === 'measure' && ultimaMedida && engineState && (() => {
+          const m = ultimaMedida;
+          const trazar = () => {
+            const ux = (m.b.x - m.a.x) / (m.d || 1), uy = (m.b.y - m.a.y) / (m.d || 1);
+            const bx = m.a.x + ux * m.d, by = m.a.y + uy * m.d;
+            const P = (x: number, y: number): [number, number, number] => vista === 'planta' ? [x, beamElevationSetting, y] : [x, Math.max(0, y), profundidadZSetting];
+            const na = engineState.addNode(...P(m.a.x, m.a.y), false, true);
+            const nb = engineState.addNode(...P(bx, by), false, true);
+            engineState.addSegment(na, nb, 'viga_principal');
+            setUltimaMedida(null);
+          };
+          return (
+            <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 bg-white/95 border border-sky-300 shadow-xl rounded-2xl px-3 py-2 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700"
+              onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+              <span className="text-sky-700">📏 Medida</span>
+              <input type="number" step="0.01" min={0.05} value={m.d} onChange={e => { const v = parseFloat(e.target.value); if (v > 0) setUltimaMedida({ ...m, d: v }); }}
+                className="w-20 px-2 py-1 rounded-lg border border-slate-200 font-mono text-right" /> m
+              <button type="button" onClick={trazar} className="px-2.5 py-1.5 rounded-lg bg-sky-600 text-white cursor-pointer">Trazar viga exacta</button>
+              <button type="button" onClick={() => setUltimaMedida(null)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 cursor-pointer">Medir de nuevo</button>
+            </div>
+          );
+        })()}
+
+        {/* GIRAR / VOLTEAR LO SELECCIONADO (p. ej. un tijeral que quedó sobre las columnas) */}
+        {activeTool === 'select' && engineState && selectedElementIds.length > 0 && vista !== '3d' && (() => {
+          const ids = new Set<string>();
+          selectedElementIds.forEach(id => {
+            if (nodes[id]) ids.add(id);
+            const sg = segments[id]; if (sg) { ids.add(sg.nodeAId); ids.add(sg.nodeBId); }
+          });
+          const lista = [...ids].filter(id => nodes[id]);
+          if (lista.length < 2) return null;
+          const enPlanta = vista === 'planta';
+          const cx = lista.reduce((a, id) => a + nodes[id].x, 0) / lista.length;
+          const cv = lista.reduce((a, id) => a + (enPlanta ? (nodes[id].z || 0) : nodes[id].y), 0) / lista.length;
+          const girar = (deg: number) => {
+            const r = (deg * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r);
+            engineState.transformNodes(lista, n => {
+              const v = enPlanta ? (n.z || 0) : n.y;
+              const dx = n.x - cx, dv = v - cv;
+              const x = cx + dx * c - dv * sn, nv = cv + dx * sn + dv * c;
+              return enPlanta ? { x, y: n.y, z: nv } : { x, y: Math.max(0, nv), z: n.z || 0 };
+            });
+          };
+          const voltear = () => {
+            if (enPlanta) { engineState.transformNodes(lista, n => ({ x: n.x, y: n.y, z: 2 * cv - (n.z || 0) })); return; }
+            // En elevación: refleja hacia abajo desde la línea más baja (el tijeral cuelga bajo la viga).
+            const base = Math.min(...lista.map(id => nodes[id].y));
+            engineState.transformNodes(lista, n => ({ x: n.x, y: Math.max(0, 2 * base - n.y), z: n.z || 0 }));
+          };
+          const b = 'px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 cursor-pointer';
+          return (
+            <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 bg-white/95 border border-amber-300 shadow-xl rounded-2xl px-3 py-2 flex flex-wrap items-center gap-1.5 text-xs font-bold text-slate-700"
+              onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+              <span className="text-amber-700 mr-1">{lista.length} nodos</span>
+              <button type="button" className={b} onClick={() => girar(-90)} title="Girar 90° a la izquierda">⟲ 90°</button>
+              <button type="button" className={b} onClick={() => girar(90)} title="Girar 90° a la derecha">⟳ 90°</button>
+              <button type="button" className={b} onClick={() => girar(15)} title="Girar 15°">⟳ 15°</button>
+              <button type="button" className={b} onClick={voltear} title={enPlanta ? 'Reflejar' : 'Voltear hacia abajo'}>⇅ Voltear</button>
+              <button type="button" className={b} onClick={() => engineState.undo?.()} title="Deshacer">↶ Atrás</button>
+            </div>
+          );
+        })()}
+
         {iaNotice && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-40 max-w-md w-[90%] sm:w-auto pointer-events-auto">
             <div className="flex items-start gap-2 bg-slate-900/95 text-white rounded-2xl shadow-xl border border-amber-500/40 px-3.5 py-2.5 backdrop-blur-md">
@@ -2757,6 +2829,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                   );
                 })}
                 <div className="h-px bg-slate-200 mx-1.5 my-0.5" />
+                <button onClick={() => engineState.undo()} disabled={!engineState.canUndo} title="Deshacer (Ctrl+Z)"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30"><Undo2 className="w-[18px] h-[18px]" /></button>
+                <button onClick={() => engineState.redo()} disabled={!engineState.canRedo} title="Rehacer (Ctrl+Y)"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30"><Redo2 className="w-[18px] h-[18px]" /></button>
                 <button onClick={openMas} title="Más herramientas (modo de trazo, edición, arco, cruz…)"
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 cursor-pointer">
                   <MoreHorizontal className="w-[18px] h-[18px]" />
@@ -2784,6 +2860,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 );
               })}
               <div className="h-px w-7 bg-slate-200 my-0.5" />
+              <button onClick={() => engineState.undo()} disabled={!engineState.canUndo} aria-label="Deshacer"
+                className="w-11 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-600 cursor-pointer disabled:opacity-30">
+                <Undo2 className="w-[16px] h-[16px]" /><span className="text-[7.5px] font-bold leading-none">Atrás</span>
+              </button>
+              <button onClick={() => engineState.redo()} disabled={!engineState.canRedo} aria-label="Rehacer"
+                className="w-11 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-600 cursor-pointer disabled:opacity-30">
+                <Redo2 className="w-[16px] h-[16px]" /><span className="text-[7.5px] font-bold leading-none">Adelante</span>
+              </button>
               <label className="w-11 flex flex-col items-center gap-0.5 py-1" title="Paso de rejilla (snap)">
                 <Grid className="w-[15px] h-[15px] text-blue-600" />
                 <select

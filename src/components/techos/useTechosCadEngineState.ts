@@ -95,6 +95,8 @@ export interface UseTechosCadEngineReturn {
   updateMultipleSegmentsProfile: (segmentIds: string[], profileId: string, rolEstructural?: RolEstructuralSegmento) => void;
   /** Varios cambios de perfil a la vez (id de barra → id de perfil), en un solo paso de historial. */
   updateSegmentsProfiles: (cambios: Record<string, string>) => void;
+  /** Mueve/gira varios nodos a la vez (un paso de historial). */
+  transformNodes: (ids: string[], fn: (n: Node3D) => { x: number; y: number; z: number }) => void;
   
   deleteSelectedElements: () => void;
   clearScene: () => void;
@@ -471,6 +473,14 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(nodes, newSegs, coverageZones);
     return id;
   }, [nodes, segments, coverageZones, activeProfileId, pushHistory]);
+
+  const transformNodes = useCallback((ids: string[], fn: (n: Node3D) => { x: number; y: number; z: number }) => {
+    if (!ids.length) return;
+    const newNodes = { ...nodes };
+    ids.forEach(id => { const n = newNodes[id]; if (n) { const p = fn(n); newNodes[id] = { ...n, x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000, z: Math.round(p.z * 1000) / 1000 }; } });
+    setNodes(newNodes);
+    pushHistory(newNodes, segments, coverageZones);
+  }, [nodes, segments, coverageZones, pushHistory]);
 
   // Carga de Proyecto y Restauración de Escena Completa
   const loadScene = useCallback((loadedNodes: Record<string, Node3D>, loadedSegments: Record<string, Segment3D>, loadedZones?: Record<string, CoverageZone3D>) => {
@@ -4058,6 +4068,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     updateSegmentProfile,
     updateMultipleSegmentsProfile,
     updateSegmentsProfiles,
+    transformNodes,
     deleteSelectedElements,
     clearScene,
     loadScene,
