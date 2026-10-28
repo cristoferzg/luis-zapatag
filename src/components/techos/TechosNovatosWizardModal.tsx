@@ -269,6 +269,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const alturaColM = Math.max(0.5, parseFloat(alturaColStr) || 4.5);
   const flechaM = Math.max(0.2, parseFloat(flechaStr) || 2.0);
   const pendientePct = Math.max(1, parseFloat(pendienteStr) || 20);
+  const sinTijeral = tipo === 'pergola' || tipo === 'sol_sombra' || tipo === 'marquesina';
   const alturaCol2M = Math.max(alturaColM + 0.2, parseFloat(alturaCol2Str) || 6.0);
   const numTijerales = Math.max(2, parseInt(numTijeralesStr) || 5);
   const numDientes = Math.max(1, parseInt(numDientesStr) || 3);
@@ -1506,7 +1507,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               )}
 
               {/* CANTIDAD DE TIJERALES / PÓRTICOS */}
-              <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs sm:col-span-2">
+              <div className={`${sinTijeral ? 'hidden ' : ''}p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs sm:col-span-2`}>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800">Cantidad de Tijerales / Ejes (Pórticos):</span>
                   <div className="flex items-center gap-1">
@@ -1597,8 +1598,8 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
             </div>
           </div>
 
-          {/* PASO 3: SELECCIONAR TIPO DE TIJERAL Y RECOMENDACIÓN DE INGENIERÍA */}
-          {true && (
+          {/* PASO 3: SELECCIONAR TIPO DE TIJERAL Y RECOMENDACIÓN DE INGENIERÍA (no aplica a pérgola, sol y sombra ni marquesina) */}
+          {!sinTijeral && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
