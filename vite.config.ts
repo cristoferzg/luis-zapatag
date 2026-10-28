@@ -102,6 +102,7 @@ export default defineConfig({
           if (id.includes('node_modules')) {
             if (id.includes('three')) return 'vendor-three';
             if (id.includes('firebase')) return 'vendor-firebase';
+            if (id.includes('mediabunny')) return 'vendor-video'; // solo al subir un video
             if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('html2pdf')) return 'vendor-pdf';
             return 'vendor-main';
           }

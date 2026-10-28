@@ -57,7 +57,7 @@ interface Props {
   onCerrar: () => void;
 }
 
-interface Subida { id: string; nombre: string; pct: number; error?: string }
+interface Subida { id: string; nombre: string; pct: number; error?: string; nota?: string }
 
 const NOMBRES: Record<Modo, { uno: string; cat: string; principal: string }> = {
   recurso: { uno: 'recurso técnico', cat: 'Categoría', principal: 'Documento principal (PDF, DWG, ZIP…)' },
@@ -86,6 +86,7 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
     return g && (g.titulo || g.descripcion || g.adjuntos?.length) ? g : null;
   });
   const [arrastrando, setArrastrando] = useState<string | null>(null);
+  const [avisoVideo, setAvisoVideo] = useState<string | null>(null);
   const cancelados = useRef(new Set<string>());
   const refPortada = useRef<HTMLInputElement>(null);
   const refPrincipal = useRef<HTMLInputElement>(null);
@@ -142,7 +143,19 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
       const pl = await plantillaDesdeArchivo(f);
       if (pl) set({ plantilla: pl });
     }
-    const url = await subir(f, modo === 'clase' ? 'videos' : 'biblioteca', modo === 'recurso');
+    // Clase: el video se optimiza solo (más liviano, misma nitidez) antes de subirlo.
+    let archivo = f;
+    if (modo === 'clase') {
+      const id = `opt_${Date.now()}`;
+      setSubidas(s => [...s, { id, nombre: f.name, pct: 0, nota: 'Optimizando el video para que pese menos…' }]);
+      const { comprimirVideo } = await import('../../lib/comprimirVideo'); // se carga solo al subir un video
+      const r = await comprimirVideo(f, pct => setSubidas(s => s.map(x => x.id === id ? { ...x, pct } : x)));
+      setSubidas(s => s.filter(x => x.id !== id));
+      if (cancelados.current.has(id)) return;
+      archivo = r.archivo;
+      if (r.comprimido) setAvisoVideo(`Video optimizado: ${tam(r.antes)} → ${tam(r.despues)} (${Math.round((1 - r.despues / r.antes) * 100)} % menos).`);
+    }
+    const url = await subir(archivo, modo === 'clase' ? 'videos' : 'biblioteca', modo === 'recurso');
     if (!url) return;
     const autoTitulo = f.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
     setB(prev => ({ ...prev, archivoUrl: url, archivoNombre: f.name, enlaceVideo: '', titulo: prev.titulo || autoTitulo.charAt(0).toUpperCase() + autoTitulo.slice(1) }));
@@ -335,7 +348,7 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
                         </span>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold text-slate-700 truncate">{b.archivoNombre || (b.archivoUrl ? 'Archivo cargado' : 'Toca o arrastra el archivo')}</p>
-                          <p className="text-[11px] text-slate-500">{b.archivoUrl ? '✓ Listo' : modo === 'clase' ? 'MP4, MOV o WEBM' : 'PDF, DWG, DXF, XLSX, ZIP…'}</p>
+                          <p className="text-[11px] text-slate-500">{b.archivoUrl ? (avisoVideo ? `✓ ${avisoVideo}` : '✓ Listo') : modo === 'clase' ? 'MP4, MOV o WEBM · se optimiza solo para que pese menos' : 'PDF, DWG, DXF, XLSX, ZIP…'}</p>
                         </div>
                         {b.archivoUrl && <button type="button" onClick={e => { e.stopPropagation(); set({ archivoUrl: '', archivoNombre: '' }); }} className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer" aria-label="Quitar archivo"><Trash2 className="w-4 h-4" /></button>}
                         <input ref={refPrincipal} type="file" accept={modo === 'clase' ? 'video/*' : undefined} className="hidden" onChange={e => { subirPrincipal(e.target.files); e.target.value = ''; }} />
@@ -424,6 +437,7 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
                                 className="text-rose-600 cursor-pointer">{s.error ? 'Quitar' : 'Cancelar'}</button>
                             </span>
                           </div>
+                          {s.nota && <p className="text-[11px] text-indigo-700 mt-0.5">{s.nota}</p>}
                           {s.error ? <p className="text-[11px] text-rose-700 mt-0.5">No se pudo subir: {s.error}</p>
                             : <div className="h-1.5 bg-indigo-100 rounded-full mt-1.5 overflow-hidden"><div className="h-full bg-indigo-600 transition-all" style={{ width: `${s.pct}%` }} /></div>}
                         </li>
