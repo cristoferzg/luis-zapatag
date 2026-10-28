@@ -19,16 +19,22 @@ export default function HojaA4Ajustable({ children, className = '' }: { children
   useLayoutEffect(() => {
     const marco = marcoRef.current, hoja = hojaRef.current;
     if (!marco || !hoja) return;
-    const medir = () => { setAnchoMarco(marco.clientWidth); setAltoHoja(hoja.offsetHeight); };
+    // Solo cambios reales de tamaño: si la barra de desplazamiento aparece o
+    // desaparece (unos px), no se reajusta; así la hoja no "tiembla".
+    const medir = () => {
+      setAnchoMarco(w => (Math.abs(marco.clientWidth - w) > 24 ? marco.clientWidth : w));
+      setAltoHoja(hoja.offsetHeight);
+    };
+    setAnchoMarco(marco.clientWidth);
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(marco); ro.observe(hoja);
     return () => ro.disconnect();
   }, []);
 
-  const ajuste = Math.min(1, (anchoMarco - 8) / ANCHO_A4);
+  const ajuste = Math.min(1, (anchoMarco - 24) / ANCHO_A4);
   const escala = zoom ?? ajuste;
-  const chica = ajuste < 0.999;
+  const chica = ajuste < 0.95; // casi cabe: sin barra de zoom (si aparece y desaparece, la hoja tiembla)
   useEffect(() => { if (zoom !== null && zoom <= ajuste + 0.001) setZoom(null); }, [zoom, ajuste]);
 
   return (
@@ -44,7 +50,7 @@ export default function HojaA4Ajustable({ children, className = '' }: { children
             className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-slate-700 disabled:opacity-40 cursor-pointer" title="Ver la hoja completa"><Maximize2 className="w-3.5 h-3.5" /> Ajustar</button>
         </div>
       )}
-      <div ref={marcoRef} className="w-full overflow-auto" style={{ touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+      <div ref={marcoRef} className={`w-full ${zoom === null ? 'overflow-x-hidden overflow-y-visible' : 'overflow-auto'}`} style={{ touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
         <div style={{ width: ANCHO_A4 * escala, height: altoHoja * escala, margin: escala < ajuste + 0.001 ? '0 auto' : undefined }}>
           <div ref={hojaRef} style={{ width: ANCHO_A4, transform: `scale(${escala})`, transformOrigin: 'top left' }}>
             {children}

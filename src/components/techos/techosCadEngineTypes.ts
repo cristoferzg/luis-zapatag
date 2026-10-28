@@ -21,7 +21,10 @@ export type CategoriaCobertura =
   | 'panel_sandwich_pur'
   | 'calamina_galvanizada'
   | 'plancha_acero_deck'
-  | 'fibrocemento_eternit';
+  | 'fibrocemento_eternit'
+  | 'malla_raschel'
+  | 'lona_pvc'
+  | 'policarbonato_compacto';
 
 export type CategoriaAccesorio = 
   | 'placa_base'

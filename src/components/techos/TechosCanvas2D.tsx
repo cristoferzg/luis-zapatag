@@ -871,6 +871,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     const el = containerRef.current;
     if (!el) return;
     const onWheelNative = (e: WheelEvent) => {
+      // Dentro de ventanas (Asistente, Cobertura…) la rueda debe desplazar la ventana, no hacer zoom.
+      if ((e.target as Element | null)?.closest?.('.fixed, [role="dialog"]')) return;
       e.preventDefault();
       const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
       setZoom(prevZoom => Math.min(Math.max(prevZoom * zoomFactor, 0.35), 12.0));

@@ -861,12 +861,14 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setCoverageZones(newZones);
     pushHistory(nodes, segments, newZones);
     return true;
-  }, [nodes, segments, coverageZones, pushHistory]);
+  }, [nodes, segments, coverageZones, pushHistory, activeCoverageId]);
 
   const setCanaleta = useCallback((c: { activa: boolean; material?: 'galvanizada' | 'pvc' }) => {
-    const z = zonaPrincipal(coverageZones);
+    // Si el techo aún no tiene cobertura, se crea desde sus correas.
+    const base = zonaPrincipal(coverageZones) ? coverageZones : { ...coverageZones, ...zonasDesdeCorreas(nodes, segments, activeCoverageId || 'cob_aluzinc_030') };
+    const z = zonaPrincipal(base);
     if (!z) return false;
-    const newZones = { ...coverageZones, [z.id]: { ...z, canaleta: c } };
+    const newZones = { ...base, [z.id]: { ...z, canaleta: c } };
     setCoverageZones(newZones);
     pushHistory(nodes, segments, newZones);
     return true;

@@ -36,6 +36,7 @@ function sepCorreas(cobId: string) {
   if (!c) return 1.0;
   if (c.categoria === 'fibrocemento_eternit') return Math.round(Math.max(0.6, Math.min(1.45, c.longitudComercialM - c.traslapeTransversalMinMm / 1000)) * 100) / 100;
   if (c.categoria === 'panel_sandwich_pur') return 1.5;
+  if (c.categoria === 'malla_raschel' || c.categoria === 'lona_pvc') return 1.5; // la malla va tensada entre tubos
   if (c.categoria === 'policarbonato_alveolar' || c.categoria === 'upvc_termoacustica') return 0.9;
   return 1.0;
 }

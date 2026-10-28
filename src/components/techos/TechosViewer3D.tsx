@@ -67,6 +67,9 @@ export function modeloDesdeCobertura(coberturaId?: string): string | null {
   const id = coberturaId.toLowerCase();
   if (id.includes('teja_andina')) return 'eternit_teja';
   if (id.includes('teja_espanola')) return 'upvc_teja_espanola';
+  if (id.includes('malla_raschel')) { const m = /_(\d\d)$/.exec(id); return `malla_raschel_${m ? m[1] : '80'}`; }
+  if (id.includes('lona_pvc')) return 'lona_pvc';
+  if (id.includes('policarbonato_compacto')) return 'poli_compacto';
   if (id.includes('eternit')) return 'eternit_p4';
   if (id.includes('tr5')) return id.includes('060') ? 'tr5_060' : 'tr5_050';
   if (id.includes('calamina')) return 'ondulada_025';
@@ -81,7 +84,7 @@ export interface ModeloAluzincPeru {
   id: string;
   nombre: string;
   espesorMm: number;
-  tipo: 'aluzinc_tr4' | 'aluzinc_tr5' | 'calamina_ondulada' | 'policarbonato' | 'termoacustico' | 'fibrocemento' | 'teja_andina' | 'teja_espanola';
+  tipo: 'aluzinc_tr4' | 'aluzinc_tr5' | 'calamina_ondulada' | 'policarbonato' | 'termoacustico' | 'fibrocemento' | 'teja_andina' | 'teja_espanola' | 'malla' | 'lona';
   opacidadDefecto: number;
   colorDefectoHex: number;
   ribHeightMm: number;
@@ -177,6 +180,12 @@ export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
   { id: 'eternit_p4', nombre: 'Eternit Fibrocemento Perfil 4 (Gran Onda 5 mm)', espesorMm: 5.0, tipo: 'fibrocemento', opacidadDefecto: 1.0, colorDefectoHex: 0x9ca3af, ribHeightMm: 52, ribCountPerMeter: 5.65 },
   { id: 'eternit_teja', nombre: 'Eternit Teja Andina (Fibrocemento)', espesorMm: 5.0, tipo: 'teja_andina', opacidadDefecto: 1.0, colorDefectoHex: 0xb45309, ribHeightMm: 60, ribCountPerMeter: 4.2 },
   { id: 'upvc_teja_espanola', nombre: 'Teja Española UPVC (2.3 mm · onda 30 mm · paso 219 mm)', espesorMm: 2.3, tipo: 'teja_espanola', opacidadDefecto: 1.0, colorDefectoHex: 0xb9461f, ribHeightMm: 30, ribCountPerMeter: 4.17 },
+  { id: 'malla_raschel_50', nombre: 'Malla Raschel 50 % (sombra ligera)', espesorMm: 0.5, tipo: 'malla', opacidadDefecto: 0.45, colorDefectoHex: 0x166534, ribHeightMm: 1, ribCountPerMeter: 3 },
+  { id: 'malla_raschel_65', nombre: 'Malla Raschel 65 %', espesorMm: 0.6, tipo: 'malla', opacidadDefecto: 0.6, colorDefectoHex: 0x166534, ribHeightMm: 1, ribCountPerMeter: 3 },
+  { id: 'malla_raschel_80', nombre: 'Malla Raschel 80 % (la más usada)', espesorMm: 0.7, tipo: 'malla', opacidadDefecto: 0.75, colorDefectoHex: 0x14532d, ribHeightMm: 1, ribCountPerMeter: 3 },
+  { id: 'malla_raschel_90', nombre: 'Malla Raschel 90 % (sombra fuerte)', espesorMm: 0.8, tipo: 'malla', opacidadDefecto: 0.88, colorDefectoHex: 0x1f2937, ribHeightMm: 1, ribCountPerMeter: 3 },
+  { id: 'lona_pvc', nombre: 'Lona PVC tensada', espesorMm: 0.6, tipo: 'lona', opacidadDefecto: 0.97, colorDefectoHex: 0xf1f5f9, ribHeightMm: 1, ribCountPerMeter: 3 },
+  { id: 'poli_compacto', nombre: 'Policarbonato compacto 4 mm (liso)', espesorMm: 4, tipo: 'lona', opacidadDefecto: 0.35, colorDefectoHex: 0xbae6fd, ribHeightMm: 1, ribCountPerMeter: 3 },
   { id: 'sandwich_pur_50', nombre: 'Panel Sándwich PUR Industrial 50mm (Aislante Térmico)', espesorMm: 50.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x047857, ribHeightMm: 45, ribCountPerMeter: 3 }
 ];
 
@@ -1330,12 +1339,61 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   }, [evaluateRoofHeightAtX]);
 
   // Función para calcular la onda trapezoidal exacta del Aluzinc TR-4 / TR-5 / Calamina
+  // Cobertura de UN paño plano (zona de 4 puntos): la onda corre en el sentido
+  // de la caída, con volado de 30 cm en el alero bajo. Para techos en L, en U y
+  // otros donde los paños caen en distintas direcciones.
+  const crearPanoZona = (pts: THREE.Vector3[], arriba: boolean): THREE.BufferGeometry | null => {
+    if (pts.length < 3) return null;
+    const activeModel = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
+    const P0 = pts[0];
+    const nrm = new THREE.Vector3().subVectors(pts[1], P0).cross(new THREE.Vector3().subVectors(pts[pts.length - 1], P0)).normalize();
+    if (nrm.y < 0) nrm.negate();
+    const baja = new THREE.Vector3(0, -1, 0);
+    let d = baja.clone().sub(nrm.clone().multiplyScalar(baja.dot(nrm)));
+    if (d.length() < 1e-3) d = new THREE.Vector3().subVectors(pts[1], P0).cross(nrm).normalize(); else d.normalize();
+    const a = new THREE.Vector3().crossVectors(nrm, d).normalize();
+    const us = pts.map(p => new THREE.Vector3().subVectors(p, P0).dot(a)), vs = pts.map(p => new THREE.Vector3().subVectors(p, P0).dot(d));
+    const u0 = Math.min(...us) - 0.05, u1 = Math.max(...us) + 0.05, v0 = Math.min(...vs), v1 = Math.max(...vs) + 0.30;
+    const freq = Math.max(3, activeModel.ribCountPerMeter), alto = (activeModel.ribHeightMm || 35) / 1000;
+    const periodo = 1 / freq;
+    const ondaRedonda = ['calamina_ondulada', 'fibrocemento', 'teja_andina', 'teja_espanola'].includes(activeModel.tipo);
+    const fr = ondaRedonda ? Array.from({ length: 12 }, (_, i) => i / 12) : (activeModel.tipo === 'aluzinc_tr5' ? [0, 0.22, 0.34, 0.56] : [0, 0.15, 0.35, 0.50]);
+    const uu: number[] = [u0];
+    for (let k = Math.floor(u0 / periodo) - 1; k * periodo <= u1 + periodo; k++) fr.forEach(f => { const u = (k + f) * periodo; if (u > u0 && u < u1) uu.push(u); });
+    uu.push(u1);
+    const vv = [v0, (v0 + v1) / 2, v1];
+    const base = 0.04 + (arriba ? Math.max(0.002, activeModel.espesorMm / 1000) : 0);
+    const pos: number[] = [], idx: number[] = [];
+    vv.forEach(v => uu.forEach(u => {
+      const rib = getRibHeightProfile(u, freq, alto * (arriba ? 1 : 0.95), activeModel.tipo).offset;
+      const p = P0.clone().addScaledVector(a, u).addScaledVector(d, v).addScaledVector(nrm, base + rib);
+      pos.push(p.x, p.y, p.z);
+    }));
+    const W = uu.length;
+    for (let j = 0; j < vv.length - 1; j++) for (let i = 0; i < W - 1; i++) {
+      const q = j * W + i, r = q + 1, s2 = q + W, t = s2 + 1;
+      if (arriba) idx.push(q, s2, r, r, s2, t); else idx.push(q, r, s2, r, t, s2);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    // Que la cara de arriba mire hacia arriba.
+    const nz = g.getAttribute('normal');
+    if (arriba && nz.count && nz.getY(0) < 0) { idx.reverse(); g.setIndex(idx); g.computeVertexNormals(); }
+    if (!arriba && nz.count && nz.getY(0) > 0) { idx.reverse(); g.setIndex(idx); g.computeVertexNormals(); }
+    return g;
+  };
+
   const getRibHeightProfile = (
     zPos: number,
     freq: number,
     height: number,
     tipo: string
   ): { offset: number; slopeZ: number } => {
+    if (tipo === 'malla' || tipo === 'lona') {
+      // Malla raschel, lona y láminas lisas: superficie tensada, sin ondas.
+      return { offset: 0, slopeZ: 0 };
+    }
     if (tipo === 'teja_espanola') {
       // Teja española: cañón redondeado arriba y canal angosto abajo.
       const period = 1 / Math.max(1, freq);
@@ -2240,7 +2298,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       });
 
       nodeArray.forEach(n => {
-        if (n.y === 0 || n.isFixedSupport) {
+        if (n.y <= 0.3) { // los anclajes al muro (apoyos elevados) no llevan dado en el suelo
           // Dado de concreto / Pedestal de cimentación
           const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
           pedestal.name = 'dado_base'; pedestal.visible = !fotoFondoRef.current; // sobre la foto real, la columna llega al piso existente
@@ -2267,6 +2325,17 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           });
         }
       });
+    }
+
+    // Muro de la marquesina: donde se anclan las vigas y los tensores.
+    const anclajesMuro = nodeArray.filter(n => /^mq_(m|ta|mb)_/.test(n.id));
+    if (anclajesMuro.length) {
+      const zs = anclajesMuro.map(n => n.z || 0), alto = Math.max(...anclajesMuro.map(n => n.y)) + 0.35;
+      const z0 = Math.min(...zs) - 0.3, z1 = Math.max(...zs) + 0.3;
+      const muro = new THREE.Mesh(new THREE.BoxGeometry(0.15, alto, z1 - z0), new THREE.MeshStandardMaterial({ color: 0xd6cfc4, roughness: 0.95 }));
+      muro.position.set(-0.075, alto / 2, (z0 + z1) / 2);
+      muro.name = 'muro_marquesina';
+      modeloGroup.add(muro);
     }
 
     // 4. RENDERIZADO DE PERFILES CON GEOMETRÍA REAL Y DISEÑO UNIFICADO ELEGANTE
@@ -2653,6 +2722,17 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       domeParams
     };
 
+    // Paños de cobertura (zonas de 4 puntos, sin los sobretechos de tanques).
+    // "cruzado" = el agua cae a lo largo (Z), como en las alas de un techo en L o U.
+    const panosZona = Object.values(zonasCob)
+      .filter(z => !/^tq[0-9a-z]+_/.test(z.id))
+      .map(z => z.nodeIdsBoundary.map(id => nodes[id]).filter(Boolean).map(n => new THREE.Vector3(n.x, n.y, n.z || 0)))
+      .filter(pts => pts.length >= 3)
+      .map(pts => {
+        const nrm = new THREE.Vector3().subVectors(pts[1], pts[0]).cross(new THREE.Vector3().subVectors(pts[pts.length - 1], pts[0]));
+        return { pts, cruzado: Math.abs(nrm.z) > Math.abs(nrm.x) + 1e-6 && Math.abs(nrm.z) > 1e-3 * nrm.length() };
+      });
+
     // 6. RENDERIZADO DE COBERTURA ALUZINC ADAPTADA EXACTAMENTE A LA ESTRUCTURA
     if (mostrarCobertura) {
       const activeModel = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
@@ -2696,6 +2776,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         );
         hipRoofGroup.name = 'cobertura_malla';
         modeloGroup.add(hipRoofGroup);
+      } else if (panosZona.length >= 2 && panosZona.some(pz => pz.cruzado)) {
+        // Techo con paños que caen en distintas direcciones (en L, en U…): un paño por zona.
+        const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
+        const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
+        const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
+        panosZona.forEach(pz => {
+          const gt = crearPanoZona(pz.pts, true), gb = crearPanoZona(pz.pts, false);
+          if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
+          if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
+        });
+        modeloGroup.add(grupo);
+        panosRef.current = []; movilMetaRef.current = null;
       } else if (topProfilePoints.length >= 2) {
         const minZNode = Math.min(...allNodeArray.map(n => n.z || 0));
         const maxZNode = Math.max(...allNodeArray.map(n => n.z || 0));
@@ -3555,7 +3647,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           {/* Canaletas y bajadas de agua */}
           {(() => { const activa = canaletaActiva(zonasCob); return (
             <button
-              onClick={() => { const ok = engineState?.setCanaleta?.({ activa: !activa }); if (!ok) alert('Primero cubre el techo (botón Cobertura) para poner canaletas y bajadas.'); else setMostrarCobertura(true); }}
+              onClick={() => { const ok = engineState?.setCanaleta?.({ activa: !activa }); if (!ok) alert('Este diseño no tiene correas para colocar la cobertura: agrégalas o usa el Asistente.'); else setMostrarCobertura(true); }}
               className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${activa ? 'bg-sky-600 text-white border-sky-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
               title={activa ? 'Canaletas y bajadas: activas (clic para quitar)' : 'Poner canaletas y bajadas de agua'}
             >

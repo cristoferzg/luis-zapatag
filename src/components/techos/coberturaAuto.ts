@@ -225,6 +225,7 @@ export function opParaCaida(actual: DireccionCaida, deseada: DireccionCaida): 'g
 export const PENDIENTE_MIN_PCT: Record<string, number> = {
   aluzinc_tr4: 10, aluzinc_tr5: 10, calamina_galvanizada: 15, fibrocemento_eternit: 27,
   policarbonato_alveolar: 10, upvc_termoacustica: 10, panel_sandwich_pur: 5, plancha_acero_deck: 3,
+  malla_raschel: 0, lona_pvc: 10, policarbonato_compacto: 10,
 };
 
 function poligonosPropios(nodes: Record<string, NodoMin>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }>) {
@@ -263,6 +264,22 @@ export function cambiarPendiente<N extends NodoMin>(nodes: Record<string, N>, se
   Object.values(nodes).forEach(n => {
     const mover = !/^TQ/.test(n.nodeLabel || '') && n.y > act.yAlero + 0.005;
     out[n.id] = mover ? { ...n, y: Math.round((act.yAlero + (n.y - act.yAlero) * f) * 1000) / 1000 } : n;
+  });
+  return out;
+}
+
+// Techo plano: le da caída hacia `dir` con `pct` %. Todo lo elevado (sobre el
+// suelo) sube según su distancia al alero; el alero queda a su altura actual.
+export function inclinarTechoPlano<N extends NodoMin>(nodes: Record<string, N>, dir: DireccionCaida, pct: number): Record<string, N> {
+  const ns = Object.values(nodes).filter(n => n.y > 0.05 && !/^TQ/.test(n.nodeLabel || ''));
+  if (!ns.length || pct <= 0) return nodes;
+  const minX = Math.min(...ns.map(n => n.x)), maxX = Math.max(...ns.map(n => n.x)), minZ = Math.min(...ns.map(n => n.z)), maxZ = Math.max(...ns.map(n => n.z));
+  // distancia desde el alero bajo (el lado hacia donde cae el agua)
+  const dist = (n: N) => dir === 'adelante' ? maxZ - n.z : dir === 'atras' ? n.z - minZ : dir === 'derecha' ? maxX - n.x : n.x - minX;
+  const out: Record<string, N> = {};
+  Object.values(nodes).forEach(n => {
+    const mover = n.y > 0.05 && !/^TQ/.test(n.nodeLabel || '');
+    out[n.id] = mover ? { ...n, y: Math.round((n.y + dist(n) * pct / 100) * 1000) / 1000 } : n;
   });
   return out;
 }

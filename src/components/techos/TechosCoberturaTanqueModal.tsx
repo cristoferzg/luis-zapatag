@@ -13,7 +13,7 @@ import { INVENTARIO_COBERTURAS, INVENTARIO_PERFILES_TUBULARES } from './techosCa
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import { MODELOS_TENSOR, TipoTensor, sugerido, generarTensores, quitarTensoresAuto, modeloTensor } from './tensores';
 import { safeStorage } from '../../lib/storageManager';
-import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA, pendienteActual, cambiarPendiente, PENDIENTE_MIN_PCT } from './coberturaAuto';
+import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA, pendienteActual, cambiarPendiente, PENDIENTE_MIN_PCT, inclinarTechoPlano } from './coberturaAuto';
 
 interface Props {
   engineState: any;
@@ -143,7 +143,15 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
     engineState.loadScene(transformarEscena(nodes, op), segments, zones);
     setMsg('✓ Diseño reorientado. Guárdalo para verlo así en Concreto.');
   };
-  const orientar = (d: DireccionCaida) => { if (caida) aplicar(opParaCaida(caida, d)); };
+  // Techo plano (o sin caída): se le da caída hacia la dirección elegida (10 % o la mínima de la cobertura).
+  const orientar = (d: DireccionCaida) => {
+    if (caida) { aplicar(opParaCaida(caida, d)); return; }
+    const pct = Math.max(10, minCob?.pct || 0);
+    const n2 = inclinarTechoPlano(nodes, d, pct);
+    const z2 = Object.fromEntries(Object.entries(zones).map(([k, z]) => [k, z.nodeIdsBoundary.some(id => esTanque(nodes[id])) ? z : { ...z, pendientePorcentaje: pct }]));
+    engineState.loadScene(n2, segments, Object.keys(z2).length ? z2 : zonasDesdeCorreas(n2, segments, 'cob_aluzinc_030'));
+    setMsg(`✓ El techo ahora cae hacia ${NOMBRE_CAIDA[d].toLowerCase()} con ${pct}%. Cambia el % abajo si quieres.`);
+  };
   const pend = useMemo(() => pendienteActual(nodes, segments, zones), [nodes, segments, zones]);
   const [pctNuevo, setPctNuevo] = useState<string>('');
   const aplicarPendiente = (pct: number) => {
@@ -249,13 +257,13 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
             <p className="text-sm font-black text-slate-800">Caída actual: <span className="text-sky-700">{caida ? NOMBRE_CAIDA[caida] : 'techo plano o sin cobertura'}</span></p>
             <div className="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">
               <div />
-              <button disabled={!caida} onClick={() => orientar('atras')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'atras' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowUp className="w-4 h-4" />Atrás</button>
+              <button onClick={() => orientar('atras')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'atras' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowUp className="w-4 h-4" />Atrás</button>
               <div />
-              <button disabled={!caida} onClick={() => orientar('izquierda')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'izquierda' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowLeft className="w-4 h-4" />Izquierda</button>
+              <button onClick={() => orientar('izquierda')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'izquierda' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowLeft className="w-4 h-4" />Izquierda</button>
               <div className="flex items-center justify-center text-[10px] font-bold text-slate-400 text-center">planta</div>
-              <button disabled={!caida} onClick={() => orientar('derecha')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'derecha' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowRight className="w-4 h-4" />Derecha</button>
+              <button onClick={() => orientar('derecha')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'derecha' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowRight className="w-4 h-4" />Derecha</button>
               <div />
-              <button disabled={!caida} onClick={() => orientar('adelante')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'adelante' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowDown className="w-4 h-4" />Adelante (calle)</button>
+              <button onClick={() => orientar('adelante')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'adelante' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowDown className="w-4 h-4" />Adelante (calle)</button>
               <div />
             </div>
             <div className="rounded-xl bg-slate-50 p-3 space-y-2">
