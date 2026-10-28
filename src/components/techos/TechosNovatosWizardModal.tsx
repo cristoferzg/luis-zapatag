@@ -128,6 +128,24 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [selectedBeamProfile, setSelectedBeamProfile] = useState<string>('');
   const [showE090Analysis, setShowE090Analysis] = useState<boolean>(false);
 
+  // Medidas que manda la Calculadora ("Abrir en Techos 3D"): se cargan una vez.
+  useEffect(() => {
+    if (!isOpen) return;
+    let d: any = null;
+    try { d = JSON.parse(localStorage.getItem('innova_cotizador_a_techos') || 'null'); localStorage.removeItem('innova_cotizador_a_techos'); } catch { /* nada */ }
+    if (!d) return;
+    if (d.tipo) setTipo(d.tipo);
+    if (d.tipoTijeral) setTipoTijeral(d.tipoTijeral);
+    if (d.luzStr) setLuzStr(d.luzStr);
+    if (d.largoStr) setLargoStr(d.largoStr);
+    if (d.alturaColStr) setAlturaColStr(d.alturaColStr);
+    if (d.alturaCol2Str) setAlturaCol2Str(d.alturaCol2Str);
+    if (d.pendienteStr) setPendienteStr(d.pendienteStr);
+    if (d.flechaStr) setFlechaStr(d.flechaStr);
+    if (d.numTijeralesStr) setNumTijeralesStr(d.numTijeralesStr);
+    if (d.trussHeightM) setTrussHeightM(Number(d.trussHeightM));
+  }, [isOpen]);
+
   // Cargar proyectos disponibles al montar
   useEffect(() => {
     const rawProjects = safeStorage.getItem<any[]>('sync_cache_projects_admin', []) ||

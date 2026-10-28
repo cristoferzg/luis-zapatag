@@ -137,6 +137,7 @@ function construirItems(): ItemCatalogo[] {
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Ladrillos', nombre, unidad, ref: 0, usadoEn: ['Obra Civil'] }));
   add({ clave: 'techos:placa_base', grupo: 'Accesorios de techos', nombre: PLACA_BASE_ESTANDAR.nombre, unidad: 'unidad', ref: PLACA_BASE_ESTANDAR.costoUnidadSol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_anclaje', grupo: 'Accesorios de techos', nombre: PERNO_ANCLAJE_J.nombre, unidad: 'caja ×100', ref: PERNO_ANCLAJE_J.costoCaja100Sol, usadoEn: ['Techos'] });
+  add({ clave: 'techos:cumbrera', grupo: 'Accesorios de techos', nombre: 'Cumbrera (para dos aguas)', unidad: 'm', ref: 0, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_epdm', grupo: 'Accesorios de techos', nombre: PERNO_EPDM_ESTANDAR.nombre, unidad: 'caja ×100', ref: PERNO_EPDM_ESTANDAR.costoCaja100Sol, usadoEn: ['Techos'] });
   add({ clave: 'soldadura:kg', grupo: 'Consumibles y pintura', nombre: 'Soldadura (electrodos E6011 / E7018)', unidad: 'kg', ref: SOLDADURA_AWS_E6011.costoKgSol || 22, usadoEn: ['Techos', 'CarpiMetal'] });
   // Accesorios que se colocan en el plano de CarpiMetal (por tipo).

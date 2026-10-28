@@ -307,6 +307,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
+  // Llega desde la Calculadora con medidas: se abre el Asistente con ellas.
+  useEffect(() => { try { if (localStorage.getItem('innova_cotizador_a_techos')) setShowNovatosWizard(true); } catch { /* nada */ } }, []);
   const [showColumnasExactas, setShowColumnasExactas] = useState<boolean>(false);
   const [showCobTanque, setShowCobTanque] = useState<null | 'cobertura' | 'tanque' | 'caida' | 'tensores'>(null);
 
