@@ -60,12 +60,12 @@ function despiece(piezas: number[], barra: number) {
 const CLAVE = 'innova_cotizador_rapido_data';
 const GANANCIA_MAX = 20; // % máximo de ganancia del contratista sobre el precio
 const inicial = {
-  calcLargo: '', calcAncho: '', calcAlero: '0.3', calcBarLength: '6', calcAlturaColumnas: '3', calcNumColumnas: '',
-  precioPorM2: '140', margenGananciaPct: '20', v: 2,
+  calcLargo: '', calcAncho: '', calcAlero: '0', calcBarLength: '6', calcAlturaColumnas: '3', calcNumColumnas: '',
+  precioPorM2: '140', margenGananciaPct: '20', v: 3,
   forma: 'dos_aguas' as Forma, pendiente: '15', flecha: '',
   conTijerales: true, numTijerales: '', sepPorticos: '5', tipoTijeral: 'pratt' as TipoTij, peralte: '',
   perfilCordon: 'perfil_sq_2x2_20', perfilCelosia: 'perfil_sq_1x1_15', perfilViga: 'perfil_rec_100x50_20', perfilColumna: 'perfil_sq_4x4_20', perfilCorrea: 'perfil_rec_2x1_15',
-  cobertura: 'cob_aluzinc_tr4_035', sepCorrea: '', canaletas: true, placas: true,
+  cobertura: 'cob_aluzinc_tr4_035', sepCorrea: '', canaletas: false, placas: false,
   modo: 'materiales' as 'm2' | 'materiales', manoObraPct: '40', gastosPct: '10',
 };
 
@@ -81,8 +81,10 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
   const [f, setF] = useState(() => {
     const d = safeStorage.getItem<any>(CLAVE, null) || {};
     const cob = INVENTARIO_COBERTURAS.some(c => c.id === d.cobertura) ? d.cobertura : (INVENTARIO_COBERTURAS.find(c => /tr4/i.test(c.id))?.id || INVENTARIO_COBERTURAS[0].id);
-    const g = d.v === 2 ? d.margenGananciaPct : '20'; // antes venía en 25 %
-    return { ...inicial, ...d, cobertura: cob, margenGananciaPct: g, v: 2 };
+    const g = (d.v ?? 0) >= 2 ? d.margenGananciaPct : '20'; // antes venía en 25 %
+    // v3: cálculo clásico por m² sin adicionales (alero, canaletas, placas apagados al empezar)
+    const sinAdicionales = (d.v ?? 0) < 3 ? { calcAlero: '0', canaletas: false, placas: false } : {};
+    return { ...inicial, ...d, ...sinAdicionales, cobertura: cob, margenGananciaPct: g, v: 3 };
   });
   const set = <K extends keyof typeof inicial>(k: K, v: (typeof inicial)[K]) => setF((x: typeof inicial) => ({ ...x, [k]: v }));
   useEffect(() => { safeStorage.setItem(CLAVE, f); }, [f]);
@@ -99,6 +101,8 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
     const faldonesAlero = forma === 'arco' ? [arco(A + 2 * alero, flecha * (1 + 2 * alero / A) ** 2)] : faldones.map(fl => fl * (1 + (forma === 'una_agua' ? 2 * alero / A : alero / (A / 2))));
     const largoCob = L + 2 * alero;
     const areaPlanta = (A + 2 * alero) * largoCob;
+    // Lo que se cobra al cliente: largo × ancho, como siempre (sin alero ni inclinación).
+    const areaCobro = L * A;
     const areaReal = faldonesAlero.reduce((s, x) => s + x, 0) * largoCob;
     const subida = forma === 'una_agua' ? A * p : forma === 'dos_aguas' ? A / 2 * p : flecha;
 
@@ -176,14 +180,14 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
     // La ganancia del contratista es como máximo el 20 % del precio al cliente.
     const utilidadPct = Math.min(GANANCIA_MAX, Math.max(0, n(f.margenGananciaPct, GANANCIA_MAX)));
     const totalMateriales = costoDirecto / (1 - utilidadPct / 100);
-    const precioM2Sugerido = totalMateriales / areaPlanta;
+    const precioM2Sugerido = totalMateriales / areaCobro;
     // Por m²: del precio sale primero tu ganancia (20 %); de lo que queda se pagan
     // materiales y, lo restante, la mano de obra y los gastos.
-    const totalM2 = areaPlanta * n(f.precioPorM2, 140);
+    const totalM2 = areaCobro * n(f.precioPorM2, 140);
     const gananciaM2 = totalM2 * utilidadPct / 100;
     const paraManoObraM2 = totalM2 - gananciaM2 - materiales;
 
-    return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, costoAcero, planchas, items, costoCob, materiales, manoObra, gastos, costoDirecto, totalMateriales, totalM2, utilidadPct, precioM2Sugerido, gananciaM2, paraManoObraM2 };
+    return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaCobro, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, costoAcero, planchas, items, costoCob, materiales, manoObra, gastos, costoDirecto, totalMateriales, totalM2, utilidadPct, precioM2Sugerido, gananciaM2, paraManoObraM2 };
   }, [f]);
 
   const total = r ? (f.modo === 'm2' ? r.totalM2 : r.totalMateriales) : 0;
@@ -198,7 +202,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
     const cob = INVENTARIO_COBERTURAS.find(c => c.id === f.cobertura);
     return [
       `Estructura de techo metálico ${formaTxt}.`,
-      `Medidas: ${r.L} m × ${r.A} m, alero ${r.alero} m. Área en planta ${r.areaPlanta.toFixed(2)} m², cobertura ${r.areaReal.toFixed(2)} m².`,
+      `Medidas: ${r.L} m × ${r.A} m, alero ${r.alero} m. Área ${r.areaCobro.toFixed(2)} m² (largo × ancho).`,
       `Estructura: ${r.nP} ${f.conTijerales ? `tijerales tipo ${tipoTxt} (peralte ${r.peralte} m)` : 'vigas'} cada ${r.sepReal.toFixed(2)} m, ${r.nCol} columnas de ${r.H} m, correas cada ${r.sepC} m.`,
       `Acero: ${r.despieces.map(d => `${d.barras} barras ${perfil(d.id).nombre}`).join('; ')}.`,
       `Cobertura: ${cob?.nombre || ''}, ${r.planchas} planchas.`,
@@ -366,8 +370,8 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
               </select>
             </div>
             <div className="flex flex-col gap-1.5 text-xs font-bold text-slate-700">
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={f.canaletas} onChange={e => set('canaletas', e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Canaletas y bajadas</label>
-              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={f.placas} onChange={e => set('placas', e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Placas base y pernos</label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={f.canaletas} onChange={e => set('canaletas', e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Canaletas y bajadas <span className="text-slate-400 font-semibold">(adicional)</span></label>
+              <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={f.placas} onChange={e => set('placas', e.target.checked)} className="w-4 h-4 accent-indigo-600" /> Placas base y pernos <span className="text-slate-400 font-semibold">(adicional)</span></label>
             </div>
           </div>
         </section>
@@ -377,7 +381,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
             {/* RESUMEN */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {([
-                ['Área en planta', `${r.areaPlanta.toFixed(1)} m²`, `con alero de ${r.alero} m`, 'bg-indigo-50 border-indigo-200 text-indigo-900'],
+                ['Área a cobrar', `${r.areaCobro.toFixed(1)} m²`, `largo × ancho${r.alero > 0 ? ` (el alero no se cobra)` : ''}`, 'bg-indigo-50 border-indigo-200 text-indigo-900'],
                 ['Área de cobertura', `${r.areaReal.toFixed(1)} m²`, 'real, con la inclinación', 'bg-orange-50 border-orange-200 text-orange-900'],
                 ['Acero', `${r.metrosAcero.toFixed(0)} m`, `${r.despieces.reduce((s, d) => s + d.barras, 0)} barras de ${f.calcBarLength} m`, 'bg-slate-50 border-slate-200 text-slate-900'],
                 ['Cobertura', `${r.planchas}`, 'planchas', 'bg-emerald-50 border-emerald-200 text-emerald-900'],
@@ -452,7 +456,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
                 <div className="bg-indigo-600/30 p-5 rounded-xl border border-indigo-500/40 text-center">
                   <h5 className="text-indigo-200 text-xs font-semibold uppercase mb-2 flex justify-center items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Precio al cliente</h5>
                   <p className="text-3xl font-bold">{formatCurrency(total)}</p>
-                  <p className="text-xs text-indigo-300 mt-1">{f.modo === 'm2' ? `${r.areaPlanta.toFixed(1)} m² × S/ ${f.precioPorM2}` : `S/ ${(total / r.areaPlanta).toFixed(0)} por m² en planta`}</p>
+                  <p className="text-xs text-indigo-300 mt-1">{f.modo === 'm2' ? `${r.areaCobro.toFixed(1)} m² (largo × ancho) × S/ ${f.precioPorM2}` : `S/ ${(total / r.areaCobro).toFixed(0)} por m² (largo × ancho)`}</p>
                 </div>
                 <div className={`p-5 rounded-xl border text-center ${!noAlcanza ? 'bg-emerald-950/70 border-emerald-500/60' : 'bg-rose-950/70 border-rose-500/60'}`}>
                   <h5 className="text-emerald-300 text-xs font-extrabold uppercase mb-2 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Tu ganancia</h5>
