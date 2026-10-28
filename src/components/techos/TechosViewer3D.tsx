@@ -1027,7 +1027,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     if (!sc) return;
     sc.background = fotoFondo ? null : new THREE.Color((CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor);
     const g = sc.getObjectByName('rejilla_base'); if (g) g.visible = !fotoFondo && !modoRenderRef.current;
-    sc.traverse(o => { if (o.name === 'plataforma_base' || o.name === 'ejes_base') o.visible = !fotoFondo; });
+    sc.traverse(o => { if (o.name === 'plataforma_base' || o.name === 'ejes_base' || o.name === 'dado_base') o.visible = !fotoFondo; });
     aplicarRender(sc);
   }, [fotoFondo, modoIluminacion]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1046,6 +1046,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     cameraAnglePhiRef.current = Math.PI / 2 - (c.altura * Math.PI) / 180;
     cameraRadiusRef.current = radioBaseRef.current * (100 / Math.max(20, c.tam));
     updateCameraPos();
+    if (modoRenderRef.current && sceneRef.current) aplicarRender(sceneRef.current);
   };
   const vistaDeFrente = () => {
     resetCamera();
@@ -1090,7 +1091,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     if (sol) {
       sol.castShadow = on;
       if (on) {
-        sol.position.set(centro.x + tam * 0.6, centro.y + tam * 1.1, centro.z + tam * 0.45);
+        // Sol detrás del techo (visto desde la cámara) y de costado: la sombra cae
+        // hacia adelante, sobre el piso que se ve en la foto.
+        const th = cameraAngleThetaRef.current + Math.PI + 0.6, el = 1.0;
+        sol.position.set(centro.x + Math.sin(th) * Math.cos(el) * tam * 1.3, centro.y + Math.sin(el) * tam * 1.3, centro.z + Math.cos(th) * Math.cos(el) * tam * 1.3);
         sol.target.position.copy(centro); sc.add(sol.target);
         sol.shadow.mapSize.set(2048, 2048);
         const c = sol.shadow.camera; c.left = c.bottom = -tam; c.right = c.top = tam; c.near = 0.5; c.far = tam * 4; c.updateProjectionMatrix();
@@ -1121,6 +1125,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const g = sc.getObjectByName('rejilla_base'); if (g) g.visible = !on && !conFoto;
   };
   useEffect(() => { if (sceneRef.current) aplicarRender(sceneRef.current); }, [modoRender]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Al soltar el giro con el dedo, el sol se reacomoda detrás del techo.
+  useEffect(() => {
+    const el = mountRef.current;
+    if (!el) return;
+    const soltar = () => { if (modoRenderRef.current && sceneRef.current) aplicarRender(sceneRef.current); };
+    el.addEventListener('pointerup', soltar); el.addEventListener('touchend', soltar);
+    return () => { el.removeEventListener('pointerup', soltar); el.removeEventListener('touchend', soltar); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // Foto del techo para la propuesta al cliente (con la foto real debajo si hay).
   const [avisoFoto, setAvisoFoto] = useState<string | null>(null);
   const tomarFotoPropuesta = async (silencioso = false) => {
@@ -2232,11 +2244,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         if (n.y === 0 || n.isFixedSupport) {
           // Dado de concreto / Pedestal de cimentación
           const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+          pedestal.name = 'dado_base'; pedestal.visible = !fotoFondoRef.current; // sobre la foto real, la columna llega al piso existente
           pedestal.position.set(n.x, 0.11, n.z || 0);
           modeloGroup.add(pedestal);
 
           // Placa base de anclaje
           const plate = new THREE.Mesh(plateGeo, plateMat);
+          plate.name = 'dado_base'; plate.visible = !fotoFondoRef.current;
           plate.position.set(n.x, 0.22 + 0.01, n.z || 0);
           modeloGroup.add(plate);
 
@@ -2248,6 +2262,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           ];
           offsets.forEach(([ox, oz]) => {
             const boltMesh = new THREE.Mesh(boltGeo, boltMat);
+            boltMesh.name = 'dado_base'; boltMesh.visible = !fotoFondoRef.current;
             boltMesh.position.set(n.x + ox, 0.22 + 0.035, (n.z || 0) + oz);
             modeloGroup.add(boltMesh);
           });
