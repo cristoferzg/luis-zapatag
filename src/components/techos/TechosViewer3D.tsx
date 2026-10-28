@@ -32,13 +32,19 @@ import {
   Video,
   Square,
   Box,
-  Blinds
+  Blinds,
+  Footprints,
+  ImagePlus,
+  Palette,
+  Droplets
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { perfilTechos } from './tensores';
 import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
 import { movilDe, TIPOS_MOVIL } from './mecanismoMovil';
+import { alerosConCanaleta, canaletaActiva, posicionesBajadas, VUELO_ALERO_M } from './canaletas';
+import { safeStorage } from '../../lib/storageManager';
 import type { TechoMovil } from './techosCadEngineTypes';
 
 interface TechosViewer3DProps {
@@ -76,7 +82,7 @@ export interface ModeloAluzincPeru {
 }
 
 // Dos únicos modos de iluminación claros y concisos: Claro y Oscuro
-export type ModoIluminacionTechos = 'claro' | 'oscuro';
+export type ModoIluminacionTechos = 'claro' | 'oscuro' | 'noche';
 
 export const CONFIG_ILUMINACION_TECHOS: Record<ModoIluminacionTechos, {
   id: ModoIluminacionTechos;
@@ -125,10 +131,26 @@ export const CONFIG_ILUMINACION_TECHOS: Record<ModoIluminacionTechos, {
     dir2Color: 0x38bdf8,
     dir2Intensity: 1.0,
     dir2Pos: [-30, 10, -30]
+  },
+  noche: {
+    id: 'noche',
+    nombre: 'Vista de noche (con luminarias)',
+    nombreCorto: 'Noche',
+    descripcion: 'Cielo nocturno y luminarias encendidas bajo el techo',
+    icon: '🌃',
+    bgColor: 0x0b1226,
+    ambientColor: 0x334155,
+    ambientIntensity: 0.55,
+    dir1Color: 0x93c5fd,
+    dir1Intensity: 0.35,
+    dir1Pos: [-20, 40, 10],
+    dir2Color: 0x1e293b,
+    dir2Intensity: 0.2,
+    dir2Pos: [20, -10, -20]
   }
 };
 
-export const MODOS_ILUMINACION_ARRAY: ModoIluminacionTechos[] = ['claro', 'oscuro'];
+export const MODOS_ILUMINACION_ARRAY: ModoIluminacionTechos[] = ['claro', 'oscuro', 'noche'];
 
 // Modelos del Mercado Peruano incluyendo calibres económicos de 0.25mm a 0.60mm
 export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
@@ -287,8 +309,21 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // Dos Modos de Iluminación: Claro u Oscuro
   const [modoIluminacion, setModoIluminacion] = useState<ModoIluminacionTechos>('claro');
 
+  // Color (pintura) de la estructura metálica, recordado en este equipo.
+  const [colorEstructura, setColorEstructuraSt] = useState<number>(() => Number(safeStorage.getItem<number>('innova_techos_color_estructura', 0x64748b)) || 0x64748b);
+  const colorEstructuraRef = useRef(colorEstructura);
+  const setColorEstructura = (c: number) => { colorEstructuraRef.current = c; setColorEstructuraSt(c); safeStorage.setItem('innova_techos_color_estructura', c); };
+  const [panelColores, setPanelColores] = useState(false);
+  // Foto real de fondo (el patio del cliente) para mostrar el techo encima.
+  const [fotoFondo, setFotoFondo] = useState<string | null>(null);
+  const fotoFondoInputRef = useRef<HTMLInputElement>(null);
+  // Recorrido a pie (vista desde adentro, a la altura de los ojos).
+  const [caminando, setCaminando] = useState(false);
+  const caminandoRef = useRef(false);
+  const pasoRef = useRef<number>(0);
+
   const handleToggleIluminacion = () => {
-    setModoIluminacion(prev => prev === 'claro' ? 'oscuro' : 'claro');
+    setModoIluminacion(prev => prev === 'claro' ? 'oscuro' : prev === 'oscuro' ? 'noche' : 'claro');
   };
 
   // Por defecto OCULTA para que al abrir el 3D se vea la estructura metálica
@@ -725,7 +760,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     }
 
     // Sensibilidad suave e inercial calibrada para el giroscopio 3D
-    const sensitivity = 0.006;
+    const sensitivity = caminandoRef.current ? -0.005 : 0.006; // recorrido: arrastrar = mirar
     velocityThetaRef.current = -deltaX * sensitivity;
     velocityPhiRef.current = -deltaY * sensitivity;
 
@@ -874,6 +909,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // Zoom por rueda de ratón con proximidad ultra-cercana
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
+    if (caminandoRef.current) { caminar(e.deltaY < 0 ? 0.6 : -0.6, 0); return; }
     const zoomFactor = e.deltaY * 0.008;
     cameraRadiusRef.current = Math.max(0.15, Math.min(60, cameraRadiusRef.current + zoomFactor));
     updateCameraPos();
@@ -933,6 +969,57 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const setProximityPanoramicView = () => {
     cameraRadiusRef.current = 25.0; // Vista panorámica amplia
     updateCameraPos();
+  };
+
+  // RECORRIDO A PIE: la cámara gira alrededor de un punto muy cercano a la
+  // altura de los ojos (1.60 m), así arrastrar = mirar y las flechas = caminar.
+  const caminar = (adelante: number, lado: number) => {
+    const th = cameraAngleThetaRef.current;
+    const fx = -Math.sin(th), fz = -Math.cos(th); // hacia donde se mira (horizontal)
+    cameraTargetRef.current.x += fx * adelante + -fz * lado;
+    cameraTargetRef.current.z += fz * adelante + fx * lado;
+    updateCameraPos();
+  };
+  const entrarRecorrido = () => {
+    const ns = Object.values(nodes);
+    const xs = ns.map(n => n.x), zs = ns.map(n => n.z || 0);
+    const cx = ns.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : 5;
+    const z0 = ns.length ? Math.min(...zs) : 0;
+    setAutoRotate(false);
+    caminandoRef.current = true; setCaminando(true);
+    cameraTargetRef.current.set(cx, 1.6, z0 + 1.0);
+    cameraRadiusRef.current = 0.12;
+    cameraAngleThetaRef.current = Math.PI; // mirando hacia +Z (a lo largo del techo)
+    cameraAnglePhiRef.current = Math.PI / 2 - 0.05;
+    updateCameraPos();
+  };
+  const salirRecorrido = () => {
+    caminandoRef.current = false; setCaminando(false);
+    window.clearInterval(pasoRef.current);
+    resetCamera();
+  };
+  const empezarPaso = (adelante: number, lado: number) => {
+    window.clearInterval(pasoRef.current);
+    caminar(adelante, lado);
+    pasoRef.current = window.setInterval(() => caminar(adelante, lado), 60);
+  };
+  const pararPaso = () => window.clearInterval(pasoRef.current);
+  useEffect(() => () => window.clearInterval(pasoRef.current), []);
+
+  // Foto de fondo: el canvas queda transparente y la foto se ve detrás.
+  const fotoFondoRef = useRef<string | null>(null);
+  useEffect(() => {
+    fotoFondoRef.current = fotoFondo;
+    const sc = sceneRef.current;
+    if (!sc) return;
+    sc.background = fotoFondo ? null : new THREE.Color((CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor);
+    const g = sc.getObjectByName('rejilla_base'); if (g) g.visible = !fotoFondo;
+    sc.traverse(o => { if (o.name === 'plataforma_base') o.visible = !fotoFondo; });
+  }, [fotoFondo, modoIluminacion]);
+  const elegirFotoFondo = (f?: File) => {
+    if (!f) return;
+    setFotoFondo(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f); });
+    setMostrarCobertura(true);
   };
 
   const resetCamera = useCallback(() => {
@@ -1949,6 +2036,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         metalness: 0.05
       });
       const slab = new THREE.Mesh(slabGeo, slabMat);
+      slab.name = 'plataforma_base';
+      slab.visible = !fotoFondoRef.current; // sobre una foto real, sin losa blanca
       slab.position.set((minX + maxX) / 2, -0.125, (minZ + maxZ) / 2);
       modeloGroup.add(slab);
 
@@ -2020,7 +2109,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     // Material de acero estructural claro satinado (Tono limpio sin destellos ni sombras negras)
     const steelTubeMat = new THREE.MeshStandardMaterial({
-      color: 0x64748b, // Gris Acero Satinado Claro (slate-500)
+      color: colorEstructuraRef.current, // pintura elegida (por defecto gris acero)
       metalness: 0.38,
       roughness: 0.55,
       wireframe: isWire
@@ -2111,6 +2200,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         tubeMat.emissiveIntensity = 0.9;
       }
       const tubeMesh = new THREE.Mesh(geom, tubeMat);
+      tubeMesh.userData.colorBase = esConcreto3D ? 0x9a938c : colorEstructuraRef.current;
 
       // Contornos nítidos para visibilidad perfecta de cada tubo y pieza individual
       if (!isWire) {
@@ -2505,6 +2595,54 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           ridgeMesh.name = 'cumbrera_techo';
           modeloGroup.add(ridgeMesh);
         }
+
+        // CANALETAS Y BAJADAS en el alero bajo (o en los dos de un dos aguas)
+        if (canaletaActiva(engineState?.coverageZones || {})) {
+          const matCanal = new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.7, roughness: 0.35, side: THREE.DoubleSide });
+          const z0 = minZNode - VUELO_ALERO_M, z1 = maxZNode + VUELO_ALERO_M;
+          const a = coberturaProfile[0], b = coberturaProfile[coberturaProfile.length - 1];
+          alerosConCanaleta(coberturaProfile).forEach(al => {
+            // Altura del borde de la plancha en el vuelo del alero
+            const vecino = al.hacia < 0 ? coberturaProfile[1] || b : coberturaProfile[coberturaProfile.length - 2] || a;
+            const pend = (al.y - vecino.y) / Math.max(0.01, Math.abs(al.x - vecino.x));
+            const xC = al.x + al.hacia * (VUELO_ALERO_M + 0.05), yC = al.y + pend * VUELO_ALERO_M - 0.12;
+            const forma = new THREE.Shape();
+            forma.moveTo(-0.075, 0.07); forma.lineTo(-0.06, 0); forma.lineTo(0.06, 0); forma.lineTo(0.075, 0.07);
+            forma.lineTo(0.068, 0.07); forma.lineTo(0.055, 0.008); forma.lineTo(-0.055, 0.008); forma.lineTo(-0.068, 0.07); forma.closePath();
+            const geo = new THREE.ExtrudeGeometry(forma, { depth: z1 - z0, bevelEnabled: false });
+            const canal = new THREE.Mesh(geo, matCanal);
+            canal.position.set(xC, yC, z0);
+            canal.name = 'canaleta';
+            modeloGroup.add(canal);
+            posicionesBajadas(z0 + 0.15, z1 - 0.15).forEach(zb => {
+              const tubo = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, Math.max(0.2, yC), 12), matCanal);
+              tubo.position.set(xC + al.hacia * 0.02, yC / 2, zb);
+              tubo.name = 'bajada';
+              modeloGroup.add(tubo);
+            });
+          });
+        }
+
+        // VISTA DE NOCHE: luminarias encendidas bajo el techo
+        if (modoIluminacion === 'noche') {
+          const xs = coberturaProfile.map(q => q.x);
+          const x0 = Math.min(...xs), x1 = Math.max(...xs);
+          const yLum = Math.min(...coberturaProfile.map(q => q.y)) - 0.25;
+          const nx = Math.max(1, Math.min(3, Math.round((x1 - x0) / 5))), nz = Math.max(1, Math.min(4, Math.round((maxZNode - minZNode) / 5)));
+          const matLum = new THREE.MeshBasicMaterial({ color: 0xfff3c4 });
+          for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
+            const x = x0 + ((i + 0.5) * (x1 - x0)) / nx, z = minZNode + ((k + 0.5) * (maxZNode - minZNode)) / nz;
+            const foco = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.05, 20), matLum);
+            foco.position.set(x, yLum, z);
+            modeloGroup.add(foco);
+            const luz = new THREE.PointLight(0xffd9a0, 6, 12, 1.6);
+            luz.position.set(x, yLum - 0.1, z);
+            modeloGroup.add(luz);
+          }
+          const piso = new THREE.Mesh(new THREE.CircleGeometry(Math.max(x1 - x0, maxZNode - minZNode) * 0.8, 40), new THREE.MeshBasicMaterial({ color: 0x3b2f1e, transparent: true, opacity: 0.35 }));
+          piso.rotation.x = -Math.PI / 2; piso.position.set((x0 + x1) / 2, 0.005, (minZNode + maxZNode) / 2);
+          modeloGroup.add(piso);
+        }
       }
     }
 
@@ -2532,7 +2670,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     scene.add(rainLines);
     rainLinesRef.current = rainLines;
 
-  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, engineState?.coverageZones, movilClave]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, engineState?.coverageZones, movilClave, colorEstructura, modoIluminacion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inicialización de WebGL
   useEffect(() => {
@@ -2546,7 +2684,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     sceneRef.current = scene;
 
     const cfgIlum = CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro;
-    scene.background = new THREE.Color(cfgIlum.bgColor);
+    scene.background = fotoFondoRef.current ? null : new THREE.Color(cfgIlum.bgColor);
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 500);
     cameraRef.current = camera;
@@ -2579,9 +2717,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     scene.add(dirLight2);
 
     const gridCenterColor = modoIluminacion === 'oscuro' ? 0x38bdf8 : 0x0ea5e9;
-    const gridLineColor = modoIluminacion === 'oscuro' ? 0x334155 : 0xe2e8f0;
+    const gridLineColor = modoIluminacion === 'oscuro' ? 0x334155 : modoIluminacion === 'noche' ? 0x1e293b : 0xe2e8f0;
     const gridHelper = new THREE.GridHelper(50, 50, gridCenterColor, gridLineColor);
     gridHelper.position.y = -0.01;
+    gridHelper.name = 'rejilla_base';
+    gridHelper.visible = !fotoFondoRef.current;
     scene.add(gridHelper);
 
     // Ejes de coordenadas espaciales del giroscopio (Rojo: X, Verde: Y, Azul: Z)
@@ -2663,7 +2803,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                 if (isStable) {
                   mesh.scale.set(1.0, 1.0, 1.0);
                   const mat = mesh.material as THREE.MeshStandardMaterial;
-                  if (mat) mat.color.setHex(0x64748b);
+                  if (mat) mat.color.setHex(mesh.userData?.colorBase ?? 0x64748b);
                 } else if (uData.isCriticalZone && mag >= 6.0) {
                   // Deformación visual y código de color por zona estructural sólo si hay riesgo o colapso
                   const buckleScale = 1.0 + Math.sin(now * 0.003 * freq) * 0.12 * (mag / 7.0);
@@ -2697,7 +2837,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               }
               mesh.scale.set(1.0, 1.0, 1.0);
               const mat = mesh.material as THREE.MeshStandardMaterial;
-              if (mat) mat.color.setHex(0x64748b);
+              if (mat) mat.color.setHex(mesh.userData?.colorBase ?? 0x64748b);
             });
           }
         }
@@ -2918,7 +3058,55 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
         className="w-full flex-1 cursor-grab active:cursor-grabbing relative touch-none"
+        style={fotoFondo ? { backgroundImage: `url(${fotoFondo})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
       />
+      <input ref={fotoFondoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { elegirFotoFondo(e.target.files?.[0]); e.target.value = ''; }} />
+
+      {/* RECORRIDO A PIE: flechas para caminar */}
+      {caminando && (
+        <div className="absolute inset-x-0 bottom-3 z-30 flex flex-col items-center gap-2 pointer-events-none">
+          <p className="text-[11px] font-bold text-white bg-slate-900/80 rounded-xl px-3 py-1.5">Arrastra para mirar · flechas o rueda para caminar</p>
+          <div className="grid grid-cols-3 gap-1.5 pointer-events-auto">
+            {([['', 0, 0], ['▲', 0.18, 0], ['', 0, 0], ['◀', 0, -0.15], ['▼', -0.18, 0], ['▶', 0, 0.15]] as [string, number, number][]).map(([t, a, l], i) => t ? (
+              <button key={i} onPointerDown={e => { e.stopPropagation(); empezarPaso(a, l); }} onPointerUp={pararPaso} onPointerLeave={pararPaso} onPointerCancel={pararPaso}
+                className="w-12 h-12 rounded-2xl bg-white/95 border border-slate-200 shadow-lg text-lg font-black text-slate-800 cursor-pointer select-none touch-none active:bg-teal-100">{t}</button>
+            ) : <span key={i} />)}
+          </div>
+          <button onClick={salirRecorrido} className="pointer-events-auto px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black shadow-lg cursor-pointer">Salir del recorrido</button>
+        </div>
+      )}
+
+      {/* FOTO DE FONDO: controles */}
+      {fotoFondo && !caminando && (
+        <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5 bg-white/95 border border-slate-200 rounded-xl shadow-lg px-2 py-1.5 text-[11px] font-bold text-slate-700">
+          <span className="hidden sm:inline">Gira y acerca el techo hasta que calce con la foto</span>
+          <button onClick={() => fotoFondoInputRef.current?.click()} className="px-2 py-1 rounded-lg bg-slate-100 cursor-pointer">Cambiar</button>
+          <button onClick={() => setFotoFondo(null)} className="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 cursor-pointer">Quitar foto</button>
+        </div>
+      )}
+
+      {/* COLORES Y ACABADOS */}
+      {panelColores && (
+        <div className="absolute left-2 right-16 sm:left-3 sm:right-auto sm:w-[320px] bottom-2 sm:bottom-14 z-30 bg-white/97 border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2.5 text-slate-800"
+          onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-700 flex items-center gap-1.5"><Palette className="w-4 h-4" /> Colores y acabados</p>
+            <button onClick={() => setPanelColores(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-4 h-4" /></button>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Pintura de la estructura</p>
+            <div className="flex flex-wrap gap-1.5">
+              {([[0x64748b, 'Gris acero'], [0x1f2937, 'Negro'], [0xe5e7eb, 'Blanco'], [0x9a3412, 'Anticorrosivo'], [0x166534, 'Verde'], [0x1e3a8a, 'Azul'], [0xca8a04, 'Amarillo'], [0xb91c1c, 'Rojo']] as [number, string][]).map(([c, n]) => (
+                <button key={c} onClick={() => setColorEstructura(c)} title={n}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold cursor-pointer ${colorEstructura === c ? 'border-slate-900 ring-2 ring-slate-300' : 'border-slate-200'}`}>
+                  <span className="w-3.5 h-3.5 rounded-full border border-black/10" style={{ background: '#' + c.toString(16).padStart(6, '0') }} />{n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-500">El color y el modelo de la plancha se eligen arriba (TR-4, TR-5, teja andina, policarbonato…). Con el botón de la luna ves el techo <b>de noche con luminarias</b>.</p>
+        </div>
+      )}
 
       {/* PANEL TECHO MOVIBLE */}
       {panelMovil && (() => {
@@ -3076,7 +3264,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           <button
             onClick={handleToggleIluminacion}
             className="p-1.5 sm:p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 cursor-pointer shadow-2xs transition-all flex items-center gap-1 shrink-0"
-            title={`Iluminación: ${CONFIG_ILUMINACION_TECHOS[modoIluminacion]?.nombre} (Clic para cambiar a ${modoIluminacion === 'claro' ? 'Oscuro' : 'Claro'})`}
+            title={`Iluminación: ${CONFIG_ILUMINACION_TECHOS[modoIluminacion]?.nombre} (clic: ${modoIluminacion === 'claro' ? 'oscuro' : modoIluminacion === 'oscuro' ? 'noche' : 'claro'})`}
           >
             <span className="text-sm">{CONFIG_ILUMINACION_TECHOS[modoIluminacion]?.icon}</span>
           </button>
@@ -3132,6 +3320,42 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           >
             <Blinds className="w-4 h-4" />
             <span className="hidden xl:inline text-[11px] font-bold">Movible</span>
+          </button>
+
+          {/* Canaletas y bajadas de agua */}
+          {(() => { const activa = canaletaActiva(engineState?.coverageZones || {}); return (
+            <button
+              onClick={() => { const ok = engineState?.setCanaleta?.({ activa: !activa }); if (!ok) alert('Primero cubre el techo (botón Cobertura) para poner canaletas y bajadas.'); else setMostrarCobertura(true); }}
+              className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${activa ? 'bg-sky-600 text-white border-sky-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+              title={activa ? 'Canaletas y bajadas: activas (clic para quitar)' : 'Poner canaletas y bajadas de agua'}
+            >
+              <Droplets className="w-4 h-4" />
+              <span className="hidden xl:inline text-[11px] font-bold">Canaletas</span>
+            </button>
+          ); })()}
+
+          {/* Colores y acabados */}
+          <button onClick={() => setPanelColores(v => !v)}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${panelColores ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+            title="Colores y acabados de la estructura">
+            <Palette className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Colores</span>
+          </button>
+
+          {/* Recorrido a pie */}
+          <button onClick={() => caminando ? salirRecorrido() : entrarRecorrido()}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${caminando ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+            title="Recorrer el techo por dentro (a la altura de los ojos)">
+            <Footprints className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Recorrer</span>
+          </button>
+
+          {/* Foto real de fondo */}
+          <button onClick={() => fotoFondo ? setFotoFondo(null) : fotoFondoInputRef.current?.click()}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${fotoFondo ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+            title="Ver el techo sobre una foto real del lugar">
+            <ImagePlus className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Foto real</span>
           </button>
 
           {/* Toggle Columnas de Concreto (solo si existen en la escena) */}

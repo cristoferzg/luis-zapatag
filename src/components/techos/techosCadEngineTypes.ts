@@ -155,6 +155,7 @@ export interface CoverageZone3D {
   orientacionInclinacionDeg: number; // Orientación del flujo de agua (0°, 90°, 180°, 270°)
   selected?: boolean;
   movil?: TechoMovil;           // Techo movible (opcional): mecanismo de apertura
+  canaleta?: { activa: boolean; material?: 'galvanizada' | 'pvc' }; // canaletas y bajadas (por defecto activas)
 }
 
 // Techo movible: la cobertura se divide en paños que se abren a lo largo (Z).
@@ -306,6 +307,8 @@ export interface FullTechosBomReport {
   costoTensoresSoles?: number;
   mecanismoMovil?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
   costoMovilSoles?: number;
+  canaletas?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
+  costoCanaletasSoles?: number;
 }
 
 // 5. ANÁLISIS ESTRUCTURAL Y PARÁMETROS NORMATIVOS (RNE E.020, E.030, E.050, E.090)

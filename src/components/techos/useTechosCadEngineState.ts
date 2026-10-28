@@ -108,6 +108,8 @@ export interface UseTechosCadEngineReturn {
   assignCoverageToSelectedZones: (coverageId: string) => void;
   /** Techo movible: guarda (o quita con null) el mecanismo en la cobertura principal. Devuelve false si el techo aún no tiene cobertura. */
   setTechoMovil: (movil: TechoMovil | null) => boolean;
+  /** Canaletas y bajadas: activas / material (en la cobertura principal). */
+  setCanaleta: (c: { activa: boolean; material?: 'galvanizada' | 'pvc' }) => boolean;
 
   // Generadores Paramétricos Automáticos que generan Nodos y Segmentos reales en PROJECT_MODEL
   generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => string | void;
@@ -849,6 +851,15 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     if (!z) return false;
     const { movil: _prev, ...resto } = z; void _prev;
     const newZones = { ...coverageZones, [z.id]: movil ? { ...resto, movil } : resto };
+    setCoverageZones(newZones);
+    pushHistory(nodes, segments, newZones);
+    return true;
+  }, [nodes, segments, coverageZones, pushHistory]);
+
+  const setCanaleta = useCallback((c: { activa: boolean; material?: 'galvanizada' | 'pvc' }) => {
+    const z = zonaPrincipal(coverageZones);
+    if (!z) return false;
+    const newZones = { ...coverageZones, [z.id]: { ...z, canaleta: c } };
     setCoverageZones(newZones);
     pushHistory(nodes, segments, newZones);
     return true;
@@ -4079,6 +4090,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     assignProfileToSelectedSegments,
     assignCoverageToSelectedZones,
     setTechoMovil,
+    setCanaleta,
     generateTrussFreehand,
     generateRoofGable,
     generateRoofMonoslope,

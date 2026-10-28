@@ -111,6 +111,13 @@ function construirItems(): ItemCatalogo[] {
     ['movil:motor', 'Motor para techo movible (con reductor)', 'unidad'], ['movil:control', 'Control remoto + sensor de lluvia', 'unidad'],
     ['movil:cremallera', 'Cremallera / cadena de arrastre', 'm'], ['movil:manivela', 'Manivela con caja reductora', 'unidad'],
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
+  // Canaletas y bajadas de agua
+  ([
+    ['agua:canaleta_galv', 'Canaleta galvanizada', 'm'], ['agua:canaleta_pvc', 'Canaleta de PVC', 'm'],
+    ['agua:bajada_galv', 'Bajada (tubo) galvanizada', 'm'], ['agua:bajada_pvc', 'Bajada (tubo) de PVC 3"', 'm'],
+    ['agua:soporte', 'Soporte de canaleta', 'unidad'], ['agua:tapa', 'Tapa de canaleta', 'unidad'], ['agua:embudo', 'Embudo / salida de canaleta', 'unidad'],
+    ['agua:abrazadera', 'Abrazadera para bajada', 'unidad'], ['agua:codo', 'Codo para bajada', 'unidad'],
+  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
   add({ clave: 'techos:placa_base', grupo: 'Accesorios de techos', nombre: PLACA_BASE_ESTANDAR.nombre, unidad: 'unidad', ref: PLACA_BASE_ESTANDAR.costoUnidadSol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_anclaje', grupo: 'Accesorios de techos', nombre: PERNO_ANCLAJE_J.nombre, unidad: 'caja ×100', ref: PERNO_ANCLAJE_J.costoCaja100Sol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_epdm', grupo: 'Accesorios de techos', nombre: PERNO_EPDM_ESTANDAR.nombre, unidad: 'caja ×100', ref: PERNO_EPDM_ESTANDAR.costoCaja100Sol, usadoEn: ['Techos'] });
