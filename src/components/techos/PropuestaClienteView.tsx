@@ -189,7 +189,7 @@ export default function PropuestaClienteView({
               ) : <img src={foto.despues} alt="Techo en 3D" className="w-full rounded-xl border border-slate-200 mb-5" />
             ) : (
               <div className="no-imprimir mb-5 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center text-slate-500 text-xs">
-                <ImageOff className="w-6 h-6 mx-auto mb-1" /> Abre el <b>3D</b>, cubre el techo y toca <b>“Foto propuesta”</b> para poner aquí la imagen. Con <b>“Foto real”</b> sale el antes y después sobre la casa del cliente.
+                <ImageOff className="w-6 h-6 mx-auto mb-1" /> Abre el <b>3D</b>, cubre el techo y toca <b>“Foto propuesta”</b> para poner aquí la imagen.
               </div>
             )}
 

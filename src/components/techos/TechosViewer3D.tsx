@@ -34,7 +34,6 @@ import {
   Box,
   Blinds,
   Footprints,
-  ImagePlus,
   Palette,
   Droplets,
   Camera
@@ -3683,13 +3682,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           </button>
 
 </>)}
-          {/* Foto real de fondo */}
-          <button onClick={() => fotoFondo ? setFotoFondo(null) : fotoFondoInputRef.current?.click()}
-            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${fotoFondo ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
-            title="Ver el techo sobre una foto real del lugar">
-            <ImagePlus className="w-4 h-4" />
-            <span className="hidden xl:inline text-[11px] font-bold">Foto real</span>
-          </button>
+
 
           {/* Toggle Columnas de Concreto (solo si existen en la escena) */}
           {Object.values(segments).some(s => s.rolEstructural === 'columna_concreto') && (
