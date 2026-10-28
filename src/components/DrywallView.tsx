@@ -18,7 +18,7 @@ import { KEY_CIELOS, CieloRaso } from './concreto/geometriaObra';
 import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns, setActiveTechosDesignToLoad } from '../lib/techosDesignsRepo';
 import { useCatalogo } from '../lib/catalogoPrecios';
 import { safeStorage } from '../lib/storageManager';
-import { CabeceraEmpresa, useEmpresa } from '../lib/empresa';
+import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from '../lib/empresa';
 import BotonImprimir from './common/BotonImprimir';
 import {
   SISTEMAS, Sistema, SistemaId, Partida, PRESET_VANO, TipoVano, partidaNueva, sistemaDe, medidaPartida, metradoPartidas,
@@ -534,6 +534,7 @@ function Presupuesto({ cot, setCot, onIrAPrecios }: { cot: CotizacionDrywall; se
       )}
 
       <div ref={hojaRef} className="zona-impresion imprimir-claro bg-white rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
+        <BandaMarca />
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-200 pb-4">
           <CabeceraEmpresa subtitulo="Presupuesto de tabiques, cielo raso y acabados en drywall" />
           <div className="text-left sm:text-right text-[11px] text-slate-500 shrink-0">
@@ -588,6 +589,7 @@ function Presupuesto({ cot, setCot, onIrAPrecios }: { cot: CotizacionDrywall; se
             </div>
           </div>
         )}
+        {!vacio && <CondicionesComerciales total={total} />}
         <p className="text-[10px] text-slate-400">Planchas de tabiques contadas por despiece (aprovechando retazos); cielos y cajones por m² + 5%. Parantes cada 0.61 m. Cuantías referenciales.</p>
       </div>
       <p className="no-imprimir text-[11px] text-slate-400 flex items-center gap-1"><Plus className="w-3 h-3" /> Las partidas con “Sumar a Obra Civil” y lo dibujado en el plano también aparecen en Obra Civil → Lista, en su piso.</p>

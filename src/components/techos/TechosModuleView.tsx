@@ -1313,6 +1313,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             clients={clients}
             onNavigateToProjects={onNavigateToProjects}
             currentSettings={currentSettings}
+            escena={{ nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones }}
           />
         )}
 

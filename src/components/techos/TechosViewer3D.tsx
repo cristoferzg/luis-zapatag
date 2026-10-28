@@ -36,7 +36,8 @@ import {
   Footprints,
   ImagePlus,
   Palette,
-  Droplets
+  Droplets,
+  Camera
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
@@ -45,7 +46,8 @@ import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
 import { movilDe, TIPOS_MOVIL } from './mecanismoMovil';
 import { alerosConCanaleta, canaletaActiva, posicionesBajadas, VUELO_ALERO_M } from './canaletas';
 import { safeStorage } from '../../lib/storageManager';
-import type { TechoMovil } from './techosCadEngineTypes';
+import { guardarFotoPropuesta, fotoPropuesta } from './fotoPropuesta';
+import type { TechoMovil, CoverageZone3D } from './techosCadEngineTypes';
 
 interface TechosViewer3DProps {
   engineState?: UseTechosCadEngineReturn;
@@ -53,6 +55,10 @@ interface TechosViewer3DProps {
   segments?: Record<string, { id: string; nodeAId: string; nodeBId: string; profileId: string; rolEstructural?: string }>;
   onSelectElement?: (id: string, type: 'node' | 'segment') => void;
   selectedElementId?: string | null;
+  /** Zonas de cobertura cuando no hay motor (vista del cliente). */
+  coverageZones?: Record<string, CoverageZone3D>;
+  /** Vista para el cliente: solo mirar (sin editar ni seleccionar perfiles). */
+  modoCliente?: boolean;
 }
 
 /** Modelo 3D que corresponde a una cobertura del catálogo de Techos (id cob_…). */
@@ -297,7 +303,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   nodes: propsNodes,
   segments: propsSegments,
   onSelectElement,
-  selectedElementId
+  selectedElementId,
+  coverageZones: propsZonas,
+  modoCliente = false
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -360,10 +368,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // Elementos activos desde engineState o props fallback
   const nodes = engineState?.nodes || propsNodes || {};
   const segments = engineState?.segments || propsSegments || {};
+  const zonasCob: Record<string, CoverageZone3D> = engineState?.coverageZones || propsZonas || {};
 
   // TECHO MOVIBLE: el mecanismo guardado en la cobertura principal (o uno de
   // prueba si el techo aún no tiene cobertura) y cuánto está abierto (0 a 1).
-  const movilGuardado = movilDe(engineState?.coverageZones || {});
+  const movilGuardado = movilDe(zonasCob);
   const [movilPrueba, setMovilPrueba] = useState<TechoMovil | null>(null);
   const movil = movilGuardado || movilPrueba;
   const movilClave = movil ? `${movil.tipo}|${movil.panos}|${movil.accionamiento}|${movil.abreHacia || 'inicio'}` : '';
@@ -782,6 +791,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       // ignore
     }
 
+    if (modoCliente) return; // el cliente solo mira
     // Detección de clic limpio (desplazamiento < 6 píxeles) para selección por Raycaster
     const dx = e.clientX - pointerDownPosRef.current.x;
     const dy = e.clientY - pointerDownPosRef.current.y;
@@ -1016,6 +1026,22 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const g = sc.getObjectByName('rejilla_base'); if (g) g.visible = !fotoFondo;
     sc.traverse(o => { if (o.name === 'plataforma_base') o.visible = !fotoFondo; });
   }, [fotoFondo, modoIluminacion]);
+  // Foto del techo para la propuesta al cliente (con la foto real debajo si hay).
+  const [avisoFoto, setAvisoFoto] = useState<string | null>(null);
+  const tomarFotoPropuesta = async (silencioso = false) => {
+    const cv = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
+    if (!cv) return;
+    try {
+      await guardarFotoPropuesta(cv, fotoFondoRef.current, '#' + (CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor.toString(16).padStart(6, '0'));
+      if (!silencioso) { setAvisoFoto('✓ Imagen guardada para la propuesta al cliente (Presupuesto → Propuesta visual)'); window.setTimeout(() => setAvisoFoto(null), 3500); }
+    } catch { if (!silencioso) setAvisoFoto('No se pudo tomar la imagen'); }
+  };
+  // La primera vez que se ve el techo cubierto, se guarda una imagen automática.
+  useEffect(() => {
+    if (!mostrarCobertura || fotoPropuesta().despues) return;
+    const t = window.setTimeout(() => { tomarFotoPropuesta(true); }, 1800);
+    return () => window.clearTimeout(t);
+  }, [mostrarCobertura, nodes]); // eslint-disable-line react-hooks/exhaustive-deps
   const elegirFotoFondo = (f?: File) => {
     if (!f) return;
     setFotoFondo(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f); });
@@ -2597,7 +2623,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         }
 
         // CANALETAS Y BAJADAS en el alero bajo (o en los dos de un dos aguas)
-        if (canaletaActiva(engineState?.coverageZones || {})) {
+        if (canaletaActiva(zonasCob)) {
           const matCanal = new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.7, roughness: 0.35, side: THREE.DoubleSide });
           const z0 = minZNode - VUELO_ALERO_M, z1 = maxZNode + VUELO_ALERO_M;
           const a = coberturaProfile[0], b = coberturaProfile[coberturaProfile.length - 1];
@@ -2648,7 +2674,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     // 6b. Sobretecho de cada tanque elevado (techito propio sobre el tanque)
     if (mostrarCobertura) {
-      Object.values(engineState?.coverageZones || {}).filter(z => /^tq[0-9a-z]+_/.test(z.id)).forEach(z => {
+      Object.values(zonasCob).filter(z => /^tq[0-9a-z]+_/.test(z.id)).forEach(z => {
         const pts = z.nodeIdsBoundary.map(id => nodes[id]).filter(Boolean).map(n => new THREE.Vector3(n.x, n.y + 0.03, n.z || 0));
         if (pts.length < 3) return;
         const pos: number[] = [];
@@ -2670,7 +2696,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     scene.add(rainLines);
     rainLinesRef.current = rainLines;
 
-  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, engineState?.coverageZones, movilClave, colorEstructura, modoIluminacion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, zonasCob, movilClave, colorEstructura, modoIluminacion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inicialización de WebGL
   useEffect(() => {
@@ -3022,9 +3048,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // La plancha del 3D sigue a la cobertura elegida en "Cobertura" (zona principal,
   // sin contar sobretechos de tanques). El selector de arriba sigue permitiendo probar otras.
   const coberturaPrincipal = useMemo(() => {
-    const zs = Object.values(engineState?.coverageZones || {}).filter(z => !/^tq[0-9a-z]+_/.test(z.id));
+    const zs = Object.values(zonasCob).filter(z => !/^tq[0-9a-z]+_/.test(z.id));
     return zs[0]?.coberturaMaterialId;
-  }, [engineState?.coverageZones]);
+  }, [zonasCob]);
   useEffect(() => {
     const m = modeloDesdeCobertura(coberturaPrincipal);
     if (m && m !== selectedModeloId) handleModeloChange(m);
@@ -3061,6 +3087,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         style={fotoFondo ? { backgroundImage: `url(${fotoFondo})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
       />
       <input ref={fotoFondoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { elegirFotoFondo(e.target.files?.[0]); e.target.value = ''; }} />
+
+      {avisoFoto && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 shadow-lg">{avisoFoto}</div>
+      )}
 
       {/* RECORRIDO A PIE: flechas para caminar */}
       {caminando && (
@@ -3112,7 +3142,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       {panelMovil && (() => {
         const base: TechoMovil = movil || { tipo: 'corredizo', panos: 3, accionamiento: 'manual', abreHacia: 'inicio' };
         const cambiar = (p: Partial<TechoMovil>) => guardarMovil({ ...base, ...p });
-        const conCobertura = !!Object.values(engineState?.coverageZones || {}).some(z => !/^tq[0-9a-z]+_/.test(z.id));
+        const conCobertura = !!Object.values(zonasCob).some(z => !/^tq[0-9a-z]+_/.test(z.id));
         const chip = (activo: boolean) => `px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`;
         return (
           <div className="absolute left-2 right-16 sm:left-3 sm:right-auto sm:w-[340px] bottom-2 sm:bottom-14 z-30 max-h-[58%] overflow-y-auto bg-white/97 backdrop-blur border border-slate-200 rounded-2xl shadow-2xl p-2.5 sm:p-3 space-y-2 sm:space-y-2.5 text-slate-800"
@@ -3284,6 +3314,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <CloudRain className="w-4 h-4" />
           </button>
 
+{!modoCliente && (<>
           {/* Botón Simulación Sismo */}
           <button
             onClick={() => setSimulacionModo(simulacionModo === 'sismo' ? 'ninguno' : 'sismo')}
@@ -3297,6 +3328,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <Activity className="w-4 h-4" />
           </button>
 
+</>)}
           {/* Toggle Cobertura */}
           <button
             onClick={() => setMostrarCobertura(!mostrarCobertura)}
@@ -3322,8 +3354,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <span className="hidden xl:inline text-[11px] font-bold">Movible</span>
           </button>
 
+{!modoCliente && (<>
           {/* Canaletas y bajadas de agua */}
-          {(() => { const activa = canaletaActiva(engineState?.coverageZones || {}); return (
+          {(() => { const activa = canaletaActiva(zonasCob); return (
             <button
               onClick={() => { const ok = engineState?.setCanaleta?.({ activa: !activa }); if (!ok) alert('Primero cubre el techo (botón Cobertura) para poner canaletas y bajadas.'); else setMostrarCobertura(true); }}
               className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${activa ? 'bg-sky-600 text-white border-sky-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
@@ -3334,6 +3367,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             </button>
           ); })()}
 
+</>)}
           {/* Colores y acabados */}
           <button onClick={() => setPanelColores(v => !v)}
             className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${panelColores ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
@@ -3350,6 +3384,16 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <span className="hidden xl:inline text-[11px] font-bold">Recorrer</span>
           </button>
 
+{!modoCliente && (<>
+          {/* Imagen para la propuesta */}
+          <button onClick={() => tomarFotoPropuesta()}
+            className="p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+            title="Usar esta vista como imagen de la propuesta al cliente">
+            <Camera className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Foto propuesta</span>
+          </button>
+
+</>)}
           {/* Foto real de fondo */}
           <button onClick={() => fotoFondo ? setFotoFondo(null) : fotoFondoInputRef.current?.click()}
             className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${fotoFondo ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}

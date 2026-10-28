@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, lazy, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
@@ -92,10 +92,16 @@ console.warn = (...args: any[]) => {
   originalConsoleWarn.apply(console, args);
 };
 
+// Link público de una propuesta para el cliente (?propuesta=<id>): sin PIN.
+const PropuestaPublicaView = lazy(() => import('./components/PropuestaPublicaView'));
+const idPropuesta = new URLSearchParams(window.location.search).get('propuesta');
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AppErrorBoundary fallbackTitle="Centro de Mitigación de Excepciones PWA">
-      <App />
+      {idPropuesta
+        ? <Suspense fallback={null}><PropuestaPublicaView id={idPropuesta} /></Suspense>
+        : <App />}
     </AppErrorBoundary>
   </StrictMode>,
 )

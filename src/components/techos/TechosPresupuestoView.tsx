@@ -2,9 +2,12 @@
 import React, { useRef, useState } from 'react';
 import { FileText, Send, CheckCircle, ArrowRight } from 'lucide-react';
 import BotonImprimir from '../common/BotonImprimir';
-import { CabeceraEmpresa } from '../../lib/empresa';
+import { CabeceraEmpresa, BandaMarca, CondicionesComerciales } from '../../lib/empresa';
 import { useCostosTechos, totalCuadrilla, jornalDe } from './costosTechos';
 import { useCatalogo } from '../../lib/catalogoPrecios';
+import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
+import PropuestaClienteView from './PropuestaClienteView';
+import { Presentation } from 'lucide-react';
 
 interface ProjectOption {
   id: string;
@@ -27,6 +30,7 @@ interface TechosPresupuestoViewProps {
   clients?: ClientOption[];
   onNavigateToProjects?: () => void;
   currentSettings?: any;
+  escena?: { nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D> };
 }
 
 export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
@@ -37,8 +41,10 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
   onSaveToProject,
   onCreateProject,
   onNavigateToProjects,
-  currentSettings
+  currentSettings,
+  escena
 }) => {
+  const [verPropuesta, setVerPropuesta] = useState(false);
   const [clienteNombre, setClienteNombre] = useState<string>('CLIENTE INDUSTRIAL S.A.C.');
   const [ubicacion, setUbicacion] = useState<string>('LIMA - PERÚ');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('new');
@@ -192,9 +198,26 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
         </div>
       </div>
 
+      {/* PROPUESTA VISUAL PARA EL CLIENTE */}
+      {isBom && escena && (
+        <div className="max-w-4xl mx-auto mb-4 rounded-2xl p-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex flex-wrap items-center gap-3">
+          <Presentation className="w-8 h-8 shrink-0" />
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-sm font-black">Propuesta visual para el cliente</p>
+            <p className="text-[11px] opacity-90">Portada con tu techo en 3D (antes y después), opciones A/B/C con precio, condiciones y un link para que el cliente lo vea en 3D y acepte.</p>
+          </div>
+          <button onClick={() => setVerPropuesta(true)} className="px-4 py-2.5 rounded-xl bg-white text-indigo-700 text-xs font-black cursor-pointer">Armar propuesta</button>
+        </div>
+      )}
+      {verPropuesta && escena && (
+        <PropuestaClienteView nodes={escena.nodes} segments={escena.segments} coverageZones={escena.coverageZones}
+          nombreProyecto={nombreProyecto} cliente={clienteNombre} ubicacion={ubicacion} onClose={() => setVerPropuesta(false)} />
+      )}
+
       {/* HOJA IMPRESA DE COTIZACIÓN */}
       <div ref={hojaRef} className="bg-white text-slate-900 rounded-2xl p-8 max-w-4xl mx-auto shadow-xl border border-slate-200 font-sans print:shadow-none print:p-0 print:border-none">
         
+        <BandaMarca />
         {/* CABECERA */}
         <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-6">
           <div className="flex items-start gap-4">
@@ -272,6 +295,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
             </div>
           </div>
         </div>
+        {isBom && <CondicionesComerciales total={totalConIgv} />}
       </div>
     </div>
   );
