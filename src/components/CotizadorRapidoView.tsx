@@ -58,9 +58,10 @@ function despiece(piezas: number[], barra: number) {
 }
 
 const CLAVE = 'innova_cotizador_rapido_data';
+const GANANCIA_MAX = 20; // % máximo de ganancia del contratista sobre el precio
 const inicial = {
   calcLargo: '', calcAncho: '', calcAlero: '0.3', calcBarLength: '6', calcAlturaColumnas: '3', calcNumColumnas: '',
-  precioPorM2: '140', margenGananciaPct: '25',
+  precioPorM2: '140', margenGananciaPct: '20', v: 2,
   forma: 'dos_aguas' as Forma, pendiente: '15', flecha: '',
   conTijerales: true, numTijerales: '', sepPorticos: '5', tipoTijeral: 'pratt' as TipoTij, peralte: '',
   perfilCordon: 'perfil_sq_2x2_20', perfilCelosia: 'perfil_sq_1x1_15', perfilViga: 'perfil_rec_100x50_20', perfilColumna: 'perfil_sq_4x4_20', perfilCorrea: 'perfil_rec_2x1_15',
@@ -80,7 +81,8 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
   const [f, setF] = useState(() => {
     const d = safeStorage.getItem<any>(CLAVE, null) || {};
     const cob = INVENTARIO_COBERTURAS.some(c => c.id === d.cobertura) ? d.cobertura : (INVENTARIO_COBERTURAS.find(c => /tr4/i.test(c.id))?.id || INVENTARIO_COBERTURAS[0].id);
-    return { ...inicial, ...d, cobertura: cob };
+    const g = d.v === 2 ? d.margenGananciaPct : '20'; // antes venía en 25 %
+    return { ...inicial, ...d, cobertura: cob, margenGananciaPct: g, v: 2 };
   });
   const set = <K extends keyof typeof inicial>(k: K, v: (typeof inicial)[K]) => setF((x: typeof inicial) => ({ ...x, [k]: v }));
   useEffect(() => { safeStorage.setItem(CLAVE, f); }, [f]);
@@ -171,15 +173,23 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
     const manoObra = materiales * n(f.manoObraPct, 40) / 100;
     const gastos = (materiales + manoObra) * n(f.gastosPct, 10) / 100;
     const costoDirecto = materiales + manoObra + gastos;
-    const utilidadPct = n(f.margenGananciaPct, 25);
-    const totalMateriales = costoDirecto / Math.max(0.05, 1 - utilidadPct / 100);
+    // La ganancia del contratista es como máximo el 20 % del precio al cliente.
+    const utilidadPct = Math.min(GANANCIA_MAX, Math.max(0, n(f.margenGananciaPct, GANANCIA_MAX)));
+    const totalMateriales = costoDirecto / (1 - utilidadPct / 100);
+    const precioM2Sugerido = totalMateriales / areaPlanta;
+    // Por m²: del precio sale primero tu ganancia (20 %); de lo que queda se pagan
+    // materiales y, lo restante, la mano de obra y los gastos.
     const totalM2 = areaPlanta * n(f.precioPorM2, 140);
+    const gananciaM2 = totalM2 * utilidadPct / 100;
+    const paraManoObraM2 = totalM2 - gananciaM2 - materiales;
 
-    return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, costoAcero, planchas, items, costoCob, materiales, manoObra, gastos, costoDirecto, totalMateriales, totalM2, utilidadPct };
+    return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, costoAcero, planchas, items, costoCob, materiales, manoObra, gastos, costoDirecto, totalMateriales, totalM2, utilidadPct, precioM2Sugerido, gananciaM2, paraManoObraM2 };
   }, [f]);
 
   const total = r ? (f.modo === 'm2' ? r.totalM2 : r.totalMateriales) : 0;
-  const ganancia = r ? (f.modo === 'm2' ? Math.max(0, r.totalM2 - r.costoDirecto) : r.totalMateriales - r.costoDirecto) : 0;
+  const ganancia = r ? (f.modo === 'm2' ? r.gananciaM2 : r.totalMateriales - r.costoDirecto) : 0;
+  const costos = r ? (f.modo === 'm2' ? r.totalM2 - r.gananciaM2 : r.costoDirecto) : 0;
+  const noAlcanza = !!r && f.modo === 'm2' && r.paraManoObraM2 < r.manoObra + r.gastos; // el m² no cubre mano de obra y gastos estimados
 
   const detalleContrato = () => {
     if (!r) return '';
@@ -428,13 +438,14 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800 text-xs font-bold">
-                  {f.modo === 'm2' ? (
+                  {f.modo === 'm2' && (
                     <label className="text-slate-400">PRECIO/m²<span className="flex items-center text-indigo-300 mt-0.5">S/ <input type="number" value={f.precioPorM2} onChange={e => set('precioPorM2', e.target.value)} className="w-16 ml-1 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /></span></label>
-                  ) : (<>
+                  )}
+                  <>
                     <label className="text-slate-400">MANO DE OBRA<span className="flex items-center text-indigo-300 mt-0.5"><input type="number" value={f.manoObraPct} onChange={e => set('manoObraPct', e.target.value)} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">%</span></span></label>
                     <label className="text-slate-400">GASTOS<span className="flex items-center text-indigo-300 mt-0.5"><input type="number" value={f.gastosPct} onChange={e => set('gastosPct', e.target.value)} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">%</span></span></label>
-                    <label className="text-slate-400">GANANCIA<span className="flex items-center text-emerald-300 mt-0.5"><input type="number" value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', e.target.value)} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">%</span></span></label>
-                  </>)}
+                    <label className="text-slate-400">GANANCIA<span className="flex items-center text-emerald-300 mt-0.5"><input type="number" min={0} max={GANANCIA_MAX} value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', String(Math.min(GANANCIA_MAX, Number(e.target.value) || 0)))} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">% <span className="text-slate-500">(máx. {GANANCIA_MAX})</span></span></span></label>
+                  </>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
@@ -443,18 +454,31 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
                   <p className="text-3xl font-bold">{formatCurrency(total)}</p>
                   <p className="text-xs text-indigo-300 mt-1">{f.modo === 'm2' ? `${r.areaPlanta.toFixed(1)} m² × S/ ${f.precioPorM2}` : `S/ ${(total / r.areaPlanta).toFixed(0)} por m² en planta`}</p>
                 </div>
-                <div className={`p-5 rounded-xl border text-center ${ganancia > 0 ? 'bg-emerald-950/70 border-emerald-500/60' : 'bg-rose-950/70 border-rose-500/60'}`}>
+                <div className={`p-5 rounded-xl border text-center ${!noAlcanza ? 'bg-emerald-950/70 border-emerald-500/60' : 'bg-rose-950/70 border-rose-500/60'}`}>
                   <h5 className="text-emerald-300 text-xs font-extrabold uppercase mb-2 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Tu ganancia</h5>
-                  <p className={`text-3xl font-extrabold ${ganancia > 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{formatCurrency(ganancia)}</p>
-                  <p className="text-xs text-emerald-200/80 mt-1">{total > 0 ? `${((ganancia / total) * 100).toFixed(0)} % del precio` : ''}{f.modo === 'm2' && ganancia <= 0 ? ' · el precio por m² no cubre tus costos' : ''}</p>
+                  <p className={`text-3xl font-extrabold ${!noAlcanza ? 'text-emerald-300' : 'text-rose-300'}`}>{formatCurrency(ganancia)}</p>
+                  <p className="text-xs text-emerald-200/80 mt-1">{total > 0 ? `${((ganancia / total) * 100).toFixed(0)} % del precio` : ''}</p>
                 </div>
                 <div className="bg-slate-800/60 p-5 rounded-xl border border-slate-700/60 text-center">
                   <h5 className="text-slate-300 text-xs font-semibold uppercase mb-2 flex justify-center items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5" /> Tus costos</h5>
-                  <p className="text-3xl font-bold text-slate-200">{formatCurrency(r.costoDirecto)}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">Materiales {formatCurrency(r.materiales)} · Mano de obra {formatCurrency(r.manoObra)} · Gastos {formatCurrency(r.gastos)}</p>
+                  <p className="text-3xl font-bold text-slate-200">{formatCurrency(costos)}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{f.modo === 'm2'
+                    ? `Materiales ${formatCurrency(r.materiales)} · Queda para mano de obra y gastos ${formatCurrency(r.paraManoObraM2)} (calculado: ${formatCurrency(r.manoObra + r.gastos)})`
+                    : `Materiales ${formatCurrency(r.materiales)} · Mano de obra ${formatCurrency(r.manoObra)} · Gastos ${formatCurrency(r.gastos)}`}</p>
                 </div>
               </div>
-              <p className="relative z-10 text-[11px] text-slate-400 mt-4 flex items-center gap-1.5"><Package className="w-3.5 h-3.5" /> {f.modo === 'materiales' ? `Con tu precio por m² (S/ ${f.precioPorM2}) saldría ${formatCurrency(r.totalM2)}.` : `Calculado por materiales saldría ${formatCurrency(r.totalMateriales)}.`}</p>
+              {noAlcanza && (
+                <p className="relative z-10 mt-4 text-xs font-bold text-rose-200 bg-rose-950/60 border border-rose-500/50 rounded-lg px-3 py-2">
+                  {r.paraManoObraM2 < 0 ? 'Con este precio por m² no alcanza ni para los materiales.' : 'Con este precio por m² no alcanza para la mano de obra y los gastos calculados.'} Sube el precio a S/ {Math.ceil(r.precioM2Sugerido)} por m².
+                </p>
+              )}
+              <div className="relative z-10 mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                <Package className="w-3.5 h-3.5" />
+                <span>Precio justo por m² (materiales + mano de obra + gastos + {r.utilidadPct} % de ganancia): <b className="text-white">S/ {Math.ceil(r.precioM2Sugerido)}</b> · total {formatCurrency(r.totalMateriales)}.</span>
+                {f.modo === 'm2' && Math.ceil(r.precioM2Sugerido) !== n(f.precioPorM2) && (
+                  <button onClick={() => set('precioPorM2', String(Math.ceil(r.precioM2Sugerido)))} className="px-2 py-1 rounded-md bg-indigo-600 text-white font-bold cursor-pointer">Usar S/ {Math.ceil(r.precioM2Sugerido)}/m²</button>
+                )}
+              </div>
             </div>
           </>
         )}
