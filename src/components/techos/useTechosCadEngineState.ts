@@ -117,11 +117,17 @@ export interface UseTechosCadEngineReturn {
   generateRoofMonoslope: (luzM: number, largoM?: number, alturaCol1M?: number, alturaCol2M?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, peralteTijeralM?: number, orientacionTijeral?: OrientacionTijeral, posicionesTijeralesCustom?: number[], customSpacingM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
   generateRoofParabolic: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, tipoTijeral?: TipoTijeral, peralteArcoM?: number, orientacionTijeral?: OrientacionTijeral, numTijerales?: number, posicionesTijeralesCustom?: number[], customSpacingM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
   generateRoofSawtooth: (luzM: number, largoM?: number, alturaColM?: number, numDientes?: number, alturaDienteM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, numDivisionsPerTooth?: number, customSpacingM?: number, peralteM?: number, orientacionTijeral?: OrientacionTijeral) => void;
-  generateRoofHip: (luzM: number, largoM?: number, alturaColM?: number, alturaCumbreraM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral) => void;
+  generateRoofHip: (luzM: number, largoM?: number, alturaColM?: number, alturaCumbreraM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral, anchoCaidaExtremosM?: number) => void;
   generateRoof6Aguas: (luzM: number, largoM?: number, alturaColM?: number, alturaCuspideM?: number, tipoTijeral?: TipoTijeral, numAnillosCorreas?: number, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofMansarda: (luzM: number, largoM?: number, alturaColM?: number, alturaQuiebreM?: number, alturaCumbreraM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofDome: (diametroM: number, alturaColM?: number, flechaCúpulaM?: number, numCostillasRadiales?: number, tipoTijeral?: TipoTijeral, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofLShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
+  /** Techo en U: nave principal con un ala en cada extremo (mismo lado). */
+  generateRoofUShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
+  /** Marquesina / alero volado anclado a un muro. */
+  generateMarquesina: (voladoM: number, largoM: number, alturaMuroM: number, pendientePct: number, soporte: 'tensores' | 'mensulas' | 'columnas') => void;
+  /** Pérgola: columnas, vigas, viguetas y listones (sin cobertura). */
+  generatePergola: (anchoM: number, largoM: number, alturaM: number, sepViguetasM: number, sepListonesM: number) => void;
   generateRoofButterfly: (luzM: number, largoM?: number, alturaColM?: number, desnivelAlasM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofCurvoAutoportante: (luzM: number, largoM?: number, alturaMuroM?: number, flechaM?: number, numEjes?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofMarquesina: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, numEjes?: number) => void;
@@ -2343,7 +2349,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     tipoTijeral: TipoTijeral = 'escalera_vierendeel',
     numTijerales: number = 5,
     _customSpacingM?: number,
-    orientacionTijeral: OrientacionTijeral = 'vertical'
+    orientacionTijeral: OrientacionTijeral = 'vertical',
+    anchoCaidaExtremosM?: number
   ) => {
     const newNodes: Record<string, Node3D> = {};
     const newSegs: Record<string, Segment3D> = {};
@@ -2357,7 +2364,10 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
 
     const xMid = luzM / 2;
     const yRidge = alturaColM + alturaCumbreraM;
-    const setback = Math.min(luzM / 2, largoM / 3);
+    // Ancho (horizontal) de la caída de cada extremo: por defecto media luz.
+    const setback = anchoCaidaExtremosM && anchoCaidaExtremosM > 0.3
+      ? Math.min(anchoCaidaExtremosM, largoM / 2 - 0.1)
+      : Math.min(luzM / 2, largoM / 3);
     const zRidge1 = setback;
     const zRidge2 = Math.max(setback, largoM - setback);
 
@@ -3113,6 +3123,172 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setCoverageZones(zonas);
     pushHistory(newNodes, newSegs, zonas);
   }, [generateRoofGable, activeCoverageId, pushHistory]);
+
+  // Techo en U: igual que en L, pero con un ala en cada extremo de la nave.
+  const generateRoofUShaped = useCallback((
+    luzPrincipalM: number,
+    largoPrincipalM: number,
+    luzAlaM: number,
+    largoAlaM: number,
+    alturaColM: number = 4.5,
+    tipoTijeral: TipoTijeral = 'fink',
+    orientacionTijeral: OrientacionTijeral = 'vertical'
+  ) => {
+    const pend = 20;
+    const luzAla = Math.min(luzAlaM, largoPrincipalM / 2); // las dos alas entran en el largo
+    const principal = generateRoofGable(luzPrincipalM, largoPrincipalM, alturaColM, pend, tipoTijeral, orientacionTijeral, undefined, undefined, undefined, undefined, undefined, false, undefined, true);
+    const entra = luzAla / 2;
+    const ala = generateRoofGable(luzAla, largoAlaM + entra, alturaColM, pend, tipoTijeral, orientacionTijeral, undefined, undefined, undefined, undefined, undefined, false, undefined, true);
+    if (!principal || !ala) return;
+    const x0 = luzPrincipalM - entra;
+    const newNodes: Record<string, Node3D> = { ...principal.nodes };
+    const newSegs: Record<string, Segment3D> = { ...principal.segs };
+    const r3 = (v: number) => Math.round(v * 1000) / 1000;
+    const clave = (x: number, y: number, z: number) => `${r3(x)}|${r3(y)}|${r3(z)}`;
+    const existentes = new Map(Object.values(newNodes).map(n => [clave(n.x, n.y, n.z), n.id]));
+    const yPrincipal = (x: number) => alturaColM + Math.max(0, luzPrincipalM / 2 - Math.abs(x - luzPrincipalM / 2)) * (pend / 100);
+    [0, largoPrincipalM - luzAla].forEach((zOff, k) => {
+      const pre = `U${k + 1}_`;
+      const mapaId: Record<string, string> = {};
+      Object.values(ala.nodes).forEach(n => {
+        const x = r3(x0 + n.z), z = r3(zOff + n.x);
+        const kk = clave(x, n.y, z);
+        const ya = existentes.get(kk);
+        if (ya) { mapaId[n.id] = ya; return; }
+        const id = `${pre}${n.id}`;
+        newNodes[id] = { ...n, id, x, z, nodeLabel: n.nodeLabel ? `ALA${k + 1}-${n.nodeLabel}` : undefined };
+        existentes.set(kk, id); mapaId[n.id] = id;
+      });
+      Object.values(ala.segs).forEach(sg => {
+        const a = newNodes[mapaId[sg.nodeAId]], b = newNodes[mapaId[sg.nodeBId]];
+        if (!a || !b || a.id === b.id) return;
+        const dentro = (n: Node3D) => n.x < luzPrincipalM - 0.01;
+        if (sg.rolEstructural === 'columna' && (dentro(a) || dentro(b))) return;
+        if (sg.rolEstructural === 'correa' && dentro(a) && dentro(b) && Math.max(a.y, b.y) < Math.min(yPrincipal(a.x), yPrincipal(b.x)) - 0.05) return;
+        const id = `${pre}${sg.id}`;
+        newSegs[id] = { ...sg, id, nodeAId: a.id, nodeBId: b.id };
+      });
+    });
+    const usados = new Set(Object.values(newSegs).flatMap(sg => [sg.nodeAId, sg.nodeBId]));
+    Object.keys(newNodes).forEach(id => { if (!usados.has(id)) delete newNodes[id]; });
+    const zonas = zonasDesdeCorreas(newNodes, newSegs, activeCoverageId || 'cob_aluzinc_030');
+    setNodes(newNodes);
+    setSegments(newSegs);
+    setCoverageZones(zonas);
+    pushHistory(newNodes, newSegs, zonas);
+  }, [generateRoofGable, activeCoverageId, pushHistory]);
+
+  // Marquesina / alero volado: viga anclada al muro (x = 0), viga de frente en
+  // el volado y vigas cada ~1.5 m; se sostiene con tensores al muro, ménsulas
+  // (puntales bajo la viga) o columnas en el frente. Correas cada ~0.9 m.
+  const generateMarquesina = useCallback((
+    voladoM: number,
+    largoM: number,
+    alturaMuroM: number,
+    pendientePct: number,
+    soporte: 'tensores' | 'mensulas' | 'columnas'
+  ) => {
+    const N: Record<string, Node3D> = {}, S: Record<string, Segment3D> = {};
+    const colProf = INVENTARIO_PERFILES_TUBULARES[4]?.id || activeProfileId;
+    const vigaProf = INVENTARIO_PERFILES_TUBULARES[1]?.id || activeProfileId;
+    const correaProf = INVENTARIO_PERFILES_TUBULARES[2]?.id || activeProfileId;
+    const tensorProf = INVENTARIO_PERFILES_TUBULARES.find(p => /varilla|cable/i.test(p.nombre))?.id || correaProf;
+    const yMuro = alturaMuroM, yFrente = alturaMuroM - voladoM * (pendientePct / 100);
+    const nVigas = Math.max(2, Math.round(largoM / 1.5) + 1);
+    const node = (id: string, x: number, y: number, z: number, label: string, fijo = false) => { N[id] = { id, x, y, z, nodeLabel: label, isFixedSupport: fijo }; return id; };
+    const seg = (id: string, a: string, b: string, prof: string, rol: Segment3D['rolEstructural']) => { S[id] = { id, nodeAId: a, nodeBId: b, profileId: prof, rolEstructural: rol }; };
+    const muro: string[] = [], frente: string[] = [];
+    for (let i = 0; i < nVigas; i++) {
+      const z = (largoM * i) / (nVigas - 1);
+      // El anclaje al muro es un apoyo (placa con pernos de expansión).
+      muro.push(node(`mq_m_${i}`, 0, yMuro, z, `MARQ-MURO-${i + 1}`, true));
+      frente.push(node(`mq_f_${i}`, voladoM, yFrente, z, `MARQ-FRENTE-${i + 1}`));
+      seg(`mq_v_${i}`, muro[i], frente[i], vigaProf, 'viga_principal');
+      if (soporte === 'tensores') {
+        const t = node(`mq_ta_${i}`, 0, yMuro + Math.max(0.6, voladoM * 0.6), z, `MARQ-ANCLA-TENSOR-${i + 1}`, true);
+        seg(`mq_t_${i}`, t, frente[i], tensorProf, 'arriostre');
+      } else if (soporte === 'mensulas') {
+        const b = node(`mq_mb_${i}`, 0, yMuro - Math.max(0.6, voladoM * 0.5), z, `MARQ-MENSULA-${i + 1}`, true);
+        const mid = node(`mq_mm_${i}`, voladoM * 0.6, yMuro - voladoM * 0.6 * (pendientePct / 100), z, `MARQ-APOYO-${i + 1}`);
+        seg(`mq_v_${i}`, muro[i], mid, vigaProf, 'viga_principal');
+        seg(`mq_v2_${i}`, mid, frente[i], vigaProf, 'viga_principal');
+        seg(`mq_p_${i}`, b, mid, vigaProf, 'diagonal');
+      } else if (i % 2 === 0 || i === nVigas - 1) {
+        const base = node(`mq_cb_${i}`, voladoM, 0, z, `MARQ-COL-B-${i + 1}`, true);
+        seg(`mq_c_${i}`, base, frente[i], colProf, 'columna');
+      }
+      if (i > 0) {
+        seg(`mq_vm_${i}`, muro[i - 1], muro[i], vigaProf, 'viga_secundaria');
+        seg(`mq_vf_${i}`, frente[i - 1], frente[i], vigaProf, 'viga_secundaria');
+      }
+    }
+    // Correas a lo largo, sobre las vigas
+    const nCorreas = Math.max(1, Math.round(voladoM / 0.9) - 1);
+    for (let c = 1; c <= nCorreas; c++) {
+      const x = (voladoM * c) / (nCorreas + 1), y = yMuro - x * (pendientePct / 100);
+      let prev = '';
+      for (let i = 0; i < nVigas; i++) {
+        const id = node(`mq_cr_${c}_${i}`, x, y, (largoM * i) / (nVigas - 1), `MARQ-CORREA-${c}-${i + 1}`);
+        if (prev) seg(`mq_crs_${c}_${i}`, prev, id, correaProf, 'correa');
+        prev = id;
+      }
+    }
+    const zid = `zone_marq_${Date.now()}`;
+    const zonas: Record<string, CoverageZone3D> = {
+      [zid]: { id: zid, nombre: 'Marquesina', nodeIdsBoundary: [muro[0], frente[0], frente[nVigas - 1], muro[nVigas - 1]], coberturaMaterialId: activeCoverageId || 'cob_aluzinc_030', pendientePorcentaje: pendientePct, orientacionInclinacionDeg: 0 },
+    };
+    setNodes(N); setSegments(S); setCoverageZones(zonas);
+    pushHistory(N, S, zonas);
+  }, [activeProfileId, activeCoverageId, pushHistory]);
+
+  // Pérgola: 4+ columnas, 2 vigas principales a lo largo, viguetas
+  // transversales con volado de 30 cm y listones encima (sin cobertura).
+  const generatePergola = useCallback((
+    anchoM: number,
+    largoM: number,
+    alturaM: number,
+    sepViguetasM: number,
+    sepListonesM: number
+  ) => {
+    const N: Record<string, Node3D> = {}, S: Record<string, Segment3D> = {};
+    const colProf = INVENTARIO_PERFILES_TUBULARES[4]?.id || activeProfileId;
+    const vigaProf = INVENTARIO_PERFILES_TUBULARES[1]?.id || activeProfileId;
+    const listonProf = INVENTARIO_PERFILES_TUBULARES[0]?.id || activeProfileId;
+    const node = (id: string, x: number, y: number, z: number, label: string, fijo = false) => { N[id] = { id, x, y, z, nodeLabel: label, isFixedSupport: fijo }; return id; };
+    const seg = (id: string, a: string, b: string, prof: string, rol: Segment3D['rolEstructural']) => { S[id] = { id, nodeAId: a, nodeBId: b, profileId: prof, rolEstructural: rol }; };
+    const vuelo = 0.3, yV = alturaM, yVg = alturaM + 0.12, yL = alturaM + 0.24;
+    const nCol = Math.max(2, Math.ceil(largoM / 3.5) + 1);
+    const lados = [0, anchoM];
+    lados.forEach((x, l) => {
+      let prev = '';
+      for (let i = 0; i < nCol; i++) {
+        const z = (largoM * i) / (nCol - 1);
+        const b = node(`pg_cb_${l}_${i}`, x, 0, z, `PERG-COL-B-${l + 1}-${i + 1}`, true);
+        const t = node(`pg_ct_${l}_${i}`, x, yV, z, `PERG-COL-T-${l + 1}-${i + 1}`);
+        seg(`pg_c_${l}_${i}`, b, t, colProf, 'columna');
+        if (prev) seg(`pg_v_${l}_${i}`, prev, t, vigaProf, 'viga_principal');
+        prev = t;
+      }
+    });
+    const nVig = Math.max(2, Math.round(largoM / Math.max(0.3, sepViguetasM)) + 1);
+    const viguetas: [string, string][] = [];
+    for (let i = 0; i < nVig; i++) {
+      const z = (largoM * i) / (nVig - 1);
+      const a = node(`pg_vg_a_${i}`, -vuelo, yVg, z, `PERG-VIGUETA-${i + 1}-A`);
+      const b = node(`pg_vg_b_${i}`, anchoM + vuelo, yVg, z, `PERG-VIGUETA-${i + 1}-B`);
+      seg(`pg_vg_${i}`, a, b, vigaProf, 'viga_secundaria');
+      viguetas.push([a, b]);
+    }
+    const nList = Math.max(2, Math.round((anchoM + 2 * vuelo) / Math.max(0.1, sepListonesM)) + 1);
+    for (let j = 0; j < nList; j++) {
+      const x = -vuelo + ((anchoM + 2 * vuelo) * j) / (nList - 1);
+      const a = node(`pg_l_a_${j}`, x, yL, -vuelo, `PERG-LISTON-${j + 1}-A`);
+      const b = node(`pg_l_b_${j}`, x, yL, largoM + vuelo, `PERG-LISTON-${j + 1}-B`);
+      seg(`pg_l_${j}`, a, b, listonProf, 'correa');
+    }
+    setNodes(N); setSegments(S); setCoverageZones({});
+    pushHistory(N, S, {});
+  }, [activeProfileId, pushHistory]);
 
   // Generador de Techo Mariposa / V Invertida (Butterfly Roof) con Viga Canaleta Central
   const generateRoofButterfly = useCallback((
@@ -4101,6 +4277,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofMansarda,
     generateRoofDome,
     generateRoofLShaped,
+    generateRoofUShaped,
+    generateMarquesina,
+    generatePergola,
     generateRoofButterfly,
     generateRoofCurvoAutoportante,
     generateRoofMarquesina,

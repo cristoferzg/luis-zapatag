@@ -41,7 +41,10 @@ export type TipoTechoWizard =
   | 'mariposa' 
   | 'curvo_autoportante'
   | 'monitor'
-  | 'mezzanine';
+  | 'mezzanine'
+  | 'forma_u'
+  | 'marquesina'
+  | 'pergola';
 
 export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> = ({
   isOpen,
@@ -67,7 +70,13 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   // Estados específicos para Dientes de Sierra y Cuatro Aguas
   const [numDientesStr, setNumDientesStr] = useState<string>('3');
   const [alturaDienteStr, setAlturaDienteStr] = useState<string>('1.8');
-  const alturaCumbreraHipStr = '2.0';
+  const [alturaCumbreraHipStr, setAlturaCumbreraHipStr] = useState<string>('2.0');
+  const [anchoCaidaHipStr, setAnchoCaidaHipStr] = useState<string>('');
+  // Marquesina y pérgola
+  const [voladoMarqStr, setVoladoMarqStr] = useState<string>('2.5');
+  const [soporteMarq, setSoporteMarq] = useState<'tensores' | 'mensulas' | 'columnas'>('tensores');
+  const [sepViguetasStr, setSepViguetasStr] = useState<string>('0.60');
+  const [sepListonesStr, setSepListonesStr] = useState<string>('0.25');
 
   // Estados específicos para 6 Aguas, Mansarda, Domo, Forma en L y Mariposa
   const numAnillos6AgStr = '4';
@@ -422,7 +431,13 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
     } else if (tipo === 'dientes_sierra') {
       engineState.generateRoofSawtooth(luzM, largoM, alturaColM, numDientes, alturaDienteM, tipoTijeral, numTijerales, trussDivisions, spacingParam, trussHeightM, orientacionTijeral);
     } else if (tipo === 'cuatro_aguas') {
-      engineState.generateRoofHip(luzM, largoM, alturaColM, alturaCumbreraHipM, tipoTijeral, numTijerales, spacingParam, orientacionTijeral);
+      engineState.generateRoofHip(luzM, largoM, alturaColM, alturaCumbreraHipM, tipoTijeral, numTijerales, spacingParam, orientacionTijeral, parseFloat(anchoCaidaHipStr) || undefined);
+    } else if (tipo === 'forma_u') {
+      engineState.generateRoofUShaped(luzM, largoM, luzAlaLM, largoAlaLM, alturaColM, tipoTijeral, orientacionTijeral);
+    } else if (tipo === 'marquesina') {
+      engineState.generateMarquesina(Math.max(0.5, parseFloat(voladoMarqStr) || 2.5), largoM, alturaColM, pendientePct, soporteMarq);
+    } else if (tipo === 'pergola') {
+      engineState.generatePergola(luzM, largoM, alturaColM, Math.max(0.3, parseFloat(sepViguetasStr) || 0.6), Math.max(0.08, parseFloat(sepListonesStr) || 0.25));
     } else if (tipo === 'seis_aguas') {
       engineState.generateRoof6Aguas(luzM, largoM, alturaColM, alturaCuspide6AgM, tipoTijeral, numAnillos6Ag, spacingParam, orientacionTijeral);
     } else if (tipo === 'mansarda') {
@@ -632,6 +647,66 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 <div className="text-xl sm:text-2xl mb-1">📐</div>
                 <div className="text-xs font-bold leading-tight">En Forma de L</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">Nave en escuadra con limahoya</div>
+              </button>
+
+              {/* EN FORMA DE U */}
+              <button
+                type="button"
+                onClick={() => setTipo('forma_u')}
+                className={`p-2.5 sm:p-3 rounded-2xl border text-left flex flex-col items-center text-center transition-all cursor-pointer ${
+                  tipo === 'forma_u'
+                    ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/70 text-slate-700'
+                }`}
+              >
+                <div className="text-xl sm:text-2xl mb-1">🅤</div>
+                <div className="text-xs font-bold leading-tight">En Forma de U</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Nave con dos alas laterales</div>
+              </button>
+
+              {/* CUATRO AGUAS */}
+              <button
+                type="button"
+                onClick={() => setTipo('cuatro_aguas')}
+                className={`p-2.5 sm:p-3 rounded-2xl border text-left flex flex-col items-center text-center transition-all cursor-pointer ${
+                  tipo === 'cuatro_aguas'
+                    ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/70 text-slate-700'
+                }`}
+              >
+                <div className="text-xl sm:text-2xl mb-1">🏠</div>
+                <div className="text-xs font-bold leading-tight">Cuatro Aguas</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Ancho de cada caída ajustable</div>
+              </button>
+
+              {/* MARQUESINA */}
+              <button
+                type="button"
+                onClick={() => setTipo('marquesina')}
+                className={`p-2.5 sm:p-3 rounded-2xl border text-left flex flex-col items-center text-center transition-all cursor-pointer ${
+                  tipo === 'marquesina'
+                    ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/70 text-slate-700'
+                }`}
+              >
+                <div className="text-xl sm:text-2xl mb-1">⛱️</div>
+                <div className="text-xs font-bold leading-tight">Marquesina / Alero</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Volado anclado al muro</div>
+              </button>
+
+              {/* PÉRGOLA */}
+              <button
+                type="button"
+                onClick={() => setTipo('pergola')}
+                className={`p-2.5 sm:p-3 rounded-2xl border text-left flex flex-col items-center text-center transition-all cursor-pointer ${
+                  tipo === 'pergola'
+                    ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/70 text-slate-700'
+                }`}
+              >
+                <div className="text-xl sm:text-2xl mb-1">🌿</div>
+                <div className="text-xs font-bold leading-tight">Pérgola</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Vigas y listones, sin cobertura</div>
               </button>
 
               {/* MARIPOSA */}
@@ -1075,8 +1150,91 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 </>
               )}
 
+              {/* OPCIONES PARA CUATRO AGUAS */}
+              {tipo === 'cuatro_aguas' && (
+                <>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Altura de cumbrera (sobre columnas):</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={alturaCumbreraHipStr} onChange={(e) => setAlturaCumbreraHipStr(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder="2.0" />
+                        <span className="text-xs font-bold text-slate-500">m</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Ancho de la caída en cada extremo:</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={anchoCaidaHipStr} onChange={(e) => setAnchoCaidaHipStr(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder="Media luz" />
+                        <span className="text-xs font-bold text-slate-500">m</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* OPCIONES PARA MARQUESINA */}
+              {tipo === 'marquesina' && (
+                <>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Volado (sale del muro):</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={voladoMarqStr} onChange={(e) => setVoladoMarqStr(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder="2.5" />
+                        <span className="text-xs font-bold text-slate-500">m</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <span className="text-xs font-bold text-slate-800 block mb-1">¿Cómo se sostiene?</span>
+                    <div className="grid grid-cols-3 gap-1">
+                      {([['tensores', 'Tensores al muro'], ['mensulas', 'Ménsulas'], ['columnas', 'Columnas al frente']] as const).map(([v, t]) => (
+                        <button key={v} type="button" onClick={() => setSoporteMarq(v)}
+                          className={`py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer ${soporteMarq === v ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-white border-slate-200 text-slate-600'}`}>{t}</button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-slate-500">"Largo" es el ancho de la fachada; "Altura de columna" es la altura del anclaje en el muro; la pendiente baja hacia el frente.</p>
+                  </div>
+                </>
+              )}
+
+              {/* OPCIONES PARA PÉRGOLA */}
+              {tipo === 'pergola' && (
+                <>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Viguetas cada:</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={sepViguetasStr} onChange={(e) => setSepViguetasStr(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder="0.60" />
+                        <span className="text-xs font-bold text-slate-500">m</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Listones cada:</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={sepListonesStr} onChange={(e) => setSepListonesStr(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder="0.25" />
+                        <span className="text-xs font-bold text-slate-500">m</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {/* OPCIONES ESPECÍFICAS PARA EN FORMA DE L */}
-              {tipo === 'forma_l' && (
+              {(tipo === 'forma_l' || tipo === 'forma_u') && (
                 <>
                   <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                     <div className="flex items-center justify-between">
@@ -1896,7 +2054,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     </button>
                 </>
 
-                {(tipo === 'mansarda' || tipo === 'forma_l' || tipo === 'mariposa' || tipo === 'mezzanine') && (
+                {(tipo === 'mansarda' || tipo === 'forma_l' || tipo === 'forma_u' || tipo === 'mariposa' || tipo === 'mezzanine') && (
                   <>
                     <button
                       type="button"
