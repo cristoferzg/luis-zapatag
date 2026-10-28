@@ -8,7 +8,6 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import * as THREE from 'three';
 import { 
   RotateCw, 
-  Sun,
   Plus, 
   Minus, 
   Maximize2, 
@@ -3572,14 +3571,6 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             title="Colores y acabados de la estructura">
             <Palette className="w-4 h-4" />
             <span className="hidden xl:inline text-[11px] font-bold">Colores</span>
-          </button>
-
-          {/* Modo render (sombras del sol) */}
-          <button onClick={() => setModoRender(v => !v)}
-            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${modoRender ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
-            title="Render: sombras del sol y suelo realista">
-            <Sun className="w-4 h-4" />
-            <span className="hidden xl:inline text-[11px] font-bold">Render</span>
           </button>
 
           {/* Recorrido a pie */}
