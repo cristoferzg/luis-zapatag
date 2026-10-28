@@ -62,6 +62,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       `Perfilería estructural (${(design.despiecePerfiles || []).reduce((n: number, p: any) => n + p.totalBarrasComerciales6m, 0)} barras de 6 m): S/. ${(design.costoPerfilesSoles ?? 0).toFixed(2)}`,
       `Cobertura (${(design.resumenCoberturas || []).reduce((n: number, c: any) => n + c.areaEfectivaCalculadaM2, 0).toFixed(1)} m²): S/. ${(design.costoCoberturasSoles ?? 0).toFixed(2)}`,
       `Placas base, pernos y soldadura: S/. ${(design.costoAccesoriosSoles ?? 0).toFixed(2)}`,
+      ...((design.mecanismoMovil || []).length ? [`Mecanismo de techo movible (rieles, ruedas, accionamiento): S/. ${(design.costoMovilSoles ?? 0).toFixed(2)}`] : []),
     ] },
     { item: '02', desc: 'Mano de obra: fabricación y montaje', monto: design.costoManoObraMontajeSoles,
       sub: costos.manoObraModo === 'detalle' && totalCuadrilla(costos) > 0 ? costos.cuadrilla.filter(f => f.cantidad * jornalDe(f) * f.dias > 0).map(f => `${f.cargo}: ${f.cantidad} × ${f.dias} días × S/. ${jornalDe(f).toFixed(2)}`) : undefined },

@@ -23,6 +23,7 @@ import {
 import { CostosTechos, leerCostosTechos, totalCuadrilla, totalOperativos } from './costosTechos';
 import { precio, precioBarraPerfil, claveCobertura, largoPlanchaCompra } from '../../lib/catalogoPrecios';
 import { esTensor, metradoTensores } from './tensores';
+import { metradoMovil } from './mecanismoMovil';
 
 // 1. CÁLCULO DE DISTANCIA EUCLIDIANA 3D ENTRE NODOS
 export function calcularLongitudSegmento3D(nodoA: Node3D, nodoB: Node3D): number {
@@ -239,6 +240,8 @@ export function generarReportePresupuestoBom(
   Object.values(segments).forEach(s => { if (!esTensor(s)) segsPerfil[s.id] = s; });
   const tensores = metradoTensores(nodes, segments);
   const costoTensoresSoles = tensores.reduce((x, l) => x + l.subtotal, 0);
+  const mecanismoMovil = metradoMovil(nodes, coverageZones);
+  const costoMovilSoles = mecanismoMovil.reduce((x, l) => x + l.subtotal, 0);
   const despiecePerfiles = calcularDespieceOptimizado1D(segsPerfil, nodes, 0.003);
   const resumenCoberturas = calcularMetradoCoberturas(coverageZones, nodes);
 
@@ -268,7 +271,7 @@ export function generarReportePresupuestoBom(
   const costoPernosEpdmSoles = cajasPernosEpdm * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol);
   const costoSoldaduraSoles = kgSoldaduraEstimados * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol);
 
-  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles;
+  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles + costoMovilSoles;
 
   // Mano de obra y gastos operativos: % de materiales o detalle del usuario
   // (cuadrilla con jornales; grúa, transporte… con montos).
@@ -303,6 +306,8 @@ export function generarReportePresupuestoBom(
     costoAccesoriosSoles: r2(costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles),
     tensores,
     costoTensoresSoles: r2(costoTensoresSoles),
+    mecanismoMovil,
+    costoMovilSoles: r2(costoMovilSoles),
     gastosGeneralesSoles: r2(gastosGenerales),
     utilidadSoles: r2(utilidad),
     subtotalSoles: r2(subtotal),

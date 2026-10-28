@@ -154,6 +154,15 @@ export interface CoverageZone3D {
   pendientePorcentaje: number;  // Pendiente de la caída %
   orientacionInclinacionDeg: number; // Orientación del flujo de agua (0°, 90°, 180°, 270°)
   selected?: boolean;
+  movil?: TechoMovil;           // Techo movible (opcional): mecanismo de apertura
+}
+
+// Techo movible: la cobertura se divide en paños que se abren a lo largo (Z).
+export interface TechoMovil {
+  tipo: 'corredizo' | 'plegable' | 'lamas';
+  panos: number;                       // paños (o lamas)
+  accionamiento: 'manual' | 'motor';
+  abreHacia?: 'inicio' | 'final';      // extremo donde se juntan los paños
 }
 
 // 3. ESTADO GLOBAL DEL MOTOR DE DIBUJO Y HERRAMIENTAS
@@ -295,6 +304,8 @@ export interface FullTechosBomReport {
   subtotalSoles?: number;
   tensores?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
   costoTensoresSoles?: number;
+  mecanismoMovil?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
+  costoMovilSoles?: number;
 }
 
 // 5. ANÁLISIS ESTRUCTURAL Y PARÁMETROS NORMATIVOS (RNE E.020, E.030, E.050, E.090)

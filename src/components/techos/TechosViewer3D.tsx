@@ -31,12 +31,15 @@ import {
   SlidersHorizontal,
   Video,
   Square,
-  Box
+  Box,
+  Blinds
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { perfilTechos } from './tensores';
 import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
+import { movilDe, TIPOS_MOVIL } from './mecanismoMovil';
+import type { TechoMovil } from './techosCadEngineTypes';
 
 interface TechosViewer3DProps {
   engineState?: UseTechosCadEngineReturn;
@@ -322,6 +325,56 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // Elementos activos desde engineState o props fallback
   const nodes = engineState?.nodes || propsNodes || {};
   const segments = engineState?.segments || propsSegments || {};
+
+  // TECHO MOVIBLE: el mecanismo guardado en la cobertura principal (o uno de
+  // prueba si el techo aún no tiene cobertura) y cuánto está abierto (0 a 1).
+  const movilGuardado = movilDe(engineState?.coverageZones || {});
+  const [movilPrueba, setMovilPrueba] = useState<TechoMovil | null>(null);
+  const movil = movilGuardado || movilPrueba;
+  const movilClave = movil ? `${movil.tipo}|${movil.panos}|${movil.accionamiento}|${movil.abreHacia || 'inicio'}` : '';
+  const [panelMovil, setPanelMovil] = useState(false);
+  const [apertura, setApertura] = useState(0);
+  const aperturaRef = useRef(0);
+  const panosRef = useRef<{ g: THREE.Group; k: number; zPiv: number; yPiv: number }[]>([]);
+  const movilMetaRef = useRef<{ tipo: TechoMovil['tipo']; dir: number; gather: number; p: number } | null>(null);
+  const aplicarApertura = useCallback((a: number) => {
+    const meta = movilMetaRef.current;
+    if (!meta) return;
+    panosRef.current.forEach(({ g, k, zPiv, yPiv }) => {
+      g.position.set(0, yPiv, zPiv); g.rotation.set(0, 0, 0);
+      if (meta.tipo === 'corredizo') {
+        // Telescópico: cada paño corre sobre el anterior (escalonado 9 cm).
+        g.position.z = zPiv - meta.dir * a * k * meta.p * 0.96;
+      } else if (meta.tipo === 'plegable') {
+        // Acordeón: los paños se levantan y se juntan hacia el extremo.
+        g.rotation.x = -meta.dir * a * 1.35;
+        g.position.z = meta.gather + meta.dir * k * meta.p * (1 - 0.86 * a);
+      } else {
+        // Lamas: cada una gira sobre su propio eje.
+        g.rotation.x = -meta.dir * a * 1.45;
+      }
+    });
+  }, []);
+  useEffect(() => { aperturaRef.current = apertura; aplicarApertura(apertura); }, [apertura, aplicarApertura]);
+  // Animación Abrir / Cerrar (2.5 s)
+  const animRef = useRef(0);
+  const animarApertura = (hasta: number) => {
+    cancelAnimationFrame(animRef.current);
+    const desde = aperturaRef.current, t0 = performance.now(), dur = 2500 * Math.abs(hasta - desde) + 1;
+    const paso = (t: number) => {
+      const u = Math.min(1, (t - t0) / dur), e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+      setApertura(desde + (hasta - desde) * e);
+      if (u < 1) animRef.current = requestAnimationFrame(paso);
+    };
+    animRef.current = requestAnimationFrame(paso);
+  };
+  useEffect(() => () => cancelAnimationFrame(animRef.current), []);
+  const guardarMovil = (m: TechoMovil | null) => {
+    const ok = engineState?.setTechoMovil ? engineState.setTechoMovil(m) : false;
+    if (!ok) setMovilPrueba(m);
+    if (m) setMostrarCobertura(true);
+    if (!m) setApertura(0);
+  };
 
   // Estado para Selección e Inspección 3D Interactiva de Perfiles
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
@@ -2385,13 +2438,62 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone();
         flatBottom.flatShading = true; flatBottom.needsUpdate = true;
 
+        panosRef.current = []; movilMetaRef.current = null;
+        if (movil) {
+          // TECHO MOVIBLE: la cobertura se arma por paños que se pueden abrir.
+          roofGeom.dispose();
+          const n = Math.max(1, Math.min(40, Math.round(movil.panos || 1)));
+          const dir = movil.abreHacia === 'final' ? -1 : 1;
+          const gather = dir > 0 ? minZNode - 0.28 : maxZNode + 0.28;
+          const L = maxZNode - minZNode + 0.56, p = L / n;
+          const ys = coberturaProfile.map(q => q.y), xs = coberturaProfile.map(q => q.x);
+          const yAlero = Math.min(...ys), xMin = Math.min(...xs) - 0.3, xMax = Math.max(...xs) + 0.3;
+          movilMetaRef.current = { tipo: movil.tipo, dir, gather, p };
+          for (let k = 0; k < n; k++) {
+            const a0 = gather + dir * k * p, a1 = gather + dir * (k + 1) * p;
+            const holgura = movil.tipo === 'lamas' ? 0.015 : 0;
+            const geo = createAdaptiveAluzincGeometry(coberturaProfile, Math.min(a0, a1) + holgura, Math.max(a0, a1) - holgura, 0.30, movil.tipo === 'corredizo' ? 0.05 : 0.0);
+            const mesh = new THREE.Mesh(geo, [flatTop, flatBottom]);
+            mesh.name = 'cobertura_malla';
+            const lama = movil.tipo === 'lamas';
+            const zPiv = lama ? (a0 + a1) / 2 : a0;
+            const yPiv = lama ? yAlero + 0.08 : yAlero;
+            const escalon = movil.tipo === 'corredizo' ? k * 0.09 : 0;
+            const g = new THREE.Group();
+            mesh.position.set(0, -yPiv + escalon, -zPiv);
+            g.add(mesh);
+            g.name = 'pano_movil';
+            modeloGroup.add(g);
+            panosRef.current.push({ g, k, zPiv, yPiv });
+          }
+          // Rieles (o canaletas de lamas) a ambos lados del techo
+          const matRiel = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.35 });
+          [xMin, xMax].forEach(x => {
+            const riel = new THREE.Mesh(new THREE.BoxGeometry(0.08, movil.tipo === 'lamas' ? 0.14 : 0.07, L), matRiel);
+            riel.position.set(x, yAlero - 0.06, (minZNode + maxZNode) / 2);
+            riel.name = 'riel_movil';
+            modeloGroup.add(riel);
+          });
+          // Motor (o manivela) en el extremo donde se juntan los paños
+          const caja = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.26, 0.32), new THREE.MeshStandardMaterial({ color: movil.accionamiento === 'motor' ? 0x0f172a : 0x64748b, metalness: 0.4, roughness: 0.5 }));
+          caja.position.set(xMin, yAlero - 0.24, gather - dir * 0.2);
+          caja.name = 'motor_movil';
+          modeloGroup.add(caja);
+          if (movil.accionamiento === 'motor') {
+            const led = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 12), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
+            led.position.set(xMin + 0.17, yAlero - 0.18, gather - dir * 0.2);
+            modeloGroup.add(led);
+          }
+          aplicarApertura(aperturaRef.current);
+        } else {
         const roofMesh = new THREE.Mesh(roofGeom, [flatTop, flatBottom]);
         roofMesh.name = 'cobertura_malla';
         modeloGroup.add(roofMesh);
+        }
 
         // Renderizado de Cumbrera Metálica Plegada (Techos a Dos Aguas)
         const peakPoint = topProfilePoints.reduce((max, p) => p.y > max.y ? p : max, topProfilePoints[0]);
-        if (peakPoint && topProfilePoints.length >= 3) {
+        if (!movil && peakPoint && topProfilePoints.length >= 3) {
           const ridgeGeo = new THREE.BoxGeometry(0.35, 0.05, (maxZNode - minZNode) + 0.5);
           const ridgeMat = new THREE.MeshStandardMaterial({
             color: aluzincColorHex,
@@ -2430,7 +2532,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     scene.add(rainLines);
     rainLinesRef.current = rainLines;
 
-  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, engineState?.coverageZones]);
+  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, engineState?.coverageZones, movilClave]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inicialización de WebGL
   useEffect(() => {
@@ -2818,6 +2920,64 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         className="w-full flex-1 cursor-grab active:cursor-grabbing relative touch-none"
       />
 
+      {/* PANEL TECHO MOVIBLE */}
+      {panelMovil && (() => {
+        const base: TechoMovil = movil || { tipo: 'corredizo', panos: 3, accionamiento: 'manual', abreHacia: 'inicio' };
+        const cambiar = (p: Partial<TechoMovil>) => guardarMovil({ ...base, ...p });
+        const conCobertura = !!Object.values(engineState?.coverageZones || {}).some(z => !/^tq[0-9a-z]+_/.test(z.id));
+        const chip = (activo: boolean) => `px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`;
+        return (
+          <div className="absolute left-2 right-16 sm:left-3 sm:right-auto sm:w-[340px] bottom-2 sm:bottom-14 z-30 max-h-[58%] overflow-y-auto bg-white/97 backdrop-blur border border-slate-200 rounded-2xl shadow-2xl p-2.5 sm:p-3 space-y-2 sm:space-y-2.5 text-slate-800"
+            onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onWheel={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-black uppercase tracking-wide text-teal-800 flex items-center gap-1.5"><Blinds className="w-4 h-4" /> Techo movible</p>
+              <button onClick={() => setPanelMovil(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-4 h-4" /></button>
+            </div>
+            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+              <input type="checkbox" checked={!!movil} onChange={e => guardarMovil(e.target.checked ? base : null)} className="w-4 h-4 accent-teal-600" />
+              El techo se abre (mecanismo movible)
+            </label>
+            {movil && (<>
+              <div className="flex flex-wrap gap-1.5">
+                {TIPOS_MOVIL.map(t => (
+                  <button key={t.id} onClick={() => cambiar({ tipo: t.id, panos: movil.tipo === t.id ? movil.panos : t.panos })} className={chip(movil.tipo === t.id)}>{t.nombre}</button>
+                ))}
+              </div>
+              <p className="hidden sm:block text-[10px] text-slate-500 leading-snug">{TIPOS_MOVIL.find(t => t.id === movil.tipo)?.ayuda}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">{movil.tipo === 'lamas' ? 'Lamas' : 'Paños'}
+                  <input type="number" min={movil.tipo === 'lamas' ? 4 : 2} max={40} value={movil.panos}
+                    onChange={e => { const v = Math.round(Number(e.target.value)); if (v >= 1 && v <= 40) cambiar({ panos: v }); }}
+                    className="mt-0.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-black text-slate-800" />
+                </label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Se junta en
+                  <select value={movil.abreHacia || 'inicio'} onChange={e => cambiar({ abreHacia: e.target.value as 'inicio' | 'final' })}
+                    className="mt-0.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 cursor-pointer">
+                    <option value="inicio">Un extremo</option>
+                    <option value="final">El otro extremo</option>
+                  </select>
+                </label>
+              </div>
+              <div className="flex gap-1.5">
+                <button onClick={() => cambiar({ accionamiento: 'manual' })} className={chip(movil.accionamiento === 'manual')}>Manual (manivela)</button>
+                <button onClick={() => cambiar({ accionamiento: 'motor' })} className={chip(movil.accionamiento === 'motor')}>Con motor</button>
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase"><span>Apertura</span><span className="font-mono text-slate-800">{Math.round(apertura * 100)}%</span></div>
+                <input type="range" min={0} max={100} value={Math.round(apertura * 100)} onChange={e => { cancelAnimationFrame(animRef.current); setApertura(Number(e.target.value) / 100); }} className="w-full accent-teal-600" />
+                <div className="flex gap-1.5 mt-1">
+                  <button onClick={() => animarApertura(1)} className="flex-1 px-2 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-black cursor-pointer">Abrir</button>
+                  <button onClick={() => animarApertura(0)} className="flex-1 px-2 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-black cursor-pointer">Cerrar</button>
+                </div>
+              </div>
+              <p className={`text-[10px] font-bold rounded-lg px-2 py-1.5 ${conCobertura ? 'text-emerald-800 bg-emerald-50' : 'text-amber-800 bg-amber-50'}`}>
+                {conCobertura ? 'Se guarda con el diseño y suma rieles, ruedas y el motor o manivela al presupuesto (precios en Catálogo de precios).' : 'Vista de prueba: cubre el techo en "Cobertura" para guardarlo con el diseño y sumarlo al presupuesto.'}
+              </p>
+            </>)}
+          </div>
+        );
+      })()}
+
       {/* WIDGET VISUAL DE ORIENTACIÓN ESPACIAL / GIROSCOPIO 3D */}
       <div className="absolute bottom-3 right-3 pointer-events-none z-10 flex flex-col items-end gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
         <div className="bg-slate-900/90 border border-slate-700/70 backdrop-blur-md rounded-2xl p-2 shadow-xl flex items-center gap-2 text-[10px] font-mono text-slate-300">
@@ -2960,6 +3120,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             title="Mostrar / Ocultar Cobertura Aluzinc"
           >
             <Eye className="w-4 h-4" />
+          </button>
+
+          {/* Techo movible (corredizo, plegable o de lamas) */}
+          <button
+            onClick={() => setPanelMovil(v => !v)}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${
+              panelMovil || movil ? 'bg-teal-600 text-white border-teal-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+            }`}
+            title="Techo movible: corredizo, plegable o de lamas"
+          >
+            <Blinds className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Movible</span>
           </button>
 
           {/* Toggle Columnas de Concreto (solo si existen en la escena) */}

@@ -12,6 +12,7 @@ import {
   Node3D, 
   Segment3D, 
   CoverageZone3D, 
+  TechoMovil,
   ToolModoCad, 
   RolEstructuralSegmento,
   FullTechosBomReport,
@@ -23,6 +24,7 @@ import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCa
 import { generarReportePresupuestoBom } from './techosCadCalculations';
 import { TipoTijeral } from './techosCadColors';
 import { generateDxfContent } from '../../lib/dxfParser';
+import { zonaPrincipal } from './mecanismoMovil';
 
 // Portapapeles global para copiar y pegar elementos entre operaciones CAD
 let cadClipboard: {
@@ -104,6 +106,8 @@ export interface UseTechosCadEngineReturn {
   clearScene: () => void;
   assignProfileToSelectedSegments: (profileId: string) => void;
   assignCoverageToSelectedZones: (coverageId: string) => void;
+  /** Techo movible: guarda (o quita con null) el mecanismo en la cobertura principal. Devuelve false si el techo aún no tiene cobertura. */
+  setTechoMovil: (movil: TechoMovil | null) => boolean;
 
   // Generadores Paramétricos Automáticos que generan Nodos y Segmentos reales en PROJECT_MODEL
   generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => string | void;
@@ -839,6 +843,16 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setCoverageZones(newZones);
     pushHistory(nodes, segments, newZones);
   }, [nodes, segments, coverageZones, selectedElementIds, pushHistory]);
+
+  const setTechoMovil = useCallback((movil: TechoMovil | null) => {
+    const z = zonaPrincipal(coverageZones);
+    if (!z) return false;
+    const { movil: _prev, ...resto } = z; void _prev;
+    const newZones = { ...coverageZones, [z.id]: movil ? { ...resto, movil } : resto };
+    setCoverageZones(newZones);
+    pushHistory(nodes, segments, newZones);
+    return true;
+  }, [nodes, segments, coverageZones, pushHistory]);
 
   // Eliminar Elementos Seleccionados
   const deleteSelectedElements = useCallback(() => {
@@ -4064,6 +4078,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     loadScene,
     assignProfileToSelectedSegments,
     assignCoverageToSelectedZones,
+    setTechoMovil,
     generateTrussFreehand,
     generateRoofGable,
     generateRoofMonoslope,
