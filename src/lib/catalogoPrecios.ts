@@ -22,7 +22,7 @@ export const AREA_PLANCHA_M2 = 1.22 * 2.44; // plancha estándar de drywall / OS
 
 export type GrupoCatalogo =
   | 'Perfiles de acero' | 'Coberturas' | 'Accesorios de techos' | 'Accesorios de CarpiMetal' | 'Planchas, vidrio y malla'
-  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Mano de obra (jornal por día)' | 'Mis materiales';
+  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Acabados e instalaciones' | 'Mano de obra (jornal por día)' | 'Mis materiales';
 
 export interface ItemCatalogo {
   clave: string;
@@ -118,6 +118,17 @@ function construirItems(): ItemCatalogo[] {
     ['agua:soporte', 'Soporte de canaleta', 'unidad'], ['agua:tapa', 'Tapa de canaleta', 'unidad'], ['agua:embudo', 'Embudo / salida de canaleta', 'unidad'],
     ['agua:abrazadera', 'Abrazadera para bajada', 'unidad'], ['agua:codo', 'Codo para bajada', 'unidad'],
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
+  // Obra Civil: acabados por ambiente, instalaciones y ladrillo de techo
+  ([
+    ['acab:piso_ceramico', 'Piso cerámico (instalado)', 'm²'], ['acab:piso_porcelanato', 'Piso porcelanato (instalado)', 'm²'],
+    ['acab:piso_pulido', 'Piso de cemento pulido', 'm²'], ['acab:piso_laminado', 'Piso laminado (instalado)', 'm²'], ['acab:piso_vinilico', 'Piso vinílico (instalado)', 'm²'],
+    ['acab:pintura', 'Pintura de muros (2 manos)', 'm²'], ['acab:zocalo', 'Zócalo', 'm'],
+    ['inst:punto_luz', 'Punto de luz', 'punto'], ['inst:tomacorriente', 'Tomacorriente', 'punto'], ['inst:interruptor', 'Interruptor', 'punto'],
+    ['inst:punto_agua', 'Salida de agua fría', 'punto'], ['inst:punto_desague', 'Salida de desagüe', 'punto'], ['inst:sumidero', 'Sumidero', 'unidad'],
+  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Acabados e instalaciones', nombre, unidad, ref: 0, usadoEn: ['Obra Civil'] }));
+  ([
+    ['obra:ladrillo_techo_12', 'Ladrillo de techo 12 (losa 17 cm)', 'unidad'], ['obra:ladrillo_techo_15', 'Ladrillo de techo 15 (losa 20 cm)', 'unidad'], ['obra:ladrillo_techo_20', 'Ladrillo de techo 20 (losa 25 cm)', 'unidad'],
+  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Ladrillos', nombre, unidad, ref: 0, usadoEn: ['Obra Civil'] }));
   add({ clave: 'techos:placa_base', grupo: 'Accesorios de techos', nombre: PLACA_BASE_ESTANDAR.nombre, unidad: 'unidad', ref: PLACA_BASE_ESTANDAR.costoUnidadSol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_anclaje', grupo: 'Accesorios de techos', nombre: PERNO_ANCLAJE_J.nombre, unidad: 'caja ×100', ref: PERNO_ANCLAJE_J.costoCaja100Sol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_epdm', grupo: 'Accesorios de techos', nombre: PERNO_EPDM_ESTANDAR.nombre, unidad: 'caja ×100', ref: PERNO_EPDM_ESTANDAR.costoCaja100Sol, usadoEn: ['Techos'] });

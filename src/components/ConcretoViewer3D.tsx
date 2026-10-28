@@ -24,6 +24,7 @@ import { perfilTechos } from './techos/tensores';
 import { Bloque, muebleDe, geometriaCarpi, GeomCarpi } from './concreto/bloques';
 import { leerDisenosCarpi } from './concreto/carpiObra';
 import { tipoLadrillo, texturaLadrillo, texturaOsb, texturaDrywall } from './concreto/texturasObra';
+import { escalera } from './concreto/extrasObra';
 
 const C = {
   concreto: 0xcfcfca, zapata: 0xc8c4bc, cimiento: 0xbdb8ae, losa: 0xdcdcd7, acero: 0x5f6f82,
@@ -121,6 +122,11 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
   const girar = useRef(false); // giro lento automático mientras se graba
   const grabacion = useRef<{ detener: () => void } | null>(null);
   const [grabando, setGrabando] = useState(false);
+  // Vista de corte: un plano vertical que recorta el modelo para ver por dentro.
+  const [corte, setCorte] = useState(100); // % del ancho visible (100 = sin corte)
+  const [ejeCorte, setEjeCorte] = useState<'x' | 'z'>('x');
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const limitesRef = useRef<THREE.Box3 | null>(null);
   const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques });
   datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques };
 
@@ -132,6 +138,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     scene.background = new THREE.Color(0xffffff);
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+    rendererRef.current = renderer;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
     canvasRef.current = renderer.domElement;
@@ -375,6 +382,15 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
             if (mat === 'ladrillo') material = new THREE.MeshLambertMaterial({ map: texturaLadrillo(tipoLadrillo(e.materialId)) });
             if (mat === 'osb') material = new THREE.MeshLambertMaterial({ map: texturaOsb() });
             if (L > 0.02) muro3d(e, ctx.base, material, ctx);
+          } else if (e.tipo === 'escalera') {
+            // Escalera de concreto: un bloque por paso, del piso a su altura.
+            const r = escalera(L, e.H || 2.6, e.a || 1);
+            const base = obra.ctx(e.nivel).base;
+            const ux = dx / L, uz = dz / L;
+            for (let i = 0; i < r.n; i++) {
+              const t = r.paso * (i + 0.5), hh = r.cp * (i + 1);
+              caja(r.paso, hh, e.a || 1, e.x1 + ux * t, base + hh / 2, e.y1 + uz * t, M.concreto, rotY);
+            }
           } else if (e.tipo === 'viga') caja(L, h, a, cx, vigaElev - h / 2, cz, M.concreto, rotY);
           else caja(L, h, a, cx, -h / 2, cz, M.cimiento, rotY);
         }
@@ -452,6 +468,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
 
     // Suelo y rejilla (mismo lenguaje que Techos)
     const box = new THREE.Box3().setFromObject(modelo);
+    limitesRef.current = box.clone();
     const centro = box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3());
     const tam = box.isEmpty() ? new THREE.Vector3(10, 3, 10) : box.getSize(new THREE.Vector3());
     const ext = Math.max(20, Math.ceil(Math.max(tam.x, tam.z) * 2.5));
@@ -543,6 +560,15 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     };
   }, []);
 
+  useEffect(() => {
+    const r = rendererRef.current, b = limitesRef.current;
+    if (!r || !b || b.isEmpty()) return;
+    if (corte >= 100) { r.clippingPlanes = []; return; }
+    const min = ejeCorte === 'x' ? b.min.x : b.min.z, max = ejeCorte === 'x' ? b.max.x : b.max.z;
+    const pos = min + ((max - min) * corte) / 100;
+    r.clippingPlanes = [new THREE.Plane(ejeCorte === 'x' ? new THREE.Vector3(-1, 0, 0) : new THREE.Vector3(0, 0, -1), pos)];
+  }, [corte, ejeCorte]);
+
   // Segundos que faltan de la grabación y aviso al terminar.
   const [seg, setSeg] = useState(0);
   const [listo, setListo] = useState<string | null>(null);
@@ -574,6 +600,13 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         {grabando ? <StopIcon className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
         {grabando ? `Detener · ${seg}s` : 'Grabar video'}
       </button>
+      {/* Vista de corte */}
+      <div className="absolute left-3 bottom-12 sm:bottom-14 z-10 flex items-center gap-1.5 bg-white/95 border border-slate-200 rounded-xl px-2 py-1.5 shadow text-[10px] font-bold text-slate-600">
+        <span>Corte</span>
+        <button onClick={() => setEjeCorte(e => e === 'x' ? 'z' : 'x')} className="px-1.5 py-0.5 rounded bg-slate-100 cursor-pointer" title="Cambiar dirección del corte">{ejeCorte === 'x' ? '↔' : '↕'}</button>
+        <input type="range" min={0} max={100} value={corte} onChange={e => setCorte(Number(e.target.value))} className="w-24 sm:w-32 accent-stone-700" aria-label="Posición del corte" />
+        {corte < 100 && <button onClick={() => setCorte(100)} className="px-1.5 py-0.5 rounded bg-slate-100 cursor-pointer">Quitar</button>}
+      </div>
       {listo && (
         <div className="absolute bottom-14 right-3 z-10 max-w-[240px] text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 shadow">{listo}</div>
       )}
