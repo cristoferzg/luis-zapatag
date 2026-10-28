@@ -16,7 +16,7 @@
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from './firebase';
 
-export const COSTO_CREDITOS = { boleta: 1, croquis: 10 } as const;
+export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2 } as const;
 export type AccionIA = keyof typeof COSTO_CREDITOS;
 
 export interface AIPlan {

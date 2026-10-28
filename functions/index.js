@@ -120,7 +120,7 @@ export const loginWithPin = onCall(
 // Las reglas de Firestore impiden que el cliente escriba ai_access, por eso el
 // descuento se hace AQUÍ, dentro de una transacción.
 // =============================================================================
-const COSTO_CREDITOS = { boleta: 1, croquis: 10 };
+const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2 };
 
 // Traduce un error de la API de IA a un mensaje claro y lo deja en el registro
 // (firebase functions:log) para poder diagnosticarlo.
@@ -368,7 +368,8 @@ export const analyzeRoofPlan = onCall(
     }
 
     const prompt = [
-      'Eres un ingeniero que ayuda a contratistas de techos metálicos en Perú a pasar a la computadora el plano que dibujaron a mano.',
+      'Eres un ingeniero que ayuda a contratistas de techos metálicos en Perú a pasar a la computadora un plano: dibujado a mano',
+      'o un plano de arquitecto (impreso, foto de un plano de AutoCAD o un PDF).',
       'La foto viene del celular y casi nunca es perfecta: puede estar girada o en perspectiva, con líneas chuecas, sobre papel',
       'cuadriculado o una libreta, con notas, precios o cuentas en los márgenes, y a veces con varios dibujos en la misma hoja.',
       'Tu trabajo es entender la INTENCIÓN del dibujo y devolver la PLANTA del área a techar en metros.',
@@ -391,6 +392,15 @@ export const analyzeRoofPlan = onCall(
       '- Si las medidas no cuadran entre sí, quédate con la interpretación más razonable y menciónalo en "notas".',
       '- Zonas marcadas como "ya está techado", "no se techa", "vacío" o "existente" quedan fuera del contorno.',
       '- "CALLE", "VECINO" o "frente" indican los lados del terreno; úsalos para la caída si dicen "caída para la calle".',
+      '',
+      'Si es un PLANO DE ARQUITECTO (impreso, AutoCAD o PDF):',
+      '- Tiene ejes con letras y números (A, B, C… / 1, 2, 3…) y cotas entre ejes: las COLUMNAS van en los cruces de ejes donde',
+      '  hay un cuadrado relleno o rayado; usa las cotas entre ejes para ubicarlas.',
+      '- Ignora el rótulo o cajetín, la escala escrita (1/50, 1/100), el norte, los muebles, aparatos sanitarios, puertas y textos de ambientes.',
+      '- Si hay una planta de TECHOS o una "proyección de techo", usa esa. Si solo hay planta de distribución, el área a techar es el',
+      '  contorno exterior de los muros (o la zona que indique "techo", "cobertura", "patio a techar").',
+      '- Si el PDF tiene varias páginas, usa la de techos o la planta principal; menciona en "notas" qué página usaste.',
+      '- Las cotas de AutoCAD suelen estar en metros (4.50) o en centímetros (450); aplica las mismas reglas de unidades.',
       '',
       'Coordenadas: origen en la esquina inferior izquierda del área a techar TAL COMO SE VE EN LA FOTO; X hacia la derecha y',
       'Z hacia arriba de la foto, en metros, redondeadas a 0.05 m.',
@@ -481,5 +491,63 @@ export const analyzeRoofPlan = onCall(
       confianza: ['alta', 'media', 'baja'].includes(parsed.confianza) ? parsed.confianza : 'media',
       notas: typeof parsed.notas === 'string' ? parsed.notas : ''
     };
+  }
+);
+
+
+/**
+ * redactarDocumento({ tipo: 'propuesta' | 'contrato', datos }) -> { texto }
+ *
+ * Redacta en español, con lenguaje claro, la carta de presentación de una
+ * propuesta o las especificaciones y cláusulas de un contrato de obra, a partir
+ * de los datos del diseño (medidas, materiales, precio, plazo, pagos).
+ * Cuesta 2 créditos (el admin no paga). Reutiliza ANTHROPIC_API_KEY.
+ */
+const REDACCION_MODEL = 'claude-haiku-5-5';
+export const redactarDocumento = onCall(
+  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '256MiB', timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'Inicia sesión para redactar con IA.');
+    const tipo = request.data?.tipo === 'contrato' ? 'contrato' : 'propuesta';
+    const datos = request.data?.datos || {};
+    const json = JSON.stringify(datos).slice(0, 12000);
+    const apiKey = process.env.ANTHROPIC_API_KEY || '';
+    if (!apiKey) throw new HttpsError('failed-precondition', 'La redacción por IA no está configurada todavía.');
+
+    const instrucciones = tipo === 'propuesta'
+      ? [
+          'Eres el asistente comercial de una empresa peruana de techos y estructuras metálicas.',
+          'Con los datos en JSON, escribe la CARTA DE PRESENTACIÓN de una propuesta para el cliente: 2 o 3 párrafos cortos,',
+          'en español de Perú, tono cercano y profesional, tuteando al cliente solo si el JSON lo indica; si no, de usted.',
+          'Menciona el trabajo, las medidas o el área, el material de cobertura, los beneficios (protección del sol y la lluvia,',
+          'durabilidad) y que puede elegir entre las opciones. No inventes datos que no estén en el JSON (precios, plazos, RUC).',
+          'Termina invitando a aceptar la propuesta o a escribir por WhatsApp. Sin títulos, sin viñetas, sin firma.',
+        ]
+      : [
+          'Eres un asistente que redacta contratos de obra para contratistas en Perú (lenguaje claro, no legalista).',
+          'Con los datos en JSON, escribe la sección "ESPECIFICACIONES Y CONDICIONES" de un contrato de obra:',
+          'una lista de 8 a 12 puntos, cada uno empezando con "• " y en una sola línea o dos, que cubra: alcance del trabajo,',
+          'materiales y su calidad, plazo de ejecución, forma de pago (adelanto y saldo), quién provee agua y luz en obra,',
+          'seguridad y EPP del personal, limpieza final, garantía, causas de ampliación de plazo (lluvias, cambios del cliente),',
+          'y conformidad de obra. Usa los datos del JSON; si falta un dato, escríbelo de forma general sin inventar cifras.',
+          'No incluyas título, nombres de las partes ni firmas (el documento ya los tiene).',
+        ];
+    const devolver = await cobrarUsoIA(request, 'redaccion');
+    const anthropic = new Anthropic({ apiKey });
+    let texto = '';
+    try {
+      const msg = await anthropic.messages.create({
+        model: REDACCION_MODEL,
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: [{ type: 'text', text: `${instrucciones.join('\n')}\n\nDATOS:\n${json}` }] }],
+      });
+      const block = (msg.content || []).find((b) => b.type === 'text');
+      texto = (block ? block.text : '').trim();
+    } catch (e) {
+      await devolver();
+      throw errorDeIA(e);
+    }
+    if (!texto) { await devolver(); throw new HttpsError('unavailable', 'No se pudo redactar. Intenta de nuevo.'); }
+    return { texto };
   }
 );

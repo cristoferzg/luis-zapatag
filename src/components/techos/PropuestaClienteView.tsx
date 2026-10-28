@@ -15,6 +15,9 @@ import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import { fotoPropuesta } from './fotoPropuesta';
 import { safeStorage } from '../../lib/storageManager';
 import { publicarPropuesta } from '../../lib/propuestas';
+import { redactarConIA } from '../../lib/redaccionIA';
+import { iaVisibleParaUI } from '../../lib/aiAccess';
+import { Sparkles } from 'lucide-react';
 
 export interface OpcionPropuesta { nombre: string; coberturaId: string; nota: string }
 
@@ -50,6 +53,10 @@ export default function PropuestaClienteView({
   const [publicando, setPublicando] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Carta de presentación (se escribe a mano o con IA) que va bajo la portada.
+  const [carta, setCartaSt] = useState<string>(() => safeStorage.getItem<string>('innova_propuesta_carta', '') || '');
+  const setCarta = (t: string) => { setCartaSt(t); safeStorage.setItem('innova_propuesta_carta', t); };
+  const [redactando, setRedactando] = useState(false);
 
   // Precio de cada opción: el mismo techo con otra cobertura.
   const precios = useMemo(() => opciones.map(o => {
@@ -68,6 +75,19 @@ export default function PropuestaClienteView({
     'Fabricación, transporte y montaje con personal propio.',
   ];
 
+  const redactar = async () => {
+    setRedactando(true); setError(null);
+    try {
+      const t = await redactarConIA('propuesta', {
+        empresa: datos.nombre, cliente, proyecto: nombreProyecto, ubicacion, areaM2: Math.round(area * 10) / 10,
+        opciones: opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), precio: Math.round(precios[i]?.total || 0) })),
+        incluye,
+      });
+      if (t) setCarta(t);
+    } catch (e: any) { setError(e?.message || 'No se pudo redactar.'); }
+    finally { setRedactando(false); }
+  };
+
   const publicar = async () => {
     setPublicando(true); setError(null);
     try {
@@ -75,7 +95,7 @@ export default function PropuestaClienteView({
         empresa: { nombre: datos.nombre, telefono: datos.telefono, ruc: datos.ruc, logo: datos.logo && datos.logo.length < 250000 ? datos.logo : '', color },
         proyecto: nombreProyecto, cliente, ubicacion,
         opciones: opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), nota: o.nota, total: precios[i]?.total || 0, recomendada: i === recomendada })),
-        imagen: foto.despues || '', antes: foto.antes || '',
+        imagen: foto.despues || '', antes: foto.antes || '', carta,
         escena: { nodes, segments, coverageZones },
         incluye,
       });
@@ -131,6 +151,17 @@ export default function PropuestaClienteView({
             ))}
           </div>
 
+          <div className="no-imprimir mb-3 bg-white rounded-xl border border-slate-200 p-2 space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[11px] font-black text-slate-700">Carta de presentación (opcional)</p>
+              {iaVisibleParaUI() && <button onClick={redactar} disabled={redactando} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-black cursor-pointer disabled:opacity-50">
+                <Sparkles className="w-3.5 h-3.5" /> {redactando ? 'Redactando…' : 'Redactar con IA (2 créditos)'}
+              </button>}
+            </div>
+            <textarea value={carta} onChange={e => setCarta(e.target.value)} rows={3} placeholder="Escribe unas líneas para tu cliente o deja que la IA las redacte."
+              className="w-full px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs" />
+          </div>
+
           <div ref={hoja} className="bg-white text-slate-900 rounded-2xl p-6 sm:p-8 max-w-4xl mx-auto shadow-xl imprimir-claro">
             {/* PORTADA */}
             <div className="rounded-2xl p-5 text-white mb-5" style={{ background: color }}>
@@ -157,6 +188,8 @@ export default function PropuestaClienteView({
                 <ImageOff className="w-6 h-6 mx-auto mb-1" /> Abre el <b>3D</b>, cubre el techo y toca <b>“Foto propuesta”</b> para poner aquí la imagen. Con <b>“Foto real”</b> sale el antes y después sobre la casa del cliente.
               </div>
             )}
+
+            {carta.trim() && <div className="mb-5 text-[13px] leading-relaxed text-slate-700 whitespace-pre-line">{carta}</div>}
 
             {/* OPCIONES */}
             <h2 className="text-sm font-black uppercase mb-2" style={{ color }}>Elige tu opción</h2>

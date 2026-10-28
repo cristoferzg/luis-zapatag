@@ -7,8 +7,7 @@ import {
   Settings, AlertCircle, TrendingUp, TrendingDown, Home, CreditCard, Menu, Plus, 
   Edit2, Trash2, ArrowRight, 
   FileSignature, Package, 
-  PenTool, Video, ExternalLink, ShieldCheck, FolderKanban, X
-} from 'lucide-react';
+  PenTool, Video, ExternalLink, ShieldCheck, FolderKanban, X, BarChart3 } from 'lucide-react';
 import { performAdminBackup } from './lib/backupService';
 import { User } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
@@ -42,6 +41,7 @@ const DiseñadorView = lazy(() => import('./components/DiseñadorView'));
 const HerreriaModuleView = lazy(() => import('./components/herreria/HerreriaModuleView'));
 const TechosModuleView = lazy(() => import('./components/techos/TechosModuleView'));
 const AdminPurchasesView = lazy(() => import('./components/AdminPurchasesView'));
+const ReporteMesView = lazy(() => import('./components/ReporteMesView'));
 const SupervisionView = lazy(() => import('./components/SupervisionView'));
 const ContratosYEPPView = lazy(() => import('./components/ContratosYEPPView'));
 const ProyectosYClientesView = lazy(() => import('./components/ProyectosYClientesView'));
@@ -2068,6 +2068,7 @@ export default function App() {
     switch (currentView) {
       case 'dashboard': return <DashboardView projects={filteredProjects} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} />;
       case 'admin_purchases': return <AdminPurchasesView />;
+      case 'reporte': return <ReporteMesView projects={filteredProjects} finances={filteredFinances} />;
       case 'supervision': return isAdmin ? (
         <SupervisionView usuarios={usuarios} projects={projects} clients={clients} finances={finances} settings={settings}
           setProjects={setProjects} setClients={setClients} setFinances={setFinances} setSettings={setSettings} />
@@ -2250,6 +2251,7 @@ export default function App() {
     { id: 'herreria', label: 'CarpiMetal', icon: DoorClosed },
     { id: 'drywall', label: 'Drywall', icon: PanelsTopLeft },
     { id: 'projects', label: 'Proyectos & Clientes', icon: Briefcase },
+    { id: 'reporte', label: 'Reporte del mes', icon: BarChart3 },
     { id: 'portafolio', label: 'Carpeta Privada', icon: FolderKanban },
     { id: 'materials', label: 'Materiales & Gastos', icon: Package },
     { id: 'personal', label: 'Personal', icon: Users },

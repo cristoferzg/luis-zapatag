@@ -1472,7 +1472,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             la barra; aquí solo se montan los <input> que esos ítems disparan. */}
         <input ref={refImgInputRef} type="file" accept="image/*" onChange={handleRefImgUpload} className="hidden" />
         {iaVisibleParaUI() && (
-          <input ref={iaInputRef} type="file" accept="image/*" onChange={handleIaPlanUpload} className="hidden" />
+          <input ref={iaInputRef} type="file" accept="image/*,application/pdf" onChange={handleIaPlanUpload} className="hidden" />
         )}
 
         {/* LEER PLANO CON IA: visible siempre (antes estaba dentro de "Más") */}
@@ -2732,7 +2732,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <div className="fixed inset-0 z-[90] bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setShowOpcionesPlano(false)}>
               <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2"><Sparkles className="w-5 h-5 text-amber-500" /> Leer plano a mano</h3>
-                <p className="text-[11px] text-slate-500 mt-1 mb-2">Indica lo que sepas del techo. Lo que dejes vacío se lee del dibujo. Usa la foto de la <b>planta</b> (vista desde arriba) con sus medidas.</p>
+                <p className="text-[11px] text-slate-500 mt-1 mb-2">Indica lo que sepas del techo. Lo que dejes vacío se lee del dibujo. Usa la foto de la <b>planta</b> (vista desde arriba) con sus medidas: un boceto a mano o un plano de arquitecto (foto, AutoCAD impreso o <b>PDF</b>).</p>
                 <button type="button" onClick={() => setVerGuiaBoceto(true)} className="mb-4 w-full flex items-center gap-3 p-2 rounded-2xl border border-sky-200 bg-sky-50 text-left cursor-pointer hover:bg-sky-100">
                   <EjemploBoceto className="w-16 h-16 rounded-lg border border-sky-200 shrink-0" />
                   <span className="text-[11px] text-sky-900"><b className="block text-xs">¿Cómo dibujar el plano?</b>Mira el ejemplo y las reglas para que se lea bien (y la hoja modelo para imprimir).</span>
@@ -2769,7 +2769,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 </div>
                 <div className="grid grid-cols-2 gap-2 mt-5">
                   <button type="button" onClick={() => setShowOpcionesPlano(false)} className="py-3 rounded-2xl bg-slate-100 text-slate-700 text-sm font-bold cursor-pointer">Cancelar</button>
-                  <button type="button" onClick={() => { setShowOpcionesPlano(false); iaInputRef.current?.click(); }} className="py-3 rounded-2xl bg-amber-500 text-slate-950 text-sm font-black cursor-pointer">Elegir foto del plano</button>
+                  <button type="button" onClick={() => { setShowOpcionesPlano(false); iaInputRef.current?.click(); }} className="py-3 rounded-2xl bg-amber-500 text-slate-950 text-sm font-black cursor-pointer">Elegir foto o PDF del plano</button>
                 </div>
               </div>
             </div>

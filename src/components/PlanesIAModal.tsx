@@ -93,12 +93,12 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
 
           {!comprasPermitidas() ? (
             <p className="text-sm text-slate-600 leading-relaxed">
-              Boleta o captura sin QR: <b>{COSTO_CREDITOS.boleta} crédito</b> · Plano a mano: <b>{COSTO_CREDITOS.croquis} créditos</b> · Boletas con QR: <b>gratis</b>.<br />
+              Boleta o captura sin QR: <b>{COSTO_CREDITOS.boleta} crédito</b> · Plano a mano o PDF: <b>{COSTO_CREDITOS.croquis} créditos</b> · Redactar propuesta o contrato: <b>{COSTO_CREDITOS.redaccion} créditos</b> · Boletas con QR: <b>gratis</b>.<br />
               Los créditos de tu plan se renuevan cada mes.
             </p>
           ) : (<>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-slate-600"><b>¿Cuánto cuesta cada acción?</b> Boleta o captura sin QR: <b>{COSTO_CREDITOS.boleta} crédito</b> · Plano a mano: <b>{COSTO_CREDITOS.croquis} créditos</b> · Boletas con QR: <b>gratis</b></p>
+            <p className="text-xs text-slate-600"><b>¿Cuánto cuesta cada acción?</b> Boleta o captura sin QR: <b>{COSTO_CREDITOS.boleta} crédito</b> · Plano a mano o PDF: <b>{COSTO_CREDITOS.croquis} créditos</b> · Redactar propuesta o contrato: <b>{COSTO_CREDITOS.redaccion} créditos</b> · Boletas con QR: <b>gratis</b></p>
             {hayAnual && (
               <div className="inline-flex bg-slate-100 rounded-xl p-1 text-xs font-bold">
                 <button onClick={() => setAnual(false)} className={`px-3 py-1.5 rounded-lg cursor-pointer ${!anual ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>Mensual</button>

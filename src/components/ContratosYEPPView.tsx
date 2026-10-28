@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { redactarConIA } from '../lib/redaccionIA';
+import { iaVisibleParaUI } from '../lib/aiAccess';
 import { 
   FileSignature, 
   HardHat, 
@@ -120,6 +122,8 @@ function ContratosSubView({
 
   // Materiales a Emplear
   const [materialesTexto, setMaterialesTexto] = useState<string>('');
+  const [redactandoIA, setRedactandoIA] = useState(false);
+  const [errorIA, setErrorIA] = useState<string | null>(null);
 
   // Fecha del contrato
   const [fechaContrato, setFechaContrato] = useState<string>(new Date().toLocaleDateString('es-PE'));
@@ -555,6 +559,19 @@ function ContratosSubView({
               + Limpieza Final
             </button>
           </div>
+          {iaVisibleParaUI() && <button type="button" disabled={redactandoIA}
+            onClick={async () => {
+              setRedactandoIA(true); setErrorIA(null);
+              try {
+                const t = await redactarConIA('contrato', { tipoServicio, proyecto: proyectoNombre, cliente: clienteNombre || clienteEmpresa, presupuestoSoles: presupuestoTotal, adelantoSoles: adelantoInput, materiales: materialesTexto, notasActuales: detallesEspeciales });
+                if (t) setDetallesEspeciales(t);
+              } catch (e: any) { setErrorIA(e?.message || 'No se pudo redactar.'); }
+              finally { setRedactandoIA(false); }
+            }}
+            className="mb-1.5 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-400 text-amber-950 text-[11px] font-black cursor-pointer disabled:opacity-50">
+            ✨ {redactandoIA ? 'Redactando…' : 'Redactar condiciones con IA (2 créditos)'}
+          </button>}
+          {errorIA && <p className="mb-1.5 text-[11px] font-bold text-rose-700">{errorIA}</p>}
           <textarea 
             rows={5} 
             className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono leading-relaxed resize-none text-slate-800"

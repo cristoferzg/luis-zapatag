@@ -13,6 +13,7 @@ export interface PropuestaPublica {
   proyecto: string; cliente: string; ubicacion: string;
   opciones: { nombre: string; cobertura: string; nota: string; total: number; recomendada: boolean }[];
   imagen: string; antes: string;
+  carta?: string;
   escena: { nodes: any; segments: any; coverageZones: any };
   incluye: string[];
   estado?: 'enviada' | 'aceptada';

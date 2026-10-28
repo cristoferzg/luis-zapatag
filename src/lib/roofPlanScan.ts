@@ -55,6 +55,7 @@ export const OPCIONES_PLANO_DEFECTO: OpcionesPlano = {
  */
 export function fileToBase64(file: File, maxLado = 2000): Promise<{ base64: string; mimeType: string }> {
   if (file.type === 'application/pdf') {
+    if (file.size > 7 * 1024 * 1024) return Promise.reject(new Error('El PDF pesa más de 7 MB. Expórtalo solo con la página de la planta o envía una foto.'));
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => { const r = String(reader.result || ''); resolve({ base64: r.slice(r.indexOf(',') + 1), mimeType: 'application/pdf' }); };

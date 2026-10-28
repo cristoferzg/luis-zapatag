@@ -81,6 +81,8 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
           )}
         </section>
 
+        {p.carta && <section className="bg-white rounded-2xl p-4 shadow-xs text-sm leading-relaxed text-slate-700 whitespace-pre-line">{p.carta}</section>}
+
         <section className="space-y-2">
           <h2 className="text-sm font-black uppercase" style={{ color }}>Elige tu opción</h2>
           <div className="grid sm:grid-cols-3 gap-3">

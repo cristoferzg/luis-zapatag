@@ -15,7 +15,8 @@ import {
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
-import { propsPerfil, factorK, limitesLambda, seAnaliza, perfilRecomendado } from './propiedadesPerfil';
+import { propsPerfil, factorK, limitesLambda, seAnaliza, perfilRecomendado, perfilMasEconomico } from './propiedadesPerfil';
+import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
 
 interface TechosEstructuralAnalysisViewProps {
   engineState: UseTechosCadEngineReturn;
@@ -37,6 +38,9 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
 
   const perfilDe = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id);
   const [avisoAplicar, setAvisoAplicar] = useState<string | null>(null);
+  // Precio por metro del perfil según el Catálogo de precios (o el de referencia).
+  const precioM = (p: any) => { const largo = p.longitudComercialM || 6; return precio(clavePerfilDe(p), (p.costoMetroSol || 0) * largo) / largo; };
+  const [ahorro, setAhorro] = useState<null | { cambios: { rol: string; n: number; de: string; a: string; ahorro: number }[]; nuevos: Record<string, string>; total: number }>(null);
 
   // Cálculos de pandeo por elemento con la sección REAL de su perfil.
   const bucklingAnalysis = Object.values(segments).map(seg => {
@@ -93,6 +97,40 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
     setTimeout(() => setAvisoAplicar(null), 12000);
   };
 
+  // Busca, por cada grupo (rol + perfil), el perfil más barato que sigue sin
+  // riesgo de pandeo (λ ≤ límite bajo) y calcula cuánto se ahorra.
+  const calcularAhorro = () => {
+    const grupos = new Map<string, { ids: string[]; rol: any; perfil: string; Lmax: number; Ltot: number }>();
+    const vacio = (): string[] => [];
+    Object.values(segments).forEach((seg: any) => {
+      if (!seAnaliza(seg.rolEstructural)) return;
+      const a = nodes[seg.nodeAId], b = nodes[seg.nodeBId]; if (!a || !b) return;
+      const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0));
+      const k = `${seg.rolEstructural}|${seg.profileId}`;
+      const g = grupos.get(k) || { ids: vacio(), rol: seg.rolEstructural, perfil: seg.profileId, Lmax: 0, Ltot: 0 };
+      g.ids.push(seg.id); g.Lmax = Math.max(g.Lmax, L); g.Ltot += L; grupos.set(k, g);
+    });
+    const cambios: { rol: string; n: number; de: string; a: string; ahorro: number }[] = [];
+    const nuevos: Record<string, string> = {};
+    grupos.forEach(g => {
+      const act = perfilDe(g.perfil);
+      const rec = perfilMasEconomico(INVENTARIO_PERFILES_TUBULARES, act, g.rol, g.Lmax, precioM);
+      if (!rec || !act || rec.id === act.id) return;
+      const dif = (precioM(act) - precioM(rec)) * g.Ltot;
+      if (dif <= 0.5) return;
+      g.ids.forEach(id => { nuevos[id] = rec.id; });
+      cambios.push({ rol: String(g.rol).replace(/_/g, ' '), n: g.ids.length, de: act.nombre, a: rec.nombre, ahorro: dif });
+    });
+    setAhorro({ cambios, nuevos, total: cambios.reduce((x, c) => x + c.ahorro, 0) });
+  };
+  const aplicarAhorro = () => {
+    if (!ahorro) return;
+    engineState.updateSegmentsProfiles(ahorro.nuevos);
+    setAvisoAplicar(`✓ Aplicado: ahorras S/ ${ahorro.total.toFixed(2)} en perfiles y todo sigue sin riesgo de pandeo.`);
+    setAhorro(null);
+    setTimeout(() => setAvisoAplicar(null), 12000);
+  };
+
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-6 font-sans select-none">
       
@@ -121,6 +159,12 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
             <span>⚡ APLICAR CAMBIOS RECOMENDADOS (E.090)</span>
           </button>
 
+          <button onClick={calcularAhorro}
+            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+            title="Busca el perfil más barato que cumple la E.090 (sin riesgo de pandeo) en cada grupo">
+            💰 <span>PERFIL MÁS ECONÓMICO QUE CUMPLE</span>
+          </button>
+
           <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 text-xs font-bold tracking-wide shadow-2xs ${
             isOK 
               ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
@@ -131,6 +175,31 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
           </div>
         </div>
       </div>
+
+      {ahorro && (
+        <div className="p-4 bg-white border-2 border-emerald-300 rounded-2xl space-y-2 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-black text-emerald-800">{ahorro.cambios.length ? `Puedes ahorrar S/ ${ahorro.total.toFixed(2)} en perfiles` : 'Tus perfiles ya son los más económicos que cumplen'}</p>
+            <button onClick={() => setAhorro(null)} className="text-xs font-bold text-slate-400 cursor-pointer">Cerrar</button>
+          </div>
+          {ahorro.cambios.length > 0 && (<>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[480px]">
+                <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1">Elementos</th><th>Perfil actual</th><th>Más económico que cumple</th><th className="text-right">Ahorro</th></tr></thead>
+                <tbody>
+                  {ahorro.cambios.map((c, i) => (
+                    <tr key={i} className="border-t border-slate-100">
+                      <td className="py-1.5 font-bold capitalize">{c.n} {c.rol}</td><td className="text-slate-500">{c.de}</td><td className="font-bold text-emerald-700">{c.a}</td><td className="text-right font-mono font-bold">S/ {c.ahorro.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-slate-500">Se compara con los precios de tu Catálogo de precios. Cada cambio deja el tramo más largo del grupo con esbeltez λ dentro del límite de la E.090 (riesgo bajo de pandeo). Es un prediseño: valídalo con un ingeniero.</p>
+            <button onClick={aplicarAhorro} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer">Aplicar y ahorrar S/ {ahorro.total.toFixed(2)}</button>
+          </>)}
+        </div>
+      )}
 
       {avisoAplicar && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-900">{avisoAplicar}</div>

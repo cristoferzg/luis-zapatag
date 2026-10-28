@@ -44,3 +44,19 @@ export function perfilRecomendado(catalogo: PerfilTubularItem[], actual: PerfilT
     .sort((a, b) => a.p.pesoLinealKgM - b.p.pesoLinealKgM);
   return ok[0]?.p || null;
 }
+
+/**
+ * Perfil MÁS ECONÓMICO (precio por metro del Catálogo de precios) de la misma
+ * familia que deja el tramo más largo con λ ≤ límite "bajo" (sin riesgo de pandeo).
+ */
+export function perfilMasEconomico(catalogo: PerfilTubularItem[], actual: PerfilTubularItem | undefined, rol: RolEstructuralSegmento, longitudMaxM: number, precioM: (p: PerfilTubularItem) => number): PerfilTubularItem | null {
+  const fam = actual?.categoria === 'perfil_c' || actual?.categoria === 'perfil_z' ? [actual.categoria] : ['tubo_cuadrado', 'tubo_rectangular'];
+  const galv = !!actual?.id?.includes('galv');
+  const KL = factorK(rol) * longitudMaxM * 100;
+  const ok = catalogo
+    .filter(p => fam.includes(p.categoria) && p.id.includes('galv') === galv)
+    .map(p => ({ p, pr: propsPerfil(p), $: precioM(p) }))
+    .filter(x => x.pr && x.$ > 0 && KL / x.pr.rMinCm <= limitesLambda(rol).bajo)
+    .sort((a, b) => a.$ - b.$ || a.p.pesoLinealKgM - b.p.pesoLinealKgM);
+  return ok[0]?.p || null;
+}
