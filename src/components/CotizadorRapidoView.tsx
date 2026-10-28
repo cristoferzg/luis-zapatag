@@ -7,7 +7,7 @@
 // medidas al Asistente de Techos.
 // =============================================================================
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, TrendingUp, DollarSign, PieChart, ShieldCheck, Box, Layers, Scissors, Package } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, PieChart, ShieldCheck, Box, Layers, Scissors, Package, FileText } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, SOLDADURA_AWS_E6011, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR } from './techos/techosCadCatalog';
 import { precio, clavePerfilDe, claveCobertura, useCatalogo } from '../lib/catalogoPrecios';
@@ -68,7 +68,14 @@ const inicial = {
   modo: 'materiales' as 'm2' | 'materiales', manoObraPct: '40', gastosPct: '10',
 };
 
-const CotizadorRapidoView = () => {
+interface Props {
+  /** Dentro de Materiales & Gastos: sin título grande. */
+  embebida?: boolean;
+  /** Si hay proyecto elegido: pasa el precio y el detalle al contrato. */
+  onAgregarAlContrato?: (d: { total: number; detalle: string }) => void;
+}
+
+const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = {}) => {
   useCatalogo(); // recalcula si cambian los precios del catálogo
   const [f, setF] = useState(() => {
     const d = safeStorage.getItem<any>(CLAVE, null) || {};
@@ -174,6 +181,23 @@ const CotizadorRapidoView = () => {
   const total = r ? (f.modo === 'm2' ? r.totalM2 : r.totalMateriales) : 0;
   const ganancia = r ? (f.modo === 'm2' ? Math.max(0, r.totalM2 - r.costoDirecto) : r.totalMateriales - r.costoDirecto) : 0;
 
+  const detalleContrato = () => {
+    if (!r) return '';
+    const formaTxt = r.forma === 'una_agua' ? 'a una agua' : r.forma === 'dos_aguas' ? 'a dos aguas' : 'en arco';
+    const tipoTxt = TIPOS_TIJERAL.find(t => t.id === f.tipoTijeral)?.nombre || '';
+    const cob = INVENTARIO_COBERTURAS.find(c => c.id === f.cobertura);
+    return [
+      `Estructura de techo metálico ${formaTxt}.`,
+      `Medidas: ${r.L} m × ${r.A} m, alero ${r.alero} m. Área en planta ${r.areaPlanta.toFixed(2)} m², cobertura ${r.areaReal.toFixed(2)} m².`,
+      `Estructura: ${r.nP} ${f.conTijerales ? `tijerales tipo ${tipoTxt} (peralte ${r.peralte} m)` : 'vigas'} cada ${r.sepReal.toFixed(2)} m, ${r.nCol} columnas de ${r.H} m, correas cada ${r.sepC} m.`,
+      `Acero: ${r.despieces.map(d => `${d.barras} barras ${perfil(d.id).nombre}`).join('; ')}.`,
+      `Cobertura: ${cob?.nombre || ''}, ${r.planchas} planchas.`,
+      ...r.items.slice(1).map(i => `- ${i.nombre}: ${i.cant}`),
+      '',
+      `Presupuesto a todo costo: S/ ${total.toFixed(2)}`,
+    ].join('\n');
+  };
+
   const abrirEn3D = () => {
     if (!r) return;
     try {
@@ -230,13 +254,18 @@ const CotizadorRapidoView = () => {
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       <header className="mb-2 flex flex-wrap justify-between items-end gap-3">
-        <div>
+        <div className={embebida ? 'hidden' : ''}>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
             <Calculator className="w-8 h-8 mr-3 text-indigo-500" />
             Calculadora Estructural y Presupuesto
           </h1>
           <p className="text-slate-500 mt-1 text-sm">Tijerales, correas, columnas, despiece en barras, cobertura completa y precio real con tu catálogo.</p>
         </div>
+        {r && onAgregarAlContrato && (
+          <button onClick={() => onAgregarAlContrato({ total, detalle: detalleContrato() })} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow cursor-pointer hover:bg-emerald-700">
+            <FileText className="w-4 h-4" /> Agregar al Contrato
+          </button>
+        )}
         {r && (
           <button onClick={abrirEn3D} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold shadow cursor-pointer hover:bg-indigo-700">
             <Box className="w-4 h-4" /> Abrir en Techos 3D

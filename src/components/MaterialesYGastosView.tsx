@@ -1,6 +1,7 @@
 import { itemsCatalogo, precio, fijarPrecio, useCatalogo } from '../lib/catalogoPrecios';
 import { comprasPermitidas } from '../lib/plataforma';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+const CotizadorRapidoView = lazy(() => import('./CotizadorRapidoView'));
 import {
   Package,
   TrendingDown,
@@ -72,15 +73,6 @@ export default function MaterialesYGastosView({
       }
     }
   }, [projects, selectedProject]);
-
-  // Calculator Techos
-  const [calcLargo, setCalcLargo] = useState('');
-  const [calcAncho, setCalcAncho] = useState('');
-  const [calcSeparacion, setCalcSeparacion] = useState('1');
-  const [calcAlero, setCalcAlero] = useState('0');
-  const [calcAlturaColumnas] = useState('');
-  const [calcNumColumnas] = useState('4');
-  const [precioPorM2] = useState('140');
 
   // Finances Gastos state
   const [description, setDescription] = useState('');
@@ -316,39 +308,10 @@ export default function MaterialesYGastosView({
     setTimeout(() => setFeedbackNotice(null), 4000);
   };
 
-  // Calculator logic
-  const l_base = Number(calcLargo) || 0;
-  const a_base = Number(calcAncho) || 0;
-  const s = Number(calcSeparacion) || 1;
-  const alero = Number(calcAlero) || 0;
-  const l = l_base > 0 ? +(l_base + (alero * 2)).toFixed(2) : 0;
-  const a = a_base > 0 ? +(a_base + (alero * 2)).toFixed(2) : 0;
-  const perimetro = (l + a) * 2;
-  const area = l * a;
-  const lineasLargo = Math.floor(a / s) + 1;
-  const lineasAncho = Math.floor(l / s) + 1;
-  const metrajeHorizontal = lineasLargo * l;
-  const metrajeVertical = lineasAncho * a;
-  const metrajeTotal = metrajeHorizontal + metrajeVertical;
-  const fierrosRequeridos = Math.ceil(metrajeTotal / 6);
-  const altura = Number(calcAlturaColumnas) || 0;
-  const numColumnas = Number(calcNumColumnas) || 0;
-  const metrajeColumnas = altura * numColumnas;
-  const fierrosColumnas = metrajeColumnas > 0 ? Math.ceil(metrajeColumnas / 6) : 0;
-  const calcOpt1 = l > 0 && a > 0 ? Math.ceil(a / 1.0) * Math.ceil(l / 6) : 0;
-  const calcOpt2 = l > 0 && a > 0 ? Math.ceil(l / 1.0) * Math.ceil(a / 6) : 0;
-  const planchasAluzincOptimas = (calcOpt1 > 0 && calcOpt2 > 0) ? Math.min(calcOpt1, calcOpt2) : 0;
-  const presupuestoSugerido = area * Number(precioPorM2 || 140);
-
-  const handleAddToContract = () => {
+  // La Calculadora estructural pasa su resultado al proyecto (pestaña Contratos).
+  const handleAddToContract = (d: { total: number; detalle: string }) => {
     if (!project) return;
-    const detallesTexto = `Estructura de Techo Metálico con Aluzinc.\nDimensiones Base: ${l_base}m x ${a_base}m.\nAlero: ${alero}m perimetral. Dimensiones Finales: ${l}m x ${a}m.\nÁrea: ${area.toFixed(2)}m², Perímetro: ${perimetro.toFixed(2)}m.\nEstructura:\n- Tubos Techo: ${fierrosRequeridos} uds. (Aprox. ${metrajeTotal.toFixed(2)}m lineales).\n${numColumnas > 0 ? `- Columnas: ${numColumnas} uds, Altura ${altura}m (Tubos Columnas: ${fierrosColumnas} uds).` : ''}\nCobertura (Aluzinc 6m x 1.10m):\n- Planchas: ${planchasAluzincOptimas} uds (Traslape 10cm considerado para impermeabilidad).\n\nPresupuesto Estimado a todo costo: S/ ${presupuestoSugerido.toFixed(2)}`;
-
-    setProjects(prev => prev.map(p => p.id === project.id ? {
-      ...p,
-      presupuesto: presupuestoSugerido,
-      detallesContrato: detallesTexto
-    } : p));
+    setProjects(prev => prev.map(p => p.id === project.id ? { ...p, presupuesto: d.total, detallesContrato: d.detalle } : p));
     alert('Se han añadido los detalles al proyecto. Puedes revisar la pestaña de Contratos.');
   };
 
@@ -718,41 +681,9 @@ export default function MaterialesYGastosView({
               )}
 
               {activeMaterialTab === 'techo' && (
-                <div className="animate-in fade-in duration-300 space-y-6">
-                  <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6">
-                    <div className="flex justify-between items-start mb-4">
-                       <div>
-                          <h3 className="text-lg font-bold text-indigo-900 mb-1">Calculadora Estructural y Presupuesto</h3>
-                          <p className="text-indigo-700 text-sm">Calcula el área, cantidades de barras, Aluzinc y genera un presupuesto estimado.</p>
-                       </div>
-                       {(l > 0 && a > 0) && (
-                          <button onClick={handleAddToContract} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl flex items-center text-sm transition-colors shadow-sm cursor-pointer">
-                            <FileText className="w-4 h-4 mr-2" />
-                            Agregar al Contrato
-                          </button>
-                       )}
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 border-b border-indigo-200/60 pb-6 mb-6">
-                      <div className="lg:col-span-2">
-                        <label className="block text-xs font-semibold text-indigo-800 mb-1 uppercase tracking-wider">Largo Techo (m)</label>
-                        <input value={calcLargo} onChange={e => setCalcLargo(e.target.value)} onFocus={e => e.target.select()} type="number" step="0.1" min="0" className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej. 10.5" />
-                      </div>
-                      <div className="lg:col-span-2">
-                        <label className="block text-xs font-semibold text-indigo-800 mb-1 uppercase tracking-wider">Ancho Techo (m)</label>
-                        <input value={calcAncho} onChange={e => setCalcAncho(e.target.value)} onFocus={e => e.target.select()} type="number" step="0.1" min="0" className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej. 6.2" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-indigo-800 mb-1 uppercase tracking-wider">Separación (m)</label>
-                        <input value={calcSeparacion} onChange={e => setCalcSeparacion(e.target.value)} onFocus={e => e.target.select()} type="number" step="0.1" min="0.1" className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej. 1" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-indigo-800 mb-1 uppercase tracking-wider">Alero (m)</label>
-                        <input value={calcAlero} onChange={e => setCalcAlero(e.target.value)} onFocus={e => e.target.select()} type="number" step="0.1" min="0" className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej. 0.5" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <Suspense fallback={<div className="p-6 text-sm text-slate-400">Cargando calculadora…</div>}>
+                  <CotizadorRapidoView embebida onAgregarAlContrato={project ? handleAddToContract : undefined} />
+                </Suspense>
               )}
             </>
           )}
