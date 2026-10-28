@@ -144,6 +144,8 @@ export interface Segment3D {
   funcionTensor?: 'cruz' | 'correa';
   // Tijeral dibujado con 2 clics: sus datos, para cambiar peralte y espacios sin redibujarlo.
   tijeral?: { id: string; a: string; b: string; h: number; n: number; tipo: string };
+  // Cinta LED por debajo de la viga (sol y sombra / pérgola).
+  led?: boolean;
 }
 
 export interface CoverageZone3D {
@@ -309,6 +311,8 @@ export interface FullTechosBomReport {
   costoMovilSoles?: number;
   canaletas?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
   costoCanaletasSoles?: number;
+  iluminacionLed?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
+  costoLedSoles?: number;
 }
 
 // 5. ANÁLISIS ESTRUCTURAL Y PARÁMETROS NORMATIVOS (RNE E.020, E.030, E.050, E.090)

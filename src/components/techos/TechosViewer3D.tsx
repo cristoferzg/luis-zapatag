@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import * as THREE from 'three';
 import { 
   RotateCw, 
+  Sun,
   Plus, 
   Minus, 
   Maximize2, 
@@ -66,6 +67,7 @@ export function modeloDesdeCobertura(coberturaId?: string): string | null {
   if (!coberturaId) return null;
   const id = coberturaId.toLowerCase();
   if (id.includes('teja_andina')) return 'eternit_teja';
+  if (id.includes('teja_espanola')) return 'upvc_teja_espanola';
   if (id.includes('eternit')) return 'eternit_p4';
   if (id.includes('tr5')) return id.includes('060') ? 'tr5_060' : 'tr5_050';
   if (id.includes('calamina')) return 'ondulada_025';
@@ -80,7 +82,7 @@ export interface ModeloAluzincPeru {
   id: string;
   nombre: string;
   espesorMm: number;
-  tipo: 'aluzinc_tr4' | 'aluzinc_tr5' | 'calamina_ondulada' | 'policarbonato' | 'termoacustico' | 'fibrocemento' | 'teja_andina';
+  tipo: 'aluzinc_tr4' | 'aluzinc_tr5' | 'calamina_ondulada' | 'policarbonato' | 'termoacustico' | 'fibrocemento' | 'teja_andina' | 'teja_espanola';
   opacidadDefecto: number;
   colorDefectoHex: number;
   ribHeightMm: number;
@@ -175,6 +177,7 @@ export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
   { id: 'st1000_sand', nombre: 'Panel Termoacústico ST-1000 (Sandwich PUR 30mm)', espesorMm: 30.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x15803d, ribHeightMm: 40, ribCountPerMeter: 3 },
   { id: 'eternit_p4', nombre: 'Eternit Fibrocemento Perfil 4 (Gran Onda 5 mm)', espesorMm: 5.0, tipo: 'fibrocemento', opacidadDefecto: 1.0, colorDefectoHex: 0x9ca3af, ribHeightMm: 52, ribCountPerMeter: 5.65 },
   { id: 'eternit_teja', nombre: 'Eternit Teja Andina (Fibrocemento)', espesorMm: 5.0, tipo: 'teja_andina', opacidadDefecto: 1.0, colorDefectoHex: 0xb45309, ribHeightMm: 60, ribCountPerMeter: 4.2 },
+  { id: 'upvc_teja_espanola', nombre: 'Teja Española UPVC (2.3 mm · onda 30 mm · paso 219 mm)', espesorMm: 2.3, tipo: 'teja_espanola', opacidadDefecto: 1.0, colorDefectoHex: 0xb9461f, ribHeightMm: 30, ribCountPerMeter: 4.17 },
   { id: 'sandwich_pur_50', nombre: 'Panel Sándwich PUR Industrial 50mm (Aislante Térmico)', espesorMm: 50.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x047857, ribHeightMm: 45, ribCountPerMeter: 3 }
 ];
 
@@ -1023,16 +1026,108 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const sc = sceneRef.current;
     if (!sc) return;
     sc.background = fotoFondo ? null : new THREE.Color((CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor);
-    const g = sc.getObjectByName('rejilla_base'); if (g) g.visible = !fotoFondo;
-    sc.traverse(o => { if (o.name === 'plataforma_base') o.visible = !fotoFondo; });
-  }, [fotoFondo, modoIluminacion]);
+    const g = sc.getObjectByName('rejilla_base'); if (g) g.visible = !fotoFondo && !modoRenderRef.current;
+    sc.traverse(o => { if (o.name === 'plataforma_base' || o.name === 'ejes_base') o.visible = !fotoFondo; });
+    aplicarRender(sc);
+  }, [fotoFondo, modoIluminacion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ajuste de la foto real (acercar y mover) para que la casa calce con el techo.
+  const [ajusteFoto, setAjusteFoto] = useState({ zoom: 1, x: 0, y: 0 });
+  const ajusteFotoRef = useRef(ajusteFoto);
+  ajusteFotoRef.current = ajusteFoto;
+  const [panelAjusteFoto, setPanelAjusteFoto] = useState(false);
+  // Cámara "desde la calle": casi a la altura de los ojos, mirando el frente,
+  // como se toman las fotos de una casa. Los deslizadores mueven la cámara.
+  const [camFoto, setCamFoto] = useState({ giro: 20, altura: 25, tam: 100 });
+  const radioBaseRef = useRef(16);
+  const aplicarCamFoto = (c: { giro: number; altura: number; tam: number }) => {
+    setCamFoto(c);
+    cameraAngleThetaRef.current = (c.giro * Math.PI) / 180;
+    cameraAnglePhiRef.current = Math.PI / 2 - (c.altura * Math.PI) / 180;
+    cameraRadiusRef.current = radioBaseRef.current * (100 / Math.max(20, c.tam));
+    updateCameraPos();
+  };
+  const vistaDeFrente = () => {
+    resetCamera();
+    radioBaseRef.current = cameraRadiusRef.current * 1.15;
+    aplicarCamFoto({ giro: 20, altura: 22, tam: 100 });
+  };
+
+  // MODO RENDER: sombras suaves del sol, suelo que recibe la sombra (sobre la
+  // foto real solo queda la sombra) y tono de cámara más realista.
+  const [modoRender, setModoRender] = useState(false);
+  const modoRenderRef = useRef(false);
+  modoRenderRef.current = modoRender;
+  const aplicarRender = (sc: THREE.Scene) => {
+    const r = rendererRef.current;
+    if (!r) return;
+    const on = modoRenderRef.current;
+    const conFoto = !!fotoFondoRef.current;
+    if (r.shadowMap.enabled !== on) {
+      r.shadowMap.enabled = on;
+      r.shadowMap.type = THREE.PCFSoftShadowMap;
+      sc.traverse(o => { const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined; if (m) (Array.isArray(m) ? m : [m]).forEach(x => { x.needsUpdate = true; }); });
+    }
+    r.toneMapping = on ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+    r.toneMappingExposure = on ? 1.1 : 1;
+    const caja = new THREE.Box3();
+    const modelo = sc.getObjectByName('modelo');
+    if (modelo) caja.setFromObject(modelo);
+    const centro = caja.isEmpty() ? new THREE.Vector3() : caja.getCenter(new THREE.Vector3());
+    const tam = caja.isEmpty() ? 12 : Math.max(6, caja.getSize(new THREE.Vector3()).length());
+    // En render: sin esferas de nudos ni contornos de dibujo técnico.
+    modelo?.traverse(o => {
+      if (o.name.startsWith('joint_')) o.visible = !on;
+      else if ((o as THREE.LineSegments).isLineSegments && o.parent?.parent?.name === 'tubes_group') o.visible = !on;
+    });
+    modelo?.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || o.name === 'rain_points' || o.name === 'splash_points') return;
+      m.castShadow = on && o.name !== 'plataforma_base';
+      m.receiveShadow = on;
+    });
+    const sol = sc.getObjectByName('dir_light_1') as THREE.DirectionalLight | undefined;
+    if (sol) {
+      sol.castShadow = on;
+      if (on) {
+        sol.position.set(centro.x + tam * 0.6, centro.y + tam * 1.1, centro.z + tam * 0.45);
+        sol.target.position.copy(centro); sc.add(sol.target);
+        sol.shadow.mapSize.set(2048, 2048);
+        const c = sol.shadow.camera; c.left = c.bottom = -tam; c.right = c.top = tam; c.near = 0.5; c.far = tam * 4; c.updateProjectionMatrix();
+        sol.shadow.bias = -0.0005; sol.shadow.normalBias = 0.02; sol.shadow.radius = 4;
+      }
+    }
+    // Más sol y menos luz de relleno para que la sombra se note (se restaura al salir).
+    ([['ambient_light', 0.45], ['dir_light_1', 2.4], ['dir_light_2', 0.3]] as [string, number][]).forEach(([n, v]) => {
+      const l = sc.getObjectByName(n) as THREE.Light | undefined;
+      if (!l) return;
+      if (l.userData.intensidadBase === undefined) l.userData.intensidadBase = l.intensity;
+      l.intensity = on ? v : l.userData.intensidadBase;
+    });
+    let suelo = sc.getObjectByName('suelo_render') as THREE.Mesh | undefined;
+    if (!suelo) {
+      suelo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial({ color: 0xd6d3d1, roughness: 0.95 }));
+      suelo.name = 'suelo_render'; suelo.rotation.x = -Math.PI / 2; suelo.receiveShadow = true;
+      sc.add(suelo);
+    }
+    const mat = conFoto ? new THREE.ShadowMaterial({ opacity: 0.38 }) : new THREE.MeshStandardMaterial({ color: modoIluminacion === 'noche' ? 0x1f2937 : 0xd6d3d1, roughness: 0.95 });
+    (suelo.material as THREE.Material).dispose(); suelo.material = mat;
+    suelo.scale.set(tam * 6, tam * 6, 1);
+    suelo.position.set(centro.x, -0.26, centro.z);
+    suelo.visible = on;
+    let cielo = sc.getObjectByName('cielo_render') as THREE.HemisphereLight | undefined;
+    if (!cielo) { cielo = new THREE.HemisphereLight(0xdbeafe, 0x78716c, 0.55); cielo.name = 'cielo_render'; sc.add(cielo); }
+    cielo.visible = on;
+    const g = sc.getObjectByName('rejilla_base'); if (g) g.visible = !on && !conFoto;
+  };
+  useEffect(() => { if (sceneRef.current) aplicarRender(sceneRef.current); }, [modoRender]); // eslint-disable-line react-hooks/exhaustive-deps
   // Foto del techo para la propuesta al cliente (con la foto real debajo si hay).
   const [avisoFoto, setAvisoFoto] = useState<string | null>(null);
   const tomarFotoPropuesta = async (silencioso = false) => {
     const cv = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
     if (!cv) return;
     try {
-      await guardarFotoPropuesta(cv, fotoFondoRef.current, '#' + (CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor.toString(16).padStart(6, '0'));
+      await guardarFotoPropuesta(cv, fotoFondoRef.current, ajusteFotoRef.current, '#' + (CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor.toString(16).padStart(6, '0'));
       if (!silencioso) { setAvisoFoto('✓ Imagen guardada para la propuesta al cliente (Presupuesto → Propuesta visual)'); window.setTimeout(() => setAvisoFoto(null), 3500); }
     } catch { if (!silencioso) setAvisoFoto('No se pudo tomar la imagen'); }
   };
@@ -1045,6 +1140,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const elegirFotoFondo = (f?: File) => {
     if (!f) return;
     setFotoFondo(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(f); });
+    setAjusteFoto({ zoom: 1, x: 0, y: 0 });
+    setPanelAjusteFoto(true);
+    window.setTimeout(vistaDeFrente, 60);
     setMostrarCobertura(true);
   };
 
@@ -1227,6 +1325,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     height: number,
     tipo: string
   ): { offset: number; slopeZ: number } => {
+    if (tipo === 'teja_espanola') {
+      // Teja española: cañón redondeado arriba y canal angosto abajo.
+      const period = 1 / Math.max(1, freq);
+      const phase = ((zPos % period) + period) % period;
+      const s = Math.sin((phase / period) * Math.PI);
+      const k = 0.6;
+      return { offset: Math.pow(s, k) * height, slopeZ: 0 };
+    }
     if (tipo === 'calamina_ondulada' || tipo === 'fibrocemento' || tipo === 'teja_andina') {
       const period = 1 / Math.max(1, freq);
       const phase = ((zPos % period) + period) % period;
@@ -1294,6 +1400,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     const activeModel = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
     const isSandwich = activeModel.tipo === 'termoacustico';
+    const esTejaEsp = activeModel.tipo === 'teja_espanola';
 
     const minX = topPoints[0]?.x ?? 0;
     const maxX = topPoints[topPoints.length - 1]?.x ?? 12;
@@ -1316,10 +1423,28 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       for (let k = 0; k < n; k++) xs.push(quiebres[i] + (quiebres[i + 1] - quiebres[i]) * k / n);
     }
     xs.push(x1);
+    const PASO_TEJA = 0.219, ESCALON_TEJA = 0.014;
+    const pendienteEn = (x: number) => evaluateRoofHeightAtX(x, topPoints).slope;
+    // distancia desde el alero bajo de cada faldón (los escalones bajan hacia el alero)
+    const escalonTeja = (x: number) => {
+      if (!esTejaEsp) return 0;
+      const d = pendienteEn(x) >= 0 ? x - x0 : x1 - x;
+      const u = ((d / PASO_TEJA) % 1 + 1) % 1;
+      return (1 - u) * ESCALON_TEJA;
+    };
+    if (esTejaEsp) {
+      const extra: number[] = [];
+      for (let x = x0; x < x1; x += PASO_TEJA / 3) extra.push(x);
+      for (let d = 0; d < x1 - x0; d += PASO_TEJA) { extra.push(x0 + d, x0 + d - 0.004, x1 - d, x1 - d + 0.004); }
+      const todas = [...xs, ...extra].filter(x => x >= x0 && x <= x1).sort((a, b) => a - b);
+      xs.length = 0;
+      todas.forEach(x => { if (!xs.length || x - xs[xs.length - 1] > 0.002) xs.push(x); });
+      if (xs[xs.length - 1] < x1) xs.push(x1);
+    }
     const z0 = minZ - overhangZ, z1 = maxZ + overhangZ;
     const periodo = 1 / ribFreq;
     const esTR5Malla = activeModel.tipo === 'aluzinc_tr5';
-    const ondaRedonda = activeModel.tipo === 'calamina_ondulada' || activeModel.tipo === 'fibrocemento' || activeModel.tipo === 'teja_andina';
+    const ondaRedonda = esTejaEsp || activeModel.tipo === 'calamina_ondulada' || activeModel.tipo === 'fibrocemento' || activeModel.tipo === 'teja_andina';
     const fracciones = ondaRedonda
       ? Array.from({ length: 12 }, (_, i) => i / 12)
       : (esTR5Malla ? [0, 0.22, 0.34, 0.56] : [0, 0.15, 0.35, 0.50]);
@@ -1347,7 +1472,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const xWorld = xs[ix];
         const { y: yBase, nx, ny } = evaluateRoofHeightAtX(xWorld, topPoints);
 
-        const totalElev = topClearance + ribVal;
+        const totalElev = topClearance + ribVal + escalonTeja(xWorld);
         const finalX = xWorld + nx * totalElev;
         const finalY = yBase + ny * totalElev;
 
@@ -1381,7 +1506,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const xWorld = xs[ix];
         const { y: yBase, nx, ny } = evaluateRoofHeightAtX(xWorld, topPoints);
 
-        const totalElev = bottomClearance + ribBottom;
+        const totalElev = bottomClearance + ribBottom + escalonTeja(xWorld);
         const finalX = xWorld + nx * totalElev;
         const finalY = yBase + ny * totalElev;
 
@@ -2074,6 +2199,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         linewidth: 1
       });
       const wireframe = new THREE.LineSegments(edges, edgeMat);
+      wireframe.name = 'plataforma_base';
+      wireframe.visible = !fotoFondoRef.current;
       wireframe.position.copy(slab.position);
       modeloGroup.add(wireframe);
     }
@@ -2263,6 +2390,27 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         length: distance
       };
       tubesGroup.add(tubeMesh);
+
+      // CINTA LED por debajo de la viga (sol y sombra / pérgola)
+      if ((seg as any).led) {
+        const noche = modoIluminacion === 'noche';
+        const cinta = new THREE.Mesh(
+          new THREE.BoxGeometry(Math.min(0.03, anchoM * 0.5), 0.012, Math.max(0.05, distance - 0.1)),
+          new THREE.MeshBasicMaterial({ color: noche ? 0xffe2a8 : 0xfff1d0 })
+        );
+        cinta.name = 'cinta_led';
+        cinta.position.copy(midPoint).add(new THREE.Vector3(0, -altoM / 2 - 0.008, 0));
+        cinta.quaternion.copy(tubeMesh.quaternion);
+        modeloGroup.add(cinta);
+        if (noche) {
+          const n = Math.max(1, Math.min(4, Math.round(distance / 2.5)));
+          for (let k = 0; k < n; k++) {
+            const luz = new THREE.PointLight(0xffc979, 2.2, 5, 1.8);
+            luz.position.copy(pA.clone().lerp(pB, (k + 0.5) / n)).add(new THREE.Vector3(0, -altoM / 2 - 0.15, 0));
+            modeloGroup.add(luz);
+          }
+        }
+      }
 
       // ENCAMISADO DE CONCRETO (columna mixta): si es columna y tiene definido
       // concretoBaseM, dibujamos un bloque de concreto desde la base hacia arriba
@@ -2753,12 +2901,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // Ejes de coordenadas espaciales del giroscopio (Rojo: X, Verde: Y, Azul: Z)
     if (mostrarEjesGiroscopio) {
       const axesHelper = new THREE.AxesHelper(1.8);
+      axesHelper.name = 'ejes_base';
+      axesHelper.visible = !fotoFondoRef.current;
       axesHelper.position.set(0, 0.02, 0);
       scene.add(axesHelper);
     }
 
     // Construcción inicial
     construirModelo3D(scene);
+    aplicarRender(scene);
     resetCamera();
 
     const handleResize = () => {
@@ -3042,6 +3193,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   useEffect(() => {
     if (sceneRef.current) {
       construirModelo3D(sceneRef.current);
+      aplicarRender(sceneRef.current);
     }
   }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarCobertura, mostrarConcreto, construirModelo3D]);
 
@@ -3072,6 +3224,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   return (
     <div className="relative w-full h-full flex flex-col bg-slate-950 overflow-hidden select-none touch-none">
       {/* Canvas 3D con Giroscopio Espacial y Soporte Táctil/Pointer Completo */}
+      <div className="relative w-full flex-1 overflow-hidden">
+      {fotoFondo && (
+        <img src={fotoFondo} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style={{ transform: `translate(${ajusteFoto.x}%, ${ajusteFoto.y}%) scale(${ajusteFoto.zoom})` }} />
+      )}
       <div 
         ref={mountRef}
         onPointerDown={handlePointerDown}
@@ -3083,9 +3240,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         onTouchEnd={handleTouchEnd}
         onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
-        className="w-full flex-1 cursor-grab active:cursor-grabbing relative touch-none"
-        style={fotoFondo ? { backgroundImage: `url(${fotoFondo})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        className="absolute inset-0 cursor-grab active:cursor-grabbing touch-none"
       />
+      </div>
       <input ref={fotoFondoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { elegirFotoFondo(e.target.files?.[0]); e.target.value = ''; }} />
 
       {avisoFoto && (
@@ -3110,8 +3267,34 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       {fotoFondo && !caminando && (
         <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5 bg-white/95 border border-slate-200 rounded-xl shadow-lg px-2 py-1.5 text-[11px] font-bold text-slate-700">
           <span className="hidden sm:inline">Gira y acerca el techo hasta que calce con la foto</span>
+          <button onClick={() => setPanelAjusteFoto(v => !v)} className={`px-2 py-1 rounded-lg cursor-pointer ${panelAjusteFoto ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700'}`}>Ajustar foto</button>
           <button onClick={() => fotoFondoInputRef.current?.click()} className="px-2 py-1 rounded-lg bg-slate-100 cursor-pointer">Cambiar</button>
           <button onClick={() => setFotoFondo(null)} className="px-2 py-1 rounded-lg bg-rose-50 text-rose-600 cursor-pointer">Quitar foto</button>
+        </div>
+      )}
+      {fotoFondo && !caminando && panelAjusteFoto && (
+        <div className="absolute top-12 right-2 z-30 w-[230px] max-h-[calc(100%-4rem)] overflow-y-auto bg-white/95 border border-slate-200 rounded-2xl shadow-lg p-3 space-y-2 text-[11px] font-bold text-slate-700"
+          onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+          <p className="text-[10px] text-slate-500 font-semibold leading-snug">Pon el techo con el mismo ángulo de la foto y luego mueve la foto hasta que calce sobre la casa.</p>
+          <p className="text-[10px] font-black uppercase text-slate-500">El techo</p>
+          {([['giro', 'Girar techo', -180, 180, 1, '°'], ['altura', 'Ver desde más arriba', 2, 70, 1, '°'], ['tam', 'Tamaño del techo', 40, 250, 1, ' %']] as ['giro' | 'altura' | 'tam', string, number, number, number, string][]).map(([k, t, mn, mx, st, u]) => (
+            <label key={k} className="block">
+              <span className="flex justify-between"><span>{t}</span><span className="font-mono text-slate-400">{camFoto[k]}{u}</span></span>
+              <input type="range" min={mn} max={mx} step={st} value={camFoto[k]} onChange={e => aplicarCamFoto({ ...camFoto, [k]: Number(e.target.value) })} className="w-full accent-sky-600" aria-label={t} />
+            </label>
+          ))}
+          <p className="text-[10px] font-black uppercase text-slate-500 pt-1">La foto</p>
+          {([['zoom', 'Acercar foto', 1, 2.5, 0.01], ['x', 'Mover ← →', -40, 40, 0.5], ['y', 'Mover ↑ ↓', -40, 40, 0.5]] as ['zoom' | 'x' | 'y', string, number, number, number][]).map(([k, t, mn, mx, st]) => (
+            <label key={k} className="block">
+              <span className="flex justify-between"><span>{t}</span><span className="font-mono text-slate-400">{k === 'zoom' ? `${Math.round(ajusteFoto.zoom * 100)} %` : ajusteFoto[k].toFixed(0)}</span></span>
+              <input type="range" min={mn} max={mx} step={st} value={ajusteFoto[k]} onChange={e => setAjusteFoto(a => ({ ...a, [k]: Number(e.target.value) }))} className="w-full accent-emerald-600" aria-label={t} />
+            </label>
+          ))}
+          <div className="flex gap-1.5">
+            <button onClick={() => setModoRender(v => !v)} className={`flex-1 px-2 py-1.5 rounded-lg cursor-pointer ${modoRender ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700'}`}>{modoRender ? 'Con sombra' : 'Poner sombra'}</button>
+            <button onClick={() => { setAjusteFoto({ zoom: 1, x: 0, y: 0 }); vistaDeFrente(); }} className="px-2 py-1.5 rounded-lg bg-slate-100 cursor-pointer">De frente</button>
+            <button onClick={() => setPanelAjusteFoto(false)} className="px-2 py-1.5 rounded-lg bg-slate-900 text-white cursor-pointer">Listo</button>
+          </div>
         </div>
       )}
 
@@ -3374,6 +3557,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             title="Colores y acabados de la estructura">
             <Palette className="w-4 h-4" />
             <span className="hidden xl:inline text-[11px] font-bold">Colores</span>
+          </button>
+
+          {/* Modo render (sombras del sol) */}
+          <button onClick={() => setModoRender(v => !v)}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${modoRender ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+            title="Render: sombras del sol y suelo realista">
+            <Sun className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Render</span>
           </button>
 
           {/* Recorrido a pie */}

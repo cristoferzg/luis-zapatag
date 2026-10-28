@@ -44,7 +44,8 @@ export type TipoTechoWizard =
   | 'mezzanine'
   | 'forma_u'
   | 'marquesina'
-  | 'pergola';
+  | 'pergola'
+  | 'sol_sombra';
 
 export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> = ({
   isOpen,
@@ -77,6 +78,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [soporteMarq, setSoporteMarq] = useState<'tensores' | 'mensulas' | 'columnas'>('tensores');
   const [sepViguetasStr, setSepViguetasStr] = useState<string>('0.60');
   const [sepListonesStr, setSepListonesStr] = useState<string>('0.25');
+  const [sepLamasStr, setSepLamasStr] = useState<string>('0.10');
+  const [caidaSolStr, setCaidaSolStr] = useState<string>('3');
+  const [lamaSol, setLamaSol] = useState<'liviana' | 'ancha'>('liviana');
+  const [ledSol, setLedSol] = useState(true);
 
   // Estados específicos para 6 Aguas, Mansarda, Domo, Forma en L y Mariposa
   const numAnillos6AgStr = '4';
@@ -436,6 +441,8 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
       engineState.generateRoofUShaped(luzM, largoM, luzAlaLM, largoAlaLM, alturaColM, tipoTijeral, orientacionTijeral);
     } else if (tipo === 'marquesina') {
       engineState.generateMarquesina(Math.max(0.5, parseFloat(voladoMarqStr) || 2.5), largoM, alturaColM, pendientePct, soporteMarq);
+    } else if (tipo === 'sol_sombra') {
+      engineState.generateSolYSombra(luzM, largoM, alturaColM, Math.max(0, parseFloat(caidaSolStr) || 0), Math.max(0.05, parseFloat(sepLamasStr) || 0.1), lamaSol, ledSol);
     } else if (tipo === 'pergola') {
       engineState.generatePergola(luzM, largoM, alturaColM, Math.max(0.3, parseFloat(sepViguetasStr) || 0.6), Math.max(0.08, parseFloat(sepListonesStr) || 0.25));
     } else if (tipo === 'seis_aguas') {
@@ -707,6 +714,21 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 <div className="text-xl sm:text-2xl mb-1">🌿</div>
                 <div className="text-xs font-bold leading-tight">Pérgola</div>
                 <div className="text-[10px] text-slate-500 mt-0.5">Vigas y listones, sin cobertura</div>
+              </button>
+
+              {/* SOL Y SOMBRA */}
+              <button
+                type="button"
+                onClick={() => setTipo('sol_sombra')}
+                className={`p-2.5 sm:p-3 rounded-2xl border text-left flex flex-col items-center text-center transition-all cursor-pointer ${
+                  tipo === 'sol_sombra'
+                    ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/70 text-slate-700'
+                }`}
+              >
+                <div className="text-xl sm:text-2xl mb-1">☀️</div>
+                <div className="text-xs font-bold leading-tight">Sol y sombra</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Lamas con caída y luz LED</div>
               </button>
 
               {/* MARIPOSA */}
@@ -1203,6 +1225,37 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     <p className="text-[10px] text-slate-500">"Largo" es el ancho de la fachada; "Altura de columna" es la altura del anclaje en el muro; la pendiente baja hacia el frente.</p>
                   </div>
                 </>
+              )}
+
+              {/* OPCIONES PARA SOL Y SOMBRA */}
+              {tipo === 'sol_sombra' && (
+                <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-2 shadow-2xs">
+                  {([['Lamas cada', sepLamasStr, setSepLamasStr, '0.10', 'm'], ['Caída', caidaSolStr, setCaidaSolStr, '3', '%']] as [string, string, (v: string) => void, string, string][]).map(([t, v, set, ph, u]) => (
+                    <div key={t} className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">{t}:</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={v} onChange={(e) => set(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder={ph} />
+                        <span className="text-xs font-bold text-slate-500 w-3">{u}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-800">Lama:</span>
+                    <div className="flex gap-1">
+                      {([['liviana', '2" × 1"'], ['ancha', '4" × 2"']] as ['liviana' | 'ancha', string][]).map(([k, t]) => (
+                        <button key={k} type="button" onClick={() => setLamaSol(k)}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-bold border cursor-pointer ${lamaSol === k ? 'bg-amber-500 text-white border-amber-500' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <label className="flex items-center justify-between gap-2 text-xs font-bold text-slate-800 cursor-pointer">
+                    <span>Luz LED bajo el marco</span>
+                    <input type="checkbox" checked={ledSol} onChange={e => setLedSol(e.target.checked)} className="w-4 h-4 accent-amber-500" />
+                  </label>
+                  <p className="text-[10px] text-slate-500 leading-snug">Lamas más juntas = más sombra. Lamas de 5 cm cada 10 cm dan ≈ la mitad de sombra a mediodía. La caída suave escurre el agua de la lluvia.</p>
+                </div>
               )}
 
               {/* OPCIONES PARA PÉRGOLA */}

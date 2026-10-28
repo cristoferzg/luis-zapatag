@@ -32,16 +32,24 @@ export function reducirImagen(src: string, max = 1400, calidad = 0.82): Promise<
  * Guarda la vista actual del 3D. Si hay foto de fondo, la compone debajo del
  * techo (DESPUÉS) y guarda la foto sola como ANTES.
  */
-export async function guardarFotoPropuesta(canvas: HTMLCanvasElement, fondo?: string | null, colorFondo = '#f8fafc') {
+export interface AjusteFoto { zoom: number; x: number; y: number } // x, y en % del lienzo
+
+export async function guardarFotoPropuesta(canvas: HTMLCanvasElement, fondo?: string | null, ajuste: AjusteFoto = { zoom: 1, x: 0, y: 0 }, colorFondo = '#f8fafc') {
   const c = document.createElement('canvas');
   c.width = canvas.width; c.height = canvas.height;
   const g = c.getContext('2d')!;
   if (fondo) {
     const img = await new Promise<HTMLImageElement>((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = mal; i.src = fondo; });
-    // "cover", igual que se ve en pantalla
+    // "cover" + el mismo acercamiento/desplazamiento que se ve en pantalla
+    g.fillStyle = colorFondo; g.fillRect(0, 0, c.width, c.height);
+    g.save();
+    g.translate(c.width / 2 + (ajuste.x / 100) * c.width, c.height / 2 + (ajuste.y / 100) * c.height);
+    g.scale(ajuste.zoom, ajuste.zoom);
+    g.translate(-c.width / 2, -c.height / 2);
     const k = Math.max(c.width / img.width, c.height / img.height);
     const w = img.width * k, h = img.height * k;
     g.drawImage(img, (c.width - w) / 2, (c.height - h) / 2, w, h);
+    g.restore();
     const antes = c.toDataURL('image/jpeg', 0.85);
     escribir(K_ANTES, await reducirImagen(antes, 1100, 0.78));
   } else {

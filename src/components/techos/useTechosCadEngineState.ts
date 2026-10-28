@@ -128,6 +128,7 @@ export interface UseTechosCadEngineReturn {
   generateMarquesina: (voladoM: number, largoM: number, alturaMuroM: number, pendientePct: number, soporte: 'tensores' | 'mensulas' | 'columnas') => void;
   /** Pérgola: columnas, vigas, viguetas y listones (sin cobertura). */
   generatePergola: (anchoM: number, largoM: number, alturaM: number, sepViguetasM: number, sepListonesM: number) => void;
+  generateSolYSombra: (anchoM: number, largoM: number, alturaM: number, pendientePct: number, sepLamasM: number, lama: 'liviana' | 'ancha', led: boolean) => void;
   generateRoofButterfly: (luzM: number, largoM?: number, alturaColM?: number, desnivelAlasM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofCurvoAutoportante: (luzM: number, largoM?: number, alturaMuroM?: number, flechaM?: number, numEjes?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofMarquesina: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, numEjes?: number) => void;
@@ -3290,6 +3291,53 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(N, S, {});
   }, [activeProfileId, pushHistory]);
 
+  // Techo sol y sombra: marco perimetral de vigas 100×50 con caída suave,
+  // columnas 4×4, vigas intermedias y lamas (tubo rectangular) a la separación
+  // pedida, con volado de 30 cm. Sin cobertura. Las vigas del marco pueden
+  // llevar cinta LED por debajo.
+  const generateSolYSombra = useCallback((
+    anchoM: number,
+    largoM: number,
+    alturaM: number,
+    pendientePct: number,
+    sepLamasM: number,
+    lama: 'liviana' | 'ancha',
+    led: boolean
+  ) => {
+    const N: Record<string, Node3D> = {}, S: Record<string, Segment3D> = {};
+    const existe = (id: string, alt?: string) => INVENTARIO_PERFILES_TUBULARES.some(p => p.id === id) ? id : (alt || activeProfileId);
+    const colProf = existe('perfil_sq_4x4_20', INVENTARIO_PERFILES_TUBULARES[4]?.id);
+    const vigaProf = existe('perfil_rec_100x50_20', INVENTARIO_PERFILES_TUBULARES[1]?.id);
+    const lamaProf = lama === 'ancha' ? vigaProf : existe('perfil_rec_2x1_15', INVENTARIO_PERFILES_TUBULARES[0]?.id);
+    const node = (id: string, x: number, y: number, z: number, label: string, fijo = false) => { N[id] = { id, x, y, z, nodeLabel: label, isFixedSupport: fijo }; return id; };
+    const seg = (id: string, a: string, b: string, prof: string, rol: Segment3D['rolEstructural'], conLed = false) => { S[id] = { id, nodeAId: a, nodeBId: b, profileId: prof, rolEstructural: rol, ...(conLed ? { led: true } : {}) }; };
+    const p = Math.max(0, Math.min(30, pendientePct)) / 100;
+    const yAt = (x: number) => alturaM + (anchoM - x) * p; // lado x=0 más alto, cae hacia x=ancho
+    const vuelo = 0.3, hLama = lama === 'ancha' ? 0.075 : 0.0375;
+    const nCol = Math.max(2, Math.ceil(largoM / 3.5) + 1);
+    const zCol = Array.from({ length: nCol }, (_, i) => (largoM * i) / (nCol - 1));
+    const nLong = Math.max(2, Math.ceil(anchoM / 3) + 1); // vigas a lo largo (bordes + intermedias)
+    const xLong = Array.from({ length: nLong }, (_, j) => (anchoM * j) / (nLong - 1));
+    zCol.forEach((z, i) => xLong.forEach((x, j) => {
+      const t = node(`ss_t_${j}_${i}`, x, yAt(x), z, `SYS-NUDO-${j + 1}-${i + 1}`);
+      if (j === 0 || j === nLong - 1) {
+        const b = node(`ss_b_${j}_${i}`, x, 0, z, `SYS-COL-${j === 0 ? 'A' : 'B'}-${i + 1}`, true);
+        seg(`ss_c_${j}_${i}`, b, t, colProf, 'columna');
+      }
+      if (j > 0) seg(`ss_vt_${j}_${i}`, `ss_t_${j - 1}_${i}`, t, vigaProf, 'viga_secundaria', led && (i === 0 || i === nCol - 1));
+      if (i > 0) seg(`ss_vl_${j}_${i}`, `ss_t_${j}_${i - 1}`, t, vigaProf, 'viga_principal', led && (j === 0 || j === nLong - 1));
+    }));
+    const nLamas = Math.max(2, Math.round(largoM / Math.max(0.05, sepLamasM)) + 1);
+    for (let k = 0; k < nLamas; k++) {
+      const z = (largoM * k) / (nLamas - 1);
+      const a = node(`ss_la_${k}`, -vuelo, yAt(-vuelo) + 0.05 + hLama, z, `SYS-LAMA-${k + 1}-A`);
+      const b = node(`ss_lb_${k}`, anchoM + vuelo, yAt(anchoM + vuelo) + 0.05 + hLama, z, `SYS-LAMA-${k + 1}-B`);
+      seg(`ss_l_${k}`, a, b, lamaProf, 'correa');
+    }
+    setNodes(N); setSegments(S); setCoverageZones({});
+    pushHistory(N, S, {});
+  }, [activeProfileId, pushHistory]);
+
   // Generador de Techo Mariposa / V Invertida (Butterfly Roof) con Viga Canaleta Central
   const generateRoofButterfly = useCallback((
     luzM: number,
@@ -4280,6 +4328,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofUShaped,
     generateMarquesina,
     generatePergola,
+    generateSolYSombra,
     generateRoofButterfly,
     generateRoofCurvoAutoportante,
     generateRoofMarquesina,

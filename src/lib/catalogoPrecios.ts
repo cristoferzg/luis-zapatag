@@ -118,6 +118,12 @@ function construirItems(): ItemCatalogo[] {
     ['agua:soporte', 'Soporte de canaleta', 'unidad'], ['agua:tapa', 'Tapa de canaleta', 'unidad'], ['agua:embudo', 'Embudo / salida de canaleta', 'unidad'],
     ['agua:abrazadera', 'Abrazadera para bajada', 'unidad'], ['agua:codo', 'Codo para bajada', 'unidad'],
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
+  // Iluminación LED en vigas (sol y sombra / pérgola)
+  ([
+    ['led:cinta', 'Cinta LED 12 V luz cálida (IP65)', 'm'], ['led:perfil', 'Perfil de aluminio con difusor para cinta LED', 'm'],
+    ['led:fuente', 'Fuente / transformador 12 V para LED', 'unidad'], ['led:conector', 'Conector para cinta LED', 'unidad'],
+    ['led:cable', 'Cable de alimentación 2 × 18 AWG', 'm'], ['led:control', 'Interruptor o control remoto para LED', 'unidad'],
+  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
   // Obra Civil: acabados por ambiente, instalaciones y ladrillo de techo
   ([
     ['acab:piso_ceramico', 'Piso cerámico (instalado)', 'm²'], ['acab:piso_porcelanato', 'Piso porcelanato (instalado)', 'm²'],

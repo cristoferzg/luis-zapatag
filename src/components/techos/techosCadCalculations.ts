@@ -25,6 +25,7 @@ import { precio, precioBarraPerfil, claveCobertura, largoPlanchaCompra } from '.
 import { esTensor, metradoTensores } from './tensores';
 import { metradoMovil } from './mecanismoMovil';
 import { metradoCanaletas } from './canaletas';
+import { metradoLed } from './iluminacionLed';
 
 // 1. CÁLCULO DE DISTANCIA EUCLIDIANA 3D ENTRE NODOS
 export function calcularLongitudSegmento3D(nodoA: Node3D, nodoB: Node3D): number {
@@ -245,6 +246,8 @@ export function generarReportePresupuestoBom(
   const costoMovilSoles = mecanismoMovil.reduce((x, l) => x + l.subtotal, 0);
   const canaletas = metradoCanaletas(nodes, coverageZones);
   const costoCanaletasSoles = canaletas.reduce((x, l) => x + l.subtotal, 0);
+  const iluminacionLed = metradoLed(nodes, segments);
+  const costoLedSoles = iluminacionLed.reduce((x, l) => x + l.subtotal, 0);
   const despiecePerfiles = calcularDespieceOptimizado1D(segsPerfil, nodes, 0.003);
   const resumenCoberturas = calcularMetradoCoberturas(coverageZones, nodes);
 
@@ -274,7 +277,7 @@ export function generarReportePresupuestoBom(
   const costoPernosEpdmSoles = cajasPernosEpdm * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol);
   const costoSoldaduraSoles = kgSoldaduraEstimados * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol);
 
-  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles + costoMovilSoles + costoCanaletasSoles;
+  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles + costoMovilSoles + costoCanaletasSoles + costoLedSoles;
 
   // Mano de obra y gastos operativos: % de materiales o detalle del usuario
   // (cuadrilla con jornales; grúa, transporte… con montos).
@@ -313,6 +316,8 @@ export function generarReportePresupuestoBom(
     costoMovilSoles: r2(costoMovilSoles),
     canaletas,
     costoCanaletasSoles: r2(costoCanaletasSoles),
+    iluminacionLed,
+    costoLedSoles: r2(costoLedSoles),
     gastosGeneralesSoles: r2(gastosGenerales),
     utilidadSoles: r2(utilidad),
     subtotalSoles: r2(subtotal),

@@ -14,7 +14,7 @@ import { generarReportePresupuestoBom } from './techosCadCalculations';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import { fotoPropuesta } from './fotoPropuesta';
 import { safeStorage } from '../../lib/storageManager';
-import { publicarPropuesta } from '../../lib/propuestas';
+import { publicarPropuesta, claveValida, normalizarClave } from '../../lib/propuestas';
 import { redactarConIA } from '../../lib/redaccionIA';
 import { iaVisibleParaUI } from '../../lib/aiAccess';
 import { Sparkles } from 'lucide-react';
@@ -50,6 +50,7 @@ export default function PropuestaClienteView({
   const [recomendada, setRecomendada] = useState(1);
   const foto = fotoPropuesta();
   const [link, setLink] = useState<string | null>(null);
+  const [claveCliente, setClaveCliente] = useState('');
   const [publicando, setPublicando] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,17 +99,17 @@ export default function PropuestaClienteView({
         imagen: foto.despues || '', antes: foto.antes || '', carta,
         escena: { nodes, segments, coverageZones },
         incluye,
-      });
+      }, claveCliente);
       setLink(`${window.location.origin}${window.location.pathname}?propuesta=${id}`);
     } catch (e: any) {
-      setError(e?.message?.includes('demasiado') ? e.message : 'No se pudo publicar el link. Revisa tu conexión e inténtalo de nuevo.');
+      setError(e?.message?.includes('demasiado') || e?.message?.includes('DNI') ? e.message : 'No se pudo publicar el link. Revisa tu conexión e inténtalo de nuevo.');
     } finally { setPublicando(false); }
   };
   const copiar = async () => { if (!link) return; try { await navigator.clipboard.writeText(link); } catch { /* sin portapapeles */ } setCopiado(true); setTimeout(() => setCopiado(false), 1800); };
   const whatsapp = () => {
     if (!link) return;
     const a = document.createElement('a');
-    a.href = `https://wa.me/?text=${encodeURIComponent(`Hola${cliente ? ' ' + cliente : ''}, te comparto la propuesta de tu techo (${nombreProyecto}). Puedes verlo en 3D, elegir una opción y aceptarla aquí: ${link}`)}`;
+    a.href = `https://wa.me/?text=${encodeURIComponent(`Hola${cliente ? ' ' + cliente : ''}, te comparto la propuesta de tu techo (${nombreProyecto}). Puedes verlo en 3D, elegir una opción y aceptarla aquí: ${link} — Para abrirlo escribe tu ${normalizarClave(claveCliente).length === 9 ? 'número de celular' : 'DNI'}.`)}`;
     a.target = '_blank'; a.rel = 'noopener noreferrer'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -118,7 +119,10 @@ export default function PropuestaClienteView({
         <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-white sm:rounded-t-3xl border-b border-slate-200">
           <h3 className="text-sm font-black text-slate-900 mr-auto">Propuesta visual para el cliente</h3>
           <BotonImprimir objetivo={() => hoja.current} titulo={`Propuesta - ${nombreProyecto}`} etiqueta="PDF / Imprimir" />
-          <button onClick={publicar} disabled={publicando} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer disabled:opacity-50">
+          <input value={claveCliente} onChange={e => setClaveCliente(e.target.value)} inputMode="numeric" autoComplete="off"
+            placeholder="DNI o celular del cliente" title="El cliente lo escribe para abrir el link (privacidad)"
+            className={`w-[170px] px-2.5 py-2 rounded-xl border text-xs font-bold ${claveCliente && !claveValida(claveCliente) ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50'}`} aria-label="DNI o celular del cliente" />
+          <button onClick={publicar} disabled={publicando || !claveValida(claveCliente)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black cursor-pointer disabled:opacity-50">
             <Link2 className="w-4 h-4" /> {publicando ? 'Publicando…' : link ? 'Actualizar link' : 'Link para el cliente'}
           </button>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-4 h-4" /></button>

@@ -1790,6 +1790,20 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     pernosRequeridosPorM2: 4.0
   },
   {
+    id: 'cob_upvc_teja_espanola',
+    categoria: 'upvc_termoacustica',
+    nombre: 'Teja Española UPVC (1050 × 5913 mm, 2.3 mm)',
+    anchoTotalMm: 1050,
+    anchoUtilMm: 960,
+    espesorMm: 2.3,
+    tipoOnda: 'Teja Española (onda 30 mm, paso 219 mm)',
+    longitudComercialM: 5.913,
+    pesoM2Kg: 4.6,
+    costoM2Sol: 0,
+    traslapeTransversalMinMm: 219,
+    pernosRequeridosPorM2: 4.0
+  },
+  {
     id: 'cob_panel_sandwich_pur_30',
     categoria: 'panel_sandwich_pur',
     nombre: 'Panel Sándwich PUR Poliuretano 30mm',

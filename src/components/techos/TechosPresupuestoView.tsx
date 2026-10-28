@@ -69,6 +69,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       `Cobertura (${(design.resumenCoberturas || []).reduce((n: number, c: any) => n + c.areaEfectivaCalculadaM2, 0).toFixed(1)} m²): S/. ${(design.costoCoberturasSoles ?? 0).toFixed(2)}`,
       `Placas base, pernos y soldadura: S/. ${(design.costoAccesoriosSoles ?? 0).toFixed(2)}`,
       ...((design.canaletas || []).length ? [`Canaletas y bajadas de agua: S/. ${(design.costoCanaletasSoles ?? 0).toFixed(2)}`] : []),
+      ...((design.iluminacionLed || []).length ? [`Iluminación LED en vigas (cinta, perfil difusor, fuentes): S/. ${(design.costoLedSoles ?? 0).toFixed(2)}`] : []),
       ...((design.mecanismoMovil || []).length ? [`Mecanismo de techo movible (rieles, ruedas, accionamiento): S/. ${(design.costoMovilSoles ?? 0).toFixed(2)}`] : []),
     ] },
     { item: '02', desc: 'Mano de obra: fabricación y montaje', monto: design.costoManoObraMontajeSoles,
