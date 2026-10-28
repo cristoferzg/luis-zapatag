@@ -2,6 +2,7 @@ import { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Download, RotateCcw, ShieldAlert } from 'lucide-react';
 import { auditLogger } from '../../lib/auditLogger';
 import { safeStorage } from '../../lib/storageManager';
+import { esErrorDeVersion, recargarPorVersionNueva } from '../../lib/versionNueva';
 
 interface Props {
   children: ReactNode;
@@ -26,6 +27,8 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    // Apartado de la versión anterior que ya no existe: se recarga solo.
+    if (esErrorDeVersion(error) && recargarPorVersionNueva()) return;
     this.setState({ errorInfo });
     auditLogger.error('EXCEPTION', `Error de interfaz atrapado por AppErrorBoundary: ${error.message}`, {
       componentStack: errorInfo.componentStack

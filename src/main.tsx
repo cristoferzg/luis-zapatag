@@ -6,6 +6,7 @@ import { AppErrorBoundary } from './components/common/AppErrorBoundary'
 import { auditLogger } from './lib/auditLogger'
 import { ensureAnonymousAuth } from './lib/firebase'
 import { registerSW } from 'virtual:pwa-register'
+import { recargarPorVersionNueva } from './lib/versionNueva'
 
 // Establish an (anonymous) Firebase Auth session as early as possible so that
 // every Firestore/Storage request is authenticated and the security rules can
@@ -30,6 +31,16 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
     onRegisterError(error) {
       auditLogger.warn('PWA', 'No se pudo registrar el Service Worker.', { error: String(error) });
     }
+  });
+}
+
+// Tras desplegar una versión nueva, una pestaña o app abierta con la versión
+// anterior pide archivos de apartados (p. ej. Accesos PIN) que ya no existen.
+// Se recarga una sola vez para traer la versión nueva en vez de mostrar error.
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', (e) => {
+    e.preventDefault();
+    recargarPorVersionNueva();
   });
 }
 

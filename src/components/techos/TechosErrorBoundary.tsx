@@ -1,6 +1,7 @@
 // Boundary de Error aislado exclusivo para el Módulo Techos Metálicos
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { esErrorDeVersion, recargarPorVersionNueva } from '../../lib/versionNueva';
 
 interface Props {
   children: ReactNode;
@@ -22,6 +23,7 @@ export class TechosErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    if (esErrorDeVersion(error) && recargarPorVersionNueva()) return; // versión nueva desplegada
     console.error('[TechosErrorBoundary] Error capturado:', error, errorInfo);
   }
 

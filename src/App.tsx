@@ -1510,7 +1510,12 @@ export default function App() {
   const [pinError, setPinError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showPinMask, setShowPinMask] = useState(true);
-  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  // Si la app se recargó sola por una versión nueva, vuelve al apartado que se estaba abriendo.
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    try { const v = sessionStorage.getItem('innova_vista_tras_recarga'); sessionStorage.removeItem('innova_vista_tras_recarga'); if (v) return v as ViewType; } catch { /* nada */ }
+    return 'dashboard';
+  });
+  useEffect(() => { try { sessionStorage.setItem('innova_vista_actual', currentView); } catch { /* nada */ } }, [currentView]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [authInitialized, setAuthInitialized] = useState(() => !!safeStorage.getItem<SystemUser | null>('savedUser', null));
