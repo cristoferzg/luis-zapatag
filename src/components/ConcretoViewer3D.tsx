@@ -138,7 +138,7 @@ interface Props {
   verCimentacion?: boolean;   // suelo transparente y vista desde abajo (zapatas, cimientos)
   claveCamara?: string;       // misma obra → se conserva la cámara al remontar
   bloques?: Bloque[];         // diseños de CarpiMetal sueltos y muebles a escala
-  acabados?: Record<string, { piso: string; pintura: boolean; zocalo: boolean }>; // por `${piso}#${ambiente}`
+  acabados?: Record<string, { piso: string; pintura: boolean; zocalo: boolean; colorPintura?: string }>; // por `${piso}#${ambiente}`
   seleccion?: string[];       // elementos del plano resaltados (uid)
   onPick?: (uid: string | null, sumar: boolean) => void; // clic en un elemento (Ctrl: sumar al grupo)
 }
@@ -404,7 +404,12 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         const propias = zonas.filter(z => !z.ids.some(id => esNodoTanque(N[id])));
         if (pl) {
           const mat = propias[0]?.mat || 'cob_aluzinc_030';
-          zonas.splice(0, zonas.length, ...zonas.filter(z => !propias.includes(z)), { ids: [], pts: pl.pts, mat });
+          // Igual que en Techos Metálicos: la plancha sale 30 cm en el alero (lado bajo).
+          const g = Math.hypot(pl.a, pl.b) || 1, dx = -pl.a / g, dz = -pl.b / g; // hacia donde baja, en planta
+          const proy = pl.pts.map(p => p.x * dx + p.z * dz), bajo = Math.max(...proy);
+          const pts = pl.pts.map((p, i) => proy[i] > bajo - 0.01 && g > 0.005
+            ? { x: p.x + dx * 0.3, y: p.y + (pl.a * dx + pl.b * dz) * 0.3, z: p.z + dz * 0.3 } : p);
+          zonas.splice(0, zonas.length, ...zonas.filter(z => !propias.includes(z)), { ids: [], pts, mat });
         } else if (!propias.length) coberturaDesdeCorreas(N, est.segments || {}).forEach(p => zonas.push({ ids: p.ids, mat: 'cob_aluzinc_030' }));
         zonas.forEach(z => {
           const nodos = z.pts || z.ids.map(id => N[id]).filter(Boolean);
@@ -497,7 +502,8 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       // ---- Acabados de muros de un ambiente: pintura (cara interior) y zócalo, sin tapar puertas ni ventanas ----
       const matPintura = new THREE.MeshLambertMaterial({ color: 0xf3eee4, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
       const matZocalo = new THREE.MeshLambertMaterial({ color: 0x8b7d6b, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 });
-      const acabadoMuros = (poly: { x: number; y: number }[], muros: PlanoElem[], base: number, pintura: boolean, zocalo: boolean) => {
+      const acabadoMuros = (poly: { x: number; y: number }[], muros: PlanoElem[], base: number, pintura: boolean, zocalo: boolean, color?: string) => {
+        const matP = color ? new THREE.MeshLambertMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }) : matPintura;
         let area2 = 0; poly.forEach((p, i) => { const q = poly[(i + 1) % poly.length]; area2 += p.x * q.y - q.x * p.y; });
         const sentido = area2 > 0 ? 1 : -1;
         poly.forEach((p, i) => {
@@ -526,7 +532,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
             mesh.matrix.makeBasis(X, Y, Z).setPosition(p.x + nx * (esp / 2 + off), base, p.y + ny * (esp / 2 + off));
             modelo.add(mesh);
           };
-          if (pintura) lamina(alto, 0.004, matPintura, true);
+          if (pintura) lamina(alto, 0.004, matP, true);
           if (zocalo) lamina(0.10, 0.008, matZocalo, true);
         });
       };
@@ -546,7 +552,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const m = new THREE.Mesh(new THREE.ShapeGeometry(f), matPiso);
           m.rotation.x = Math.PI / 2; m.position.y = ctx.base + (tex ? 0.02 : 0.015);
           modelo.add(m);
-          if (ac?.pintura || ac?.zocalo) acabadoMuros(a.poly, muros, ctx.base, !!ac.pintura, !!ac.zocalo);
+          if (ac?.pintura || ac?.zocalo) acabadoMuros(a.poly, muros, ctx.base, !!ac.pintura, !!ac.zocalo, ac.colorPintura);
         });
         const cfg = cls[n];
         if (cfg?.activo) superficie(mallaCielo(regionesCielo(muros, est || null, ctx.base), cfg, ctx));

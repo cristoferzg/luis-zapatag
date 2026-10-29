@@ -20,7 +20,7 @@
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon, ChevronsUp, Zap, ChevronDown, ChevronRight, PanelLeft } from 'lucide-react';
 import AtajosTeclado from './common/AtajosTeclado';
-import { escalera, datosAligerada, PuntoInstalacion, TipoInstalacion, INSTALACIONES, KEY_INSTALACIONES, leerInstalaciones, metradoInstalaciones, AcabadoAmbiente, ACABADO_VACIO, KEY_ACABADOS, leerAcabados, PISOS, metradoAcabado, LineaExtra } from './concreto/extrasObra';
+import { escalera, datosAligerada, PuntoInstalacion, TipoInstalacion, INSTALACIONES, KEY_INSTALACIONES, leerInstalaciones, metradoInstalaciones, AcabadoAmbiente, ACABADO_VACIO, KEY_ACABADOS, leerAcabados, PISOS, metradoAcabado, LineaExtra, COLORES_PINTURA } from './concreto/extrasObra';
 import { precio as precioCat } from '../lib/catalogoPrecios';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { generateDxfContent } from '../lib/dxfParser';
@@ -1991,6 +1991,15 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                         {PISOS.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                       </select>
                       <label className="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={ac.pintura} onChange={e => set({ pintura: e.target.checked })} /> Pintura</label>
+                      {ac.pintura && (
+                        <span className="inline-flex items-center gap-0.5" title="Color de la pintura">
+                          {COLORES_PINTURA.map(c => (
+                            <button key={c.hex} type="button" title={c.nombre} onClick={() => set({ colorPintura: c.hex })}
+                              className={`w-4 h-4 rounded-full border cursor-pointer ${(ac.colorPintura || COLORES_PINTURA[0].hex) === c.hex ? 'ring-2 ring-amber-500 border-white' : 'border-slate-300'}`} style={{ backgroundColor: c.hex }} />
+                          ))}
+                          <input type="color" value={ac.colorPintura || COLORES_PINTURA[0].hex} onChange={e => set({ colorPintura: e.target.value })} title="Otro color" className="w-5 h-5 p-0 border-0 bg-transparent cursor-pointer" />
+                        </span>
+                      )}
                       <label className="inline-flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={ac.zocalo} onChange={e => set({ zocalo: e.target.checked })} /> Zócalo</label>
                     </div>
                   )}

@@ -2457,6 +2457,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                              seg.rolEstructural === 'columna';
 
       tubeMesh.userData = {
+        colorBase: tubeMesh.userData.colorBase, // la pintura elegida (si se pierde, se repinta gris cada cuadro)
         segmentId: seg.id,
         rolEstructural: seg.rolEstructural || 'viga_principal',
         isCriticalZone,

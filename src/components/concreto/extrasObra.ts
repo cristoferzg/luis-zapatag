@@ -9,7 +9,13 @@ import { precio, itemCatalogo } from '../../lib/catalogoPrecios';
 
 // ── Acabados por ambiente ───────────────────────────────────────────────────
 export type PisoAcabado = 'ninguno' | 'ceramico' | 'porcelanato' | 'cemento_pulido' | 'laminado' | 'vinilico';
-export interface AcabadoAmbiente { piso: PisoAcabado; pintura: boolean; zocalo: boolean }
+export interface AcabadoAmbiente { piso: PisoAcabado; pintura: boolean; zocalo: boolean; colorPintura?: string }
+// Colores de pintura más usados (el usuario también puede elegir cualquiera).
+export const COLORES_PINTURA: { hex: string; nombre: string }[] = [
+  { hex: '#f3eee4', nombre: 'Blanco hueso' }, { hex: '#ffffff', nombre: 'Blanco' }, { hex: '#f2e3c6', nombre: 'Marfil' },
+  { hex: '#e8d5b5', nombre: 'Beige' }, { hex: '#cfe3f2', nombre: 'Celeste' }, { hex: '#d9ead3', nombre: 'Verde agua' },
+  { hex: '#f6d6c4', nombre: 'Salmón' }, { hex: '#d0d3d6', nombre: 'Gris perla' },
+];
 export const KEY_ACABADOS = 'concreto_acabados_ambiente';
 export const ACABADO_VACIO: AcabadoAmbiente = { piso: 'ninguno', pintura: false, zocalo: false };
 export const PISOS: { id: PisoAcabado; nombre: string; clave?: string }[] = [
@@ -36,7 +42,7 @@ export function metradoAcabado(a: AcabadoAmbiente, area: number, poly: { x: numb
   const per = perimetro(poly);
   const piso = PISOS.find(p => p.id === a.piso);
   if (piso?.clave) out.push(linea(piso.clave, Math.ceil(area * 1.05 * 10) / 10, `${nombre}: ${area.toFixed(2)} m² + 5 %`));
-  if (a.pintura) out.push(linea('acab:pintura', Math.ceil(per * alto * 10) / 10, `${nombre}: muros ${per.toFixed(2)} m × ${alto.toFixed(2)} m`));
+  if (a.pintura) out.push(linea('acab:pintura', Math.ceil(per * alto * 10) / 10, `${nombre}: muros ${per.toFixed(2)} m × ${alto.toFixed(2)} m · color ${COLORES_PINTURA.find(c => c.hex === a.colorPintura)?.nombre || a.colorPintura || COLORES_PINTURA[0].nombre}`));
   if (a.zocalo) out.push(linea('acab:zocalo', Math.ceil(per * 10) / 10, `${nombre}: perímetro`));
   return out;
 }
