@@ -514,19 +514,30 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const nx = -uy * sentido, ny = ux * sentido;
           // Muro sobre el que está este borde: su espesor, alto y vanos.
           const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
-          const muro = muros.find(w => { const wl = Math.hypot(w.x2! - w.x1, w.y2! - w.y1) || 1; const d = Math.abs(-(mx - w.x1) * (w.y2! - w.y1) / wl + (my - w.y1) * (w.x2! - w.x1) / wl); return d < 0.05; });
+          // El muro de este borde: sobre su eje Y dentro de su largo (no otro muro alineado).
+          const muro = muros.find(w => { const wl = Math.hypot(w.x2! - w.x1, w.y2! - w.y1) || 1; const d = Math.abs(-(mx - w.x1) * (w.y2! - w.y1) / wl + (my - w.y1) * (w.x2! - w.x1) / wl); const t = ((mx - w.x1) * (w.x2! - w.x1) + (my - w.y1) * (w.y2! - w.y1)) / wl; return d < 0.05 && t > -0.02 && t < wl + 0.02; });
           const esp = muro ? muro.a : 0.15, alto = muro?.H || 2.6;
           const wl = muro ? Math.hypot(muro.x2! - muro.x1, muro.y2! - muro.y1) || 1 : 1;
           const tMuro = (x: number, y: number) => muro ? ((x - muro.x1) * (muro.x2! - muro.x1) + (y - muro.y1) * (muro.y2! - muro.y1)) / wl : 0;
           const t0 = tMuro(p.x, p.y), dirT = tMuro(q.x, q.y) >= t0 ? 1 : -1;
           const vanos = (muro?.aberturas || []).map(ab => { const u = (ab.t - t0) * dirT; return { u0: u - ab.w / 2, u1: u + ab.w / 2, v0: ab.sill, v1: ab.sill + ab.h }; }).filter(v => v.u1 > 0 && v.u0 < L);
           const lamina = (h: number, off: number, mat: THREE.Material, conVanos: boolean) => {
-            const sh = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(L, 0), new THREE.Vector2(L, h), new THREE.Vector2(0, h)]);
-            if (conVanos) vanos.forEach(v => {
-              const u0 = Math.max(0.01, v.u0), u1 = Math.min(L - 0.01, v.u1), v0 = Math.max(0.01, v.v0), v1 = Math.min(h - 0.01, v.v1);
-              if (u1 - u0 > 0.05 && v1 - v0 > 0.05) sh.holes.push(new THREE.Path([new THREE.Vector2(u0, v0), new THREE.Vector2(u1, v0), new THREE.Vector2(u1, v1), new THREE.Vector2(u0, v1)]));
+            // Se arma con rectángulos alrededor de puertas y ventanas (los agujeros que tocan
+            // el piso no se triangulan bien y la pintura tapaba la puerta).
+            const rects: [number, number, number, number][] = [];
+            const vs = conVanos ? vanos.map(v => ({ u0: Math.max(0, v.u0), u1: Math.min(L, v.u1), v0: Math.max(0, v.v0), v1: Math.min(h, v.v1) })).filter(v => v.u1 - v.u0 > 0.02 && v.v1 > v.v0).sort((a, b) => a.u0 - b.u0) : [];
+            let u = 0;
+            vs.forEach(v => {
+              if (v.u0 > u) rects.push([u, v.u0, 0, h]);
+              if (v.v0 > 0.005) rects.push([v.u0, v.u1, 0, v.v0]);
+              if (v.v1 < h - 0.005) rects.push([v.u0, v.u1, v.v1, h]);
+              u = Math.max(u, v.u1);
             });
-            const mesh = new THREE.Mesh(new THREE.ShapeGeometry(sh), mat);
+            if (u < L) rects.push([u, L, 0, h]);
+            const pos: number[] = [];
+            rects.forEach(([a, b, c, d]) => { if (b - a < 0.002 || d - c < 0.002) return; pos.push(a, c, 0, b, c, 0, b, d, 0, a, c, 0, b, d, 0, a, d, 0); });
+            const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+            const mesh = new THREE.Mesh(geo, mat);
             const X = new THREE.Vector3(ux, 0, uy), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3().crossVectors(X, Y);
             mesh.matrixAutoUpdate = false;
             mesh.matrix.makeBasis(X, Y, Z).setPosition(p.x + nx * (esp / 2 + off), base, p.y + ny * (esp / 2 + off));
