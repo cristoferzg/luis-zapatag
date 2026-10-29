@@ -19,6 +19,35 @@ export interface SavedTechosDesign {
   nodes: any;
   segments: any;
   coverageZones: any;
+  /** Momento de la última edición (ms). Las fechas de texto "29/10/2026 08:15" no se pueden comparar. */
+  updatedAtMs?: number;
+}
+
+/** Fecha de la última edición en ms (acepta el texto es-PE "dd/mm/aaaa hh:mm"). */
+export function msDe(d: Pick<SavedTechosDesign, 'updatedAtMs' | 'updatedAt' | 'savedAt'>): number {
+  if (d.updatedAtMs) return d.updatedAtMs;
+  const t = d.updatedAt || d.savedAt || '';
+  const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})\D*(\d{1,2})?:?(\d{2})?\s*([ap])?/i.exec(t);
+  if (m) {
+    let h = Number(m[4] || 0);
+    if (m[6]) { const pm = /p/i.test(m[6]); if (pm && h < 12) h += 12; if (!pm && h === 12) h = 0; }
+    return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), h, Number(m[5] || 0)).getTime();
+  }
+  return new Date(t).getTime() || 0;
+}
+
+const normNombre = (s: string) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const firma = (d: SavedTechosDesign) => JSON.stringify([d.nodes, d.segments, d.coverageZones || {}]);
+
+/** Quita copias idénticas (mismo nombre y mismo diseño): queda la más reciente. */
+function sinCopias(lista: SavedTechosDesign[]): { lista: SavedTechosDesign[]; quitados: string[] } {
+  const vistos = new Set<string>(); const quitados: string[] = [];
+  const out = lista.filter(d => {
+    const k = normNombre(d.nombre) + '|' + (d.clientId || '') + '|' + firma(d);
+    if (vistos.has(k)) { quitados.push(d.id); return false; }
+    vistos.add(k); return true;
+  });
+  return { lista: out, quitados };
 }
 
 const STORAGE_KEY = 'innova_techos_saved_projects';
@@ -41,16 +70,15 @@ export async function fetchAllTechosDesigns(): Promise<SavedTechosDesign[]> {
         remoteList.push({ id: d.id, ...(d.data() as any) });
       });
 
-      // Merge remote into local by id, prioritizing most recent
+      // Se juntan la copia local y la de la nube por id: gana la edición más
+      // reciente (antes ganaba siempre la nube y un cambio local se perdía).
       const map = new Map<string, SavedTechosDesign>();
       localList.forEach(item => map.set(item.id, item));
-      remoteList.forEach(item => map.set(item.id, item));
+      remoteList.forEach(item => { const loc = map.get(item.id); if (!loc || msDe(item) >= msDe(loc)) map.set(item.id, item); });
 
-      const merged = Array.from(map.values()).sort((a, b) => {
-        const timeA = new Date(a.updatedAt || a.savedAt).getTime() || 0;
-        const timeB = new Date(b.updatedAt || b.savedAt).getTime() || 0;
-        return timeB - timeA;
-      });
+      const ordenada = Array.from(map.values()).sort((a, b) => msDe(b) - msDe(a));
+      const { lista: merged, quitados } = sinCopias(ordenada);
+      quitados.forEach(id => deleteDoc(doc(db, 'planos_techos', id)).catch(() => { /* sin permiso o sin red */ }));
 
       safeStorage.setItem(STORAGE_KEY, merged);
       return merged;
@@ -80,26 +108,32 @@ export async function saveOrUpdateTechosDesign(
   overwriteExisting: boolean = true
 ): Promise<{ design: SavedTechosDesign; isNew: boolean }> {
   const existingList = getCachedTechosDesigns();
-  const existingIndex = designData.id 
-    ? existingList.findIndex(item => item.id === designData.id) 
+  let existingIndex = designData.id
+    ? existingList.findIndex(item => item.id === designData.id)
     : -1;
+  // Sin id pero con el mismo nombre (y cliente) que uno guardado: se actualiza ese,
+  // en vez de crear otra copia (pasaba al enviar a Obra Civil / Drywall).
+  if (existingIndex < 0 && overwriteExisting && designData.nombre) {
+    existingIndex = existingList.findIndex(item => normNombre(item.nombre) === normNombre(designData.nombre) && (item.clientId || '') === (designData.clientId || ''));
+  }
 
   const isUpdating = overwriteExisting && existingIndex >= 0;
-  const targetId = isUpdating ? designData.id! : `techos_${Date.now()}`;
+  const targetId = isUpdating ? existingList[existingIndex].id : `techos_${Date.now()}`;
   const nowStr = new Date().toLocaleDateString('es-PE') + ' ' + new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
   const finalDesign: SavedTechosDesign = {
     ...designData,
     id: targetId,
     savedAt: isUpdating ? existingList[existingIndex].savedAt : nowStr,
-    updatedAt: nowStr
+    updatedAt: nowStr,
+    updatedAtMs: Date.now(),
   };
 
   // Update local cache
   let nextList: SavedTechosDesign[];
   if (isUpdating) {
-    nextList = [...existingList];
-    nextList[existingIndex] = finalDesign;
+    // El editado pasa al primer lugar (el más reciente).
+    nextList = [finalDesign, ...existingList.filter((_, i) => i !== existingIndex)];
   } else {
     nextList = [finalDesign, ...existingList];
   }

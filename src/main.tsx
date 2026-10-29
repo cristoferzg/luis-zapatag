@@ -7,6 +7,7 @@ import { auditLogger } from './lib/auditLogger'
 import { ensureAnonymousAuth } from './lib/firebase'
 import { registerSW } from 'virtual:pwa-register'
 import { recargarPorVersionNueva } from './lib/versionNueva'
+import { instalarCeroIzquierda } from './lib/ceroIzquierda'
 
 // Establish an (anonymous) Firebase Auth session as early as possible so that
 // every Firestore/Storage request is authenticated and the security rules can
@@ -43,6 +44,9 @@ if (typeof window !== 'undefined') {
     recargarPorVersionNueva();
   });
 }
+
+// Campos numéricos sin ceros a la izquierda ("02.5") en toda la plataforma.
+instalarCeroIzquierda();
 
 // Global error handling for unhandled rejections and cross-origin script errors
 if (typeof window !== 'undefined') {

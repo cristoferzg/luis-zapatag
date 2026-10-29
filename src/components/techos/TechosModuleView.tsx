@@ -652,6 +652,13 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       const selectedClient = clients.find(c => c.id === saveModalClientId);
       const selectedProject = projects.find(p => p.id === saveModalProjectId);
 
+      // Mismo nombre que un plano ya guardado: se pregunta si se reemplaza (evita copias repetidas).
+      let reemplazar = saveModalOverwrite;
+      if (!reemplazar) {
+        const nom = saveModalNombre.trim().toLowerCase();
+        const igual = getCachedTechosDesigns().find(d => (d.nombre || '').trim().toLowerCase() === nom && (d.clientId || '') === (selectedClient?.id || ''));
+        if (igual) reemplazar = window.confirm(`Ya tienes un plano llamado "${saveModalNombre.trim()}".\n\nAceptar = actualizar ese plano.\nCancelar = guardar otra copia.`);
+      }
       const res = await saveOrUpdateTechosDesign(
         {
           id: saveModalOverwrite && currentEditingDesignId ? currentEditingDesignId : undefined,
@@ -666,7 +673,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           segments: engineState.segments,
           coverageZones: engineState.coverageZones,
         },
-        saveModalOverwrite
+        reemplazar
       );
 
       setCurrentEditingDesignId(res.design.id);

@@ -293,12 +293,23 @@ function ContratosSubView({
       if (savedMsg) savedMsg += ' y Configuración'; else savedMsg += 'Configuración';
     }
 
-    setCloudNotice(`✅ Datos del contrato guardados exitosamente en la nube (${savedMsg || 'Sincronizado'})`);
-    setTimeout(() => setCloudNotice(null), 3500);
+    setCloudNotice(`✅ Datos del contrato guardados en la nube (${savedMsg || 'Sincronizado'})${clienteNombre.trim() ? ' · guardando el PDF en la Carpeta Privada…' : ''}`);
+    // El contrato también queda en la Carpeta Privada del cliente (reemplaza la versión anterior).
+    if (clienteNombre.trim()) {
+      generarPdfContrato(false)
+        .then(b => b ? guardarContratoEnCarpeta(b) : false)
+        .then(ok => setCloudNotice(ok ? `✅ Contrato guardado en la nube y en la Carpeta Privada de ${clienteNombre.trim()}` : `✅ Datos guardados en la nube (${savedMsg || 'Sincronizado'})`))
+        .catch(err => setCloudNotice(`⚠️ Datos guardados, pero el PDF no se pudo poner en la Carpeta Privada: ${err?.message || err}`))
+        .finally(() => setTimeout(() => setCloudNotice(null), 4500));
+    } else {
+      setCloudNotice(`✅ Datos guardados en la nube (${savedMsg || 'Sincronizado'}). Escribe el nombre del cliente para guardar el contrato en su Carpeta Privada.`);
+      setTimeout(() => setCloudNotice(null), 4500);
+    }
   };
 
-  const handleGeneratePDF = async () => {
-    if (!contratoRef.current) return;
+ // Arma el PDF del contrato (con "Página X de Y"); descargar=false solo lo devuelve.
+  const generarPdfContrato = async (descargar: boolean): Promise<Blob | null> => {
+    if (!contratoRef.current) return null;
     
     const opt = {
       margin: [20, 20, 20, 25] as [number, number, number, number], // Top: 20mm, Left: 25mm, Bottom: 20mm, Right: 20mm (standard [top, left, bottom, right] in html2pdf)
@@ -342,24 +353,41 @@ function ContratosSubView({
         pdf.text(rightText, 190, footerY, { align: 'right' });
       }
       
-      pdf.save(`Contrato_${(proyectoNombre || 'Obra').replace(/\s+/g, '_')}.pdf`);
+      if (descargar) pdf.save(`Contrato_${(proyectoNombre || 'Obra').replace(/\s+/g, '_')}.pdf`);
       pdfBlob = pdf.output('blob');
     } catch (err) {
       console.warn('Fallback standard PDF download:', err);
-      html2pdf().set(opt).from(contratoRef.current).save();
+      if (descargar) html2pdf().set(opt).from(contratoRef.current).save();
     }
+    return pdfBlob;
+  };
+
+  // Guarda (o reemplaza) el PDF del contrato en la Carpeta Privada del cliente.
+  // Busca al cliente por nombre dentro del estado más reciente, así no se crean
+  // clientes repetidos ni copias del mismo contrato.
+  const guardarContratoEnCarpeta = async (pdfBlob: Blob): Promise<boolean> => {
+    const nombreCliente = clienteNombre.trim();
+    if (!setClients || !nombreCliente) return false;
+    const fileName = `Contrato_${(proyectoNombre || 'Obra').replace(/\s+/g, '_')}_${nombreCliente.replace(/\s+/g, '_')}.pdf`;
+    const existente = clients.find(c => c.name.toLowerCase().trim() === nombreCliente.toLowerCase());
+    const clienteId = existente?.id || 'cli-' + Date.now();
+    const archivo = await prepararArchivoCarpeta(new File([pdfBlob], fileName, { type: 'application/pdf' }), 'contract', clienteId);
+    setClients(prev => {
+      const i = prev.findIndex(c => c.id === clienteId || c.name.toLowerCase().trim() === nombreCliente.toLowerCase());
+      if (i < 0) return [...prev, { id: clienteId, name: nombreCliente, dni: clienteDni, address: clienteDireccion, company: clienteEmpresa, files: [archivo] }];
+      return prev.map((c, k) => k !== i ? c : { ...c, files: [archivo, ...(c.files || []).filter((f: any) => f.name !== fileName && f.nombre !== fileName)] });
+    });
+    return true;
+  };
+
+  const handleGeneratePDF = async () => {
+    const pdfBlob = await generarPdfContrato(true);
 
     // Guarda el PDF en la Carpeta Privada del cliente (se sincroniza en la nube).
     const nombreCliente = clienteNombre.trim();
     if (pdfBlob && setClients && nombreCliente) {
-      const fileName = `Contrato_${(proyectoNombre || 'Obra').replace(/\s+/g, '_')}_${nombreCliente.replace(/\s+/g, '_')}.pdf`;
-      const existente = clients.find(c => c.name.toLowerCase().trim() === nombreCliente.toLowerCase());
-      const clienteId = existente?.id || 'cli-' + Date.now();
       try {
-        const archivo = await prepararArchivoCarpeta(new File([pdfBlob], fileName, { type: 'application/pdf' }), 'contract', clienteId);
-        setClients(prev => prev.some(c => c.id === clienteId)
-          ? prev.map(c => c.id === clienteId ? { ...c, files: [archivo, ...(c.files || [])] } : c)
-          : [...prev, { id: clienteId, name: nombreCliente, dni: clienteDni, address: clienteDireccion, company: clienteEmpresa, files: [archivo] }]);
+        await guardarContratoEnCarpeta(pdfBlob);
         setCloudNotice(`✅ Contrato guardado en la Carpeta Privada de ${nombreCliente}`);
         setTimeout(() => setCloudNotice(null), 3500);
         return;
