@@ -558,6 +558,17 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         return;
       }
 
+      // Copiar / pegar (y que Ctrl+letra no cambie de herramienta)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+        if (engineState && engineState.selectedElementIds.length > 0) { e.preventDefault(); engineState.copySelectedElements(); }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+        if (engineState?.canPaste) { e.preventDefault(); engineState.pasteElements(); }
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
       // Atajos de Herramientas
       const key = e.key.toLowerCase();
       if (key === 's' || e.key === '1') {
@@ -1679,6 +1690,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         colHeightSetting={colHeightSetting}
         totalNodos={Object.keys(nodes).length}
         totalSegmentos={Object.keys(segments).length}
+        onUndo={engineState ? () => engineState.undo() : undefined}
+        onRedo={engineState ? () => engineState.redo() : undefined}
+        canUndo={!!engineState?.canUndo}
+        canRedo={!!engineState?.canRedo}
       />
 
       {/* 2. ÁREA DE LIENZO PRINCIPAL (CAD 2D O VISOR 3D WEBGL) */}

@@ -7,8 +7,40 @@ import {
   Eye, 
   HelpCircle,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Undo2,
+  Redo2
 } from 'lucide-react';
+import AtajosTeclado, { GrupoAtajos } from '../common/AtajosTeclado';
+
+// Comandos de teclado de Techos (los mismos que atiende TechosCanvas2D).
+const ATAJOS_TECHOS: GrupoAtajos[] = [
+  { titulo: 'Herramientas', atajos: [
+    { teclas: ['S', '1'], accion: 'Seleccionar' },
+    { teclas: ['V', '2'], accion: 'Viga' },
+    { teclas: ['A', '3'], accion: 'Arco curvo' },
+    { teclas: ['C', '4'], accion: 'Columna' },
+    { teclas: ['T', '5'], accion: 'Tijeral' },
+    { teclas: ['G', '6'], accion: 'Correa' },
+    { teclas: ['X', '7'], accion: 'Cruz (arriostre)' },
+    { teclas: ['N', '8'], accion: 'Nodo' },
+    { teclas: ['M', '9'], accion: 'Medir' },
+    { teclas: ['P', '0'], accion: 'Mover el plano' },
+    { teclas: ['O'], accion: 'Trazo recto 90° (orto)' },
+  ] },
+  { titulo: 'Edición', atajos: [
+    { teclas: ['Ctrl', 'Z'], accion: 'Atrás (deshacer)' },
+    { teclas: ['Ctrl', 'Y'], accion: 'Adelante (rehacer)' },
+    { teclas: ['Supr'], accion: 'Borrar lo seleccionado' },
+    { teclas: ['Esc'], accion: 'Cancelar el trazo' },
+    { teclas: ['Ctrl', 'C'], accion: 'Copiar' },
+    { teclas: ['Ctrl', 'V'], accion: 'Pegar' },
+  ] },
+  { titulo: 'Vista', atajos: [
+    { teclas: ['Rueda'], accion: 'Acercar / alejar' },
+    { teclas: ['Clic der.'], accion: 'Mover el plano (o Shift + arrastrar)' },
+  ] },
+];
 import { VistaTechoCAD } from './techosCadEngineTypes';
 
 interface TechosViewModeGuideBannerProps {
@@ -18,6 +50,10 @@ interface TechosViewModeGuideBannerProps {
   colHeightSetting?: number;
   totalNodos?: number;
   totalSegmentos?: number;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export const TechosViewModeGuideBanner: React.FC<TechosViewModeGuideBannerProps> = ({
@@ -26,7 +62,11 @@ export const TechosViewModeGuideBanner: React.FC<TechosViewModeGuideBannerProps>
   onOpenControlsSumilla,
   colHeightSetting = 4.0,
   totalNodos = 0,
-  totalSegmentos = 0
+  totalSegmentos = 0,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false
 }) => {
   const [isCollapsedMobile, setIsCollapsedMobile] = useState<boolean>(false);
 
@@ -71,11 +111,28 @@ export const TechosViewModeGuideBanner: React.FC<TechosViewModeGuideBannerProps>
         {/* ACCIONES DIDÁCTICAS Y ASISTENTES RÁPIDOS */}
         <div className="flex items-center gap-1 shrink-0">
           
-          {/* BOTÓN SUMILLA DE CONTROLES */}
+          {/* ATRÁS / ADELANTE a la vista en PC (también en 3D) */}
+          {onUndo && (
+            <button onClick={onUndo} disabled={!canUndo} title="Atrás: deshacer (Ctrl+Z)"
+              className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-bold cursor-pointer disabled:opacity-35 disabled:cursor-default">
+              <Undo2 className="w-3.5 h-3.5" /> <span className="hidden xl:inline">Atrás</span>
+            </button>
+          )}
+          {onRedo && (
+            <button onClick={onRedo} disabled={!canRedo} title="Adelante: rehacer (Ctrl+Y)"
+              className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-bold cursor-pointer disabled:opacity-35 disabled:cursor-default">
+              <Redo2 className="w-3.5 h-3.5" /> <span className="hidden xl:inline">Adelante</span>
+            </button>
+          )}
+
+          {/* ATAJOS DE TECLADO (lista rápida) */}
+          <AtajosTeclado grupos={ATAJOS_TECHOS} oscuro onGuiaCompleta={onOpenControlsSumilla} />
+
+          {/* GUÍA COMPLETA (celular: no hay teclado) */}
           <button
             onClick={onOpenControlsSumilla}
-            className="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
-            title="Ver Sumilla de Controles y Atajos"
+            className="md:hidden p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors cursor-pointer"
+            title="Ver guía de gestos y controles"
           >
             <HelpCircle className="w-3.5 h-3.5" />
           </button>

@@ -111,12 +111,14 @@ interface Props {
   verCimentacion?: boolean;   // suelo transparente y vista desde abajo (zapatas, cimientos)
   claveCamara?: string;       // misma obra → se conserva la cámara al remontar
   bloques?: Bloque[];         // diseños de CarpiMetal sueltos y muebles a escala
+  seleccion?: string[];       // elementos del plano resaltados (uid)
+  onPick?: (uid: string | null, sumar: boolean) => void; // clic en un elemento (Ctrl: sumar al grupo)
 }
 
 // Cámara de la última vista (por obra), para no perderla al cambiar opciones.
 const camaras = new Map<string, { az: number; pol: number; rad: number; obj: [number, number, number] }>();
 
-export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '', bloques = [] }: Props) {
+export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '', bloques = [], seleccion = [], onPick }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const girar = useRef(false); // giro lento automático mientras se graba
@@ -127,8 +129,32 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
   const [ejeCorte, setEjeCorte] = useState<'x' | 'z'>('x');
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const limitesRef = useRef<THREE.Box3 | null>(null);
-  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques });
-  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques };
+  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques, onPick });
+  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques, onPick };
+  const modeloRef = useRef<THREE.Group | null>(null);
+  const [verModelo, setVerModelo] = useState(0); // sube al (re)armar la escena
+
+  // Resalta en 3D los elementos seleccionados (material propio con brillo ámbar).
+  useEffect(() => {
+    const modelo = modeloRef.current;
+    if (!modelo) return;
+    const sel = new Set(seleccion);
+    modelo.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !m.userData.uid) return;
+      if (sel.has(m.userData.uid)) {
+        if (!m.userData.matOrig) {
+          m.userData.matOrig = m.material;
+          const cl = (Array.isArray(m.material) ? m.material[0] : m.material).clone() as THREE.MeshLambertMaterial;
+          if ('emissive' in cl) { cl.emissive = new THREE.Color(0xf59e0b); cl.emissiveIntensity = 0.55; }
+          m.material = cl;
+        }
+      } else if (m.userData.matOrig) {
+        (m.material as THREE.Material).dispose();
+        m.material = m.userData.matOrig; delete m.userData.matOrig;
+      }
+    });
+  }, [seleccion.join('|'), verModelo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -150,6 +176,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
 
     const modelo = new THREE.Group();
     scene.add(modelo);
+    modeloRef.current = modelo;
     const bordes = new THREE.LineBasicMaterial({ color: C.borde, transparent: true, opacity: 0.85 });
     const bordesFinos = new THREE.LineBasicMaterial({ color: C.borde, transparent: true, opacity: 0.35 });
     const plano = (color: number) => new THREE.MeshLambertMaterial({ color });
@@ -368,6 +395,8 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       const colHs = list.filter(e => e.tipo === 'columna').map(e => e.H || 3);
       const vigaElev = colHs.length ? Math.max(...colHs) : 3;
       list.forEach(e => {
+        const nAntes = modelo.children.length;
+        (() => {
         const a = e.a, b = e.b || e.a, h = e.h || 0.5, H = e.H || 3;
         if (e.tipo === 'columna') caja(a, H, b, e.x1, H / 2, e.y1, M.concreto);
         else if (e.tipo === 'zapata') caja(a, h, b, e.x1, h / 2 - h, e.y1, M.zapata);
@@ -400,6 +429,9 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           } else if (e.tipo === 'viga') caja(L, h, a, cx, vigaElev - h / 2, cz, M.concreto, rotY);
           else caja(L, h, a, cx, -h / 2, cz, M.cimiento, rotY);
         }
+        })();
+        // Cada pieza lleva el uid de su elemento: clic en 3D lo selecciona.
+        modelo.children.slice(nAntes).forEach(o => o.traverse(c => { c.userData.uid = e.uid; }));
       });
 
       // ---- Bloques a escala (CarpiMetal suelto y muebles) ----
@@ -509,7 +541,9 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
 
     const punteros = new Map<number, { x: number; y: number }>();
     let distPinza = 0, centroPinza: { x: number; y: number } | null = null, moviendo = false;
+    let inicioClic: { x: number; y: number } | null = null;
     const onDown = (e: PointerEvent) => {
+      inicioClic = punteros.size === 0 && e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
       punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
       renderer.domElement.setPointerCapture(e.pointerId);
       moviendo = e.button === 1 || e.button === 2 || e.shiftKey;
@@ -533,7 +567,20 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       }
       actualizar();
     };
-    const onUp = (e: PointerEvent) => { punteros.delete(e.pointerId); distPinza = 0; centroPinza = null; if (!punteros.size) moviendo = false; renderer.domElement.style.cursor = 'grab'; };
+    // Clic sin arrastrar: selecciona el elemento del plano que está debajo.
+    const rayo = new THREE.Raycaster();
+    const elegir = (e: PointerEvent) => {
+      const pick = datos.current.onPick;
+      if (!pick) return;
+      const r = renderer.domElement.getBoundingClientRect();
+      rayo.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+      const hit = rayo.intersectObject(modelo, true).find(h => (h.object as THREE.Mesh).isMesh && h.object.userData.uid);
+      pick(hit?.object.userData.uid ?? null, e.ctrlKey || e.metaKey);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (inicioClic && punteros.size === 1 && !moviendo && Math.hypot(e.clientX - inicioClic.x, e.clientY - inicioClic.y) < 6) elegir(e);
+      inicioClic = null;
+      punteros.delete(e.pointerId); distPinza = 0; centroPinza = null; if (!punteros.size) moviendo = false; renderer.domElement.style.cursor = 'grab'; };
     const onWheel = (e: WheelEvent) => { e.preventDefault(); rad = Math.max(2, Math.min(150, rad * (e.deltaY < 0 ? 0.9 : 1.1))); actualizar(); };
     const sinMenu = (e: Event) => e.preventDefault();
     const el = renderer.domElement;
@@ -549,6 +596,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     };
     const ro = new ResizeObserver(resize); ro.observe(mount); resize();
 
+    setVerModelo(v => v + 1);
     let raf = 0;
     const loop = () => { if (girar.current) { az += (2 * Math.PI) / (14 * 60); actualizar(); } renderer.render(scene, camera); raf = requestAnimationFrame(loop); };
     loop();

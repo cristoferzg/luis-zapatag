@@ -18,7 +18,8 @@
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
 import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon, ChevronsUp, Zap } from 'lucide-react';
+import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon, ChevronsUp, Zap, ChevronDown, ChevronRight } from 'lucide-react';
+import AtajosTeclado from './common/AtajosTeclado';
 import { escalera, datosAligerada, PuntoInstalacion, TipoInstalacion, INSTALACIONES, KEY_INSTALACIONES, leerInstalaciones, metradoInstalaciones, AcabadoAmbiente, ACABADO_VACIO, KEY_ACABADOS, leerAcabados, PISOS, metradoAcabado, LineaExtra } from './concreto/extrasObra';
 import { precio as precioCat } from '../lib/catalogoPrecios';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
@@ -338,12 +339,15 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     setHistVer(v => v + 1);
   }, []);
 
+  // Atajos de una tecla (herramientas, borrar, Esc…): se arman más abajo con el estado actual.
+  const teclasRef = useRef<(e: KeyboardEvent) => boolean>(() => false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tgt = e.target as HTMLElement;
       if (tgt && (tgt.tagName === 'INPUT' || tgt.tagName === 'TEXTAREA')) return;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); redo(); }
+      else if (!e.ctrlKey && !e.metaKey && !e.altKey && tgt?.tagName !== 'SELECT' && teclasRef.current(e)) e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -939,6 +943,114 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
   }, []);
 
+  // Clic en 3D: selecciona el elemento (Ctrl/⌘: lo suma o quita del grupo).
+  const elegir3d = (uid: string | null, sumar: boolean) => {
+    const e = uid ? elems.find(x => x.uid === uid) : null;
+    if (!e || bloqueado(e)) { if (!sumar) { setSelUid(null); setGrupo([]); } return; }
+    if (sumar) {
+      const base = grupo.length ? grupo : selUid ? [selUid] : [];
+      const nuevo = base.includes(e.uid) ? base.filter(u => u !== e.uid) : [...base, e.uid];
+      setGrupo(nuevo.length > 1 ? nuevo : []); setSelUid(nuevo.length === 1 ? nuevo[0] : null);
+    } else { setGrupo([]); setSelUid(e.uid); }
+  };
+
+  // Atajos de teclado: una letra por herramienta (solo las de este apartado).
+  const TECLA_HERR: Partial<Record<Herramienta, string>> = { select: 'V', grupo: 'R', pan: 'H', columna: 'C', zapata: 'Z', viga: 'B', cimiento: 'I', losa: 'L', muro: 'M', escalera: 'E', abertura: 'A', bloque: 'K', instalacion: 'N' };
+  const borrarSeleccion = () => {
+    if (grupo.length) { borrarGrupo(); return true; }
+    if (selBloque) { setBloques(prev => prev.filter(x => x.uid !== selBloque)); setSelBloque(null); return true; }
+    if (selAb) { removeAbertura(selAb.uid, selAb.id); return true; }
+    if (selUid) { removeSel(); return true; }
+    return false;
+  };
+  teclasRef.current = (e: KeyboardEvent) => {
+    const k = e.key;
+    if (k === 'Delete' || k === 'Backspace') return borrarSeleccion();
+    if (k === 'Escape') { setPending(null); setGrupo([]); setSelUid(null); setSelNode(null); setSelAb(null); setSelBloque(null); return true; }
+    if (k === '3') { setVista3d(v => !v); return true; }
+    if (k.toLowerCase() === 'f') { encuadrar(); return true; }
+    const t = HERRAMIENTAS.find(h => TECLA_HERR[h.id] === k.toUpperCase());
+    if (t) { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); if (vista3d) setVista3d(false); return true; }
+    return false;
+  };
+  const gruposAtajos = [
+    { titulo: 'Herramientas', atajos: HERRAMIENTAS.filter(h => TECLA_HERR[h.id]).map(h => ({ teclas: [TECLA_HERR[h.id]!], accion: h.id === 'select' ? 'Seleccionar' : h.id === 'grupo' ? 'Seleccionar en grupo (recuadro)' : h.id === 'pan' ? 'Mover el plano' : h.label })) },
+    { titulo: 'Edición', atajos: [
+      { teclas: ['Ctrl', 'Z'], accion: 'Atrás (deshacer)' },
+      { teclas: ['Ctrl', 'Y'], accion: 'Adelante (rehacer)' },
+      { teclas: ['Supr'], accion: 'Borrar lo seleccionado' },
+      { teclas: ['Esc'], accion: 'Cancelar / quitar selección' },
+    ] },
+    { titulo: 'Vista', atajos: [
+      { teclas: ['3'], accion: 'Cambiar entre 2D y 3D' },
+      { teclas: ['F'], accion: 'Encuadrar (ver todo)' },
+      { teclas: ['Ctrl', 'clic'], accion: 'En 3D: sumar o quitar del grupo' },
+      { teclas: ['Shift', 'arrastrar'], accion: 'En 3D: mover la vista' },
+      { teclas: ['Rueda'], accion: 'Acercar / alejar' },
+    ] },
+  ];
+
+  // Grupos de elementos (como el inspector de Techos): por tipo y material.
+  const [grupoAbierto, setGrupoAbierto] = useState<string | null>(null);
+  const PLURAL: Record<PlanoTipo, string> = { columna: 'Columnas', zapata: 'Zapatas', viga: 'Vigas', cimiento: 'Cimientos corridos', losa: 'Losas / entrepisos', muro: 'Muros', escalera: 'Escaleras' };
+  const gruposElems = (() => {
+    const m = new Map<string, { clave: string; nombre: string; color: string; lista: PlanoElem[]; medida: number; unidad: string }>();
+    elems.filter(e => !bloqueado(e)).forEach(e => {
+      const mat = e.material || 'ladrillo';
+      const clave = e.tipo === 'muro' ? `muro:${mat}` : e.tipo;
+      const nombre = e.tipo === 'muro' ? (mat === 'drywall' ? 'Tabiques de drywall' : mat === 'osb' ? 'Muros de OSB' : 'Muros de ladrillo') : PLURAL[e.tipo];
+      const g = m.get(clave) || { clave, nombre, color: e.tipo === 'muro' ? COLOR_MURO[mat] : META[e.tipo].color, lista: [], medida: 0, unidad: '' };
+      const L = e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0;
+      if (e.tipo === 'losa' && e.x2 !== undefined && e.y2 !== undefined) { g.medida += Math.abs((e.x2 - e.x1) * (e.y2 - e.y1)); g.unidad = 'm²'; }
+      else if (META[e.tipo].esLinea) { g.medida += L; g.unidad = 'm'; }
+      g.lista.push(e); m.set(clave, g);
+    });
+    return [...m.values()];
+  })();
+  const seleccionados = grupo.length ? grupo : selUid ? [selUid] : [];
+  const seleccionar = (uids: string[]) => { if (uids.length === 1) { setGrupo([]); setSelUid(uids[0]); } else { setSelUid(null); setGrupo(uids); } };
+  const descElem = (e: PlanoElem, i: number) => {
+    const L = e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0;
+    const base = e.tipo === 'muro' ? (esDrywall ? 'Tabique' : 'Muro') : META[e.tipo].nombre;
+    const med = e.tipo === 'columna' || e.tipo === 'zapata' ? `${e.a.toFixed(2)}×${(e.b || e.a).toFixed(2)} m` : e.tipo === 'losa' && e.x2 !== undefined && e.y2 !== undefined ? `${Math.abs(e.x2 - e.x1).toFixed(2)}×${Math.abs(e.y2 - e.y1).toFixed(2)} m` : `${L.toFixed(2)} m`;
+    return `${base} ${i + 1} · ${med}${e.nivel && e.tipo === 'muro' ? ` · ${e.nivel}` : ''}`;
+  };
+
+  // Barra del grupo seleccionado (en 2D y en 3D).
+  const barraGrupoEn = (arriba: string) => grupo.length > 0 ? (() => {
+            const muros = elemsGrupo.filter(e => e.tipo === 'muro');
+            const btn = 'p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
+            return (
+              <div className={`absolute ${arriba} left-3 lg:left-24 right-3 sm:right-auto z-30 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs`} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                <span className="font-black text-amber-800 mr-1">{grupo.length} seleccionado{grupo.length === 1 ? '' : 's'}</span>
+                <button className={btn} title="Mover a la izquierda 10 cm" onClick={() => moverGrupo(-0.1, 0)}><ArrowLeft className="w-4 h-4" /></button>
+                <button className={btn} title="Mover arriba 10 cm" onClick={() => moverGrupo(0, -0.1)}><ArrowUp className="w-4 h-4" /></button>
+                <button className={btn} title="Mover abajo 10 cm" onClick={() => moverGrupo(0, 0.1)}><ArrowDown className="w-4 h-4" /></button>
+                <button className={btn} title="Mover a la derecha 10 cm" onClick={() => moverGrupo(0.1, 0)}><ArrowRight className="w-4 h-4" /></button>
+                <button className={`${btn} inline-flex items-center gap-1 font-bold`} title="Duplicar" onClick={duplicarGrupo}><Copy className="w-4 h-4" /> Duplicar</button>
+                <button className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer inline-flex items-center gap-1 font-bold" title="Borrar" onClick={borrarGrupo}><Trash2 className="w-4 h-4" /> Borrar</button>
+                {muros.length > 0 && (
+                  <>
+                    <label className="inline-flex items-center gap-1 font-bold text-slate-600 ml-1">Alto
+                      <input type="number" step="0.05" min="0.3" defaultValue={muros[0].H || 2.6} key={`h-${grupo.join()}`}
+                        onBlur={e => { const v = parseFloat(e.target.value); if (v > 0) cambiarGrupo({ H: v, hastaTecho: false }, 'alto-grupo'); }}
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
+                    </label>
+                    <select value={`${muros[0].material || 'ladrillo'}:${muros[0].materialId || ''}`}
+                      onChange={e => { const [material, materialId] = e.target.value.split(':') as [MaterialMuro, string]; cambiarGrupo({ material, materialId }, 'material-grupo'); }}
+                      className="px-2 py-1 rounded-lg bg-orange-50 font-bold text-orange-800 cursor-pointer max-w-[170px]">
+                      {!esDrywall && <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>}
+                      <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
+                      <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
+                    </select>
+                  </>
+                )}
+                <button className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer ml-auto" title="Quitar selección" onClick={() => setGrupo([])}><XIcon className="w-4 h-4" /></button>
+              </div>
+            );
+  })() : null;
+
   const canUndo = undoRef.current.length > 0;
   const canRedo = redoRef.current.length > 0;
   void histVer; // re-render al cambiar el historial
@@ -1025,6 +1137,16 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
           <Maximize className="w-3.5 h-3.5" />
         </button>
+        {/* Atrás / Adelante siempre a la vista en PC (en 2D y en 3D) */}
+        <button onClick={undo} disabled={!canUndo} title="Atrás: deshacer (Ctrl+Z)"
+          className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
+          <Undo2 className="w-3.5 h-3.5" /> Atrás
+        </button>
+        <button onClick={redo} disabled={!canRedo} title="Adelante: rehacer (Ctrl+Y)"
+          className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
+          <Redo2 className="w-3.5 h-3.5" /> Adelante
+        </button>
+        <AtajosTeclado grupos={gruposAtajos} alinear="izquierda" />
         <div className="h-5 w-px bg-slate-200 mx-1" />
         {(selUid || selAb || selBloque) && (
           <button onClick={() => selBloque ? (setBloques(prev => prev.filter(x => x.uid !== selBloque)), setSelBloque(null)) : selAb ? removeAbertura(selAb.uid, selAb.id) : removeSel()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100">
@@ -1065,7 +1187,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {/* VISTA 3D */}
         {vista3d ? (
           <div className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-170px)] max-lg:min-h-[420px] overflow-hidden bg-slate-100">
-            <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}`} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos} />
+            <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}`} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos}  seleccion={grupo.length ? grupo : selUid ? [selUid] : []} onPick={elegir3d} />
+            {barraGrupoEn('top-14')}
             <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 overflow-x-auto px-3 py-2.5 [&>*]:shrink-0 [&>*]:whitespace-nowrap [&>*]:shadow [&>*]:border [&>*]:border-slate-200">
               <button onClick={() => setVerTecho(v => !v)} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verTecho ? 'bg-slate-100 text-slate-700' : 'bg-stone-700 text-white'}`}>
                 {verTecho ? 'Ocultar techo' : 'Mostrar techo'}
@@ -1456,39 +1579,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               Arrastra un recuadro para seleccionar varios elementos
             </div>
           )}
-          {grupo.length > 0 && (() => {
-            const muros = elemsGrupo.filter(e => e.tipo === 'muro');
-            const btn = 'p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
-            return (
-              <div className="absolute top-3 left-3 lg:left-24 right-3 sm:right-auto z-30 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-                <span className="font-black text-amber-800 mr-1">{grupo.length} seleccionado{grupo.length === 1 ? '' : 's'}</span>
-                <button className={btn} title="Mover a la izquierda 10 cm" onClick={() => moverGrupo(-0.1, 0)}><ArrowLeft className="w-4 h-4" /></button>
-                <button className={btn} title="Mover arriba 10 cm" onClick={() => moverGrupo(0, -0.1)}><ArrowUp className="w-4 h-4" /></button>
-                <button className={btn} title="Mover abajo 10 cm" onClick={() => moverGrupo(0, 0.1)}><ArrowDown className="w-4 h-4" /></button>
-                <button className={btn} title="Mover a la derecha 10 cm" onClick={() => moverGrupo(0.1, 0)}><ArrowRight className="w-4 h-4" /></button>
-                <button className={`${btn} inline-flex items-center gap-1 font-bold`} title="Duplicar" onClick={duplicarGrupo}><Copy className="w-4 h-4" /> Duplicar</button>
-                <button className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer inline-flex items-center gap-1 font-bold" title="Borrar" onClick={borrarGrupo}><Trash2 className="w-4 h-4" /> Borrar</button>
-                {muros.length > 0 && (
-                  <>
-                    <label className="inline-flex items-center gap-1 font-bold text-slate-600 ml-1">Alto
-                      <input type="number" step="0.05" min="0.3" defaultValue={muros[0].H || 2.6} key={`h-${grupo.join()}`}
-                        onBlur={e => { const v = parseFloat(e.target.value); if (v > 0) cambiarGrupo({ H: v, hastaTecho: false }, 'alto-grupo'); }}
-                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                        className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
-                    </label>
-                    <select value={`${muros[0].material || 'ladrillo'}:${muros[0].materialId || ''}`}
-                      onChange={e => { const [material, materialId] = e.target.value.split(':') as [MaterialMuro, string]; cambiarGrupo({ material, materialId }, 'material-grupo'); }}
-                      className="px-2 py-1 rounded-lg bg-orange-50 font-bold text-orange-800 cursor-pointer max-w-[170px]">
-                      {!esDrywall && <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>}
-                      <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
-                      <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
-                    </select>
-                  </>
-                )}
-                <button className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer ml-auto" title="Quitar selección" onClick={() => setGrupo([])}><XIcon className="w-4 h-4" /></button>
-              </div>
-            );
-          })()}
+          {barraGrupoEn('top-3')}
 
           {elems.length === 0 && !estructura && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -1527,6 +1618,52 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
 
         {/* PANEL DE METRADO + PROPIEDADES */}
         <div className="lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto">
+          {/* ELEMENTOS POR GRUPO (como el inspector de Techos Metálicos) */}
+          {gruposElems.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black text-slate-800">Elementos ({gruposElems.reduce((n, g) => n + g.lista.length, 0)})</p>
+                {seleccionados.length > 0 && <button onClick={() => { setGrupo([]); setSelUid(null); }} className="text-[10px] font-bold text-amber-700 cursor-pointer hover:underline">{seleccionados.length} sel. · quitar</button>}
+              </div>
+              <p className="text-[10px] text-slate-400 leading-snug">Clic en el plano o en 3D para elegir uno; Ctrl+clic en 3D suma al grupo.</p>
+              {gruposElems.map(g => {
+                const uids = g.lista.map(e => e.uid);
+                const todos = uids.length > 0 && uids.every(u => seleccionados.includes(u));
+                const abierto = grupoAbierto === g.clave;
+                return (
+                  <div key={g.clave} className={`rounded-xl border ${todos ? 'border-amber-400 bg-amber-50/60' : 'border-slate-100 bg-slate-50/60'}`}>
+                    <div className="flex items-center gap-1.5 px-2 py-1.5">
+                      <button onClick={() => setGrupoAbierto(abierto ? null : g.clave)} className="p-0.5 rounded text-slate-400 hover:text-slate-700 cursor-pointer" title="Ver uno por uno">
+                        {abierto ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      </button>
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.color }} />
+                      <span className="flex-1 min-w-0 text-[11px] font-bold text-slate-700 truncate">{g.nombre}</span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500">{g.lista.length}{g.unidad ? ` · ${g.medida.toFixed(1)} ${g.unidad}` : ''}</span>
+                    </div>
+                    <div className="flex gap-1 px-2 pb-1.5">
+                      <button onClick={() => seleccionar(uids)} className={`flex-1 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${todos ? 'bg-amber-500 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'}`}>
+                        Seleccionar {g.lista.length}
+                      </button>
+                      <button onClick={() => { if (confirm(`¿Eliminar ${g.lista.length} ${g.nombre.toLowerCase()}?`)) { commit(prev => prev.filter(e => !uids.includes(e.uid))); setGrupo([]); setSelUid(null); } }}
+                        className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer" title="Eliminar el grupo">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    {abierto && (
+                      <div className="px-2 pb-2 space-y-0.5 max-h-48 overflow-y-auto">
+                        {g.lista.map((e, i) => (
+                          <button key={e.uid} onClick={() => seleccionar([e.uid])}
+                            className={`w-full text-left px-2 py-1 rounded-lg text-[10px] font-semibold cursor-pointer ${seleccionados.includes(e.uid) ? 'bg-amber-500 text-white' : 'text-slate-600 hover:bg-white'}`}>
+                            {descElem(e, i)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           {/* Biblioteca de bloques (herramienta Bloques) */}
           {tool === 'bloque' && (
             <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-3 space-y-2.5">
