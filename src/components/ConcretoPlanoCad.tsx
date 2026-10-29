@@ -996,6 +996,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   const [esPC, setEsPC] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
   // Celular: paneles (Elementos, Metrado, Ambientes…) en una hoja que sube desde abajo.
   const [hoja, setHoja] = useState(false);
+  const [masHerr, setMasHerr] = useState(false);
   useEffect(() => { if (!esPC && (selUid || selAb || selBloque || selInst)) setHoja(true); }, [selUid, selAb, selBloque, selInst]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const f = () => setEsPC(window.innerWidth >= 1024);
@@ -1264,7 +1265,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* VISTA 3D */}
         {vista3d ? (
-          <div className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-262px)] max-lg:min-h-[420px] overflow-hidden bg-slate-100">
+          <div className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-272px)] max-lg:min-h-[300px] overflow-hidden bg-slate-100">
             <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}|${JSON.stringify(acabados)}`} acabados={acabados} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos}  seleccion={grupo.length ? grupo : selUid ? [selUid] : []} onPick={elegir3d} />
             {barraGrupoEn('top-14')}
             <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 overflow-x-auto px-3 py-2.5 [&>*]:shrink-0 [&>*]:whitespace-nowrap [&>*]:shadow [&>*]:border [&>*]:border-slate-200">
@@ -1298,7 +1299,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         /* LIENZO 2D */
         <div
           ref={containerRef}
-          className={`relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-262px)] max-lg:min-h-[420px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : (dragNode.current ? 'cursor-grabbing' : 'cursor-crosshair')}`}
+          className={`relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-272px)] max-lg:min-h-[300px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : (dragNode.current ? 'cursor-grabbing' : 'cursor-crosshair')}`}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
@@ -1644,13 +1645,45 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 <Ic className={esPC ? 'w-4 h-4' : 'w-[18px] h-[18px]'} />{esPC && txt}
               </button>
             );
+            if (!esPC) {
+              // Celular: Atrás/Adelante siempre arriba, las herramientas de todos los días y
+              // el resto en "Más" (así cabe en pantallas pequeñas sin que nada quede oculto).
+              const PRINCIPALES: Herramienta[] = esDrywall ? ['select', 'muro', 'abertura'] : ['select', 'columna', 'zapata', 'viga', 'muro', 'losa'];
+              const principales = HERRAMIENTAS.filter(t => PRINCIPALES.includes(t.id));
+              const resto = HERRAMIENTAS.filter(t => !PRINCIPALES.includes(t.id));
+              const activaEnMas = resto.find(t => t.id === tool);
+              return (
+                <div onMouseDown={parar} onClick={parar} onTouchStart={parar} onTouchMove={parar} onTouchEnd={parar} onWheel={parar}
+                  className="absolute left-1.5 top-1.5 z-20 flex flex-col items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1 shadow-xl w-12 max-h-[calc(100%-12px)]">
+                  <div className="flex flex-col items-center shrink-0">
+                    {histBtn(undo, canUndo, Undo2, 'Atrás', 'Atrás (deshacer)')}
+                    {histBtn(redo, canRedo, Redo2, 'Adelante', 'Adelante (rehacer)')}
+                  </div>
+                  <div className="h-px w-8 bg-slate-200 my-0.5 shrink-0" />
+                  <div className="flex flex-col items-center gap-0.5 overflow-y-auto min-h-0">
+                    {principales.map(boton)}
+                    {activaEnMas && boton(activaEnMas)}
+                  </div>
+                  <button type="button" onClick={() => setMasHerr(v => !v)} title="Más herramientas"
+                    className={`w-10 h-10 shrink-0 rounded-xl text-[11px] font-black cursor-pointer ${masHerr ? 'bg-slate-800 text-white' : 'text-slate-600 bg-slate-100'}`}>{masHerr ? '✕' : 'Más'}</button>
+                  {masHerr && (
+                    <div className="absolute left-[54px] bottom-0 w-48 max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5">
+                      {resto.map(t => { const Ic = t.icon; const act = tool === t.id; return (
+                        <button key={t.id} type="button" onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); setMasHerr(false); }}
+                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer ${act ? 'bg-slate-800 text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
+                          <Ic className="w-4 h-4 shrink-0" /> {t.id === 'grupo' ? 'Seleccionar en grupo' : t.id === 'pan' ? 'Mover el plano' : t.label}
+                        </button>
+                      ); })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
             return (
               <div onMouseDown={parar} onClick={parar} onTouchStart={parar} onTouchMove={parar} onTouchEnd={parar} onWheel={parar}
-                className={esPC
-                  ? 'absolute left-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1.5 shadow-xl max-h-[calc(100%-24px)] overflow-y-auto'
-                  : 'absolute left-1.5 top-1.5 bottom-1.5 z-20 flex flex-col items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1 shadow-xl overflow-y-auto w-12'}>
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1.5 shadow-xl max-h-[calc(100%-24px)] overflow-y-auto">
                 {HERRAMIENTAS.map(boton)}
-                <div className={esPC ? 'h-px bg-slate-200 my-1' : 'h-px w-8 bg-slate-200 my-0.5 shrink-0'} />
+                <div className="h-px bg-slate-200 my-1" />
                 {histBtn(undo, canUndo, Undo2, 'Atrás', 'Deshacer (Ctrl+Z)')}
                 {histBtn(redo, canRedo, Redo2, 'Adelante', 'Rehacer (Ctrl+Y)')}
               </div>
