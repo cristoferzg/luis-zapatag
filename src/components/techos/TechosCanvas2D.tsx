@@ -3,14 +3,14 @@ import { comprasPermitidas } from '../../lib/plataforma';
 import { createPortal } from 'react-dom';
 import { useDeslizarHorizontal } from '../../hooks/useDeslizarHorizontal';
 import GuiaBocetoPlano, { EjemploBoceto } from './GuiaBocetoPlano';
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Grid, 
   Move, 
   RotateCcw, 
   RotateCw,
   X, 
-  Eye, 
+  Eye, EyeOff, 
   Trash2, 
   GripHorizontal,
   Crosshair,
@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
-import { ToolModoCad, RolEstructuralSegmento, VistaTechoCAD, CadSnapResult } from './techosCadEngineTypes';
+import { ToolModoCad, RolEstructuralSegmento, VistaTechoCAD, CadSnapResult, Node3D, Segment3D } from './techosCadEngineTypes';
 import { calculateBestCadSnap } from './techosCadSnapping';
 import { TechosViewer3D } from './TechosViewer3D';
 import { TechosErrorBoundary } from './TechosErrorBoundary';
@@ -400,8 +400,18 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [trussSpacingSettingM, setTrussSpacingSettingM] = useState<number>(0.60);
   const [trussSpacingMode, setTrussSpacingMode] = useState<'divisiones' | 'espaciado'>('divisiones');
 
-  const nodes = engineState?.nodes || {};
-  const segments = engineState?.segments || {};
+  const nodesTodos = engineState?.nodes || {};
+  const segmentsTodos = engineState?.segments || {};
+  // Perfiles ocultos (y nodos que solo tocan ocultos) no se dibujan ni se editan.
+  const { nodes, segments, nOcultos } = useMemo(() => {
+    const vis: Record<string, Segment3D> = {}; let n = 0;
+    const usados = new Set<string>(), visibles = new Set<string>();
+    Object.values(segmentsTodos).forEach(s => { usados.add(s.nodeAId); usados.add(s.nodeBId); if (s.oculto) { n++; return; } vis[s.id] = s; visibles.add(s.nodeAId); visibles.add(s.nodeBId); });
+    if (!n) return { nodes: nodesTodos, segments: segmentsTodos, nOcultos: 0 };
+    const nv: Record<string, Node3D> = {};
+    Object.values(nodesTodos).forEach(nd => { if (!usados.has(nd.id) || visibles.has(nd.id)) nv[nd.id] = nd; });
+    return { nodes: nv, segments: vis, nOcultos: n };
+  }, [nodesTodos, segmentsTodos]);
   const selectedElementIds = engineState?.selectedElementIds || [];
   // Tijeral a ajustar desde la barra: el seleccionado o, si no, el último dibujado.
   const tijeralSel = selectedElementIds.map(id => engineState?.segments?.[id]?.tijeral?.id).find(Boolean) || null;
@@ -601,6 +611,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       } else if (key === 'p' || e.key === '0') {
         e.preventDefault();
         setTool('pan');
+      } else if (key === 'h') {
+        // Ocultar lo seleccionado (H) o mostrar todo lo oculto (Shift + H)
+        e.preventDefault();
+        if (e.shiftKey) engineState?.setOcultos([], false);
+        else if (engineState && engineState.selectedElementIds.length) engineState.setOcultos(engineState.selectedElementIds, true);
       } else if (key === 'o') {
         // Alternar modo Orto 90° (trazo recto horizontal/vertical)
         e.preventDefault();
@@ -1605,6 +1620,22 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               document.body
             )}
           </div>
+
+          {/* OCULTAR lo seleccionado / MOSTRAR lo oculto (sin borrar) */}
+          {selectedElementIds.length > 0 && (
+            <button onClick={() => engineState?.setOcultos(selectedElementIds, true)}
+              className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-black text-xs flex items-center gap-1 cursor-pointer shrink-0"
+              title="Ocultar lo seleccionado (no se borra; sigue en el presupuesto) · tecla H">
+              <EyeOff className="w-3.5 h-3.5" /><span className="hidden xl:inline">Ocultar</span>
+            </button>
+          )}
+          {nOcultos > 0 && (
+            <button onClick={() => engineState?.setOcultos([], false)}
+              className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-300 font-black text-xs flex items-center gap-1 cursor-pointer shrink-0"
+              title="Mostrar todo lo oculto · Shift + H">
+              <Eye className="w-3.5 h-3.5" /><span className="hidden sm:inline">{nOcultos} oculto{nOcultos > 1 ? 's' : ''}</span>
+            </button>
+          )}
 
           {/* BOTÓN REVISAR DISEÑO (elementos sueltos o duplicados) */}
           {Object.keys(engineState?.segments || {}).length > 0 && (

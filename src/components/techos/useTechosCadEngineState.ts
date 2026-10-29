@@ -75,6 +75,7 @@ export interface UseTechosCadEngineReturn {
   // Carga de Proyecto Guardado y Carga de Escena Completa
   loadScene: (loadedNodes: Record<string, Node3D>, loadedSegments: Record<string, Segment3D>, loadedZones?: Record<string, CoverageZone3D>) => void;
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
+  setOcultos: (ids: string[], oculto: boolean) => void;
 
   // Operaciones Vectoriales de Trazado Libre
   addNode: (x: number, y: number, z?: number, isFixed?: boolean, exact?: boolean) => string;
@@ -558,6 +559,23 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setHistory([{ nodes: n, segments: s, coverageZones: z }]);
     setHistoryIndex(0);
   }, []);
+
+  // Ocultar / mostrar perfiles sin borrarlos (siguen en el metrado).
+  const setOcultos = useCallback((ids: string[], oculto: boolean) => {
+    const objetivo = new Set(ids.length ? ids : Object.keys(segments));
+    // Si se eligieron nodos, se ocultan los perfiles que llegan a ellos.
+    const nodosSel = new Set(ids.filter(id => nodes[id]));
+    const newSegs: Record<string, Segment3D> = {};
+    Object.values(segments).forEach(s => {
+      const toca = objetivo.has(s.id) || nodosSel.has(s.nodeAId) || nodosSel.has(s.nodeBId);
+      if (!toca) { newSegs[s.id] = s; return; }
+      const { oculto: _o, ...resto } = s; void _o;
+      newSegs[s.id] = oculto ? { ...resto, oculto: true } : resto;
+    });
+    setSegments(newSegs);
+    setSelectedElementIds([]);
+    pushHistory(nodes, newSegs, coverageZones);
+  }, [nodes, segments, coverageZones, pushHistory]);
 
   // Reemplaza toda la escena guardando historial (se puede deshacer). Lo usa la revisión del diseño.
   const replaceScene = useCallback((n: Record<string, Node3D>, sg: Record<string, Segment3D>, z: Record<string, CoverageZone3D>) => {
@@ -4323,6 +4341,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     clearScene,
     loadScene,
     replaceScene,
+    setOcultos,
     assignProfileToSelectedSegments,
     assignCoverageToSelectedZones,
     setTechoMovil,

@@ -27,6 +27,8 @@ const ATAJOS_TECHOS: GrupoAtajos[] = [
     { teclas: ['M', '9'], accion: 'Medir' },
     { teclas: ['P', '0'], accion: 'Mover el plano' },
     { teclas: ['O'], accion: 'Trazo recto 90° (orto)' },
+    { teclas: ['H'], accion: 'Ocultar lo seleccionado (sin borrar)' },
+    { teclas: ['Shift', 'H'], accion: 'Mostrar todo lo oculto' },
   ] },
   { titulo: 'Edición', atajos: [
     { teclas: ['Ctrl', 'Z'], accion: 'Atrás (deshacer)' },

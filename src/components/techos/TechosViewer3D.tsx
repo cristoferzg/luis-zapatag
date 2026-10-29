@@ -343,8 +343,19 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   useEffect(() => { lluviaIntensidadRef.current = lluviaIntensidad; }, [lluviaIntensidad]);
 
   // Elementos activos desde engineState o props fallback
-  const nodes = engineState?.nodes || propsNodes || {};
-  const segments = engineState?.segments || propsSegments || {};
+  const nodesTodos = engineState?.nodes || propsNodes || {};
+  const segmentsTodos = engineState?.segments || propsSegments || {};
+  // Los perfiles ocultos no se dibujan (siguen en el despiece y el presupuesto).
+  const segments = useMemo(() => Object.values(segmentsTodos).some(s => (s as { oculto?: boolean }).oculto)
+    ? Object.fromEntries(Object.entries(segmentsTodos).filter(([, s]) => !(s as { oculto?: boolean }).oculto)) : segmentsTodos, [segmentsTodos]);
+  // Nodos que solo tocan perfiles ocultos (p. ej. la base de una columna oculta) tampoco se dibujan.
+  const nodes = useMemo(() => {
+    if (segments === segmentsTodos) return nodesTodos;
+    const usados = new Set<string>(), visibles = new Set<string>();
+    Object.values(segmentsTodos).forEach(sg => { usados.add(sg.nodeAId); usados.add(sg.nodeBId); });
+    Object.values(segments).forEach(sg => { visibles.add(sg.nodeAId); visibles.add(sg.nodeBId); });
+    return Object.fromEntries(Object.entries(nodesTodos).filter(([id]) => !usados.has(id) || visibles.has(id))) as typeof nodesTodos;
+  }, [nodesTodos, segments, segmentsTodos]);
   const zonasCob: Record<string, CoverageZone3D> = engineState?.coverageZones || propsZonas || {};
 
   // TECHO MOVIBLE: el mecanismo guardado en la cobertura principal (o uno de

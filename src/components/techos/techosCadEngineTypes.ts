@@ -144,6 +144,7 @@ export interface Segment3D {
   concretoBaseM?: number;
   // Tensores (varilla/cable): colocados por el botón automático y su función.
   tensorAuto?: boolean;
+  oculto?: boolean;             // oculto en el plano y el 3D (sigue en el despiece y el presupuesto)
   funcionTensor?: 'cruz' | 'correa';
   // Tijeral dibujado con 2 clics: sus datos, para cambiar peralte y espacios sin redibujarlo.
   tijeral?: { id: string; a: string; b: string; h: number; n: number; tipo: string };
