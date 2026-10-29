@@ -203,56 +203,22 @@ export interface DetalleZonaCritica {
   justificacionNorma: string;
 }
 
-// Generador de textura procedural de Gota de Agua Cristalina (Lágrima con Bulbo, Brillo y Estela)
-let cachedRainDropTexture: THREE.CanvasTexture | null = null;
-function getRainDropTexture(): THREE.CanvasTexture {
-  if (cachedRainDropTexture) return cachedRainDropTexture;
-
+// Gota redonda pequeña y suave (cabeza de cada hilo de lluvia).
+let cachedGotaTexture: THREE.CanvasTexture | null = null;
+function getGotaTexture(): THREE.CanvasTexture {
+  if (cachedGotaTexture) return cachedGotaTexture;
   const canvas = document.createElement('canvas');
-  canvas.width = 64;
-  canvas.height = 128;
+  canvas.width = 32; canvas.height = 32;
   const ctx = canvas.getContext('2d');
-  if (!ctx) return new THREE.CanvasTexture(canvas);
-
-  ctx.clearRect(0, 0, 64, 128);
-
-  // 1. Estela translúcida de caída (cola de gota aerodinámica)
-  const tailGrad = ctx.createLinearGradient(32, 6, 32, 100);
-  tailGrad.addColorStop(0, 'rgba(186, 230, 253, 0.0)');
-  tailGrad.addColorStop(0.3, 'rgba(186, 230, 253, 0.22)');
-  tailGrad.addColorStop(0.7, 'rgba(224, 242, 254, 0.65)');
-  tailGrad.addColorStop(1, 'rgba(255, 255, 255, 0.92)');
-
-  ctx.fillStyle = tailGrad;
-  ctx.beginPath();
-  ctx.moveTo(32, 6);
-  ctx.quadraticCurveTo(28, 55, 22, 98);
-  ctx.lineTo(42, 98);
-  ctx.quadraticCurveTo(36, 55, 32, 6);
-  ctx.closePath();
-  ctx.fill();
-
-  // 2. Bulbo esférico de la gota de agua (lente líquida con refracción)
-  const bulbGrad = ctx.createRadialGradient(32, 102, 1, 32, 102, 13);
-  bulbGrad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');     // Núcleo blanco brillante
-  bulbGrad.addColorStop(0.35, 'rgba(224, 242, 254, 0.95)'); // Capa cristalina
-  bulbGrad.addColorStop(0.7, 'rgba(125, 211, 252, 0.70)');  // Halo azul celeste agua
-  bulbGrad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');      // Transición suave
-
-  ctx.fillStyle = bulbGrad;
-  ctx.beginPath();
-  ctx.arc(32, 102, 13, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 3. Destello especular de reflexión solar en la lente de la gota
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.98)';
-  ctx.beginPath();
-  ctx.arc(29, 99, 3.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  cachedRainDropTexture = new THREE.CanvasTexture(canvas);
-  cachedRainDropTexture.needsUpdate = true;
-  return cachedRainDropTexture;
+  if (ctx) {
+    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 15);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.45, 'rgba(219,234,254,0.85)');
+    g.addColorStop(1, 'rgba(147,197,253,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(16, 16, 15, 0, Math.PI * 2); ctx.fill();
+  }
+  cachedGotaTexture = new THREE.CanvasTexture(canvas);
+  return cachedGotaTexture;
 }
 
 // Generador de textura procedural de Salpicadura de Agua / Ondas de Choque
@@ -2108,8 +2074,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     rainGeo.setAttribute('color', new THREE.BufferAttribute(dropColors, 3));
 
     const rainMat = new THREE.PointsMaterial({
-      map: getRainDropTexture(),
-      size: 0.55,
+      map: getGotaTexture(),
+      size: 0.09,
       sizeAttenuation: true,
       transparent: true,
       opacity: 0.75,
@@ -2149,8 +2115,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const splashPoints = new THREE.Points(splashGeo, splashMat);
     splashPoints.name = 'splash_points';
 
+    // Hilos de lluvia: un trazo fino detrás de cada gota (se ve como lluvia real, no como conos).
+    const streakPos = new Float32Array(maxDrops * 6);
+    const streakGeo = new THREE.BufferGeometry();
+    streakGeo.setAttribute('position', new THREE.BufferAttribute(streakPos, 3));
+    const streaks = new THREE.LineSegments(streakGeo, new THREE.LineBasicMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.5, depthWrite: false }));
+    streaks.name = 'rain_streaks';
+    streaks.frustumCulled = false;
+    rainPoints.frustumCulled = false;
+
     const rainGroup = new THREE.Group();
     rainGroup.name = 'rain_lines';
+    rainGroup.add(streaks);
     rainGroup.add(rainPoints);
     rainGroup.add(splashPoints);
 
@@ -2172,6 +2148,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       splashPositions,
       splashLifes,
       maxSplashes,
+      streaks,
       nextSplashIdx: 0,
       roofMeta
     };
@@ -3016,7 +2993,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     }
 
     // 7. SISTEMA DE LÍNEAS DE LLUVIA DE ALTA FIDELIDAD
-    const rainLines = createRainLineSystem(minX, maxX, minZ, maxZ, maxY, topProfilePoints, roofMeta);
+    // Techo que cae a lo largo: la lluvia usa ese plano (cae, corre hacia la parte baja y gotea en el alero).
+    const planoLluvia = panoLargo ? { P0: panoLargo[0], P1: panoLargo[1], P3: panoLargo[3] } : null;
+    const rainLines = createRainLineSystem(minX, maxX, minZ, maxZ, maxY, topProfilePoints, { ...roofMeta, planoLluvia });
     rainLines.visible = (simulacionModoRef.current === 'lluvia');
     scene.add(rainLines);
     rainLinesRef.current = rainLines;
@@ -3218,7 +3197,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           // Velocidad, opacidad y grosor de gota modulados por la intensidad
           const speed = 10 + (intensity / 120) * 26;
           rainMat.opacity = Math.min(0.95, 0.35 + (intensity / 120) * 0.55);
-          rainMat.size = 0.36 + (intensity / 120) * 0.34;
+          rainMat.size = 0.07 + (intensity / 120) * 0.06;
 
           rainPoints.geometry.setDrawRange(0, activeDropCount);
 
@@ -3250,6 +3229,35 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             const pSpeed = velocities[i] * (speed / 20);
             const state = dropStates[i];
 
+            const pl = meta.roofMeta?.planoLluvia as { P0: THREE.Vector3; P1: THREE.Vector3; P3: THREE.Vector3 } | null;
+            if (pl && hasRoofCover) {
+              // Techo plano inclinado a lo largo (Z): cae, corre hacia la parte baja y gotea en el alero.
+              const x0 = Math.min(pl.P0.x, pl.P1.x), x1 = Math.max(pl.P0.x, pl.P1.x), z0 = pl.P0.z, z1 = pl.P3.z;
+              const pz_ = (pl.P3.y - pl.P0.y) / Math.max(0.01, z1 - z0), px_ = (pl.P1.x - pl.P0.x) !== 0 ? (pl.P1.y - pl.P0.y) / (pl.P1.x - pl.P0.x) : 0;
+              const yTecho = (x: number, z: number) => pl.P0.y + (z - z0) * pz_ + (x - pl.P0.x) * px_ + 0.06;
+              const bajaZ = pz_ < 0 ? 1 : -1; // hacia dónde corre el agua
+              const zBorde = bajaZ > 0 ? z1 + 0.3 : z0 - 0.3;
+              const dentro = px >= x0 - 0.05 && px <= x1 + 0.05 && pz >= z0 - 0.3 && pz <= z1 + 0.3;
+              if (state === 0) {
+                if (dentro && py <= yTecho(px, pz)) {
+                  dropStates[i] = 1; py = yTecho(px, pz);
+                  if (Math.random() < 0.65 * (intensity / 100)) triggerSplash(px, py, pz);
+                } else py -= pSpeed * delta;
+              } else if (state === 1) {
+                pz += bajaZ * (3.2 + 6 * Math.min(1, Math.abs(pz_) * 4)) * (1 + (intensity / 100) * 0.5) * delta;
+                py = yTecho(px, Math.max(z0 - 0.3, Math.min(z1 + 0.3, pz)));
+                if ((bajaZ > 0 && pz >= zBorde) || (bajaZ < 0 && pz <= zBorde)) dropStates[i] = 2;
+              } else py -= pSpeed * delta;
+              if (py <= 0.05) {
+                if (Math.random() < 0.35 * (intensity / 100)) triggerSplash(px, 0.05, pz);
+                py = meta.maxY + 1.0 + Math.random() * 12.0;
+                px = minX - 3 + Math.random() * (spanX + 6);
+                pz = minZ - 3 + Math.random() * (maxZ - minZ + 6);
+                dropStates[i] = 0;
+              }
+              posArr[i * 3] = px; posArr[i * 3 + 1] = py; posArr[i * 3 + 2] = pz;
+              continue;
+            }
             const insideFootprint = (px >= minX - 0.35 && px <= maxX + 0.35 && pz >= minZ - 0.35 && pz <= maxZ + 0.35);
             const roofData = evaluateRoofHeightAtXZ(px, pz, topProfilePoints || [], meta.roofMeta);
             const ribInfo = getRibHeightProfile(pz, ribFreq, ribHeightM, activeModel.tipo);
@@ -3331,6 +3339,22 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             posArr[i * 3 + 2] = pz;
           }
           posAttr.needsUpdate = true;
+
+          // Hilos de lluvia: largo según la velocidad; sobre el techo, un trazo corto que corre.
+          const streaks = meta.streaks as THREE.LineSegments | undefined;
+          if (streaks) {
+            const sp = (streaks.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
+            const largo = 0.22 + speed * 0.018;
+            for (let i = 0; i < activeDropCount; i++) {
+              const x = posArr[i * 3], y = posArr[i * 3 + 1], z = posArr[i * 3 + 2];
+              const l = dropStates[i] === 1 ? 0.04 : largo;
+              sp[i * 6] = x; sp[i * 6 + 1] = y; sp[i * 6 + 2] = z;
+              sp[i * 6 + 3] = x + 0.02; sp[i * 6 + 4] = y + l; sp[i * 6 + 5] = z;
+            }
+            (streaks.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+            streaks.geometry.setDrawRange(0, activeDropCount * 2);
+            (streaks.material as THREE.LineBasicMaterial).opacity = Math.min(0.75, 0.3 + (intensity / 120) * 0.45);
+          }
 
           // Actualizar salpicaduras
           for (let s = 0; s < maxSplashes; s++) {
