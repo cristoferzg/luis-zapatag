@@ -16,6 +16,7 @@ import { Project, Client, SystemConfig } from '../types';
 import defaultAdminLogo from '../assets/images/logo_innova_oficial_1791000137990.jpg';
 import { safeStorage } from '../lib/storageManager';
 import { prepararArchivoCarpeta } from '../lib/carpetaArchivos';
+import { getCachedTechosDesigns, fetchAllTechosDesigns, SavedTechosDesign } from '../lib/techosDesignsRepo';
 
 interface ContratosYEPPViewProps {
   projects: Project[];
@@ -122,6 +123,25 @@ function ContratosSubView({
 
   // Materiales a Emplear
   const [materialesTexto, setMaterialesTexto] = useState<string>('');
+  // Diseños de Techos Metálicos guardados: su lista de materiales se puede traer al contrato.
+  const [disenosTechos, setDisenosTechos] = useState<SavedTechosDesign[]>(getCachedTechosDesigns);
+  useEffect(() => { fetchAllTechosDesigns().then(setDisenosTechos).catch(() => {}); }, []);
+  const traerDeTechos = async (id: string) => {
+    const d = disenosTechos.find(x => x.id === id);
+    if (!d) return;
+    const { generarReportePresupuestoBom } = await import('./techos/techosCadCalculations');
+    const r = generarReportePresupuestoBom(d.nodes || {}, d.segments || {}, (d as any).coverageZones || {});
+    const lin: string[] = [`Techo metálico: ${d.nombre}`];
+    r.despiecePerfiles.forEach(p => lin.push(`• ${p.nombrePerfil}: ${p.totalBarrasComerciales6m} barras de 6 m (${p.totalMetrosRequeridosM.toFixed(1)} m)`));
+    r.resumenCoberturas.forEach(c => lin.push(`• ${c.nombreCobertura}: ${c.totalPlanchasEstimadas} planchas (${c.areaEfectivaCalculadaM2.toFixed(1)} m²)`));
+    const pernos = r.resumenCoberturas.reduce((x, c) => x + c.pernosEpdmRequeridosUnidades, 0);
+    if (pernos) lin.push(`• Pernos autoperforantes con arandela EPDM: ${pernos} und`);
+    if (r.placasBaseTotalesUnids) lin.push(`• Placas base: ${r.placasBaseTotalesUnids} und · pernos de anclaje: ${r.pernosAnclajeJTotalesUnids} und`);
+    if (r.kgSoldaduraAwsEstimados) lin.push(`• Soldadura: ${r.kgSoldaduraAwsEstimados} kg aprox. y pintura anticorrosiva`);
+    [...(r.canaletas || []), ...(r.tensores || []), ...(r.mecanismoMovil || []), ...(r.iluminacionLed || [])].forEach((l: any) => lin.push(`• ${l.nombre}: ${l.cantidad} ${l.unidad}`));
+    const txt = lin.join('\n');
+    setMaterialesTexto(prev => (prev.trim() ? `${prev.trim()}\n\n${txt}` : txt));
+  };
   const [redactandoIA, setRedactandoIA] = useState(false);
   const [errorIA, setErrorIA] = useState<string | null>(null);
 
@@ -610,7 +630,16 @@ function ContratosSubView({
 
         {/* MATERIALES A EMPLEAR */}
         <div>
-          <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Materiales a Emplear (Lista)</label>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <label className="block text-[10px] font-black text-slate-400 uppercase">Materiales a Emplear (Lista)</label>
+            {disenosTechos.length > 0 && (
+              <select value="" onChange={e => { if (e.target.value) traerDeTechos(e.target.value); }}
+                className="max-w-[60%] px-2 py-1 rounded-lg bg-orange-50 border border-orange-200 text-[10px] font-bold text-orange-800 cursor-pointer">
+                <option value="">+ Traer de Techos Metálicos…</option>
+                {disenosTechos.map(d => <option key={d.id} value={d.id}>{d.nombre}{d.clientName ? ` · ${d.clientName}` : ''}</option>)}
+              </select>
+            )}
+          </div>
           <textarea 
             rows={5} 
             className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs leading-relaxed resize-none text-slate-800"
