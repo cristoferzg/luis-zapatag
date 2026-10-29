@@ -391,19 +391,23 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const [apertura, setApertura] = useState(0);
   const aperturaRef = useRef(0);
   const panosRef = useRef<{ g: THREE.Group; k: number; zPiv: number; yPiv: number }[]>([]);
-  const movilMetaRef = useRef<{ tipo: TechoMovil['tipo']; dir: number; gather: number; p: number } | null>(null);
+  const movilMetaRef = useRef<{ tipo: TechoMovil['tipo']; dir: number; gather: number; p: number; pend?: number } | null>(null);
   const aplicarApertura = useCallback((a: number) => {
     const meta = movilMetaRef.current;
     if (!meta) return;
     panosRef.current.forEach(({ g, k, zPiv, yPiv }) => {
       g.position.set(0, yPiv, zPiv); g.rotation.set(0, 0, 0);
+      // Techo que cae a lo largo: al correr en Z, el paño sube o baja con la pendiente.
+      const pend = meta.pend || 0;
       if (meta.tipo === 'corredizo') {
         // Telescópico: cada paño corre sobre el anterior (escalonado 9 cm).
         g.position.z = zPiv - meta.dir * a * k * meta.p * 0.96;
+        g.position.y = yPiv + (g.position.z - zPiv) * pend;
       } else if (meta.tipo === 'plegable') {
         // Acordeón: los paños se levantan y se juntan hacia el extremo.
         g.rotation.x = -meta.dir * a * 1.35;
         g.position.z = meta.gather + meta.dir * k * meta.p * (1 - 0.86 * a);
+        g.position.y = yPiv + (g.position.z - zPiv) * pend;
       } else {
         // Lamas: cada una gira sobre su propio eje.
         g.rotation.x = -meta.dir * a * 1.45;
@@ -426,7 +430,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   useEffect(() => () => cancelAnimationFrame(animRef.current), []);
   const guardarMovil = (m: TechoMovil | null) => {
     const ok = engineState?.setTechoMovil ? engineState.setTechoMovil(m) : false;
-    if (!ok) setMovilPrueba(m);
+    // Si se guardó en el diseño, se descarta la prueba (si no, desactivar no surtía efecto).
+    setMovilPrueba(ok ? null : m);
     if (m) setMostrarCobertura(true);
     if (!m) setApertura(0);
   };
@@ -2738,7 +2743,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // Se ajusta un plano a la parte más alta de la estructura (vigas, correas y
     // cordones, muestreados cada 0.5 m) y la cobertura se apoya encima de todo.
     const panoLargo: THREE.Vector3[] | null = (() => {
-      if (isHipRoof || is6AguasRoof || isDomeRoof || movil) return null;
+      if (isHipRoof || is6AguasRoof || isDomeRoof) return null;
       const pl = panoUnaAgua(nodes, segments);
       if (!pl || Math.abs(pl.b) < 0.02 || Math.abs(pl.b) <= Math.abs(pl.a)) return null; // cae a lo ancho: lo resuelve el perfil
       return pl.pts.map(p => new THREE.Vector3(p.x, p.y, p.z));
@@ -2802,12 +2807,57 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       } else if (panoLargo) {
         const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
         const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
-        const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
-        const gt = crearPanoZona(panoLargo, true), gb = crearPanoZona(panoLargo, false);
-        if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
-        if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
-        modeloGroup.add(grupo);
         panosRef.current = []; movilMetaRef.current = null;
+        if (!movil) {
+          const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
+          const gt = crearPanoZona(panoLargo, true), gb = crearPanoZona(panoLargo, false);
+          if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
+          if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
+          modeloGroup.add(grupo);
+        } else {
+          // TECHO MOVIBLE en un techo que cae a lo largo: paños sobre el mismo plano inclinado.
+          const [P0, P1, , P3] = panoLargo; // P0 (x0,z0), P1 (x1,z0), P3 (x0,z1)
+          const z0 = P0.z, z1 = P3.z, pend = (P3.y - P0.y) / Math.max(0.01, z1 - z0);
+          const yEn = (z: number) => P0.y + (z - z0) * pend;
+          const n = Math.max(1, Math.min(40, Math.round(movil.panos || 1)));
+          const dir = movil.abreHacia === 'final' ? -1 : 1;
+          const gather = dir > 0 ? z0 : z1;
+          const L = z1 - z0, p = L / n;
+          movilMetaRef.current = { tipo: movil.tipo, dir, gather, p, pend };
+          for (let k = 0; k < n; k++) {
+            const a0 = gather + dir * k * p, a1 = gather + dir * (k + 1) * p;
+            const za = Math.min(a0, a1), zb = Math.max(a0, a1);
+            const lama = movil.tipo === 'lamas', holg = lama ? 0.015 : 0;
+            const sub = [new THREE.Vector3(P0.x, yEn(za + holg), za + holg), new THREE.Vector3(P1.x, yEn(za + holg), za + holg), new THREE.Vector3(P1.x, yEn(zb - holg), zb - holg), new THREE.Vector3(P0.x, yEn(zb - holg), zb - holg)];
+            const zPiv = lama ? (a0 + a1) / 2 : a0, yPiv = yEn(zPiv);
+            const escalon = movil.tipo === 'corredizo' ? k * 0.09 : 0;
+            const g = new THREE.Group(); g.name = 'pano_movil';
+            [crearPanoZona(sub, true), crearPanoZona(sub, false)].forEach((geo, i) => {
+              if (!geo) return;
+              const mesh = new THREE.Mesh(geo, i === 0 ? flatTop : flatBottom);
+              mesh.name = 'cobertura_malla';
+              mesh.position.set(0, -yPiv + escalon, -zPiv);
+              g.add(mesh);
+            });
+            modeloGroup.add(g);
+            panosRef.current.push({ g, k, zPiv, yPiv });
+          }
+          // Rieles inclinados a ambos lados y motor (o manivela) donde se juntan los paños.
+          const matRiel = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.35 });
+          const largoRiel = Math.hypot(L, P3.y - P0.y) + 0.3;
+          [Math.min(P0.x, P1.x) - 0.3, Math.max(P0.x, P1.x) + 0.3].forEach(x => {
+            const riel = new THREE.Mesh(new THREE.BoxGeometry(0.08, movil.tipo === 'lamas' ? 0.14 : 0.07, largoRiel), matRiel);
+            riel.position.set(x, yEn((z0 + z1) / 2) - 0.06, (z0 + z1) / 2);
+            riel.rotation.x = -Math.atan(pend);
+            riel.name = 'riel_movil';
+            modeloGroup.add(riel);
+          });
+          const caja = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.26, 0.32), new THREE.MeshStandardMaterial({ color: movil.accionamiento === 'motor' ? 0x0f172a : 0x64748b, metalness: 0.4, roughness: 0.5 }));
+          caja.position.set(Math.min(P0.x, P1.x) - 0.3, yEn(gather) - 0.24, gather - dir * 0.2);
+          caja.name = 'motor_movil';
+          modeloGroup.add(caja);
+          aplicarApertura(aperturaRef.current);
+        }
       } else if (topProfilePoints.length >= 2) {
         const minZNode = Math.min(...allNodeArray.map(n => n.z || 0));
         const maxZNode = Math.max(...allNodeArray.map(n => n.z || 0));
