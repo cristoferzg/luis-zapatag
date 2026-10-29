@@ -181,6 +181,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       }
     } catch (err: any) {
       const code = String(err?.code || err?.message || '');
+      console.warn('Leer plano:', code, err?.message);
       const sinCreditos = motivoErrorIA(err);
       if (sinCreditos) {
         setShowPlanesIA(sinCreditos);
@@ -197,8 +198,16 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         setIaNotice('El servicio de IA está ocupado. Intenta de nuevo en un momento.');
       } else if (code.includes('invalid-argument') && err?.message) {
         setIaNotice(String(err.message));
+      } else if (code.includes('deadline-exceeded')) {
+        setIaNotice('La lectura tardó demasiado. Prueba con una foto más pequeña o recortada solo al plano.');
+      } else if (code.includes('unavailable') && err?.message) {
+        setIaNotice(String(err.message));
+      } else if (code.includes('not-found') || code.includes('internal')) {
+        setIaNotice(getAICtx().isAdmin
+          ? `La función de lectura no respondió (${code.replace('functions/', '')}). Revisa que las funciones estén desplegadas: firebase deploy --only functions. Mientras tanto usa "Imagen ref." para calcar.`
+          : 'La lectura de planos no está disponible en este momento. Usa "Imagen ref." para calcar el plano.');
       } else {
-        setIaNotice('No se pudo leer el plano por IA. Intenta de nuevo, o usa "Imagen ref." para calcarlo a mano.');
+        setIaNotice(`No se pudo leer el plano por IA${getAICtx().isAdmin && code ? ` (${code.replace('functions/', '')})` : ''}. Intenta de nuevo, o usa "Imagen ref." para calcarlo a mano.`);
       }
     } finally {
       setIaReading(false);

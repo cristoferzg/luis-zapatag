@@ -129,10 +129,11 @@ function errorDeIA(e) {
   console.error('[IA] error de la API', status, e?.error?.error?.type || '', e?.message || e);
   if (status === 401) return new HttpsError('failed-precondition', 'La clave de IA no es válida.');
   if (status === 403) return new HttpsError('failed-precondition', 'La clave de IA no tiene permiso para usar este modelo.');
-  if (status === 429) return new HttpsError('resource-exhausted', 'Servicio de IA ocupado, intenta de nuevo.');
+  if (status === 429 || status === 529) return new HttpsError('resource-exhausted', 'Servicio de IA ocupado, intenta de nuevo.');
+  if (status === 404) return new HttpsError('failed-precondition', 'El modelo de IA configurado no está disponible para esta clave (revisa la configuración de las funciones).');
   if (status === 400 || status === 413) return new HttpsError('invalid-argument', 'La imagen no se pudo procesar (muy pesada o en un formato no válido). Prueba con otra foto.');
   if (status === 402 || /credit|balance|billing/i.test(String(e?.message || ''))) return new HttpsError('failed-precondition', 'La cuenta de IA no tiene saldo o llegó a su límite de gasto.');
-  return new HttpsError('unavailable', 'No se pudo contactar el servicio de IA.');
+  return new HttpsError('unavailable', `No se pudo contactar el servicio de IA${status ? ` (código ${status})` : ''}. Intenta de nuevo en un momento.`);
 }
 const CREDITOS_GRATIS_DEFAULT = 0; // la IA es de pago: el plan Gratis no trae créditos
 // Igual que PLANES_IA_DEFAULT del cliente (src/lib/aiAccess.ts).
