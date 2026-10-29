@@ -9,6 +9,7 @@
 //   - el piso de cada ambiente, el cielo raso y los tanques elevados.
 // Órbita: arrastrar para girar, rueda o pellizco para acercar.
 // =============================================================================
+import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Calidad3D } from '../lib/calidad3d';
 import { useEffect, useRef, useState } from 'react';
 import { Video, Square as StopIcon } from 'lucide-react';
 import * as THREE from 'three';
@@ -152,6 +153,13 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
   const girar = useRef(false); // giro lento automático mientras se graba
   const grabacion = useRef<{ detener: () => void } | null>(null);
   const [grabando, setGrabando] = useState(false);
+  // Calidad del 3D (celular): cambia los píxeles del render sin rearmar la escena.
+  const [calidad, setCalidad] = useState<Calidad3D>(calidad3d);
+  useEffect(() => onCalidad3d(c => {
+    setCalidad(c);
+    const r = rendererRef.current, m = mountRef.current;
+    if (r && m) { r.setPixelRatio(pixelRatio3d(c)); r.setSize(m.clientWidth, m.clientHeight, false); }
+  }), []);
   // Vista de corte: un plano vertical que recorta el modelo para ver por dentro.
   const [corte, setCorte] = useState(100); // % del ancho visible (100 = sin corte)
   const [ejeCorte, setEjeCorte] = useState<'x' | 'z'>('x');
@@ -193,7 +201,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     rendererRef.current = renderer;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(pixelRatio3d());
     mount.appendChild(renderer.domElement);
     canvasRef.current = renderer.domElement;
     Object.assign(renderer.domElement.style, { width: '100%', height: '100%', touchAction: 'none', cursor: 'grab' });
@@ -206,7 +214,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     scene.add(modelo);
     modeloRef.current = modelo;
     const bordes = new THREE.LineBasicMaterial({ color: C.borde, transparent: true, opacity: 0.85 });
-    const bordesFinos = new THREE.LineBasicMaterial({ color: C.borde, transparent: true, opacity: 0.35 });
+    const bordesFinos = new THREE.LineBasicMaterial({ color: C.borde, transparent: true, opacity: refuerzoBordes() ? 0.7 : 0.35 });
     const plano = (color: number) => new THREE.MeshLambertMaterial({ color });
     const M = { concreto: plano(C.concreto), zapata: plano(C.zapata), cimiento: plano(C.cimiento), losa: plano(C.losa), acero: plano(C.acero), drywall: plano(C.drywall) };
 
@@ -748,6 +756,10 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
   return (
     <div className="relative w-full h-full">
       <div ref={mountRef} className="w-full h-full" />
+      <button type="button" onClick={() => setCalidad3d(calidad === 'alta' ? 'ahorro' : 'alta')} title="Alta: nítido como en la PC · Ahorro: más fluido y menos batería"
+        className="lg:hidden absolute top-2 right-2 z-10 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-black shadow border cursor-pointer bg-white text-slate-700 border-slate-200">
+        Calidad: <span className={calidad === 'alta' ? 'text-emerald-600' : 'text-amber-600'}>{calidad === 'alta' ? 'Alta' : 'Ahorro'}</span>
+      </button>
       <button onClick={grabar} title={grabando ? 'Detener y descargar el video' : 'Grabar un video MP4 girando el modelo'}
         className={`absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg cursor-pointer border ${grabando ? 'bg-rose-600 text-white border-rose-600 animate-pulse' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}>
         {grabando ? <StopIcon className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}

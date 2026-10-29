@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import { panoUnaAgua } from './coberturaAuto';
+import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Calidad3D } from '../../lib/calidad3d';
 import { INVENTARIO_COBERTURAS } from './techosCadCatalog';
 import { 
   RotateCw, 
@@ -670,6 +671,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  // Calidad del 3D (celular): Alta = nítido como en la PC y bordes marcados; Ahorro = más fluido.
+  const [calidad, setCalidad] = useState<Calidad3D>(calidad3d);
+  useEffect(() => onCalidad3d(c => {
+    setCalidad(c);
+    const r = rendererRef.current;
+    if (r) { const el = r.domElement; r.setPixelRatio(pixelRatio3d(c)); r.setSize(el.clientWidth, el.clientHeight); }
+    const op = refuerzoBordes(c) ? 0.8 : 0.38;
+    sceneRef.current?.traverse(o => { const l = o as THREE.LineSegments; if (l.isLineSegments && o.parent?.parent?.name === 'tubes_group') { (l.material as THREE.LineBasicMaterial).opacity = op; } });
+  }), []);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const animFrameIdRef = useRef<number | null>(null);
   const rainLinesRef = useRef<THREE.Group | null>(null);
@@ -2474,7 +2484,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const edgeLineMat = new THREE.LineBasicMaterial({
           color: modoIluminacion === 'claro' ? 0x1e293b : 0x38bdf8,
           transparent: true,
-          opacity: modoIluminacion === 'claro' ? 0.38 : 0.55
+          opacity: refuerzoBordes() ? 0.8 : modoIluminacion === 'claro' ? 0.38 : 0.55
         });
         const tubeLines = new THREE.LineSegments(edgesGeo, edgeLineMat);
         tubeMesh.add(tubeLines);
@@ -3115,7 +3125,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(pixelRatio3d());
     rendererRef.current = renderer;
 
     if (container) {
@@ -3525,6 +3535,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
   return (
     <div className="relative w-full h-full flex flex-col bg-slate-950 overflow-hidden select-none touch-none">
+      {/* Calidad del 3D (solo celular/tablet) */}
+      <button type="button" onClick={() => setCalidad3d(calidad === 'alta' ? 'ahorro' : 'alta')} title="Alta: nítido como en la PC · Ahorro: más fluido y menos batería"
+        className="md:hidden absolute left-2 bottom-14 z-30 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-black shadow border cursor-pointer bg-white text-slate-700 border-slate-200">
+        Calidad: <span className={calidad === 'alta' ? 'text-emerald-600' : 'text-amber-600'}>{calidad === 'alta' ? 'Alta' : 'Ahorro'}</span>
+      </button>
       {/* Canvas 3D con Giroscopio Espacial y Soporte Táctil/Pointer Completo */}
       <div className="relative w-full flex-1 overflow-hidden">
       {fotoFondo && (

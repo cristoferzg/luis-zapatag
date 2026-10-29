@@ -378,14 +378,14 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   if (modo === 'cad') {
     return (
       <div className="w-full h-full flex flex-col bg-slate-50 font-sans">
-        <div className="flex items-center justify-between gap-3 px-4 py-3 bg-white border-b border-slate-200">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
-              <Box className="w-5 h-5" />
+        <div className="flex items-center justify-between gap-2 lg:gap-3 px-2 lg:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
+          <div className="flex items-center gap-2 lg:gap-2.5 min-w-0">
+            <div className="p-1.5 lg:p-2 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
+              <Box className="w-4 h-4 lg:w-5 lg:h-5" />
             </div>
-            <div>
-              <h2 className="text-sm font-black text-slate-900 uppercase leading-tight">Obra Civil · Plano CAD</h2>
-              <p className="text-[11px] text-slate-500">Dibuja columnas, zapatas, vigas y cimientos; el metrado sale solo.</p>
+            <div className="min-w-0">
+              <h2 className="text-sm font-black text-slate-900 uppercase leading-tight truncate">Obra Civil<span className="hidden lg:inline"> · Plano CAD</span></h2>
+              <p className="hidden lg:block text-[11px] text-slate-500">Dibuja columnas, zapatas, vigas y cimientos; el metrado sale solo.</p>
             </div>
           </div>
           {ModoToggle}

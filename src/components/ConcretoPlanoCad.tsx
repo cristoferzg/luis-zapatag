@@ -994,6 +994,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     : true) as { id: Herramienta; label: string; icon: any }[];
   // Riel de herramientas como en Techos: vertical en PC, dock abajo en el celular.
   const [esPC, setEsPC] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
+  // Celular: paneles (Elementos, Metrado, Ambientes…) en una hoja que sube desde abajo.
+  const [hoja, setHoja] = useState(false);
+  useEffect(() => { if (!esPC && (selUid || selAb || selBloque || selInst)) setHoja(true); }, [selUid, selAb, selBloque, selInst]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const f = () => setEsPC(window.innerWidth >= 1024);
     window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
@@ -1078,7 +1081,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             const muros = elemsGrupo.filter(e => e.tipo === 'muro');
             const btn = 'p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
             return (
-              <div className={`absolute ${arriba} left-3 lg:left-24 right-3 sm:right-auto z-30 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs`} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+              <div className={`absolute ${arriba} left-14 lg:left-24 right-2 sm:right-auto z-30 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs`} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                 <span className="font-black text-amber-800 mr-1">{selMov.length} seleccionado{selMov.length === 1 ? '' : 's'}</span>
                 <select value={paso} onChange={e => setPaso(parseFloat(e.target.value))} title="Cuánto se mueve con cada flecha" className="px-1.5 py-1.5 rounded-lg bg-slate-100 font-bold cursor-pointer">
                   <option value={0.01}>1 cm</option><option value={0.05}>5 cm</option><option value={0.1}>10 cm</option><option value={0.25}>25 cm</option>
@@ -1131,10 +1134,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   void histVer; // re-render al cambiar el historial
 
   return (
-    <div className="lg:w-full h-full flex flex-col bg-slate-50 max-lg:-mx-4">
+    <div className="lg:w-full h-full flex flex-col bg-slate-50 max-lg:-mx-4 max-lg:pb-12">
       {/* Estructura de Techos vinculada */}
-      <div className="flex items-center gap-2 px-2 py-2 bg-white border-b border-slate-100 flex-wrap">
-        <span className="text-[11px] font-bold text-slate-500">Estructura (Techos Metálicos)</span>
+      <div className="flex items-center gap-2 px-2 py-1.5 lg:py-2 bg-white border-b border-slate-100 max-lg:flex-nowrap max-lg:overflow-x-auto max-lg:whitespace-nowrap lg:flex-wrap [&>*]:shrink-0">
+        <span className="text-[11px] font-bold text-slate-500"><span className="lg:hidden">Techo</span><span className="hidden lg:inline">Estructura (Techos Metálicos)</span></span>
         <select value={techosId} onChange={e => setTechosId(e.target.value)}
           className="px-2.5 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none max-w-[260px]">
           <option value="">— Sin estructura —</option>
@@ -1146,7 +1149,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           </button>
         )}
         {esDrywall && (
-          <p className="w-full text-[10px] sm:text-[11px] font-bold text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5">
+          <p className="hidden lg:block w-full text-[10px] sm:text-[11px] font-bold text-violet-800 bg-violet-50 border border-violet-200 rounded-lg px-2 py-1 sm:px-2.5 sm:py-1.5">
             Obra Civil y Techos se ven de fondo (no se modifican aquí). Dibuja tabiques de drywall u OSB, también fuera del perímetro.
           </p>
         )}
@@ -1160,7 +1163,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           <span className="text-[11px] text-slate-400">{Object.keys(estructura.segments || {}).length} perfiles · {Object.keys(estructura.coverageZones || {}).length} coberturas{tanques.length ? ` · ${tanques.length} tanque${tanques.length > 1 ? 's' : ''}` : ''}{caidas.length ? ` · caída: ${[...new Set(caidas.map(c => NOMBRE_CAIDA[nombreDireccion(c.dx, c.dz)]))].join(' y ')}` : ''}</span>
         )}
         {estructura && (
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="hidden lg:flex items-center gap-1 flex-wrap">
             {(Object.keys(CAPAS) as CapaEstructura[]).filter(k => plantaTechos.conteo[k]).map(k => {
               const oculta = capasOcultas.includes(k);
               return (
@@ -1261,7 +1264,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* VISTA 3D */}
         {vista3d ? (
-          <div className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-170px)] max-lg:min-h-[420px] overflow-hidden bg-slate-100">
+          <div className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-262px)] max-lg:min-h-[420px] overflow-hidden bg-slate-100">
             <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}|${JSON.stringify(acabados)}`} acabados={acabados} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos}  seleccion={grupo.length ? grupo : selUid ? [selUid] : []} onPick={elegir3d} />
             {barraGrupoEn('top-14')}
             <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 overflow-x-auto px-3 py-2.5 [&>*]:shrink-0 [&>*]:whitespace-nowrap [&>*]:shadow [&>*]:border [&>*]:border-slate-200">
@@ -1295,7 +1298,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         /* LIENZO 2D */
         <div
           ref={containerRef}
-          className={`relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-170px)] max-lg:min-h-[420px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : (dragNode.current ? 'cursor-grabbing' : 'cursor-crosshair')}`}
+          className={`relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-262px)] max-lg:min-h-[420px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : (dragNode.current ? 'cursor-grabbing' : 'cursor-crosshair')}`}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
@@ -1629,25 +1632,25 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               return (
                 <button key={t.id} type="button" title={t.label}
                   onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }}
-                  className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'min-w-[56px] py-1.5 px-1'} rounded-xl text-[10px] font-bold cursor-pointer transition-all ${act ? 'text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}
+                  className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'w-10 h-10'} rounded-xl text-[10px] font-bold cursor-pointer transition-all ${act ? 'text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}
                   style={act ? { backgroundColor: col } : undefined}>
-                  <Ic className="w-4 h-4" /><span className="text-center leading-tight">{t.label.replace('/', '/\u200b')}</span>
+                  <Ic className={esPC ? 'w-4 h-4' : 'w-[18px] h-[18px]'} />{esPC && <span className="text-center leading-tight">{t.label.replace('/', '/\u200b')}</span>}
                 </button>
               );
             };
             const histBtn = (fn: () => void, ok: boolean, Ic: any, txt: string, tip: string) => (
               <button type="button" onClick={fn} disabled={!ok} title={tip}
-                className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'min-w-[56px] py-1.5 px-1'} rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:cursor-default`}>
-                <Ic className="w-4 h-4" />{txt}
+                className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'w-10 h-10'} rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:cursor-default`}>
+                <Ic className={esPC ? 'w-4 h-4' : 'w-[18px] h-[18px]'} />{esPC && txt}
               </button>
             );
             return (
               <div onMouseDown={parar} onClick={parar} onTouchStart={parar} onTouchMove={parar} onTouchEnd={parar} onWheel={parar}
                 className={esPC
                   ? 'absolute left-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1.5 shadow-xl max-h-[calc(100%-24px)] overflow-y-auto'
-                  : 'absolute left-2 right-14 bottom-2 z-20 flex items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1 shadow-xl overflow-x-auto'}>
+                  : 'absolute left-1.5 top-1.5 bottom-1.5 z-20 flex flex-col items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1 shadow-xl overflow-y-auto w-12'}>
                 {HERRAMIENTAS.map(boton)}
-                <div className={esPC ? 'h-px bg-slate-200 my-1' : 'w-px self-stretch bg-slate-200 mx-1'} />
+                <div className={esPC ? 'h-px bg-slate-200 my-1' : 'h-px w-8 bg-slate-200 my-0.5 shrink-0'} />
                 {histBtn(undo, canUndo, Undo2, 'Atrás', 'Deshacer (Ctrl+Z)')}
                 {histBtn(redo, canRedo, Redo2, 'Adelante', 'Rehacer (Ctrl+Y)')}
               </div>
@@ -1697,7 +1700,15 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         )}
 
         {/* PANEL DE METRADO + PROPIEDADES */}
-        <div className="lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto">
+        {!esPC && (
+          <button type="button" onClick={() => setHoja(h => !h)}
+            className="fixed left-0 right-0 bottom-0 z-[45] h-12 bg-white border-t border-slate-200 rounded-t-2xl shadow-[0_-6px_18px_rgba(0,0,0,0.12)] flex flex-col items-center justify-center gap-1 cursor-pointer">
+            <span className="w-10 h-1 rounded-full bg-slate-300" />
+            <span className="text-[11px] font-black text-slate-700">{hoja ? 'Cerrar paneles ▼' : 'Elementos · Metrado · Ambientes ▲'}</span>
+          </button>
+        )}
+        <div className={esPC ? 'lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto'
+          : `fixed left-0 right-0 bottom-12 z-[44] bg-white border-t border-slate-200 shadow-2xl p-3 space-y-3 overflow-y-auto transition-transform duration-200 max-h-[62dvh] ${hoja ? 'translate-y-0' : 'translate-y-[120%]'}`}>
           {/* PUNTO DE INSTALACIÓN SELECCIONADO */}
           {(() => { const q = instalaciones.find(x => x.uid === selInst); if (!q) return null; const d = INSTALACIONES[q.tipo]; return (
             <div className="rounded-2xl border-2 border-sky-300 bg-sky-50/60 p-3 space-y-2">
