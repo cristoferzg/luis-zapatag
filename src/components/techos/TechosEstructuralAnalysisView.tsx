@@ -15,6 +15,7 @@ import {
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
+import PandeoEstructura3D, { Riesgo } from './PandeoEstructura3D';
 import { propsPerfil, factorK, limitesLambda, seAnaliza, perfilRecomendado, perfilMasEconomico, cumpleTramo } from './propiedadesPerfil';
 import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
 
@@ -32,6 +33,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
 
   // Estado del Simulador de Pandeo Animado
   const [isSimulatingBuckling, setIsSimulatingBuckling] = useState<boolean>(false);
+  const [pieza3d, setPieza3d] = useState<string | null>(null);
   const [bucklingScale, setBucklingScale] = useState<number>(1.5);
 
   const isOK = structuralReport.resultadoGlobal === 'CUMPLE';
@@ -349,6 +351,37 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
             </div>
           </div>
         </div>
+
+        {/* TU ESTRUCTURA EN 3D: dónde hay pandeo o flecha */}
+        {(() => {
+          const riesgos: Record<string, Riesgo> = {};
+          bucklingAnalysis.forEach(b => { riesgos[b.id] = b.riesgoPandeo; });
+          const n = (r: Riesgo) => bucklingAnalysis.filter(b => b.riesgoPandeo === r).length;
+          const sel = bucklingAnalysis.find(b => b.id === pieza3d);
+          return (
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold">
+                <span className="text-slate-700">En tu estructura:</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">● {n('BAJO')} sin riesgo</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">● {n('MEDIO')} riesgo medio</span>
+                <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">● {n('ALTO')} riesgo alto</span>
+                <span className="text-slate-400 font-semibold">Columnas que se arquean = pandeo · vigas que bajan = flecha (exagerado ×{bucklingScale}). Toca una pieza para ver su dato.</span>
+              </div>
+              <div className="relative w-full h-[360px] rounded-xl border border-slate-200 overflow-hidden">
+                <PandeoEstructura3D nodes={nodes} segments={segments} riesgos={riesgos} escala={bucklingScale} animar={isSimulatingBuckling} alSeleccionar={setPieza3d} />
+                {sel && (
+                  <div className="absolute left-3 bottom-3 bg-white/95 border border-slate-200 rounded-xl shadow-lg px-3 py-2 text-[11px] space-y-0.5">
+                    <p className="font-black text-slate-800 capitalize">{String(sel.rol).replace(/_/g, ' ')} · {sel.longitudM} m</p>
+                    <p className="text-slate-600">{sel.perfil}</p>
+                    <p className="text-slate-600">Esbeltez λ = {sel.lambdaEsbeltez} (máx. {sel.limite}) · Pcr = {sel.PcrkN} kN</p>
+                    <p className={`font-black ${sel.riesgoPandeo === 'ALTO' ? 'text-rose-600' : sel.riesgoPandeo === 'MEDIO' ? 'text-amber-600' : 'text-emerald-600'}`}>Riesgo {sel.riesgoPandeo.toLowerCase()}</p>
+                  </div>
+                )}
+              </div>
+              <p className="text-[10px] font-black text-slate-400 uppercase pt-1">Cómo se ve cada caso</p>
+            </div>
+          );
+        })()}
 
         {/* Lienzo 2D de Simulación de Pandeo en Líneas */}
         <div className="w-full h-48 bg-slate-50 border border-slate-200 rounded-xl relative overflow-hidden flex items-center justify-center p-4">
