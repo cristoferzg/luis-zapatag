@@ -160,11 +160,48 @@ export function calcularMetradoCoberturas(
 ): ResumenCálculoCobertura[] {
   const resultados: ResumenCálculoCobertura[] = [];
 
-  Object.values(coverageZones).forEach(zone => {
+  // Zonas que se pisan (techos armados a mano: varias franjas de correas a
+  // distinta altura) contarían la cobertura dos o tres veces. Si la suma de
+  // áreas supera en más de 15 % al área real cubierta en planta, se cuenta UN
+  // solo paño: el rectángulo que cubren, con el plano ajustado a sus nodos.
+  let zonasCalc: Record<string, CoverageZone3D> = coverageZones;
+  let nodosCalc: Record<string, Node3D> = nodes;
+  const propias = Object.values(coverageZones).filter(z => !/^tq[0-9a-z]+_/.test(z.id));
+  const poli = (z: CoverageZone3D) => z.nodeIdsBoundary.map(id => nodes[id]).filter(Boolean);
+  const areaPoli = (ps: Node3D[]) => { let a = 0; ps.forEach((p, i) => { const q = ps[(i + 1) % ps.length]; a += p.x * (q.z || 0) - q.x * (p.z || 0); }); return Math.abs(a) / 2; };
+  if (propias.length > 1) {
+    const todos = propias.flatMap(poli);
+    const xs = todos.map(n => n.x), zs = todos.map(n => n.z || 0);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+    const dentro = (ps: Node3D[], x: number, z: number) => { let c = false; for (let i = 0, j = ps.length - 1; i < ps.length; j = i++) { const a = ps[i], b = ps[j]; if (((a.z || 0) > z) !== ((b.z || 0) > z) && x < ((b.x - a.x) * (z - (a.z || 0))) / (((b.z || 0) - (a.z || 0)) || 1e-9) + a.x) c = !c; } return c; };
+    const paso = Math.max(0.1, Math.max(x1 - x0, z1 - z0) / 120);
+    let union = 0;
+    const polis = propias.map(poli).filter(p => p.length >= 3);
+    for (let x = x0 + paso / 2; x < x1; x += paso) for (let z = z0 + paso / 2; z < z1; z += paso) if (polis.some(p => dentro(p, x, z))) union += paso * paso;
+    const suma = polis.reduce((s, p) => s + areaPoli(p), 0);
+    // Plano y = a·x + b·z + c por mínimos cuadrados con todos los nodos de las zonas.
+    const n = todos.length, mx = xs.reduce((s, v) => s + v, 0) / n, mz = zs.reduce((s, v) => s + v, 0) / n, my = todos.reduce((s, p) => s + p.y, 0) / n;
+    let sxx = 0, szz = 0, sxz = 0, sxy = 0, szy = 0;
+    todos.forEach(p => { const dx = p.x - mx, dz = (p.z || 0) - mz, dy = p.y - my; sxx += dx * dx; szz += dz * dz; sxz += dx * dz; sxy += dx * dy; szy += dz * dy; });
+    const det = sxx * szz - sxz * sxz || 1e-9;
+    const a = (sxy * szz - szy * sxz) / det, b = (szy * sxx - sxy * sxz) / det, c = my - a * mx - b * mz;
+    const unSoloPlano = todos.every(p => Math.abs(p.y - (a * p.x + b * (p.z || 0) + c)) < 0.2);
+    // También franjas de UNA agua que llenan el rectángulo: cada franja por separado
+    // compraría planchas enteras para 1.5 m (el doble de cobertura).
+    if (union > 0.5 && (suma > union * 1.15 || (unSoloPlano && union >= (x1 - x0) * (z1 - z0) * 0.85))) {
+      const esq = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([x, z], i) => ({ id: `__cob_${i}`, x, y: a * x + b * z + c, z }) as Node3D);
+      nodosCalc = { ...nodes, ...Object.fromEntries(esq.map(e => [e.id, e])) };
+      const base = propias[0];
+      const pend = Math.round(Math.hypot(a, b) * 100);
+      zonasCalc = { ...Object.fromEntries(Object.values(coverageZones).filter(z => !propias.includes(z)).map(z => [z.id, z])), [base.id]: { ...base, nodeIdsBoundary: esq.map(e => e.id), pendientePorcentaje: pend || base.pendientePorcentaje } };
+    }
+  }
+
+  Object.values(zonasCalc).forEach(zone => {
     const coberturaInfo = INVENTARIO_COBERTURAS.find(c => c.id === zone.coberturaMaterialId) || INVENTARIO_COBERTURAS[0];
 
     // Calcular área en planta del polígono de nodos
-    const boundaryNodes = zone.nodeIdsBoundary.map(id => nodes[id]).filter(Boolean);
+    const boundaryNodes = zone.nodeIdsBoundary.map(id => nodosCalc[id]).filter(Boolean);
     if (boundaryNodes.length < 3) return;
 
     // Fórmula del polígono en 2D (Shoelace algorithm)
@@ -204,7 +241,11 @@ export function calcularMetradoCoberturas(
     const traslapeM = (coberturaInfo.traslapeTransversalMinMm || 200) / 1000;
     const largoEfectivoPlanchaM = Math.max(0.5, largoPlanchaM - traslapeM);
 
-    const numRowsLargo = Math.ceil((largoNaveM - traslapeM) / largoEfectivoPlanchaM);
+    // Un techo partido en varias franjas (curvo, o varias aguas en fila) usa las mismas
+    // planchas seguidas: no se redondea a plancha entera en cada franja.
+    const varias = Object.values(zonasCalc).filter(z => !/^tq[0-9a-z]+_/.test(z.id)).length > 1;
+    const filas = Math.max(0, largoNaveM - traslapeM) / largoEfectivoPlanchaM;
+    const numRowsLargo = varias ? Math.max(0.1, Math.round(filas * 100) / 100) : Math.ceil(filas);
     const totalPlanchas = numColsAncho * numRowsLargo;
 
     const areaCompradaM2 = totalPlanchas * (coberturaInfo.anchoTotalMm / 1000) * largoPlanchaM;
@@ -219,7 +260,7 @@ export function calcularMetradoCoberturas(
       areaEfectivaCalculadaM2: Math.round(areaCompradaM2 * 100) / 100,
       numColumnasAnchoUtil: numColsAncho,
       numFilasLargoPlancha: numRowsLargo,
-      totalPlanchasEstimadas: totalPlanchas,
+      totalPlanchasEstimadas: Math.ceil(totalPlanchas - 1e-6),
       pesoTotalCoberturaKg: Math.round(pesoTotalKg * 10) / 10,
       costoTotalCoberturaSoles: Math.round(costoTotalSol * 100) / 100,
       pernosEpdmRequeridosUnidades: pernosEpdmUnids
