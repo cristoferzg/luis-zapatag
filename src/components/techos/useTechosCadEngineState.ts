@@ -13,6 +13,7 @@ import {
   Segment3D, 
   CoverageZone3D, 
   TechoMovil,
+  CanaletaCfg,
   ToolModoCad, 
   RolEstructuralSegmento,
   FullTechosBomReport,
@@ -110,7 +111,7 @@ export interface UseTechosCadEngineReturn {
   /** Techo movible: guarda (o quita con null) el mecanismo en la cobertura principal. Devuelve false si el techo aún no tiene cobertura. */
   setTechoMovil: (movil: TechoMovil | null) => boolean;
   /** Canaletas y bajadas: activas / material (en la cobertura principal). */
-  setCanaleta: (c: { activa: boolean; material?: 'galvanizada' | 'pvc' }) => boolean;
+  setCanaleta: (c: CanaletaCfg) => boolean;
 
   // Generadores Paramétricos Automáticos que generan Nodos y Segmentos reales en PROJECT_MODEL
   generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => string | void;
@@ -871,7 +872,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     return true;
   }, [nodes, segments, coverageZones, pushHistory, activeCoverageId]);
 
-  const setCanaleta = useCallback((c: { activa: boolean; material?: 'galvanizada' | 'pvc' }) => {
+  const setCanaleta = useCallback((c: CanaletaCfg) => {
     // Si el techo aún no tiene cobertura, se crea desde sus correas.
     const base = zonaPrincipal(coverageZones) ? coverageZones : { ...coverageZones, ...zonasDesdeCorreas(nodes, segments, activeCoverageId || 'cob_aluzinc_030') };
     const z = zonaPrincipal(base);

@@ -151,6 +151,18 @@ export interface Segment3D {
   led?: boolean;
 }
 
+// Canaletas: material, modelo (sección), dónde van y cómo baja el agua. Todo opcional.
+export type FormaCanaleta = 'rectangular' | 'media_cana' | 'moldura' | 'cajon';
+export type LadosCanaleta = 'caida' | 'caida_lados' | 'perimetro';
+export type BajadaCanaleta = 'tubo' | 'gargola';
+export interface CanaletaCfg {
+  activa: boolean;
+  material?: 'galvanizada' | 'pvc';
+  forma?: FormaCanaleta;     // por defecto rectangular
+  lados?: LadosCanaleta;     // por defecto solo en el borde de la caída
+  bajada?: BajadaCanaleta;   // tubo hasta el piso (por defecto) o gárgola (chorro libre)
+}
+
 export interface CoverageZone3D {
   id: string;
   nombre: string;
@@ -160,7 +172,7 @@ export interface CoverageZone3D {
   orientacionInclinacionDeg: number; // Orientación del flujo de agua (0°, 90°, 180°, 270°)
   selected?: boolean;
   movil?: TechoMovil;           // Techo movible (opcional): mecanismo de apertura
-  canaleta?: { activa: boolean; material?: 'galvanizada' | 'pvc' }; // canaletas y bajadas (por defecto activas)
+  canaleta?: CanaletaCfg; // canaletas y bajadas (por defecto activas)
 }
 
 // Techo movible: la cobertura se divide en paños que se abren a lo largo (Z).

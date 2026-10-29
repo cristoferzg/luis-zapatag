@@ -44,7 +44,7 @@ import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './tech
 import { perfilTechos } from './tensores';
 import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
 import { movilDe, TIPOS_MOVIL } from './mecanismoMovil';
-import { alerosConCanaleta, canaletaActiva, posicionesBajadas, VUELO_ALERO_M } from './canaletas';
+import { canaletaActiva, posicionesBajadas, cfgCanaleta, tramosCanaleta, NOMBRE_FORMA, NOMBRE_LADOS, NOMBRE_BAJADA } from './canaletas';
 import { safeStorage } from '../../lib/storageManager';
 import { guardarFotoPropuesta, fotoPropuesta } from './fotoPropuesta';
 import type { TechoMovil, CoverageZone3D } from './techosCadEngineTypes';
@@ -354,6 +354,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const movil = movilGuardado || movilPrueba;
   const movilClave = movil ? `${movil.tipo}|${movil.panos}|${movil.accionamiento}|${movil.abreHacia || 'inicio'}` : '';
   const [panelMovil, setPanelMovil] = useState(false);
+  const [panelCanaleta, setPanelCanaleta] = useState(false);
   const [apertura, setApertura] = useState(0);
   const aperturaRef = useRef(0);
   const panosRef = useRef<{ g: THREE.Group; k: number; zPiv: number; yPiv: number }[]>([]);
@@ -2924,33 +2925,6 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           modeloGroup.add(ridgeMesh);
         }
 
-        // CANALETAS Y BAJADAS en el alero bajo (o en los dos de un dos aguas)
-        if (canaletaActiva(zonasCob)) {
-          const matCanal = new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.7, roughness: 0.35, side: THREE.DoubleSide });
-          const z0 = minZNode - VUELO_ALERO_M, z1 = maxZNode + VUELO_ALERO_M;
-          const a = coberturaProfile[0], b = coberturaProfile[coberturaProfile.length - 1];
-          alerosConCanaleta(coberturaProfile).forEach(al => {
-            // Altura del borde de la plancha en el vuelo del alero
-            const vecino = al.hacia < 0 ? coberturaProfile[1] || b : coberturaProfile[coberturaProfile.length - 2] || a;
-            const pend = (al.y - vecino.y) / Math.max(0.01, Math.abs(al.x - vecino.x));
-            const xC = al.x + al.hacia * (VUELO_ALERO_M + 0.05), yC = al.y + pend * VUELO_ALERO_M - 0.12;
-            const forma = new THREE.Shape();
-            forma.moveTo(-0.075, 0.07); forma.lineTo(-0.06, 0); forma.lineTo(0.06, 0); forma.lineTo(0.075, 0.07);
-            forma.lineTo(0.068, 0.07); forma.lineTo(0.055, 0.008); forma.lineTo(-0.055, 0.008); forma.lineTo(-0.068, 0.07); forma.closePath();
-            const geo = new THREE.ExtrudeGeometry(forma, { depth: z1 - z0, bevelEnabled: false });
-            const canal = new THREE.Mesh(geo, matCanal);
-            canal.position.set(xC, yC, z0);
-            canal.name = 'canaleta';
-            modeloGroup.add(canal);
-            posicionesBajadas(z0 + 0.15, z1 - 0.15).forEach(zb => {
-              const tubo = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, Math.max(0.2, yC), 12), matCanal);
-              tubo.position.set(xC + al.hacia * 0.02, yC / 2, zb);
-              tubo.name = 'bajada';
-              modeloGroup.add(tubo);
-            });
-          });
-        }
-
         // VISTA DE NOCHE: luminarias encendidas bajo el techo
         if (modoIluminacion === 'noche') {
           const xs = coberturaProfile.map(q => q.x);
@@ -2972,6 +2946,73 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           modeloGroup.add(piso);
         }
       }
+    }
+
+    // 6a. CANALETAS Y BAJADAS: modelo (sección), bordes elegidos y bajada (tubo o gárgola).
+    if (mostrarCobertura && !movil && canaletaActiva(zonasCob) && !isHipRoof && !is6AguasRoof && !isDomeRoof) {
+      const cfg = cfgCanaleta(zonasCob);
+      const esPvc = cfg.material === 'pvc';
+      const matCanal = new THREE.MeshStandardMaterial({ color: esPvc ? 0xe2e8f0 : 0x9ca3af, metalness: esPvc ? 0.05 : 0.7, roughness: esPvc ? 0.6 : 0.35, side: THREE.DoubleSide });
+      // Sección (u = hacia afuera, v = arriba), abierta por arriba, 8 mm de espesor.
+      const seccion = (): THREE.Shape => {
+        const f = new THREE.Shape(), e = 0.008;
+        if (cfg.forma === 'media_cana') {
+          const r = 0.075, n = 14;
+          for (let i = 0; i <= n; i++) { const t = Math.PI + (Math.PI * i) / n; const p = [Math.cos(t) * r, r + Math.sin(t) * r]; i ? f.lineTo(p[0], p[1]) : f.moveTo(p[0], p[1]); }
+          for (let i = n; i >= 0; i--) { const t = Math.PI + (Math.PI * i) / n; f.lineTo(Math.cos(t) * (r - e), r + Math.sin(t) * (r - e)); }
+        } else if (cfg.forma === 'moldura') {
+          // Tipo K: espalda recta y frente con moldura (escalón y curva).
+          const pts: [number, number][] = [[-0.06, 0.11], [-0.06, 0], [0.05, 0], [0.065, 0.03], [0.055, 0.05], [0.075, 0.08], [0.07, 0.11]];
+          f.moveTo(...pts[0]); pts.slice(1).forEach(p => f.lineTo(...p));
+          [...pts].reverse().forEach(([u, v]) => f.lineTo(u + (u < 0 ? e : -e), v + (v < 0.005 ? e : 0)));
+        } else {
+          const w = cfg.forma === 'cajon' ? 0.13 : 0.075, h = cfg.forma === 'cajon' ? 0.16 : 0.1;
+          f.moveTo(-w, h); f.lineTo(-w * 0.85, 0); f.lineTo(w * 0.85, 0); f.lineTo(w, h);
+          f.lineTo(w - e, h); f.lineTo(w * 0.85 - e, e); f.lineTo(-w * 0.85 + e, e); f.lineTo(-w + e, h);
+        }
+        f.closePath();
+        return f;
+      };
+      const forma = seccion();
+      const bajo = cfg.forma === 'cajon' ? 0.17 : 0.12; // la canaleta queda bajo el borde de la plancha
+      tramosCanaleta(nodes as any, segments as any, cfg.lados).forEach(t => {
+        const fuera = new THREE.Vector3(t.afuera.x, 0, t.afuera.z).normalize();
+        for (let i = 0; i + 1 < t.pts.length; i++) {
+          let A = new THREE.Vector3(t.pts[i].x, t.pts[i].y - bajo, t.pts[i].z), B = new THREE.Vector3(t.pts[i + 1].x, t.pts[i + 1].y - bajo, t.pts[i + 1].z);
+          A.addScaledVector(fuera, 0.05); B.addScaledVector(fuera, 0.05);
+          let Z = new THREE.Vector3().subVectors(B, A); const L = Z.length(); if (L < 0.02) continue; Z.normalize();
+          const X = fuera.clone().addScaledVector(Z, -fuera.dot(Z)).normalize();
+          let Y = new THREE.Vector3().crossVectors(Z, X);
+          if (Y.y < 0) { [A, B] = [B, A]; Z.negate(); Y = new THREE.Vector3().crossVectors(Z, X); }
+          const g = new THREE.ExtrudeGeometry(forma, { depth: L, bevelEnabled: false, curveSegments: 1 });
+          const m = new THREE.Mesh(g, matCanal);
+          m.matrixAutoUpdate = false;
+          m.matrix.makeBasis(X, Y, Z).setPosition(A);
+          m.name = 'canaleta';
+          modeloGroup.add(m);
+        }
+        if (!t.caida) return;
+        // Bajadas: en los extremos y cada 10 m como máximo.
+        const A = t.pts[0], B = t.pts[t.pts.length - 1];
+        const L = Math.hypot(B.x - A.x, B.z - A.z);
+        posicionesBajadas(0.15, Math.max(0.3, L - 0.15)).forEach(d => {
+          const k = d / Math.max(0.01, L);
+          const x = A.x + (B.x - A.x) * k + fuera.x * 0.05, z = A.z + (B.z - A.z) * k + fuera.z * 0.05, y = A.y + (B.y - A.y) * k - bajo;
+          if (cfg.bajada === 'gargola') {
+            // Gárgola: tubo corto hacia afuera, el agua cae libre.
+            const gg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.4, 12), matCanal);
+            gg.position.set(x + fuera.x * 0.2, y + 0.01, z + fuera.z * 0.2);
+            gg.rotation.set(fuera.z ? Math.PI / 2 - 0.15 * Math.sign(fuera.z) : 0, 0, fuera.x ? Math.PI / 2 + 0.15 * Math.sign(fuera.x) : 0);
+            gg.name = 'gargola';
+            modeloGroup.add(gg);
+          } else {
+            const tubo = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, Math.max(0.2, y), 12), matCanal);
+            tubo.position.set(x, y / 2, z);
+            tubo.name = 'bajada';
+            modeloGroup.add(tubo);
+          }
+        });
+      });
     }
 
     // 6b. Sobretecho de cada tanque elevado (techito propio sobre el tanque)
@@ -3523,6 +3564,48 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       )}
 
       {/* PANEL TECHO MOVIBLE */}
+      {panelCanaleta && (() => {
+        const cfg = cfgCanaleta(zonasCob);
+        const guardar = (p: Partial<typeof cfg>) => {
+          const ok = engineState?.setCanaleta?.({ ...cfg, ...p });
+          if (!ok) alert('Este diseño no tiene correas para colocar la cobertura: agrégalas o usa el Asistente.');
+          else setMostrarCobertura(true);
+        };
+        const chip = (activo: boolean) => `px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${activo ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`;
+        return (
+          <div className="absolute left-2 right-16 sm:left-3 sm:right-auto sm:w-[340px] bottom-2 sm:bottom-14 z-30 max-h-[58%] overflow-y-auto bg-white/97 backdrop-blur border border-slate-200 rounded-2xl shadow-2xl p-2.5 sm:p-3 space-y-2.5 text-slate-800"
+            onPointerDown={e => e.stopPropagation()} onWheel={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-black text-sky-800 uppercase flex items-center gap-1.5"><Droplets className="w-4 h-4" /> Canaletas y bajadas</p>
+              <button onClick={() => setPanelCanaleta(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
+            </div>
+            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+              <input type="checkbox" checked={cfg.activa} onChange={e => guardar({ activa: e.target.checked })} className="w-4 h-4 accent-sky-600" /> El techo lleva canaletas
+            </label>
+            {cfg.activa && (<>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase">Modelo</p>
+                <div className="flex flex-wrap gap-1.5">{(Object.keys(NOMBRE_FORMA) as (keyof typeof NOMBRE_FORMA)[]).map(k => <button key={k} onClick={() => guardar({ forma: k })} className={chip(cfg.forma === k)}>{NOMBRE_FORMA[k]}</button>)}</div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase">Material</p>
+                <div className="flex gap-1.5">{(['galvanizada', 'pvc'] as const).map(k => <button key={k} onClick={() => guardar({ material: k })} className={chip(cfg.material === k)}>{k === 'pvc' ? 'PVC' : 'Galvanizada'}</button>)}</div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase">Dónde va</p>
+                <div className="flex flex-wrap gap-1.5">{(Object.keys(NOMBRE_LADOS) as (keyof typeof NOMBRE_LADOS)[]).map(k => <button key={k} onClick={() => guardar({ lados: k })} className={chip(cfg.lados === k)}>{NOMBRE_LADOS[k]}</button>)}</div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase">Cómo baja el agua</p>
+                <div className="flex flex-wrap gap-1.5">{(Object.keys(NOMBRE_BAJADA) as (keyof typeof NOMBRE_BAJADA)[]).map(k => <button key={k} onClick={() => guardar({ bajada: k })} className={chip(cfg.bajada === k)}>{NOMBRE_BAJADA[k]}</button>)}</div>
+                <p className="text-[10px] text-slate-500">El tubo baja por su cuenta (se sujeta con abrazaderas a la columna o al muro); no hace falta una columna metálica.</p>
+              </div>
+            </>)}
+            <p className="text-[10px] text-slate-500 bg-sky-50 rounded-lg p-2">Se guarda con el diseño y suma canaleta, soportes, esquineros, bajadas o gárgolas al presupuesto (precios en Catálogo de precios).</p>
+          </div>
+        );
+      })()}
+
       {panelMovil && (() => {
         const base: TechoMovil = movil || { tipo: 'corredizo', panos: 3, accionamiento: 'manual', abreHacia: 'inicio' };
         const cambiar = (p: Partial<TechoMovil>) => guardarMovil({ ...base, ...p });
@@ -3728,7 +3811,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
           {/* Techo movible (corredizo, plegable o de lamas) */}
           <button
-            onClick={() => setPanelMovil(v => !v)}
+            onClick={() => { setPanelMovil(v => !v); setPanelCanaleta(false); }}
             className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${
               panelMovil || movil ? 'bg-teal-600 text-white border-teal-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
             }`}
@@ -3742,9 +3825,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           {/* Canaletas y bajadas de agua */}
           {(() => { const activa = canaletaActiva(zonasCob); return (
             <button
-              onClick={() => { const ok = engineState?.setCanaleta?.({ activa: !activa }); if (!ok) alert('Este diseño no tiene correas para colocar la cobertura: agrégalas o usa el Asistente.'); else setMostrarCobertura(true); }}
+              onClick={() => { setPanelCanaleta(v => !v); setPanelMovil(false); }}
               className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${activa ? 'bg-sky-600 text-white border-sky-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
-              title={activa ? 'Canaletas y bajadas: activas (clic para quitar)' : 'Poner canaletas y bajadas de agua'}
+              title="Canaletas y bajadas: modelo, dónde van y cómo baja el agua"
             >
               <Droplets className="w-4 h-4" />
               <span className="hidden xl:inline text-[11px] font-bold">Canaletas</span>

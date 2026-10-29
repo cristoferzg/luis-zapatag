@@ -244,7 +244,7 @@ export function generarReportePresupuestoBom(
   const costoTensoresSoles = tensores.reduce((x, l) => x + l.subtotal, 0);
   const mecanismoMovil = metradoMovil(nodes, coverageZones);
   const costoMovilSoles = mecanismoMovil.reduce((x, l) => x + l.subtotal, 0);
-  const canaletas = metradoCanaletas(nodes, coverageZones);
+  const canaletas = metradoCanaletas(nodes, coverageZones, segments);
   const costoCanaletasSoles = canaletas.reduce((x, l) => x + l.subtotal, 0);
   const iluminacionLed = metradoLed(nodes, segments);
   const costoLedSoles = iluminacionLed.reduce((x, l) => x + l.subtotal, 0);

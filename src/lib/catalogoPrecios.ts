@@ -117,6 +117,7 @@ function construirItems(): ItemCatalogo[] {
     ['agua:bajada_galv', 'Bajada (tubo) galvanizada', 'm'], ['agua:bajada_pvc', 'Bajada (tubo) de PVC 3"', 'm'],
     ['agua:soporte', 'Soporte de canaleta', 'unidad'], ['agua:tapa', 'Tapa de canaleta', 'unidad'], ['agua:embudo', 'Embudo / salida de canaleta', 'unidad'],
     ['agua:abrazadera', 'Abrazadera para bajada', 'unidad'], ['agua:codo', 'Codo para bajada', 'unidad'],
+    ['agua:esquinero', 'Esquinero de canaleta', 'unidad'], ['agua:gargola', 'Gárgola / salida libre de canaleta', 'unidad'],
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
   // Iluminación LED en vigas (sol y sombra / pérgola)
   ([

@@ -5,9 +5,66 @@
 // en el 3D y suman su metrado al presupuesto. Se pueden apagar por diseño
 // (campo opcional `canaleta` en la cobertura principal).
 // =============================================================================
-import type { Node3D, CoverageZone3D } from './techosCadEngineTypes';
+import type { Node3D, Segment3D, CoverageZone3D, CanaletaCfg, FormaCanaleta, LadosCanaleta, BajadaCanaleta } from './techosCadEngineTypes';
 import { precio, itemCatalogo } from '../../lib/catalogoPrecios';
 import { zonaPrincipal } from './mecanismoMovil';
+import { panoUnaAgua } from './coberturaAuto';
+
+export const NOMBRE_FORMA: Record<FormaCanaleta, string> = { rectangular: 'Rectangular (U)', media_cana: 'Media caña (redonda)', moldura: 'Moldura / cornisa (K)', cajon: 'Cajón (canal ancho)' };
+export const NOMBRE_LADOS: Record<LadosCanaleta, string> = { caida: 'Solo en el borde de la caída', caida_lados: 'Caída y los costados', perimetro: 'Todo el borde del techo' };
+export const NOMBRE_BAJADA: Record<BajadaCanaleta, string> = { tubo: 'Tubo de bajada hasta el piso', gargola: 'Gárgola (chorro libre, sin tubo)' };
+export const cfgCanaleta = (zonas: Record<string, CoverageZone3D>): Required<CanaletaCfg> => {
+  const c = zonaPrincipal(zonas)?.canaleta;
+  return { activa: c?.activa !== false, material: c?.material || 'galvanizada', forma: c?.forma || 'rectangular', lados: c?.lados || 'caida', bajada: c?.bajada || 'tubo' };
+};
+
+type P3 = { x: number; y: number; z: number };
+/** Un tramo de canaleta: puntos a lo largo del borde (altura del borde de la plancha),
+ *  hacia dónde queda "afuera" (horizontal) y si es el borde de la caída (lleva bajadas). */
+export interface TramoCanaleta { pts: P3[]; afuera: { x: number; z: number }; caida: boolean }
+
+/** Bordes del techo que llevan canaleta según `lados`. Sirve para el 3D y el metrado. */
+export function tramosCanaleta(nodes: Record<string, Node3D>, segments: Record<string, Segment3D> | undefined, lados: LadosCanaleta): TramoCanaleta[] {
+  const V = VUELO_ALERO_M;
+  const out: TramoCanaleta[] = [];
+  const pl = segments ? panoUnaAgua(nodes, segments) : null;
+  if (pl && Math.abs(pl.b) > 0.02 && Math.abs(pl.b) > Math.abs(pl.a)) {
+    // Techo de una agua que cae a lo largo (Z).
+    const [P0, P1, , P3] = pl.pts;
+    const x0 = Math.min(P0.x, P1.x), x1 = Math.max(P0.x, P1.x), z0 = P0.z, z1 = P3.z;
+    const y = (x: number, z: number) => P0.y + (x - P0.x) * pl.a + (z - z0) * pl.b;
+    const bajaEnZ1 = P3.y < P0.y;
+    const zb = bajaEnZ1 ? z1 + V : z0 - V, za = bajaEnZ1 ? z0 : z1;
+    out.push({ pts: [{ x: x0, y: y(x0, zb), z: zb }, { x: x1, y: y(x1, zb), z: zb }], afuera: { x: 0, z: bajaEnZ1 ? 1 : -1 }, caida: true });
+    if (lados !== 'caida') {
+      [x0, x1].forEach((x, i) => out.push({ pts: [{ x, y: y(x, za), z: za }, { x, y: y(x, zb), z: zb }], afuera: { x: i ? 1 : -1, z: 0 }, caida: false }));
+    }
+    if (lados === 'perimetro') out.push({ pts: [{ x: x0, y: y(x0, za), z: za }, { x: x1, y: y(x1, za), z: za }], afuera: { x: 0, z: bajaEnZ1 ? -1 : 1 }, caida: false });
+    return out;
+  }
+  // Techo que cae a lo ancho (X): perfil superior por x, a lo largo de Z.
+  const perfil = perfilSuperior(nodes);
+  if (perfil.length < 2) return [];
+  const zs = Object.values(nodes).map(n => n.z || 0);
+  const zMin = Math.min(...zs) - V, zMax = Math.max(...zs) + V;
+  const aleros = alerosConCanaleta(perfil);
+  aleros.forEach(al => {
+    const x = al.x + al.hacia * V;
+    out.push({ pts: [{ x, y: al.y, z: zMin }, { x, y: al.y, z: zMax }], afuera: { x: al.hacia, z: 0 }, caida: true });
+  });
+  if (lados !== 'caida') {
+    // Costados (frente y fondo): siguen el perfil del techo.
+    [zMin, zMax].forEach((z, i) => out.push({ pts: perfil.map(p => ({ x: p.x, y: p.y, z })), afuera: { x: 0, z: i ? 1 : -1 }, caida: false }));
+  }
+  if (lados === 'perimetro' && aleros.length === 1) {
+    const a = perfil[0], b = perfil[perfil.length - 1];
+    const alto = aleros[0].hacia < 0 ? b : a, hacia = aleros[0].hacia < 0 ? 1 : -1;
+    out.push({ pts: [{ x: alto.x + hacia * V, y: alto.y, z: zMin }, { x: alto.x + hacia * V, y: alto.y, z: zMax }], afuera: { x: hacia, z: 0 }, caida: false });
+  }
+  return out;
+}
+
+const largoTramo = (t: TramoCanaleta) => t.pts.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - t.pts[i].x, p.y - t.pts[i].y, p.z - t.pts[i].z), 0);
 
 export const MAX_TRAMO_BAJADA_M = 10;
 export const VUELO_ALERO_M = 0.30;
@@ -47,31 +104,37 @@ export function posicionesBajadas(z0: number, z1: number): number[] {
 
 export interface LineaCanaleta { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }
 
-export function metradoCanaletas(nodes: Record<string, Node3D>, zonas: Record<string, CoverageZone3D>): LineaCanaleta[] {
+export function metradoCanaletas(nodes: Record<string, Node3D>, zonas: Record<string, CoverageZone3D>, segments?: Record<string, Segment3D>): LineaCanaleta[] {
   if (!canaletaActiva(zonas)) return [];
-  const ns = Object.values(nodes || {});
-  if (ns.length < 2) return [];
-  const zs = ns.map(n => n.z || 0);
-  const largo = Math.max(...zs) - Math.min(...zs) + 2 * VUELO_ALERO_M;
-  const aleros = alerosConCanaleta(perfilSuperior(nodes));
-  if (!aleros.length || largo < 0.5) return [];
-  const bajadasPorLado = posicionesBajadas(0, largo).length;
-  const bajadas = bajadasPorLado * aleros.length;
-  const alturaProm = aleros.reduce((s, a) => s + a.y, 0) / aleros.length;
-  const tipo = zonaPrincipal(zonas)?.canaleta?.material || 'galvanizada';
+  if (Object.keys(nodes || {}).length < 2) return [];
+  const cfg = cfgCanaleta(zonas);
+  const tramos = tramosCanaleta(nodes, segments, cfg.lados);
+  const caidas = tramos.filter(t => t.caida);
+  if (!caidas.length) return [];
+  const largoTotal = tramos.reduce((s, t) => s + largoTramo(t), 0);
+  if (largoTotal < 0.5) return [];
+  const bajadas = caidas.reduce((n, t) => n + posicionesBajadas(0, largoTramo(t)).length, 0);
+  const alturaProm = caidas.reduce((s, t) => s + t.pts[0].y, 0) / caidas.length;
+  const tipo = cfg.material;
   const out: LineaCanaleta[] = [];
   const add = (clave: string, cantidad: number, nota: string) => {
     if (cantidad <= 0) return;
     const it = itemCatalogo(clave); const p = precio(clave);
     out.push({ clave, nombre: it?.nombre || clave, unidad: it?.unidad || 'und', cantidad, precio: p, subtotal: cantidad * p, nota });
   };
-  const mCanaleta = Math.ceil(largo * aleros.length * 1.05 * 10) / 10;
-  add(tipo === 'pvc' ? 'agua:canaleta_pvc' : 'agua:canaleta_galv', mCanaleta, `${aleros.length} lado${aleros.length > 1 ? 's' : ''} × ${largo.toFixed(2)} m + 5 %`);
-  add('agua:soporte', Math.ceil(largo / 0.8) * aleros.length, 'un soporte cada 80 cm');
-  add('agua:tapa', 2 * aleros.length, 'tapa en cada extremo');
-  add('agua:embudo', bajadas, 'salida de canaleta a bajada');
-  add(tipo === 'pvc' ? 'agua:bajada_pvc' : 'agua:bajada_galv', Math.ceil(bajadas * (alturaProm + 0.3) * 10) / 10, `${bajadas} bajadas de ${alturaProm.toFixed(2)} m (una cada ${MAX_TRAMO_BAJADA_M} m como máximo)`);
-  add('agua:abrazadera', bajadas * Math.max(2, Math.ceil(alturaProm / 1.2)), 'abrazadera cada 1.20 m');
-  add('agua:codo', bajadas * 2, '2 codos por bajada');
+  const mCanaleta = Math.ceil(largoTotal * 1.05 * 10) / 10;
+  add(tipo === 'pvc' ? 'agua:canaleta_pvc' : 'agua:canaleta_galv', mCanaleta, `${NOMBRE_FORMA[cfg.forma]} · ${NOMBRE_LADOS[cfg.lados].toLowerCase()} · ${largoTotal.toFixed(2)} m + 5 %`);
+  add('agua:soporte', tramos.reduce((n, t) => n + Math.ceil(largoTramo(t) / 0.8), 0), 'un soporte cada 80 cm');
+  // Tapas en los extremos abiertos: todo el borde no tiene; con costados quedan 2 por caída en la parte alta.
+  add('agua:tapa', cfg.lados === 'perimetro' ? 0 : 2 * caidas.length, 'tapa en cada extremo');
+  if (cfg.lados !== 'caida') add('agua:esquinero', cfg.lados === 'perimetro' ? 4 : 2 * caidas.length, 'unión en las esquinas');
+  if (cfg.bajada === 'gargola') {
+    add('agua:gargola', bajadas, 'salida libre del agua (sin tubo de bajada)');
+  } else {
+    add('agua:embudo', bajadas, 'salida de canaleta a bajada');
+    add(tipo === 'pvc' ? 'agua:bajada_pvc' : 'agua:bajada_galv', Math.ceil(bajadas * (alturaProm + 0.3) * 10) / 10, `${bajadas} bajadas de ${alturaProm.toFixed(2)} m (una cada ${MAX_TRAMO_BAJADA_M} m como máximo)`);
+    add('agua:abrazadera', bajadas * Math.max(2, Math.ceil(alturaProm / 1.2)), 'abrazadera cada 1.20 m (a columna o muro)');
+    add('agua:codo', bajadas * 2, '2 codos por bajada');
+  }
   return out;
 }
