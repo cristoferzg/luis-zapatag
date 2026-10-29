@@ -5,6 +5,48 @@ import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 type NodoMin = { id: string; x: number; y: number; z: number; nodeLabel?: string };
 type SegMin = { id: string; nodeAId: string; nodeBId: string; rolEstructural: string };
 
+// Techo de UNA sola agua (plano), aunque se haya armado a mano con correas un
+// poco más bajas que las vigas: se ajusta un plano a lo más alto de la
+// estructura (vigas, correas y cordones, muestreados cada 0.5 m; fuera columnas,
+// tanques y el marco bajo a media altura) y se sube hasta quedar encima de todo.
+// Devuelve las 4 esquinas en planta del techo con su altura, o null si no es un
+// solo plano (dos aguas, curvo…). `a` y `b`: pendiente en X y en Z.
+export function panoUnaAgua(nodes: Record<string, { x: number; y: number; z?: number; nodeLabel?: string } | undefined>, segments: Record<string, { id: string; nodeAId: string; nodeBId: string; rolEstructural?: string }>): { pts: { x: number; y: number; z: number }[]; a: number; b: number } | null {
+  const muestras: { x: number; y: number; z: number }[] = [];
+  Object.values(segments).forEach(s => {
+    if (/^tq[0-9a-z]+_/.test(s.id) || /columna|tensor|arriostre|diagonal|montante/.test(s.rolEstructural || '')) return;
+    const A = nodes[s.nodeAId], B = nodes[s.nodeBId];
+    if (!A || !B || /^TQ/.test(A.nodeLabel || '')) return;
+    const L = Math.hypot(B.x - A.x, B.y - A.y, (B.z || 0) - (A.z || 0));
+    const k = Math.max(1, Math.ceil(L / 0.5));
+    for (let i = 0; i <= k; i++) {
+      const t = i / k;
+      muestras.push({ x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t, z: (A.z || 0) + ((B.z || 0) - (A.z || 0)) * t });
+    }
+  });
+  const top = muestras.filter(p => !muestras.some(q => q.y > p.y + 0.3 && Math.hypot(q.x - p.x, q.z - p.z) < 0.3));
+  if (top.length < 6) return null;
+  const n = top.length;
+  const m = (f: (p: { x: number; y: number; z: number }) => number) => top.reduce((s, p) => s + f(p), 0) / n;
+  const mx = m(p => p.x), mz = m(p => p.z), my = m(p => p.y);
+  const sxx = m(p => (p.x - mx) ** 2), szz = m(p => (p.z - mz) ** 2), sxz = m(p => (p.x - mx) * (p.z - mz));
+  const sxy = m(p => (p.x - mx) * (p.y - my)), szy = m(p => (p.z - mz) * (p.y - my));
+  const det = sxx * szz - sxz * sxz;
+  if (Math.abs(det) < 1e-6) return null;
+  const a = (sxy * szz - szy * sxz) / det, b = (szy * sxx - sxy * sxz) / det, c = my - a * mx - b * mz;
+  const res = top.map(p => p.y - (a * p.x + b * p.z + c));
+  if (Math.max(...res) - Math.min(...res) > 0.35) return null;
+  const sube = Math.max(0, ...res);
+  const xs = top.map(p => p.x), zs = top.map(p => p.z);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+  if (x1 - x0 < 0.5 || z1 - z0 < 0.5) return null;
+  // Rectangular en planta: cada esquina tiene estructura cerca (un techo en L no).
+  const esquinas = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+  if (!esquinas.every(([ex, ez]) => top.some(p => Math.hypot(p.x - ex, p.z - ez) < 0.8))) return null;
+  const y =(x: number, z: number) => a * x + b * z + c + sube;
+  return { a, b, pts: [{ x: x0, y: y(x0, z0), z: z0 }, { x: x1, y: y(x1, z0), z: z0 }, { x: x1, y: y(x1, z1), z: z1 }, { x: x0, y: y(x0, z1), z: z1 }] };
+}
+
 // Polígonos de cobertura (ids de nodos en orden) que cubren las correas.
 // Entre cada correa y la vecina más cercana a cada lado se forma una franja;
 // las franjas en el mismo plano se unen en una sola zona (un agua, dos aguas…).

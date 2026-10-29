@@ -17,7 +17,7 @@ import { EstructuraTechos, contextosObra } from './concreto/obraPisos';
 import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, MallaCielo, esNodoTanque,
   CapaEstructura, capaDeRol, CAPAS, Sobrepecho } from './concreto/geometriaObra';
 import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
-import { coberturaDesdeCorreas } from './techos/coberturaAuto';
+import { coberturaDesdeCorreas, panoUnaAgua } from './techos/coberturaAuto';
 import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
 import { grabarCanvas, puedeGrabar } from '../lib/grabarVideo';
 import { perfilTechos } from './techos/tensores';
@@ -339,11 +339,17 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           perfil3d(a, b, p, acero, sg.anguloRotacionGrados);
         });
         // Coberturas guardadas; si el diseño no tiene, se deducen de las correas.
-        const zonas = Object.values(est.coverageZones || {}).map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId }));
-        if (!zonas.some(z => !z.ids.some(id => esNodoTanque(N[id])))) coberturaDesdeCorreas(N, est.segments || {}).forEach(p => zonas.push({ ids: p.ids, mat: 'cob_aluzinc_030' }));
+        const zonas: { ids: string[]; mat: string; pts?: { x: number; y: number; z: number }[] }[] = Object.values(est.coverageZones || {}).map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId }));
+        if (!zonas.some(z => !z.ids.some(id => esNodoTanque(N[id])))) {
+          // Techo de una agua: un solo paño apoyado encima de vigas y correas.
+          const pl = panoUnaAgua(N, est.segments || {});
+          if (pl) zonas.push({ ids: [], pts: pl.pts, mat: 'cob_aluzinc_030' });
+          else coberturaDesdeCorreas(N, est.segments || {}).forEach(p => zonas.push({ ids: p.ids, mat: 'cob_aluzinc_030' }));
+        }
         zonas.forEach(z => {
-          if (!conTecho || z.ids.some(id => (N[id]?.y ?? 0) > yCorte + 0.06)) return;
-          const pts = z.ids.map(id => N[id]).filter(Boolean).map(n => new THREE.Vector3(n.x, n.y + 0.06, n.z));
+          const nodos = z.pts || z.ids.map(id => N[id]).filter(Boolean);
+          if (!conTecho || nodos.some(n => (n?.y ?? 0) > yCorte + 0.06)) return;
+          const pts = nodos.map(n => new THREE.Vector3(n.x, n.y + 0.06, n.z));
           if (pts.length < 3) return;
           const pos: number[] = [], uv: number[] = [];
           for (let i = 1; i < pts.length - 1; i++) [pts[0], pts[i], pts[i + 1]].forEach(v => { pos.push(v.x, v.y, v.z); uv.push(v.x / 1.1, v.z / 1.1); });

@@ -35,7 +35,8 @@ import {
   MoreHorizontal, Undo2, Redo2, Camera,
   Image as ImageIcon,
   Droplets,
-  Compass
+  Compass,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
@@ -53,6 +54,7 @@ import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64, OPCIONES_PLANO
 import { safeStorage } from '../../lib/storageManager';
 import { checkAIAccess, iaVisibleParaUI, motivoErrorIA, getAICtx } from '../../lib/aiAccess';
 import PlanesIAModal from '../PlanesIAModal';
+import TechosRevisionPanel, { useRevisionDiseno } from './TechosRevisionPanel';
 import { 
   getSegmentColorHex, 
   TipoTijeral, 
@@ -307,6 +309,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
+  // Revisar diseño: nodos repetidos, perfiles duplicados, extremos que no conectan.
+  const [showRevision, setShowRevision] = useState(false);
+  const nProblemas = useRevisionDiseno(engineState).length;
   // Llega desde la Calculadora con medidas: se abre el Asistente con ellas.
   useEffect(() => { try { if (localStorage.getItem('innova_cotizador_a_techos')) setShowNovatosWizard(true); } catch { /* nada */ } }, []);
   const [showColumnasExactas, setShowColumnasExactas] = useState<boolean>(false);
@@ -1590,6 +1595,19 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             )}
           </div>
 
+          {/* BOTÓN REVISAR DISEÑO (elementos sueltos o duplicados) */}
+          {Object.keys(engineState?.segments || {}).length > 0 && (
+            <button
+              onClick={() => setShowRevision(v => !v)}
+              className={`relative p-1 sm:px-2.5 sm:py-1 rounded-lg font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0 border ${nProblemas ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'}`}
+              title="Revisar diseño: elementos que no conectan o están duplicados"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden xl:inline text-xs font-black">Revisar</span>
+              {nProblemas > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center">{nProblemas}</span>}
+            </button>
+          )}
+
           {/* BOTÓN ASISTENTE 1-CLIC */}
           <button
             onClick={() => setShowNovatosWizard(true)}
@@ -2566,6 +2584,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {/* ------------------------------------------------------------- */}
         {/* MODAL: COLUMNAS POR MEDIDAS EXACTAS */}
         {/* ------------------------------------------------------------- */}
+        {showRevision && engineState && <TechosRevisionPanel engineState={engineState} onClose={() => setShowRevision(false)} />}
+
         {showCobTanque && engineState && (
           <TechosCoberturaTanqueModal engineState={engineState} modo={showCobTanque} onClose={() => setShowCobTanque(null)} />
         )}

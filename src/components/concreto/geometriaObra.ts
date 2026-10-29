@@ -4,7 +4,7 @@ import type { PlanoElem } from '../ConcretoPlanoCad';
 import type { EstructuraTechos } from './obraPisos';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from '../techos/techosCadCatalog';
 import { modeloTensor } from '../techos/tensores';
-import { coberturaDesdeCorreas, TANQUES_ROTOPLAS } from '../techos/coberturaAuto';
+import { coberturaDesdeCorreas, panoUnaAgua, TANQUES_ROTOPLAS } from '../techos/coberturaAuto';
 import { precio, precioBarraPerfil, claveCobertura } from '../../lib/catalogoPrecios';
 
 export const NKp = (x: number, y: number) => `${Math.round(x * 1000)}_${Math.round(y * 1000)}`;
@@ -61,8 +61,12 @@ export function poligonosTecho(est: EstructuraTechos, sinTanques = false): { x: 
   const N = est.nodes || {};
   const zonas = Object.values(est.coverageZones || {}).map(z => z.nodeIdsBoundary || []).filter(l => !sinTanques || !l.some(id => esNodoTanque(N[id] as any)));
   const propias = zonas.filter(l => !l.some(id => esNodoTanque(N[id] as any)));
-  const ids = propias.length ? zonas : [...zonas, ...coberturaDesdeCorreas(N, est.segments || {}).map(p => p.ids)];
-  return ids.map(l => l.map(id => N[id]).filter(Boolean).map(n => ({ x: n.x, y: n.y, z: n.z }))).filter(p => p.length >= 3);
+  const aPuntos = (ls: string[][]) => ls.map(l => l.map(id => N[id]).filter(Boolean).map(n => ({ x: n.x, y: n.y, z: n.z }))).filter(p => p.length >= 3);
+  if (propias.length) return aPuntos(zonas);
+  // Sin coberturas propias: techo de una agua como un solo paño (encima de vigas y correas).
+  const pl = panoUnaAgua(N as any, (est.segments || {}) as any);
+  if (pl) return [...aPuntos(zonas), pl.pts];
+  return aPuntos([...zonas, ...coberturaDesdeCorreas(N, est.segments || {}).map(p => p.ids)]);
 }
 
 function trianglesCobertura(est: EstructuraTechos): Tri[] {

@@ -73,6 +73,7 @@ export interface UseTechosCadEngineReturn {
 
   // Carga de Proyecto Guardado y Carga de Escena Completa
   loadScene: (loadedNodes: Record<string, Node3D>, loadedSegments: Record<string, Segment3D>, loadedZones?: Record<string, CoverageZone3D>) => void;
+  replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
 
   // Operaciones Vectoriales de Trazado Libre
   addNode: (x: number, y: number, z?: number, isFixed?: boolean, exact?: boolean) => string;
@@ -556,6 +557,13 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setHistory([{ nodes: n, segments: s, coverageZones: z }]);
     setHistoryIndex(0);
   }, []);
+
+  // Reemplaza toda la escena guardando historial (se puede deshacer). Lo usa la revisión del diseño.
+  const replaceScene = useCallback((n: Record<string, Node3D>, sg: Record<string, Segment3D>, z: Record<string, CoverageZone3D>) => {
+    setNodes(n); setSegments(sg); setCoverageZones(z);
+    setSelectedElementIds([]);
+    pushHistory(n, sg, z);
+  }, [pushHistory]);
 
   // Operación: Agregar Rectángulo de Cuatro Nodos
   const addRectangle = useCallback((x1: number, y1: number, x2: number, y2: number, rolEstructural: RolEstructuralSegmento = 'viga_principal') => {
@@ -4313,6 +4321,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     deleteSelectedElements,
     clearScene,
     loadScene,
+    replaceScene,
     assignProfileToSelectedSegments,
     assignCoverageToSelectedZones,
     setTechoMovil,

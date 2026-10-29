@@ -6,6 +6,7 @@
 // e Iluminación Simplificada en 2 Modos Únicos: Claro y Oscuro
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
+import { panoUnaAgua } from './coberturaAuto';
 import { 
   RotateCw, 
   Plus, 
@@ -2738,35 +2739,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // cordones, muestreados cada 0.5 m) y la cobertura se apoya encima de todo.
     const panoLargo: THREE.Vector3[] | null = (() => {
       if (isHipRoof || is6AguasRoof || isDomeRoof || movil) return null;
-      const muestras: THREE.Vector3[] = [];
-      Object.values(segments).forEach(s => {
-        if (esDeTanque(s.id) || /columna|tensor|arriostre|diagonal|montante/.test(s.rolEstructural || '')) return;
-        const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
-        if (!a || !b) return;
-        const A = new THREE.Vector3(a.x, a.y, a.z || 0), B = new THREE.Vector3(b.x, b.y, b.z || 0);
-        const k = Math.max(1, Math.ceil(A.distanceTo(B) / 0.5));
-        for (let i = 0; i <= k; i++) muestras.push(A.clone().lerp(B, i / k));
-      });
-      // Solo lo más alto de cada lugar (fuera el marco bajo a media altura).
-      const top = muestras.filter(p => !muestras.some(q => q.y > p.y + 0.3 && Math.hypot(q.x - p.x, q.z - p.z) < 0.3));
-      if (top.length < 6) return null;
-      // Mínimos cuadrados y = a·x + b·z + c
-      const n = top.length;
-      const m = (f: (p: THREE.Vector3) => number) => top.reduce((s, p) => s + f(p), 0) / n;
-      const mx = m(p => p.x), mz = m(p => p.z), my = m(p => p.y);
-      const sxx = m(p => (p.x - mx) ** 2), szz = m(p => (p.z - mz) ** 2), sxz = m(p => (p.x - mx) * (p.z - mz));
-      const sxy = m(p => (p.x - mx) * (p.y - my)), szy = m(p => (p.z - mz) * (p.y - my));
-      const det = sxx * szz - sxz * sxz;
-      if (Math.abs(det) < 1e-6) return null;
-      const a = (sxy * szz - szy * sxz) / det, b = (szy * sxx - sxy * sxz) / det, c = my - a * mx - b * mz;
-      const res = top.map(p => p.y - (a * p.x + b * p.z + c));
-      if (Math.max(...res) - Math.min(...res) > 0.35) return null; // no es un solo plano (dos aguas, etc.)
-      if (Math.abs(b) < 0.02 || Math.abs(b) <= Math.abs(a)) return null; // cae a lo ancho: lo resuelve el perfil
-      const sube = Math.max(0, ...res);
-      const xs = top.map(p => p.x), zs = top.map(p => p.z);
-      const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
-      const y = (x: number, z: number) => a * x + b * z + c + sube;
-      return [new THREE.Vector3(x0, y(x0, z0), z0), new THREE.Vector3(x1, y(x1, z0), z0), new THREE.Vector3(x1, y(x1, z1), z1), new THREE.Vector3(x0, y(x0, z1), z1)];
+      const pl = panoUnaAgua(nodes, segments);
+      if (!pl || Math.abs(pl.b) < 0.02 || Math.abs(pl.b) <= Math.abs(pl.a)) return null; // cae a lo ancho: lo resuelve el perfil
+      return pl.pts.map(p => new THREE.Vector3(p.x, p.y, p.z));
     })();
 
     // 6. RENDERIZADO DE COBERTURA ALUZINC ADAPTADA EXACTAMENTE A LA ESTRUCTURA
