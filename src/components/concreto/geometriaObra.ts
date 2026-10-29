@@ -12,12 +12,18 @@ export const NKp = (x: number, y: number) => `${Math.round(x * 1000)}_${Math.rou
 // ---------------------------------------------------------------------------
 // Aberturas (puertas / ventanas / vanos)
 // ---------------------------------------------------------------------------
-export type TipoAbertura = 'puerta' | 'puerta_doble' | 'ventana' | 'ventana_alta' | 'mampara' | 'vano';
+export type TipoAbertura = 'puerta' | 'puerta_doble' | 'puerta_bano' | 'puerta_corrediza' | 'porton' | 'ventana' | 'ventana_corrediza' | 'ventana_cocina' | 'ventanal' | 'ventana_alta' | 'mampara' | 'vano';
 
 export const PRESETS_ABERTURA: Record<TipoAbertura, { nombre: string; w: number; h: number; sill: number }> = {
   puerta: { nombre: 'Puerta', w: 0.9, h: 2.1, sill: 0 },
   puerta_doble: { nombre: 'Puerta doble', w: 1.6, h: 2.1, sill: 0 },
+  puerta_bano: { nombre: 'Puerta de baño', w: 0.7, h: 2.1, sill: 0 },
+  puerta_corrediza: { nombre: 'Puerta corrediza', w: 1.8, h: 2.1, sill: 0 },
+  porton: { nombre: 'Portón / cochera', w: 2.6, h: 2.4, sill: 0 },
   ventana: { nombre: 'Ventana', w: 1.2, h: 1.2, sill: 0.9 },
+  ventana_corrediza: { nombre: 'Ventana corrediza', w: 1.5, h: 1.2, sill: 0.9 },
+  ventana_cocina: { nombre: 'Ventana de cocina', w: 1.0, h: 0.8, sill: 1.1 },
+  ventanal: { nombre: 'Ventanal (piso a techo)', w: 2.4, h: 2.2, sill: 0 },
   ventana_alta: { nombre: 'Ventana alta (baño)', w: 0.6, h: 0.5, sill: 1.6 },
   mampara: { nombre: 'Mampara / vidrio', w: 2.0, h: 2.1, sill: 0 },
   vano: { nombre: 'Vano libre', w: 1.0, h: 2.1, sill: 0 },
@@ -35,8 +41,8 @@ export interface Abertura {
   obs?: string;          // observación que sale en la cotización
 }
 
-export const esPuerta = (t: TipoAbertura) => t === 'puerta' || t === 'puerta_doble';
-export const esVidrio = (t: TipoAbertura) => t === 'ventana' || t === 'ventana_alta' || t === 'mampara';
+export const esPuerta = (t: TipoAbertura) => t === 'puerta' || t === 'puerta_doble' || t === 'puerta_bano' || t === 'puerta_corrediza' || t === 'porton';
+export const esVidrio = (t: TipoAbertura) => t === 'ventana' || t === 'ventana_alta' || t === 'mampara' || t === 'ventana_corrediza' || t === 'ventana_cocina' || t === 'ventanal';
 
 export const largoMuro = (e: PlanoElem) => (e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0);
 

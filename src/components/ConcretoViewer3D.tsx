@@ -262,9 +262,12 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         // Hoja de puerta entreabierta / vidrio
         const matHoja = a.carpiId ? M2.metal : M2.puerta; // diseño de CarpiMetal: hoja metálica
         if (esPuerta(a.tipo)) {
-          const hojas = a.tipo === 'puerta_doble' ? [[i, (d - i) / 2, -0.55], [d, -(d - i) / 2, 0.55]] : [[i, d - i, -0.55]];
-          hojas.forEach(([x0, ancho, giro]) => {
-            const piv = new THREE.Group(); piv.position.set(x0, 0, esp / 2); piv.rotation.y = giro; grupo.add(piv);
+          // Corrediza: dos hojas cerradas, una delante de la otra. Doble / portón: dos hojas abiertas.
+          const corre = a.tipo === 'puerta_corrediza';
+          const hojas = corre ? [[i, (d - i) * 0.55, 0, 0.02], [d - (d - i) * 0.55, (d - i) * 0.55, 0, -0.04]]
+            : a.tipo === 'puerta_doble' || a.tipo === 'porton' ? [[i, (d - i) / 2, -0.55, 0], [d, -(d - i) / 2, 0.55, 0]] : [[i, d - i, -0.55, 0]];
+          hojas.forEach(([x0, ancho, giro, dz]) => {
+            const piv = new THREE.Group(); piv.position.set(x0, 0, (corre ? 0 : esp / 2) + dz); piv.rotation.y = giro; grupo.add(piv);
             const hoja = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(ancho), top - 0.01, 0.04), matHoja);
             hoja.position.set(ancho / 2, (top - 0.01) / 2, 0.02);
             conBordes(hoja, false, piv);
@@ -337,7 +340,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       const kCorte = corte ? obra.pisos.indexOf(corte) : -1;
       const pisoVisible = (n?: string) => kCorte < 0 || obra.pisos.indexOf(n || obra.pisos[0]) <= kCorte;
       const yCorte = kCorte >= 0 && obra.pisos[kCorte + 1] ? obra.ctx(obra.pisos[kCorte + 1]).base : Infinity;
-      const list = todos.filter(e => e.tipo !== 'muro' || pisoVisible(e.nivel));
+      const list = todos.filter(e => (e.tipo !== 'muro' && e.tipo !== 'placa') || pisoVisible(e.nivel));
 
       // ---- Estructura de Techos ----
       if (est) {
@@ -426,6 +429,10 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
               const t = r.paso * (i + 0.5), hh = r.cp * (i + 1);
               caja(r.paso, hh, e.a || 1, e.x1 + ux * t, base + hh / 2, e.y1 + uz * t, M.concreto, rotY);
             }
+          } else if (e.tipo === 'placa') {
+            // Placa de concreto: muro de concreto armado desde el piso de su nivel.
+            const altoP = e.H || 2.6;
+            caja(L, altoP, a, cx, obra.ctx(e.nivel).base + altoP / 2, cz, M.concreto, rotY);
           } else if (e.tipo === 'viga') caja(L, h, a, cx, vigaElev - h / 2, cz, M.concreto, rotY);
           else caja(L, h, a, cx, -h / 2, cz, M.cimiento, rotY);
         }

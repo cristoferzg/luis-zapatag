@@ -28,7 +28,7 @@ export function costoDisenoCarpi(d: HerreriaDesign): number {
 export function tipoAberturaDe(d: HerreriaDesign): TipoAbertura {
   switch (d.tipoElemento) {
     case 'puerta': return (d.numHojas || 1) > 1 ? 'puerta_doble' : 'puerta';
-    case 'porton': return 'puerta_doble';
+    case 'porton': return 'porton';
     case 'ventana': case 'reja': return 'ventana';
     case 'mampara': return 'mampara';
     default: return 'vano';
