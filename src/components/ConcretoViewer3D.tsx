@@ -468,7 +468,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
             // Placa de concreto: muro de concreto armado desde el piso de su nivel.
             const altoP = e.H || 2.6;
             caja(L, altoP, a, cx, obra.ctx(e.nivel).base + altoP / 2, cz, M.concreto, rotY);
-          } else if (e.tipo === 'viga') caja(L, h, a, cx, vigaElev - h / 2, cz, M.concreto, rotY);
+          } else if (e.tipo === 'viga') { if (obra.pisos.length > 1) caja(L, h, a, cx, vigaElev - h / 2, cz, M.concreto, rotY); } // vigas de concreto solo con 2.º piso
           else caja(L, h, a, cx, -h / 2, cz, M.cimiento, rotY);
         }
         })();

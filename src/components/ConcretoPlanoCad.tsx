@@ -867,12 +867,17 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   }, [elems, nivelMuro, catDrywall, catLadrillo, catOsb, obra]);
 
   // ---- Metrado total ----
+  // Vigas de concreto (aéreas): solo cuando la obra tiene segundo piso; con un piso
+  // el techo es metálico y esas vigas no se ven ni se cuentan.
+  const hayVigasAereas = pisos.length > 1;
+  const vigasSinUso = hayVigasAereas ? 0 : elems.filter(e => e.tipo === 'viga').length;
   const totales = useMemo(() => {
     let concretoM3 = 0, aceroKg = 0, encofradoM2 = 0;
     const metrosDiam: Record<string, number> = {};
     const porTipo: Record<string, { n: number; concreto: number; acero: number }> = {};
     elems.forEach(e => {
       if (e.tipo === 'muro') return;
+      if (e.tipo === 'viga' && !hayVigasAereas) return; // vigas de concreto solo con 2.º piso
       const r = calcElem(e);
       concretoM3 += r.concretoM3; aceroKg += r.aceroKg; encofradoM2 += r.encofradoM2;
       if (r.dist) for (const [d, frac] of Object.entries(r.dist)) {
@@ -891,7 +896,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     const cementoBolsas = concretoM3 * 9.5, arenaM3 = concretoM3 * 0.54, piedraM3 = concretoM3 * 0.55, aguaL = concretoM3 * 180;
     const costo = Math.ceil(cementoBolsas) * precios.cementoBolsa + arenaM3 * precios.arenaM3 + piedraM3 * precios.piedraM3 + aceroKg * precios.aceroKg + encofradoM2 * precios.encofradoM2 + costoLadrilloTecho;
     return { concretoM3, aceroKg, encofradoM2, cementoBolsas, arenaM3, piedraM3, aguaL, costo, varillas, porTipo, ladrillosTecho: [...ladrillosTecho.entries()] };
-  }, [elems, precios]);
+  }, [elems, precios, hayVigasAereas]);
 
   // Plano para AutoCAD (.DXF, en metros; una capa por tipo de elemento).
   const exportarDxf = () => {
@@ -1470,7 +1475,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 const wPx = Math.max(4, (e.a) * scale);
                 return (
                   <g key={e.uid} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
-                    <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={m.color} strokeWidth={wPx} strokeLinecap="round" opacity={0.85} />
+                    <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={m.color} strokeWidth={wPx} strokeLinecap="round" opacity={e.tipo === 'viga' && !hayVigasAereas ? 0.25 : 0.85} strokeDasharray={e.tipo === 'viga' && !hayVigasAereas ? '6 5' : undefined} />
                     {(sel || con) && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#0ea5e9" strokeWidth={wPx + 4} strokeLinecap="round" opacity={0.35} />}
                   </g>
                 );
@@ -2129,6 +2134,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           )}
           {!esDrywall && <>
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide">Metrado automático</h3>
+          {vigasSinUso > 0 && <p className="text-[10px] font-bold text-amber-700 bg-amber-50 rounded-lg px-2 py-1">{vigasSinUso} viga{vigasSinUso > 1 ? 's' : ''} de concreto no se muestra{vigasSinUso > 1 ? 'n' : ''} ni se cuenta{vigasSinUso > 1 ? 'n' : ''}: solo van cuando hay segundo piso (agrega un piso en la vista Lista).</p>}
           <div className="grid grid-cols-2 gap-2">
             {[['Concreto', `${totales.concretoM3.toFixed(2)} m³`], ['Acero', `${totales.aceroKg.toFixed(0)} kg`], ['Encofrado', `${totales.encofradoM2.toFixed(1)} m²`], ['Cemento', `${Math.ceil(totales.cementoBolsas)} bls`], ...(totales.ladrillosTecho.length ? [['Ladrillo de techo', `${totales.ladrillosTecho.reduce((x, [, n]) => x + n, 0)} und`]] : [])].map(([l, v]) => (
               <div key={l} className="bg-slate-50 border border-slate-100 rounded-xl p-2 text-center">
