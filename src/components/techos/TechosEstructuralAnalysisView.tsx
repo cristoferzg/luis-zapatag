@@ -15,7 +15,7 @@ import {
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
-import { propsPerfil, factorK, limitesLambda, seAnaliza, perfilRecomendado, perfilMasEconomico } from './propiedadesPerfil';
+import { propsPerfil, factorK, limitesLambda, seAnaliza, perfilRecomendado, perfilMasEconomico, cumpleTramo } from './propiedadesPerfil';
 import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
 
 interface TechosEstructuralAnalysisViewProps {
@@ -42,6 +42,24 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
   const precioM = (p: any) => { const largo = p.longitudComercialM || 6; return precio(clavePerfilDe(p), (p.costoMetroSol || 0) * largo) / largo; };
   const [ahorro, setAhorro] = useState<null | { cambios: { rol: string; n: number; de: string; a: string; ahorro: number }[]; nuevos: Record<string, string>; total: number }>(null);
 
+  // Cargas de servicio: área del techo en planta × (muerta + viva), repartida.
+  const ns = Object.values(nodes);
+  const xs = ns.map(n => n.x), zs = ns.map(n => n.z || 0);
+  const areaTecho = ns.length ? (Math.max(...xs) - Math.min(...xs)) * (Math.max(...zs) - Math.min(...zs)) : 0;
+  const qArea = ((structuralInputs.cargaMuertaKgM2 || 15) + (structuralInputs.cargaVivaKgM2 || 30)) * 9.81; // N/m²
+  const largoDe = (seg: any) => { const a = nodes[seg.nodeAId], b = nodes[seg.nodeBId]; return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0)) : 0; };
+  const segs = Object.values(segments) as any[];
+  const nCols = Math.max(1, segs.filter(sg => sg.rolEstructural === 'columna' && Math.min(nodes[sg.nodeAId]?.y ?? 9, nodes[sg.nodeBId]?.y ?? 9) < 0.1).length);
+  const LVigas = segs.filter(sg => /^viga|^cordon_superior/.test(sg.rolEstructural)).reduce((x, sg) => x + largoDe(sg), 0);
+  const LCorreas = segs.filter(sg => sg.rolEstructural === 'correa').reduce((x, sg) => x + largoDe(sg), 0);
+  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+  const cargasDe = (rol: string) => {
+    if (rol === 'columna') return { PkN: (areaTecho * qArea / 1000 / nCols) * 1.5 };   // ×1.5 viento/sismo y reparto desigual
+    if (/^viga|^cordon_superior/.test(rol) && LVigas > 0) return { qNm: qArea * clamp(areaTecho / LVigas, 0.5, 4) * 1.2 };
+    if (rol === 'correa' && LCorreas > 0) return { qNm: qArea * clamp(areaTecho / LCorreas, 0.3, 2.5) };
+    return {};
+  };
+
   // Cálculos de pandeo por elemento con la sección REAL de su perfil.
   const bucklingAnalysis = Object.values(segments).map(seg => {
     const nA = nodes[seg.nodeAId];
@@ -56,7 +74,9 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
     const esbeltezOk = lambdaEsbeltez <= lim.maximo;
     // Carga crítica de Euler: Pcr = π²·E·I / (K·L)², acero A36 (E = 200 GPa).
     const PcrkN = (Math.PI ** 2 * 200e6 * (pr.iMinCm4 * 1e-8)) / Math.pow(K * Math.max(lengthM, 0.01), 2);
-    const riesgoPandeo: 'BAJO' | 'MEDIO' | 'ALTO' = lambdaEsbeltez > lim.maximo ? 'ALTO' : lambdaEsbeltez > lim.bajo ? 'MEDIO' : 'BAJO';
+    // Con las cargas del techo: BAJO si cumple esbeltez E.090 y carga (columna) o flecha (viga).
+    const riesgoPandeo: 'BAJO' | 'MEDIO' | 'ALTO' = lambdaEsbeltez > lim.maximo ? 'ALTO'
+      : (perfil && cumpleTramo(perfil, seg.rolEstructural, lengthM, cargasDe(seg.rolEstructural))) || lambdaEsbeltez <= lim.bajo ? 'BAJO' : 'MEDIO';
     return {
       id: seg.id,
       rol: seg.rolEstructural,
@@ -86,7 +106,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
     const nuevos: Record<string, string> = {};
     let sinOpcion = 0;
     grupos.forEach(g => {
-      const rec = perfilRecomendado(INVENTARIO_PERFILES_TUBULARES, perfilDe(g.perfil), g.rol, g.Lmax);
+      const rec = perfilRecomendado(INVENTARIO_PERFILES_TUBULARES, perfilDe(g.perfil), g.rol, g.Lmax, cargasDe(g.rol));
       if (!rec) { sinOpcion += g.ids.length; return; }
       if (rec.id === g.perfil) return;
       g.ids.forEach(id => { nuevos[id] = rec.id; });
@@ -106,7 +126,8 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
       if (!seAnaliza(seg.rolEstructural)) return;
       const a = nodes[seg.nodeAId], b = nodes[seg.nodeBId]; if (!a || !b) return;
       const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0));
-      const k = `${seg.rolEstructural}|${seg.profileId}`;
+      // Cada pieza por su largo: los tramos se agrupan por rol, perfil y largo (cada 0.5 m).
+      const k = `${seg.rolEstructural}|${seg.profileId}|${Math.ceil(L * 2) / 2}`;
       const g = grupos.get(k) || { ids: vacio(), rol: seg.rolEstructural, perfil: seg.profileId, Lmax: 0, Ltot: 0 };
       g.ids.push(seg.id); g.Lmax = Math.max(g.Lmax, L); g.Ltot += L; grupos.set(k, g);
     });
@@ -114,7 +135,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
     const nuevos: Record<string, string> = {};
     grupos.forEach(g => {
       const act = perfilDe(g.perfil);
-      const rec = perfilMasEconomico(INVENTARIO_PERFILES_TUBULARES, act, g.rol, g.Lmax, precioM);
+      const rec = perfilMasEconomico(INVENTARIO_PERFILES_TUBULARES, act, g.rol, g.Lmax, precioM, cargasDe(g.rol));
       if (!rec || !act || rec.id === act.id) return;
       const dif = (precioM(act) - precioM(rec)) * g.Ltot;
       if (dif <= 0.5) return;
@@ -195,7 +216,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-slate-500">Se compara con los precios de tu Catálogo de precios. Cada cambio deja el tramo más largo del grupo con esbeltez λ dentro del límite de la E.090 (riesgo bajo de pandeo). Es un prediseño: valídalo con un ingeniero.</p>
+            <p className="text-[11px] text-slate-500">Se compara con los precios de tu Catálogo de precios. Cada cambio deja cada tramo dentro de la esbeltez máxima de la E.090 y soporta la carga del techo (columnas) o no se flecha más de L/240 (vigas), con espesores mínimos para soldar (columnas 2 mm, vigas 1.5 mm). Es un prediseño: valídalo con un ingeniero.</p>
             <button onClick={aplicarAhorro} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer">Aplicar y ahorrar S/ {ahorro.total.toFixed(2)}</button>
           </>)}
         </div>
