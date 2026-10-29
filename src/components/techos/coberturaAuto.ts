@@ -1,6 +1,7 @@
 // Cobertura automática a partir de las correas y tanque elevado (Rotoplas) con
 // su torre metálica y sobretecho. Funciones puras: reciben y devuelven escena.
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
+import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 
 type NodoMin = { id: string; x: number; y: number; z: number; nodeLabel?: string };
 type SegMin = { id: string; nodeAId: string; nodeBId: string; rolEstructural: string };
@@ -11,12 +12,15 @@ type SegMin = { id: string; nodeAId: string; nodeBId: string; rolEstructural: st
 // tanques y el marco bajo a media altura) y se sube hasta quedar encima de todo.
 // Devuelve las 4 esquinas en planta del techo con su altura, o null si no es un
 // solo plano (dos aguas, curvo…). `a` y `b`: pendiente en X y en Z.
-export function panoUnaAgua(nodes: Record<string, { x: number; y: number; z?: number; nodeLabel?: string } | undefined>, segments: Record<string, { id: string; nodeAId: string; nodeBId: string; rolEstructural?: string }>): { pts: { x: number; y: number; z: number }[]; a: number; b: number } | null {
+export function panoUnaAgua(nodes: Record<string, { x: number; y: number; z?: number; nodeLabel?: string } | undefined>, segments: Record<string, { id: string; nodeAId: string; nodeBId: string; rolEstructural?: string; profileId?: string }>): { pts: { x: number; y: number; z: number }[]; a: number; b: number } | null {
   const muestras: { x: number; y: number; z: number }[] = [];
+  let mitadAlto = 0; // la plancha va sobre la CARA de arriba de los tubos, no sobre su eje
   Object.values(segments).forEach(s => {
     if (/^tq[0-9a-z]+_/.test(s.id) || /columna|tensor|arriostre|diagonal|montante/.test(s.rolEstructural || '')) return;
     const A = nodes[s.nodeAId], B = nodes[s.nodeBId];
     if (!A || !B || /^TQ/.test(A.nodeLabel || '')) return;
+    const pf = s.profileId ? INVENTARIO_PERFILES_TUBULARES.find(p => p.id === s.profileId) : undefined;
+    if (pf) mitadAlto = Math.max(mitadAlto, Math.max(pf.altoMm || pf.anchoMm, pf.anchoMm) / 2000);
     const L = Math.hypot(B.x - A.x, B.y - A.y, (B.z || 0) - (A.z || 0));
     const k = Math.max(1, Math.ceil(L / 0.5));
     for (let i = 0; i <= k; i++) {
@@ -36,7 +40,7 @@ export function panoUnaAgua(nodes: Record<string, { x: number; y: number; z?: nu
   const a = (sxy * szz - szy * sxz) / det, b = (szy * sxx - sxy * sxz) / det, c = my - a * mx - b * mz;
   const res = top.map(p => p.y - (a * p.x + b * p.z + c));
   if (Math.max(...res) - Math.min(...res) > 0.35) return null;
-  const sube = Math.max(0, ...res);
+  const sube = Math.max(0, ...res) + mitadAlto;
   const xs = top.map(p => p.x), zs = top.map(p => p.z);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
   if (x1 - x0 < 0.5 || z1 - z0 < 0.5) return null;

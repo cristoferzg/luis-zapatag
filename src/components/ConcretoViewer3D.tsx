@@ -414,7 +414,9 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         zonas.forEach(z => {
           const nodos = z.pts || z.ids.map(id => N[id]).filter(Boolean);
           if (!conTecho || nodos.some(n => (n?.y ?? 0) > yCorte + 0.06)) return;
-          const pts = nodos.map(n => new THREE.Vector3(n.x, n.y + 0.06, n.z));
+          // Con "perfiles ×3" los tubos crecen: la plancha sube para seguir encima de ellos.
+          const extra = z.pts && datos.current.resaltarPerfiles ? 0.14 : 0;
+          const pts = nodos.map(n => new THREE.Vector3(n.x, n.y + 0.06 + extra, n.z));
           if (pts.length < 3) return;
           const pos: number[] = [], uv: number[] = [];
           for (let i = 1; i < pts.length - 1; i++) [pts[0], pts[i], pts[i + 1]].forEach(v => { pos.push(v.x, v.y, v.z); uv.push(v.x / 1.1, v.z / 1.1); });
