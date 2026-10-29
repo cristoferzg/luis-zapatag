@@ -96,6 +96,33 @@ function seccionPerfil(p: PerfilTubularItem): THREE.Shape | null {
   }
 }
 
+// Textura de piso según el acabado (las coordenadas del piso están en metros).
+const cacheTexPiso = new Map<string, THREE.CanvasTexture>();
+function texturaPiso(tipo: string): THREE.CanvasTexture | null {
+  if (cacheTexPiso.has(tipo)) return cacheTexPiso.get(tipo)!;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'); if (!g) return null;
+  let metros = 0.6; // tamaño que cubre la textura
+  if (tipo === 'ceramico' || tipo === 'porcelanato') {
+    g.fillStyle = tipo === 'ceramico' ? '#e9dcc4' : '#e5e7eb'; g.fillRect(0, 0, 128, 128);
+    g.strokeStyle = tipo === 'ceramico' ? '#b9a786' : '#c3c7cf'; g.lineWidth = 3; g.strokeRect(1.5, 1.5, 125, 125);
+    metros = tipo === 'ceramico' ? 0.45 : 0.6;
+  } else if (tipo === 'laminado' || tipo === 'vinilico') {
+    g.fillStyle = tipo === 'laminado' ? '#b98552' : '#c9a57e'; g.fillRect(0, 0, 128, 128);
+    g.strokeStyle = tipo === 'laminado' ? '#8b5e34' : '#a7825b'; g.lineWidth = 2;
+    for (let k = 0; k < 4; k++) { const y = k * 32 + 1; g.beginPath(); g.moveTo(0, y); g.lineTo(128, y); g.stroke(); const x = (k % 2) * 64 + 20; g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 32); g.stroke(); }
+    metros = 1.2;
+  } else {
+    g.fillStyle = '#b8b8b4'; g.fillRect(0, 0, 128, 128);
+    for (let k = 0; k < 300; k++) { g.fillStyle = `rgba(90,90,90,${Math.random() * 0.08})`; g.fillRect(Math.random() * 128, Math.random() * 128, 3, 3); }
+    metros = 2;
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / metros, 1 / metros);
+  cacheTexPiso.set(tipo, t);
+  return t;
+}
+
 const TONOS_AMBIENTE = [0xfdf0c4, 0xd9f2df, 0xd8ecf8, 0xf8dfea, 0xe6e0f7, 0xfde4cc];
 
 interface Props {
@@ -111,6 +138,7 @@ interface Props {
   verCimentacion?: boolean;   // suelo transparente y vista desde abajo (zapatas, cimientos)
   claveCamara?: string;       // misma obra → se conserva la cámara al remontar
   bloques?: Bloque[];         // diseños de CarpiMetal sueltos y muebles a escala
+  acabados?: Record<string, { piso: string; pintura: boolean; zocalo: boolean }>; // por `${piso}#${ambiente}`
   seleccion?: string[];       // elementos del plano resaltados (uid)
   onPick?: (uid: string | null, sumar: boolean) => void; // clic en un elemento (Ctrl: sumar al grupo)
 }
@@ -118,7 +146,7 @@ interface Props {
 // Cámara de la última vista (por obra), para no perderla al cambiar opciones.
 const camaras = new Map<string, { az: number; pol: number; rad: number; obj: [number, number, number] }>();
 
-export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '', bloques = [], seleccion = [], onPick }: Props) {
+export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Piso 1'], estructura = null, cielos = {}, verTecho = true, hastaPiso = '', capasOcultas = [], sobrepechos = {}, resaltarPerfiles = false, verCimentacion = false, claveCamara = '', bloques = [], seleccion = [], onPick, acabados = {} }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const girar = useRef(false); // giro lento automático mientras se graba
@@ -129,8 +157,8 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
   const [ejeCorte, setEjeCorte] = useState<'x' | 'z'>('x');
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const limitesRef = useRef<THREE.Box3 | null>(null);
-  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques, onPick });
-  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques, onPick };
+  const datos = useRef({ elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques, onPick, acabados });
+  datos.current = { elems, niveles, estructura, cielos, verTecho, hastaPiso, capasOcultas, sobrepechos, resaltarPerfiles, bloques, onPick, acabados };
   const modeloRef = useRef<THREE.Group | null>(null);
   const [verModelo, setVerModelo] = useState(0); // sube al (re)armar la escena
 
@@ -350,7 +378,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           if (!na || !nb) return;
           if (Math.min(na.y, nb.y) > yCorte - 0.06 && !(Math.abs(na.y - nb.y) < 0.01 && Math.abs(na.y - yCorte) < 0.06)) return;
           const deSobretecho = /^TQS/.test(na.nodeLabel || '') && /^TQS/.test(nb.nodeLabel || '');
-          if (!conTecho && (sg.rolEstructural === 'correa' || deSobretecho)) return;
+          if (!conTecho && deSobretecho) return; // "Ocultar techo" quita las planchas; las correas se siguen viendo
           const capa = capaDeRol(sg.rolEstructural);
           if (ocultas.includes(capa)) return;
           const p = perfilTechos(sg.profileId) as PerfilTubularItem | undefined;
@@ -464,16 +492,59 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         });
       });
 
+      // ---- Acabados de muros de un ambiente: pintura (cara interior) y zócalo, sin tapar puertas ni ventanas ----
+      const matPintura = new THREE.MeshLambertMaterial({ color: 0xf3eee4, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
+      const matZocalo = new THREE.MeshLambertMaterial({ color: 0x8b7d6b, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 });
+      const acabadoMuros = (poly: { x: number; y: number }[], muros: PlanoElem[], base: number, pintura: boolean, zocalo: boolean) => {
+        let area2 = 0; poly.forEach((p, i) => { const q = poly[(i + 1) % poly.length]; area2 += p.x * q.y - q.x * p.y; });
+        const sentido = area2 > 0 ? 1 : -1;
+        poly.forEach((p, i) => {
+          const q = poly[(i + 1) % poly.length];
+          const L = Math.hypot(q.x - p.x, q.y - p.y); if (L < 0.05) return;
+          const ux = (q.x - p.x) / L, uy = (q.y - p.y) / L;
+          // Normal hacia adentro del ambiente (según el sentido del polígono).
+          const nx = -uy * sentido, ny = ux * sentido;
+          // Muro sobre el que está este borde: su espesor, alto y vanos.
+          const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+          const muro = muros.find(w => { const wl = Math.hypot(w.x2! - w.x1, w.y2! - w.y1) || 1; const d = Math.abs(-(mx - w.x1) * (w.y2! - w.y1) / wl + (my - w.y1) * (w.x2! - w.x1) / wl); return d < 0.05; });
+          const esp = muro ? muro.a : 0.15, alto = muro?.H || 2.6;
+          const wl = muro ? Math.hypot(muro.x2! - muro.x1, muro.y2! - muro.y1) || 1 : 1;
+          const tMuro = (x: number, y: number) => muro ? ((x - muro.x1) * (muro.x2! - muro.x1) + (y - muro.y1) * (muro.y2! - muro.y1)) / wl : 0;
+          const t0 = tMuro(p.x, p.y), dirT = tMuro(q.x, q.y) >= t0 ? 1 : -1;
+          const vanos = (muro?.aberturas || []).map(ab => { const u = (ab.t - t0) * dirT; return { u0: u - ab.w / 2, u1: u + ab.w / 2, v0: ab.sill, v1: ab.sill + ab.h }; }).filter(v => v.u1 > 0 && v.u0 < L);
+          const lamina = (h: number, off: number, mat: THREE.Material, conVanos: boolean) => {
+            const sh = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(L, 0), new THREE.Vector2(L, h), new THREE.Vector2(0, h)]);
+            if (conVanos) vanos.forEach(v => {
+              const u0 = Math.max(0.01, v.u0), u1 = Math.min(L - 0.01, v.u1), v0 = Math.max(0.01, v.v0), v1 = Math.min(h - 0.01, v.v1);
+              if (u1 - u0 > 0.05 && v1 - v0 > 0.05) sh.holes.push(new THREE.Path([new THREE.Vector2(u0, v0), new THREE.Vector2(u1, v0), new THREE.Vector2(u1, v1), new THREE.Vector2(u0, v1)]));
+            });
+            const mesh = new THREE.Mesh(new THREE.ShapeGeometry(sh), mat);
+            const X = new THREE.Vector3(ux, 0, uy), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3().crossVectors(X, Y);
+            mesh.matrixAutoUpdate = false;
+            mesh.matrix.makeBasis(X, Y, Z).setPosition(p.x + nx * (esp / 2 + off), base, p.y + ny * (esp / 2 + off));
+            modelo.add(mesh);
+          };
+          if (pintura) lamina(alto, 0.004, matPintura, true);
+          if (zocalo) lamina(0.10, 0.008, matZocalo, true);
+        });
+      };
+
       // ---- Ambientes (piso coloreado) y cielo raso por piso ----
       obra.pisos.forEach(n => {
         if (!pisoVisible(n)) return;
         const ctx = obra.ctx(n);
         const muros = list.filter(e => e.tipo === 'muro' && (e.nivel || obra.pisos[0]) === n && e.x2 !== undefined && e.y2 !== undefined);
         detectarAmbientes(muros).forEach((a, i) => {
+          const ac = (datos.current.acabados || {})[`${n}#${a.key}`];
           const f = new THREE.Shape(a.poly.map(p => new THREE.Vector2(p.x, p.y)));
-          const m = new THREE.Mesh(new THREE.ShapeGeometry(f), new THREE.MeshLambertMaterial({ color: TONOS_AMBIENTE[i % TONOS_AMBIENTE.length], side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 }));
-          m.rotation.x = Math.PI / 2; m.position.y = ctx.base + 0.015;
+          // Piso: con acabado, su textura (cerámico, porcelanato, laminado…); si no, el tono del ambiente.
+          const tex = ac?.piso && ac.piso !== 'ninguno' ? texturaPiso(ac.piso) : null;
+          const matPiso = tex ? new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 })
+            : new THREE.MeshLambertMaterial({ color: TONOS_AMBIENTE[i % TONOS_AMBIENTE.length], side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
+          const m = new THREE.Mesh(new THREE.ShapeGeometry(f), matPiso);
+          m.rotation.x = Math.PI / 2; m.position.y = ctx.base + (tex ? 0.02 : 0.015);
           modelo.add(m);
+          if (ac?.pintura || ac?.zocalo) acabadoMuros(a.poly, muros, ctx.base, !!ac.pintura, !!ac.zocalo);
         });
         const cfg = cls[n];
         if (cfg?.activo) superficie(mallaCielo(regionesCielo(muros, est || null, ctx.base), cfg, ctx));
