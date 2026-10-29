@@ -1438,7 +1438,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                           </>)}
                           {a.tipo === 'vano' && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#94a3b8" strokeWidth={1} strokeDasharray="3 3" />}
                           {marcada && <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="#0ea5e9" strokeWidth={wPx + 8} opacity={0.3} />}
-                          {a.carpiId && <text x={C.x - uy * (wPx + 10)} y={C.y + ux * (wPx + 10) + 3} textAnchor="middle" fontSize={9} fontWeight={800} fill="#0369a1">{a.carpiNombre || 'CarpiMetal'}</text>}
+                          {a.carpiId && <text x={C.x - uy * (wPx + 10)} y={C.y + ux * (wPx + 10) + 3} textAnchor="middle" fontSize={9} fontWeight={800} fill="#0369a1">{a.carpiNombre || 'Carpintería'}</text>}
                         </g>
                       );
                     })}
@@ -1734,8 +1734,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             <div className="rounded-2xl border border-sky-200 bg-sky-50/50 p-3 space-y-2.5">
               <p className="text-xs font-black text-sky-800 uppercase tracking-wide">Accesorios a escala</p>
               <p className="text-[10px] text-slate-500">Elige uno y haz clic en el plano. Cerca de un muro se pega y se gira solo.</p>
-              <p className="text-[10px] font-black text-slate-400 uppercase">Mis diseños de CarpiMetal</p>
-              {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una mesa, reja, baranda, portón o puerta en CarpiMetal para colocarla aquí.</p>}
+              <p className="text-[10px] font-black text-slate-400 uppercase">Mis diseños de Carpintería Metálica</p>
+              {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una mesa, reja, baranda, portón o puerta en Carpintería Metálica para colocarla aquí.</p>}
               <div className="grid grid-cols-1 gap-1">
                 {disenosCarpi.map(d => { const g = geomCarpi.get(d.id); const act = aColocar?.origen === 'carpi' && aColocar.refId === d.id; return (
                   <button key={d.id} onClick={() => setAColocar({ origen: 'carpi', refId: d.id })}
@@ -1765,7 +1765,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           {selBloque && (() => { const b = bloques.find(x => x.uid === selBloque); if (!b) return null; const d = b.origen === 'carpi' ? disenosCarpi.find(x => x.id === b.refId) : null; return (
             <div className="rounded-2xl border border-sky-200 bg-white p-3 space-y-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-black text-sky-800 uppercase tracking-wide truncate">{b.origen === 'carpi' ? 'CarpiMetal' : 'Mueble'} · {b.nombre}</span>
+                <span className="text-xs font-black text-sky-800 uppercase tracking-wide truncate">{b.origen === 'carpi' ? 'Carpintería' : 'Mueble'} · {b.nombre}</span>
                 <button onClick={() => { setBloques(prev => prev.filter(x => x.uid !== b.uid)); setSelBloque(null); }} className="p-1 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 cursor-pointer" title="Quitar accesorio"><Trash2 className="w-4 h-4" /></button>
               </div>
               <p className="text-[11px] font-bold text-slate-500">{b.ancho.toFixed(2)} × {b.fondo.toFixed(2)} m en planta · {b.alto.toFixed(2)} m de alto</p>
@@ -1941,7 +1941,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                     {(Object.keys(PRESETS_ABERTURA) as TipoAbertura[]).map(k => <option key={k} value={k}>{PRESETS_ABERTURA[k].nombre}</option>)}
                   </select>
                 </label>
-                <label className="block text-[10px] font-bold text-slate-600">Diseño de CarpiMetal
+                <label className="block text-[10px] font-bold text-slate-600">Diseño de Carpintería Metálica
                   <select value={a.carpiId || ''} onChange={e => {
                     const d = disenosCarpi.find(x => x.id === e.target.value);
                     if (!d) { updateAbertura(muro.uid, a.id, { carpiId: undefined, carpiNombre: undefined }); return; }
@@ -1952,7 +1952,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                     {disenosCarpi.map(d => <option key={d.id} value={d.id}>{d.nombre} · {d.anchoM.toFixed(2)}×{d.altoM.toFixed(2)} m · S/ {costoDisenoCarpi(d).toFixed(0)}</option>)}
                   </select>
                 </label>
-                {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una puerta, ventana o reja en CarpiMetal para colocarla aquí.</p>}
+                {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una puerta, ventana o reja en Carpintería Metálica para colocarla aquí.</p>}
                 {a.carpiId && (() => { const d = disenosCarpi.find(x => x.id === a.carpiId); return d ? (<>
                   <label className="flex items-start gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
                     <input type="checkbox" className="mt-0.5" checked={a.incluir !== false} onChange={e => updateAbertura(muro.uid, a.id, { incluir: e.target.checked })} />
@@ -1962,7 +1962,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                     <textarea value={a.obs || ''} onChange={e => updateAbertura(muro.uid, a.id, { obs: e.target.value }, 'obs')} rows={2} placeholder="Ej. Con chapa de seguridad / la provee el cliente"
                       className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none" />
                   </label>
-                </>) : <p className="text-[10px] font-bold text-amber-700">El diseño "{a.carpiNombre}" ya no está guardado en CarpiMetal.</p>; })()}
+                </>) : <p className="text-[10px] font-bold text-amber-700">El diseño "{a.carpiNombre}" ya no está guardado en Carpintería Metálica.</p>; })()}
                 <div className="grid grid-cols-2 gap-2">
                   {num('Ancho (m)', a.w, v => updateAbertura(muro.uid, a.id, { w: v }, 'w'), 'w')}
                   {num('Alto (m)', a.h, v => updateAbertura(muro.uid, a.id, { h: v }, 'h'), 'h')}

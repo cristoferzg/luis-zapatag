@@ -175,7 +175,7 @@ export const CadFileUploadModal: React.FC<CadFileUploadModalProps> = ({
                 Importar / Subir Archivo AutoCAD & CAD
               </h3>
               <p className="text-xs text-slate-500">
-                Compatible con archivos <strong>.DXF (AutoCAD)</strong> y <strong>.JSON</strong> para {moduleName === 'techos' ? 'Techos Metálicos' : 'CarpiMetal'}.
+                Compatible con archivos <strong>.DXF (AutoCAD)</strong> y <strong>.JSON</strong> para {moduleName === 'techos' ? 'Techos Metálicos' : 'Carpintería Metálica'}.
               </p>
             </div>
           </div>

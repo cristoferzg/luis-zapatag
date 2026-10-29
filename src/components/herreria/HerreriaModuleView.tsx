@@ -254,7 +254,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
       {/* ==================================================
           2. CABECERA
           Mostrar:
-          🚪 CARPIMETAL
+          🚪 CARPINTERÍA METÁLICA
           Proyecto: [Nombre del proyecto]
           Botones: [ + NUEVO ] [ GUARDAR ] [ CARGAR ] [ EXPORTAR ] [ AYUDA ]
       ================================================== */}
@@ -266,7 +266,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-wide">
-                CARPIMETAL · CARPINTERÍA METÁLICA
+                CARPINTERÍA METÁLICA · PUERTAS, REJAS Y PORTONES
               </h1>
               <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-mono font-bold border border-blue-200">
                 CAD 2D / 3D
@@ -407,6 +407,18 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('plano')}
+            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
+              activeTab === 'plano'
+                ? 'border-purple-600 text-purple-600 bg-purple-50/60'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            <Download className="w-4 h-4" />
+            <span>2. PLANO DE FABRICACIÓN (PDF / IMPRIMIR)</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('despiece')}
             className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
               activeTab === 'despiece'
@@ -415,7 +427,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             }`}
           >
             <Scissors className="w-4 h-4" />
-            <span>2. DESPIECE Y CORTES</span>
+            <span>3. DESPIECE Y CORTES</span>
           </button>
 
           <button
@@ -427,7 +439,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>3. MATERIALES AGRUPADOS</span>
+            <span>4. MATERIALES AGRUPADOS</span>
           </button>
 
           <button
@@ -439,7 +451,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             }`}
           >
             <DollarSign className="w-4 h-4" />
-            <span>4. ESTRUCTURA DE COSTOS</span>
+            <span>5. ESTRUCTURA DE COSTOS</span>
           </button>
 
           <button
@@ -451,19 +463,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>5. PRESUPUESTO FORMAL</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('plano')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
-              activeTab === 'plano'
-                ? 'border-purple-600 text-purple-600 bg-purple-50/60'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <Download className="w-4 h-4" />
-            <span>6. PLANO CAD ARQUITECTÓNICO (PDF / IMPRIMIR)</span>
+            <span>6. PRESUPUESTO FORMAL</span>
           </button>
         </div>
       </nav>
@@ -552,7 +552,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
               <h3 className="text-sm font-bold text-slate-800 uppercase flex items-center gap-2">
                 <FolderOpen className="w-4 h-4 text-amber-500" />
-                <span>CARGAR PROYECTO O PLANTILLA DE CARPIMETAL</span>
+                <span>CARGAR PROYECTO O PLANTILLA DE CARPINTERÍA METÁLICA</span>
               </h3>
               <button onClick={() => setShowLoadModal(false)} className="p-1 rounded text-slate-400 hover:text-slate-700">
                 ✕

@@ -86,7 +86,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
           <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600"><Tag className="w-6 h-6" /></div>
           <div>
             <h2 className="text-lg font-black text-slate-900">Catálogo de precios</h2>
-            <p className="text-xs text-slate-500">Un solo precio por producto para Techos, CarpiMetal, Obra Civil y Drywall.</p>
+            <p className="text-xs text-slate-500">Un solo precio por producto para Techos, Carpintería Metálica, Obra Civil y Drywall.</p>
           </div>
         </div>
         <div className="inline-flex p-1 bg-slate-100 rounded-xl self-start">
@@ -136,7 +136,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
                 Se usa en:
                 {['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall'].map(u => (
                   <label key={u} className="inline-flex items-center gap-1 cursor-pointer">
-                    <input type="checkbox" checked={nuevo.usadoEn.includes(u)} onChange={e => setNuevo({ ...nuevo, usadoEn: e.target.checked ? [...nuevo.usadoEn, u] : nuevo.usadoEn.filter(x => x !== u) })} /> {u}
+                    <input type="checkbox" checked={nuevo.usadoEn.includes(u)} onChange={e => setNuevo({ ...nuevo, usadoEn: e.target.checked ? [...nuevo.usadoEn, u] : nuevo.usadoEn.filter(x => x !== u) })} /> {u === 'CarpiMetal' ? 'Carpintería Metálica' : u}
                   </label>
                 ))}
                 <span className="flex-1" />
@@ -160,7 +160,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
                   <p className="text-sm font-bold text-slate-800 truncate">{i.nombre}</p>
                   {i.alias && i.alias.length > 0 && <p className="text-[10px] text-slate-400 truncate">{i.alias.join(' · ')}</p>}
                   <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                    {i.usadoEn.map(u => <span key={u} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${COLOR_APARTADO[u] || 'bg-slate-100 text-slate-600'}`}>{u}</span>)}
+                    {i.usadoEn.map(u => <span key={u} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${COLOR_APARTADO[u] || 'bg-slate-100 text-slate-600'}`}>{u === 'CarpiMetal' ? 'Carpintería Metálica' : u}</span>)}
                     {propio && cat.fechas[i.clave] && <span className="text-[10px] text-slate-400">actualizado {cat.fechas[i.clave]}</span>}
                   </div>
                 </div>

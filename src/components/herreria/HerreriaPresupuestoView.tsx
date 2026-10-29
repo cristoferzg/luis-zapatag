@@ -78,7 +78,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
     );
 
     const especificacionesTexto = 
-      `ESPECIFICACIÓN CARPIMETAL: ${design.nombre}\n` +
+      `ESPECIFICACIÓN CARPINTERÍA METÁLICA: ${design.nombre}\n` +
       `Dimensiones: ${design.anchoM.toFixed(2)}m Ancho × ${design.altoM.toFixed(2)}m Alto (${(design.anchoM * design.altoM).toFixed(2)} m²)\n` +
       `Hojas: ${design.numHojas} | Apertura: ${design.tipoAperturaPorton || design.tipoAperturaPuerta || 'estándar'}\n` +
       `Marco: ${design.perfilMarcoId} | Bastidor: ${design.perfilBastidorId}\n` +
@@ -313,7 +313,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
                   onChange={e => setSelectedProjectId(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white text-xs focus:border-blue-500"
                 >
-                  <option value="new">+ CREAR NUEVO PROYECTO DE CARPIMETAL</option>
+                  <option value="new">+ CREAR NUEVO PROYECTO DE CARPINTERÍA METÁLICA</option>
                   {projects.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({p.client} - Actual: S/. {p.presupuesto?.toFixed(2) || '0.00'})

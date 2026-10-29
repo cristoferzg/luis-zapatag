@@ -12,7 +12,7 @@ interface CostItem { id: string; name: string; unitCost: number; provider?: stri
 const ir = (vista: string) => window.dispatchEvent(new CustomEvent('innova_navigate_tab', { detail: vista }));
 
 const DESTINOS = [
-  { vista: 'precios', Ic: DollarSign, c: 'bg-blue-50 text-blue-700 border-blue-200', titulo: 'Materiales y jornales → Catálogo de precios', texto: 'Un solo precio por material (plancha, perfil, bolsa, millar…) y el jornal por día de cada cargo. Lo usan Techos, CarpiMetal, Obra Civil y Drywall al cotizar.' },
+  { vista: 'precios', Ic: DollarSign, c: 'bg-blue-50 text-blue-700 border-blue-200', titulo: 'Materiales y jornales → Catálogo de precios', texto: 'Un solo precio por material (plancha, perfil, bolsa, millar…) y el jornal por día de cada cargo. Lo usan Techos, Carpintería Metálica, Obra Civil y Drywall al cotizar.' },
   { vista: 'personal', Ic: Users, c: 'bg-emerald-50 text-emerald-700 border-emerald-200', titulo: 'Tus trabajadores → Personal', texto: 'Cada persona con su cargo, su jornal, adelantos y asistencia. El jornal promedio de cada cargo pasa solo al Catálogo de precios.' },
   { vista: 'gastos', Ic: Truck, c: 'bg-amber-50 text-amber-700 border-amber-200', titulo: 'Gastos del día a día → Materiales y gastos', texto: 'Transporte, alquiler de equipos, combustible y boletas de compra de cada proyecto.' },
 ];

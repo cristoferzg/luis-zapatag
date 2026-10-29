@@ -291,7 +291,7 @@ export function obraPorPiso(niveles: string[], est: EstructuraTechos | null, ele
       const lista: { nombre: string; costo: number; medidas: string }[] = [];
       conCarpi.forEach(a => {
         const d = disenos.find(x => x.id === a.carpiId);
-        const nombre = d?.nombre || a.carpiNombre || 'Diseño CarpiMetal';
+        const nombre = d?.nombre || a.carpiNombre || 'Diseño de carpintería metálica';
         if (a.incluir !== false) lista.push({ nombre, costo: d ? costoDisenoCarpi(d) : 0, medidas: `${a.w.toFixed(2)} × ${a.h.toFixed(2)} m` });
         if (a.obs?.trim()) obs.push(`${nombre}: ${a.obs.trim()}`);
         else if (a.incluir === false) obs.push(`${nombre}: no incluido en esta cotización.`);

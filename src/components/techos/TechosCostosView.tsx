@@ -98,7 +98,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
 
       {/* 1. MATERIALES */}
       <Seccion icono={<Package className="w-4 h-4 text-amber-600" />} titulo="1. Materiales (precios de tu proveedor)" total={bom?.costoDirectoMaterialesSoles}>
-        <p className="text-[11px] text-slate-500">Estos precios son los del <b>Catálogo de precios</b> (menú Precios): si los cambias aquí, cambian también en CarpiMetal y Obra Civil.</p>
+        <p className="text-[11px] text-slate-500">Estos precios son los del <b>Catálogo de precios</b> (menú Precios): si los cambias aquí, cambian también en Carpintería Metálica y Obra Civil.</p>
         {perfiles.length === 0 && coberturas.length === 0 && <p className="text-xs text-slate-400">Diseña o carga un techo en "1. Diseño CAD" para ver sus materiales.</p>}
         {perfiles.length > 0 && (
           <div className="overflow-x-auto">

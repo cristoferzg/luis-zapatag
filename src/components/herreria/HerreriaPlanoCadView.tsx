@@ -801,7 +801,7 @@ export const HerreriaPlanoCadView: React.FC<HerreriaPlanoCadViewProps> = ({
                   {(currentSettings?.appName || 'INNOVA CONTRATISTAS').toUpperCase()}
                 </text>
                 <text x="0" y="42" fill={tc.textSecondary} fontSize="10" fontFamily="monospace">
-                  CARPIMETAL · CARPINTERÍA METÁLICA
+                  CARPINTERÍA METÁLICA · PUERTAS, REJAS Y PORTONES
                 </text>
                 <text x="0" y="60" fill={tc.acento} fontSize="9" fontFamily="monospace">
                   SISTEMA DE GESTIÓN Y PRODUCCIÓN INTEGRADA

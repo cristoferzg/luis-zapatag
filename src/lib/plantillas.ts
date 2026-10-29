@@ -17,7 +17,7 @@ const CLAVE: Record<ModuloPlantilla, string> = {
 
 const VISTA: Record<ModuloPlantilla, string> = { techos: 'techos', carpimetal: 'herreria', drywall: 'drywall' };
 
-export const NOMBRE_MODULO: Record<ModuloPlantilla, string> = { techos: 'Techos Metálicos', carpimetal: 'CarpiMetal', drywall: 'Drywall' };
+export const NOMBRE_MODULO: Record<ModuloPlantilla, string> = { techos: 'Techos Metálicos', carpimetal: 'Carpintería Metálica', drywall: 'Drywall' };
 
 /** Diseño que hoy está abierto en el módulo (null si está vacío). */
 export function capturarDiseno(modulo: ModuloPlantilla): any | null {

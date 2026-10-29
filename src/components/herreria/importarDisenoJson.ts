@@ -109,7 +109,7 @@ export function importarDisenoJson(json: any, nombreArchivo: string): ResultadoI
       if (!d.nombre) d.nombre = base.nombre;
       return { ok: true, design: d, avisos: [] };
     }
-    return { ok: false, error: 'Este archivo JSON no es un diseño de CarpiMetal. Exporta el diseño desde CarpiMetal (botón Exportar) o usa un archivo DXF.' };
+    return { ok: false, error: 'Este archivo JSON no es un diseño de Carpintería Metálica. Exporta el diseño desde Carpintería Metálica (botón Exportar) o usa un archivo DXF.' };
   } catch (e: any) {
     return { ok: false, error: `No se pudo leer el archivo: ${e?.message || 'formato desconocido'}` };
   }

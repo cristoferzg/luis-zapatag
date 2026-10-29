@@ -21,7 +21,7 @@ const MAL = [
   'Mezclar en la misma hoja planta, cortes y detalles (la lectura se confunde).',
   'Medidas que no cuadran entre sí (ej. un lado dice 13 y el opuesto 16 sin que el dibujo lo muestre).',
   'Fotos inclinadas, borrosas o con la mano tapando el dibujo.',
-  'Arcos, tijerales o piezas de herrería: esos se dibujan en CarpiMetal.',
+  'Arcos, tijerales o piezas de herrería: esos se dibujan en Carpintería Metálica.',
 ];
 
 export function EjemploBoceto({ className = '' }: { className?: string }) {
