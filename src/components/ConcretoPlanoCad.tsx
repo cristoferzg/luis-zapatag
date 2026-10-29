@@ -61,6 +61,8 @@ export interface PlanoElem {
   material?: MaterialMuro;
   materialId?: string;
   caras?: 1 | 2;
+  elevM?: number;                  // viga: altura de su cara superior (por defecto, la de las columnas)
+  visible1Piso?: boolean;          // viga: se ve y se cuenta aunque la obra tenga un solo piso
   losaMaterial?: 'concreto' | 'osb' | 'aligerada'; // losa / entrepiso: maciza, aligerada (ladrillo de techo) u OSB sobre vigas
   hastaTecho?: boolean;            // muro: sube hasta el techo siguiendo la pendiente
   aberturas?: Abertura[];          // muro: puertas, ventanas y vanos
@@ -514,18 +516,31 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     setRecuadro(null);
     didDrag.current = true;
   };
-  const elemsGrupo = elems.filter(e => grupo.includes(e.uid));
-  const moverGrupo = (dx: number, dy: number) => commit(prev => prev.map(e => !grupo.includes(e.uid) ? e : {
+  // La barra de mover/duplicar/borrar sirve para el grupo o para UN elemento seleccionado.
+  const selMov = grupo.length ? grupo : selUid ? [selUid] : [];
+  const [paso, setPaso] = useState(0.1);
+  const elemsGrupo = elems.filter(e => selMov.includes(e.uid));
+  const moverGrupo = (dx: number, dy: number) => commit(prev => prev.map(e => !selMov.includes(e.uid) ? e : {
     ...e, x1: e.x1 + dx, y1: e.y1 + dy, ...(e.x2 !== undefined ? { x2: e.x2 + dx } : {}), ...(e.y2 !== undefined ? { y2: e.y2 + dy } : {}),
   }), 'mover-grupo');
   const duplicarGrupo = () => {
     const sufijo = Date.now().toString(36);
     const copias = elemsGrupo.map((e, i) => ({ ...e, uid: `${e.uid}_c${sufijo}${i}`, x1: e.x1 + 0.5, y1: e.y1 + 0.5, ...(e.x2 !== undefined ? { x2: e.x2 + 0.5 } : {}), ...(e.y2 !== undefined ? { y2: e.y2 + 0.5 } : {}) }));
     commit(prev => [...prev, ...copias]);
-    setGrupo(copias.map(c => c.uid));
+    if (copias.length > 1) setGrupo(copias.map(c => c.uid)); else { setGrupo([]); setSelUid(copias[0]?.uid || null); }
   };
-  const borrarGrupo = () => { commit(prev => prev.filter(e => !grupo.includes(e.uid))); setGrupo([]); };
-  const cambiarGrupo = (p: Partial<PlanoElem>, clave: string) => commit(prev => prev.map(e => grupo.includes(e.uid) && e.tipo === 'muro' ? { ...e, ...p } : e), clave);
+  const borrarGrupo = () => { commit(prev => prev.filter(e => !selMov.includes(e.uid))); setGrupo([]); setSelUid(null); };
+  const cambiarGrupo = (p: Partial<PlanoElem>, clave: string) => commit(prev => prev.map(e => selMov.includes(e.uid) && e.tipo === 'muro' ? { ...e, ...p } : e), clave);
+  // Viga al ras de la columna: cada extremo se pega al centro de la columna más cercana
+  // (hasta 1 m) y la viga sube a la altura de esa columna.
+  const vigaAlRas = () => commit(prev => prev.map(e => {
+    if (!selMov.includes(e.uid) || e.tipo !== 'viga' || e.x2 === undefined || e.y2 === undefined) return e;
+    const cols = prev.filter(c => c.tipo === 'columna');
+    const cerca = (x: number, y: number) => cols.map(c => ({ c, d: Math.hypot(c.x1 - x, c.y1 - y) })).filter(o => o.d < 1).sort((a, b) => a.d - b.d)[0]?.c;
+    const ca = cerca(e.x1, e.y1), cb = cerca(e.x2, e.y2);
+    const H = Math.max(ca?.H || 0, cb?.H || 0);
+    return { ...e, ...(ca ? { x1: ca.x1, y1: ca.y1 } : {}), ...(cb ? { x2: cb.x1, y2: cb.y1 } : {}), ...(H ? { elevM: H } : {}), visible1Piso: true };
+  }), 'viga-ras');
 
   const onMouseDown = (e: React.MouseEvent) => {
     if (tool === 'grupo' && e.button === 0) {
@@ -809,7 +824,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   };
 
   // Firma de la escena → se usa como key para remontar el visor 3D al cambiar algo.
-  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2},${e.nivel},${e.material},${e.hastaTecho},${JSON.stringify(e.aberturas || [])}`).join('|') + JSON.stringify(cielos), [elems, cielos]);
+  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2},${e.nivel},${e.material},${e.hastaTecho},${e.elevM},${e.visible1Piso},${JSON.stringify(e.aberturas || [])}`).join('|') + JSON.stringify(cielos), [elems, cielos]);
   const obra = useMemo(() => contextosObra(niveles, estructura), [niveles, estructura]);
 
   // Ambientes del piso activo (recintos cerrados por muros) con su nombre.
@@ -870,14 +885,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   // Vigas de concreto (aéreas): solo cuando la obra tiene segundo piso; con un piso
   // el techo es metálico y esas vigas no se ven ni se cuentan.
   const hayVigasAereas = pisos.length > 1;
-  const vigasSinUso = hayVigasAereas ? 0 : elems.filter(e => e.tipo === 'viga').length;
+  const vigasSinUso = hayVigasAereas ? 0 : elems.filter(e => e.tipo === 'viga' && !e.visible1Piso).length;
   const totales = useMemo(() => {
     let concretoM3 = 0, aceroKg = 0, encofradoM2 = 0;
     const metrosDiam: Record<string, number> = {};
     const porTipo: Record<string, { n: number; concreto: number; acero: number }> = {};
     elems.forEach(e => {
       if (e.tipo === 'muro') return;
-      if (e.tipo === 'viga' && !hayVigasAereas) return; // vigas de concreto solo con 2.º piso
+      if (e.tipo === 'viga' && !hayVigasAereas && !e.visible1Piso) return; // vigas de concreto: con 2.º piso o marcadas como visibles
       const r = calcElem(e);
       concretoM3 += r.concretoM3; aceroKg += r.aceroKg; encofradoM2 += r.encofradoM2;
       if (r.dist) for (const [d, frac] of Object.entries(r.dist)) {
@@ -1059,16 +1074,34 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   };
 
   // Barra del grupo seleccionado (en 2D y en 3D).
-  const barraGrupoEn = (arriba: string) => grupo.length > 0 ? (() => {
+  const barraGrupoEn = (arriba: string) => selMov.length > 0 ? (() => {
             const muros = elemsGrupo.filter(e => e.tipo === 'muro');
             const btn = 'p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
             return (
               <div className={`absolute ${arriba} left-3 lg:left-24 right-3 sm:right-auto z-30 bg-white/95 border border-amber-300 shadow-lg rounded-2xl p-2.5 flex flex-wrap items-center gap-1.5 text-xs`} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-                <span className="font-black text-amber-800 mr-1">{grupo.length} seleccionado{grupo.length === 1 ? '' : 's'}</span>
-                <button className={btn} title="Mover a la izquierda 10 cm" onClick={() => moverGrupo(-0.1, 0)}><ArrowLeft className="w-4 h-4" /></button>
-                <button className={btn} title="Mover arriba 10 cm" onClick={() => moverGrupo(0, -0.1)}><ArrowUp className="w-4 h-4" /></button>
-                <button className={btn} title="Mover abajo 10 cm" onClick={() => moverGrupo(0, 0.1)}><ArrowDown className="w-4 h-4" /></button>
-                <button className={btn} title="Mover a la derecha 10 cm" onClick={() => moverGrupo(0.1, 0)}><ArrowRight className="w-4 h-4" /></button>
+                <span className="font-black text-amber-800 mr-1">{selMov.length} seleccionado{selMov.length === 1 ? '' : 's'}</span>
+                <select value={paso} onChange={e => setPaso(parseFloat(e.target.value))} title="Cuánto se mueve con cada flecha" className="px-1.5 py-1.5 rounded-lg bg-slate-100 font-bold cursor-pointer">
+                  <option value={0.01}>1 cm</option><option value={0.05}>5 cm</option><option value={0.1}>10 cm</option><option value={0.25}>25 cm</option>
+                </select>
+                <button className={btn} title="Mover a la izquierda" onClick={() => moverGrupo(-paso, 0)}><ArrowLeft className="w-4 h-4" /></button>
+                <button className={btn} title="Mover arriba" onClick={() => moverGrupo(0, -paso)}><ArrowUp className="w-4 h-4" /></button>
+                <button className={btn} title="Mover abajo" onClick={() => moverGrupo(0, paso)}><ArrowDown className="w-4 h-4" /></button>
+                <button className={btn} title="Mover a la derecha" onClick={() => moverGrupo(paso, 0)}><ArrowRight className="w-4 h-4" /></button>
+                {elemsGrupo.some(e => e.tipo === 'viga') && (<>
+                  <button className="px-2.5 py-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer font-bold" title="Pega los extremos a las columnas cercanas y la pone a su altura" onClick={vigaAlRas}>Al ras de la columna</button>
+                  <label className="inline-flex items-center gap-1 font-bold text-slate-600">Altura
+                    <input type="number" step="0.05" min="0.2" key={`ev-${selMov.join()}`} defaultValue={elemsGrupo.find(e => e.tipo === 'viga')?.elevM ?? ''} placeholder="auto"
+                      onBlur={e => { const v = parseFloat(e.target.value); commit(prev => prev.map(x => selMov.includes(x.uid) && x.tipo === 'viga' ? { ...x, elevM: v > 0 ? v : undefined } : x), 'viga-elev'); }}
+                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
+                  </label>
+                  {!hayVigasAereas && (
+                    <label className="inline-flex items-center gap-1 font-bold text-slate-600 cursor-pointer" title="Con un solo piso las vigas de concreto se ocultan, salvo las marcadas">
+                      <input type="checkbox" checked={elemsGrupo.filter(e => e.tipo === 'viga').every(e => e.visible1Piso)}
+                        onChange={ev => commit(prev => prev.map(x => selMov.includes(x.uid) && x.tipo === 'viga' ? { ...x, visible1Piso: ev.target.checked } : x), 'viga-vis')} /> Viga visible
+                    </label>
+                  )}
+                </>)}
                 <button className={`${btn} inline-flex items-center gap-1 font-bold`} title="Duplicar" onClick={duplicarGrupo}><Copy className="w-4 h-4" /> Duplicar</button>
                 <button className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer inline-flex items-center gap-1 font-bold" title="Borrar" onClick={borrarGrupo}><Trash2 className="w-4 h-4" /> Borrar</button>
                 {muros.length > 0 && (
@@ -1475,7 +1508,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 const wPx = Math.max(4, (e.a) * scale);
                 return (
                   <g key={e.uid} style={bloqueado(e) ? { opacity: 0.4, cursor: 'default' } : undefined} onClick={ev => { if (tool !== 'select' || bloqueado(e)) return; ev.stopPropagation(); if (!didDrag.current) { setSelUid(e.uid); setSelNode(null); } }} className="cursor-pointer">
-                    <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={m.color} strokeWidth={wPx} strokeLinecap="round" opacity={e.tipo === 'viga' && !hayVigasAereas ? 0.25 : 0.85} strokeDasharray={e.tipo === 'viga' && !hayVigasAereas ? '6 5' : undefined} />
+                    <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke={m.color} strokeWidth={wPx} strokeLinecap="round" opacity={e.tipo === 'viga' && !hayVigasAereas && !e.visible1Piso ? 0.25 : 0.85} strokeDasharray={e.tipo === 'viga' && !hayVigasAereas && !e.visible1Piso ? '6 5' : undefined} />
                     {(sel || con) && <line x1={p1.sx} y1={p1.sy} x2={p2.sx} y2={p2.sy} stroke="#0ea5e9" strokeWidth={wPx + 4} strokeLinecap="round" opacity={0.35} />}
                   </g>
                 );
@@ -2134,7 +2167,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           )}
           {!esDrywall && <>
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide">Metrado automático</h3>
-          {vigasSinUso > 0 && <p className="text-[10px] font-bold text-amber-700 bg-amber-50 rounded-lg px-2 py-1">{vigasSinUso} viga{vigasSinUso > 1 ? 's' : ''} de concreto no se muestra{vigasSinUso > 1 ? 'n' : ''} ni se cuenta{vigasSinUso > 1 ? 'n' : ''}: solo van cuando hay segundo piso (agrega un piso en la vista Lista).</p>}
+          {vigasSinUso > 0 && <p className="text-[10px] font-bold text-amber-700 bg-amber-50 rounded-lg px-2 py-1">{vigasSinUso} viga{vigasSinUso > 1 ? 's' : ''} de concreto no se muestra{vigasSinUso > 1 ? 'n' : ''} ni se cuenta{vigasSinUso > 1 ? 'n' : ''}: solo van con segundo piso. Para mostrar una, selecciónala y marca «Viga visible».</p>}
           <div className="grid grid-cols-2 gap-2">
             {[['Concreto', `${totales.concretoM3.toFixed(2)} m³`], ['Acero', `${totales.aceroKg.toFixed(0)} kg`], ['Encofrado', `${totales.encofradoM2.toFixed(1)} m²`], ['Cemento', `${Math.ceil(totales.cementoBolsas)} bls`], ...(totales.ladrillosTecho.length ? [['Ladrillo de techo', `${totales.ladrillosTecho.reduce((x, [, n]) => x + n, 0)} und`]] : [])].map(([l, v]) => (
               <div key={l} className="bg-slate-50 border border-slate-100 rounded-xl p-2 text-center">
