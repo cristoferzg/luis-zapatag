@@ -6,9 +6,10 @@
 // Funciones puras: revisar() lista los problemas y arreglar() devuelve la
 // escena corregida (no toca el original).
 // =============================================================================
-import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
+import type { Node3D, Segment3D, CoverageZone3D, PerfilTubularItem } from './techosCadEngineTypes';
+import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 
-export type TipoProblema = 'nodo_repetido' | 'perfil_repetido' | 'perfil_cero' | 'nodo_suelto' | 'sin_conectar' | 'columna_flotando';
+export type TipoProblema = 'nodo_repetido' | 'perfil_repetido' | 'perfil_cero' | 'nodo_suelto' | 'sin_conectar' | 'columna_flotando' | 'viga_ancha';
 
 export interface Problema {
   id: string;
@@ -18,6 +19,7 @@ export interface Problema {
   ids: string[];          // elementos a resaltar (nodos y/o perfiles)
   // datos para arreglarlo
   nodoId?: string; haciaNodoId?: string; punto?: { x: number; y: number; z: number };
+  perfilNuevo?: string; perfilNuevoNombre?: string; // viga_ancha: perfil de columna que alcanza el ancho de la viga
 }
 
 export interface Escena { nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D> }
@@ -29,6 +31,7 @@ export const NOMBRE_TIPO: Record<TipoProblema, string> = {
   nodo_suelto: 'Nodos sueltos (sin perfil)',
   sin_conectar: 'Extremos que no llegan a conectar',
   columna_flotando: 'Columnas que no llegan al piso',
+  viga_ancha: 'Viga más ancha que la columna que la recibe',
 };
 
 const TOL_MISMO = 0.02;   // 2 cm: mismo punto
@@ -45,7 +48,52 @@ function puntoEnSegmento(p: Node3D, A: Node3D, B: Node3D) {
   return { q, t, d: dist(p, q) };
 }
 
+const perfilDe = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id);
+const lados = (p: PerfilTubularItem) => [p.anchoMm, p.altoMm || p.anchoMm];
+
+/**
+ * Nudo viga–columna: si la viga que llega arriba de una columna es más ancha que
+ * la columna, apoya solo en parte. Se propone una columna cuadrada del ancho de la
+ * viga (mismo o mayor espesor) o, si se prefiere, una placa de cabeza.
+ */
+function vigasMasAnchas(esc: Escena): Problema[] {
+  const { nodes, segments } = esc;
+  const out: Problema[] = [];
+  const porNodo: Record<string, Segment3D[]> = {};
+  Object.values(segments).forEach(s => { (porNodo[s.nodeAId] ||= []).push(s); (porNodo[s.nodeBId] ||= []).push(s); });
+  Object.values(segments).forEach(col => {
+    if (col.rolEstructural !== 'columna' || col.placaCabeza) return;
+    const a = nodes[col.nodeAId], b = nodes[col.nodeBId];
+    if (!a || !b) return;
+    const arriba = a.y >= b.y ? a : b;
+    const pc = perfilDe(col.profileId);
+    if (!pc) return;
+    const anchoCol = Math.max(...lados(pc));
+    let peor: { s: Segment3D; ancho: number } | null = null;
+    (porNodo[arriba.id] || []).forEach(v => {
+      if (v.id === col.id || /^columna|tensor|arriostre|correa|diagonal|montante/.test(v.rolEstructural || '')) return;
+      const pv = perfilDe(v.profileId); if (!pv) return;
+      const anchoViga = Math.min(...lados(pv)); // ancho que apoya (lado horizontal)
+      if (anchoViga > anchoCol + 5 && (!peor || anchoViga > peor.ancho)) peor = { s: v, ancho: anchoViga };
+    });
+    const pv = peor as { s: Segment3D; ancho: number } | null;
+    if (!pv) return;
+    const nuevo = INVENTARIO_PERFILES_TUBULARES
+      .filter(p => p.categoria === 'tubo_cuadrado' && !p.id.includes('galv') && p.anchoMm >= pv.ancho - 1 && p.espesorMm >= Math.max(2, pc.espesorMm))
+      .sort((x, y) => x.pesoLinealKgM - y.pesoLinealKgM)[0];
+    out.push({ id: `nudo_${col.id}`, tipo: 'viga_ancha',
+      titulo: `Viga de ${pv.ancho} mm sobre columna de ${anchoCol} mm`,
+      detalle: `La viga apoya solo en parte. Opciones: subir la columna a ${nuevo ? nuevo.nombre : 'un tubo del ancho de la viga'}, o soldar una placa de cabeza (más grande que la viga) sobre la columna.`,
+      ids: [col.id, pv.s.id, arriba.id], perfilNuevo: nuevo?.id, perfilNuevoNombre: nuevo?.nombre });
+  });
+  return out;
+}
+
 export function revisar(esc: Escena): Problema[] {
+  return [...revisarConexiones(esc), ...vigasMasAnchas(esc)];
+}
+
+function revisarConexiones(esc: Escena): Problema[] {
   const { nodes, segments } = esc;
   const out: Problema[] = [];
   const N = Object.values(nodes), S = Object.values(segments);
@@ -161,6 +209,7 @@ export function arreglar(esc: Escena, problemas: Problema[]): Escena {
     else if (p.tipo === 'perfil_cero' || p.tipo === 'perfil_repetido') delete e.segments[p.ids[0]];
     else if (p.tipo === 'nodo_suelto') delete e.nodes[p.ids[0]];
     else if (p.tipo === 'sin_conectar' && p.nodoId && p.haciaNodoId) unirNodo(e, p.nodoId, p.haciaNodoId);
+    else if (p.tipo === 'viga_ancha' && p.perfilNuevo && e.segments[p.ids[0]]) e.segments[p.ids[0]] = { ...e.segments[p.ids[0]], profileId: p.perfilNuevo };
     else if ((p.tipo === 'sin_conectar' || p.tipo === 'columna_flotando') && p.nodoId && p.punto && e.nodes[p.nodoId]) {
       e.nodes[p.nodoId] = { ...e.nodes[p.nodoId], ...p.punto, ...(p.tipo === 'columna_flotando' ? { isFixedSupport: true } : {}) };
     }
@@ -173,9 +222,17 @@ export function arreglar(esc: Escena, problemas: Problema[]): Escena {
 export function arreglarTodo(esc: Escena): Escena {
   let e = esc;
   for (let i = 0; i < 6; i++) {
-    const p = revisar(e);
+    // El nudo viga–columna es una decisión (subir columna o placa): no se arregla solo.
+    const p = revisar(e).filter(x => x.tipo !== 'viga_ancha');
     if (!p.length) break;
     e = arreglar(e, p);
   }
   return e;
+}
+
+/** Marca la columna con placa de cabeza (se suma al presupuesto) y quita el aviso. */
+export function conPlacaCabeza(esc: Escena, p: Problema): Escena {
+  const col = esc.segments[p.ids[0]];
+  if (!col) return esc;
+  return { ...esc, segments: { ...esc.segments, [col.id]: { ...col, placaCabeza: true } } };
 }

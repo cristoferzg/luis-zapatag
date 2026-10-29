@@ -313,7 +313,9 @@ export function generarReportePresupuestoBom(
   // Costos directos acumulados
   const costoPerfilesSoles = despiecePerfiles.reduce((sum, p) => sum + p.totalCostoSoles, 0);
   const costoCoberturasSoles = resumenCoberturas.reduce((sum, c) => sum + c.costoTotalCoberturaSoles, 0);
-  const costoPlacasSoles = placasBaseTotales * precio('techos:placa_base', PLACA_BASE_ESTANDAR.costoUnidadSol);
+  // Placas de cabeza: columnas marcadas en Revisar (la viga que reciben es más ancha).
+  const placasCabeza = Object.values(segments).filter(s => s.rolEstructural === 'columna' && s.placaCabeza).length;
+  const costoPlacasSoles = placasBaseTotales * precio('techos:placa_base', PLACA_BASE_ESTANDAR.costoUnidadSol) + placasCabeza * precio('techos:placa_cabeza', 0);
   const costoPernosAnclajeSoles = (pernosAnclajeJ / 100) * precio('techos:perno_anclaje', PERNO_ANCLAJE_J.costoCaja100Sol);
   const costoPernosEpdmSoles = cajasPernosEpdm * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol);
   const costoSoldaduraSoles = kgSoldaduraEstimados * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol);

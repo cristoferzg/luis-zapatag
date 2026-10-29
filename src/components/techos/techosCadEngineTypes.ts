@@ -145,6 +145,7 @@ export interface Segment3D {
   // Tensores (varilla/cable): colocados por el botón automático y su función.
   tensorAuto?: boolean;
   oculto?: boolean;             // oculto en el plano y el 3D (sigue en el despiece y el presupuesto)
+  placaCabeza?: boolean;        // columna: lleva placa de cabeza (la viga que recibe es más ancha)
   funcionTensor?: 'cruz' | 'correa';
   // Tijeral dibujado con 2 clics: sus datos, para cambiar peralte y espacios sin redibujarlo.
   tijeral?: { id: string; a: string; b: string; h: number; n: number; tipo: string };

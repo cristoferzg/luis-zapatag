@@ -7,7 +7,7 @@
 import { useMemo } from 'react';
 import { ShieldCheck, X, Eye, Wrench, CheckCircle2 } from 'lucide-react';
 import type { UseTechosCadEngineReturn } from './useTechosCadEngineState';
-import { revisar, arreglar, arreglarTodo, NOMBRE_TIPO, Problema, TipoProblema } from './revisionDiseno';
+import { revisar, arreglar, arreglarTodo, conPlacaCabeza, NOMBRE_TIPO, Problema, TipoProblema } from './revisionDiseno';
 
 export function useRevisionDiseno(engineState: UseTechosCadEngineReturn | null | undefined) {
   return useMemo(() => engineState ? revisar({ nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones }) : [],
@@ -65,9 +65,15 @@ export default function TechosRevisionPanel({ engineState, onClose }: { engineSt
                       <button onClick={() => engineState.setSelectedElementIds(p.ids)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold cursor-pointer">
                         <Eye className="w-3.5 h-3.5" /> Ver
                       </button>
-                      <button onClick={() => aplicar([p])} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold cursor-pointer">
-                        <Wrench className="w-3.5 h-3.5" /> Arreglar
-                      </button>
+                      {p.tipo === 'viga_ancha' && (
+                        <button onClick={() => { const e = conPlacaCabeza({ nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones }, p); engineState.replaceScene(e.nodes, e.segments, e.coverageZones); }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold cursor-pointer" title="Se suma una placa de cabeza al presupuesto">
+                          Placa de cabeza
+                        </button>
+                      )}
+                      {(p.tipo !== 'viga_ancha' || p.perfilNuevo) && <button onClick={() => aplicar([p])} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold cursor-pointer" title={p.tipo === 'viga_ancha' ? `Cambiar la columna a ${p.perfilNuevoNombre}` : undefined}>
+                        <Wrench className="w-3.5 h-3.5" /> {p.tipo === 'viga_ancha' ? 'Subir columna' : 'Arreglar'}
+                      </button>}
                     </div>
                   </div>
                 ))}
