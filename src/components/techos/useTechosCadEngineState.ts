@@ -76,6 +76,8 @@ export interface UseTechosCadEngineReturn {
   loadScene: (loadedNodes: Record<string, Node3D>, loadedSegments: Record<string, Segment3D>, loadedZones?: Record<string, CoverageZone3D>) => void;
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
+  setLedVigas: (on: boolean) => void;
+  setCoberturaTodo: (coverageId: string) => boolean;
 
   // Operaciones Vectoriales de Trazado Libre
   addNode: (x: number, y: number, z?: number, isFixed?: boolean, exact?: boolean) => string;
@@ -559,6 +561,30 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setHistory([{ nodes: n, segments: s, coverageZones: z }]);
     setHistoryIndex(0);
   }, []);
+
+  // Cambia la cobertura de todo el techo (zonas propias, sin los sobretechos de tanques).
+  // Si aún no tiene coberturas, se crean desde las correas.
+  const setCoberturaTodo = useCallback((coverageId: string) => {
+    const base = zonaPrincipal(coverageZones) ? coverageZones : { ...coverageZones, ...zonasDesdeCorreas(nodes, segments, coverageId) };
+    const newZones: Record<string, CoverageZone3D> = {};
+    Object.values(base).forEach(z => { newZones[z.id] = /^tq[0-9a-z]+_/.test(z.id) ? z : { ...z, coberturaMaterialId: coverageId }; });
+    if (!Object.keys(newZones).length) return false;
+    setCoverageZones(newZones);
+    setActiveCoverageId(coverageId);
+    pushHistory(nodes, segments, newZones);
+    return true;
+  }, [nodes, segments, coverageZones, pushHistory]);
+
+  // Cinta LED bajo las vigas (sol y sombra / pérgola): quitarla o ponerla en las vigas.
+  const setLedVigas = useCallback((on: boolean) => {
+    const newSegs: Record<string, Segment3D> = {};
+    Object.values(segments).forEach(s => {
+      const { led: _l, ...resto } = s as Segment3D & { led?: boolean }; void _l;
+      newSegs[s.id] = on && /^viga/.test(s.rolEstructural || '') ? { ...resto, led: true } as Segment3D : resto as Segment3D;
+    });
+    setSegments(newSegs);
+    pushHistory(nodes, newSegs, coverageZones);
+  }, [nodes, segments, coverageZones, pushHistory]);
 
   // Ocultar / mostrar perfiles sin borrarlos (siguen en el metrado).
   const setOcultos = useCallback((ids: string[], oculto: boolean) => {
@@ -4342,6 +4368,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     loadScene,
     replaceScene,
     setOcultos,
+    setLedVigas,
+    setCoberturaTodo,
     assignProfileToSelectedSegments,
     assignCoverageToSelectedZones,
     setTechoMovil,

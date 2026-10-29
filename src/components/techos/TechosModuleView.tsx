@@ -135,8 +135,11 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
       stats[pId].totalCost += length * profile.costoMetroSol;
     });
 
+    // Costo real del despiece (barras de 6 m con los precios del Catálogo), si ya está calculado.
+    const bom = engineState?.bomReport;
+    (bom?.despiecePerfiles || []).forEach((d: any) => { if (stats[d.profileId]) stats[d.profileId].totalCost = d.totalCostoSoles; });
     return Object.values(stats).sort((a, b) => b.totalLength - a.totalLength);
-  }, [segments, nodes, segmentList]);
+  }, [segments, nodes, segmentList, engineState?.bomReport]);
 
   // Métricas de cobertura
   const totalCoveredArea = React.useMemo(() => {
@@ -161,9 +164,16 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
     return area;
   }, [coverageZones, segments, nodes, nodeList, segmentList, zoneList]);
 
-  // Estimación de coberturas y planchas
-  const calaminaType = INVENTARIO_COBERTURAS[0] || { nombre: 'Calamina Aluzinc TR4 0.40mm', costoM2Sol: 28 };
-  const numPlanchasEstimado = Math.ceil(totalCoveredArea / 3.5);
+  // Coberturas reales del diseño (la elegida en el 3D o en Cobertura), del metrado.
+  const coberturas: any[] = engineState?.bomReport?.resumenCoberturas || [];
+  const areaCob = coberturas.reduce((x, c) => x + (c.areaEfectivaCalculadaM2 || 0), 0) || totalCoveredArea;
+  const pernosEpdm = coberturas.reduce((x, c) => x + (c.pernosEpdmRequeridosUnidades || 0), 0);
+  const porCobertura = Object.values(coberturas.reduce((m: Record<string, any>, c) => {
+    const k = c.coberturaMaterialId;
+    m[k] = m[k] ? { ...m[k], area: m[k].area + c.areaEfectivaCalculadaM2, planchas: m[k].planchas + c.totalPlanchasEstimadas, costo: m[k].costo + c.costoTotalCoberturaSoles }
+      : { id: k, nombre: c.nombreCobertura, area: c.areaEfectivaCalculadaM2, planchas: c.totalPlanchasEstimadas, costo: c.costoTotalCoberturaSoles };
+    return m;
+  }, {})) as { id: string; nombre: string; area: number; planchas: number; costo: number }[];
 
   const totalStructuralWeight = profileStats.reduce((sum, item) => sum + item.totalWeight, 0);
   const totalStructuralCost = profileStats.reduce((sum, item) => sum + item.totalCost, 0);
@@ -252,7 +262,7 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center font-bold text-lg shrink-0">
-            {totalCoveredArea.toFixed(1)} <span className="text-xs">m²</span>
+            {areaCob.toFixed(1)} <span className="text-xs">m²</span>
           </div>
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase">Área de Cobertura</p>
@@ -369,31 +379,32 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <span className="block font-black text-slate-400 text-[9px] uppercase">Material de Cubierta</span>
-                  <p className="font-bold text-slate-800">{calaminaType.nombre}</p>
-                  <p className="text-[10px] text-slate-500">Costo aproximado: <strong>S/. {calaminaType.costoM2Sol} por m²</strong></p>
-                  <div className="pt-2 flex justify-between items-center text-[11px]">
-                    <span className="text-slate-500">Cant. Requerida Estimada:</span>
-                    <strong className="text-blue-700 font-mono font-black">{numPlanchasEstimado} planchas</strong>
-                  </div>
+              {porCobertura.length === 0 ? (
+                <p className="text-xs text-slate-500">El techo aún no tiene cobertura. Elígela en el 3D (lista de planchas) o con el botón Cobertura, y aquí verás las planchas y su costo.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {porCobertura.map(c => {
+                    const info = INVENTARIO_COBERTURAS.find(x => x.id === c.id);
+                    return (
+                      <div key={c.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                        <span className="block font-black text-slate-400 text-[9px] uppercase">Cobertura elegida</span>
+                        <p className="font-black text-slate-900 text-[13px] leading-snug">{c.nombre}</p>
+                        <div className="grid grid-cols-3 gap-2 pt-1">
+                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">Área</p><p className="font-mono font-black text-slate-800">{c.area.toFixed(1)} m²</p></div>
+                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">{/rollo/i.test(c.nombre) ? 'Paños' : 'Planchas'}</p><p className="font-mono font-black text-blue-700">{Math.ceil(c.planchas)}</p></div>
+                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">Costo</p><p className="font-mono font-black text-amber-700">S/. {c.costo.toFixed(2)}</p></div>
+                        </div>
+                        {info && <p className="text-[10px] text-slate-500">Plancha de {(info.anchoTotalMm / 1000).toFixed(2)} m (útil {(info.anchoUtilMm / 1000).toFixed(2)} m) × {info.longitudComercialM?.toFixed(2) || '—'} m · traslape {(info.traslapeTransversalMinMm || 200) / 10} cm</p>}
+                      </div>
+                    );
+                  })}
+                  {pernosEpdm > 0 && <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                    <span className="block font-black text-slate-400 text-[9px] uppercase">Fijaciones</span>
+                    <p className="font-black text-slate-900 text-[13px]">Pernos autoperforantes con arandela EPDM</p>
+                    <div className="flex justify-between items-center pt-1"><span className="text-slate-500">Cantidad</span><strong className="text-blue-700 font-mono font-black">{pernosEpdm} und</strong></div>
+                  </div>}
                 </div>
-
-                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                  <span className="block font-black text-slate-400 text-[9px] uppercase">Accesorios y Fijaciones</span>
-                  <p className="font-bold text-slate-800">Pernos Autoperforantes EPDM</p>
-                  <p className="text-[10px] text-slate-500">Fijación de alta hermeticidad de 2"</p>
-                  <div className="pt-2 flex justify-between items-center text-[11px]">
-                    <span className="text-slate-500">Cant. Pernos Estimada:</span>
-                    <strong className="text-blue-700 font-mono font-black">{Math.ceil(totalCoveredArea * 4.5)} unids</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 bg-blue-50/50 text-blue-800 rounded-xl border border-blue-200 text-[10px] leading-relaxed">
-                ℹ️ <strong>Nota de Metrado Techo:</strong> La estimación de calamina asume planchas de 1.10m x 3.60m considerando traslape lateral de un canal y traslape longitudinal de 15cm. Ajustar según cortes en obra.
-              </div>
+              )}
             </div>
           </div>
 

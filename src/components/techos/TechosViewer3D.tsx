@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
 import { panoUnaAgua } from './coberturaAuto';
+import { INVENTARIO_COBERTURAS } from './techosCadCatalog';
 import { 
   RotateCw, 
   Plus, 
@@ -201,6 +202,24 @@ export interface DetalleZonaCritica {
   estadoZona: 'OK' | 'ALERTA_PANDEO' | 'COLAPSO';
   perfilRecomendado: string;
   justificacionNorma: string;
+}
+
+// Tejido de malla raschel: hilos con agujeros (alfa) para que se vea como tela de sombra.
+let cachedMallaTex: THREE.CanvasTexture | null = null;
+function getMallaTexture(): THREE.CanvasTexture {
+  if (cachedMallaTex) return cachedMallaTex;
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d');
+  if (g) {
+    g.fillStyle = '#000'; g.fillRect(0, 0, 32, 32);               // negro = agujero
+    g.fillStyle = '#fff';
+    for (let k = 0; k < 4; k++) { g.fillRect(k * 8, 0, 4, 32); g.fillRect(0, k * 8 + 2, 32, 3); } // urdimbre y trama
+    g.fillStyle = '#ccc'; for (let k = 0; k < 4; k++) g.fillRect(k * 8 + 4, 0, 1, 32);
+  }
+  cachedMallaTex = new THREE.CanvasTexture(c);
+  cachedMallaTex.wrapS = cachedMallaTex.wrapT = THREE.RepeatWrapping;
+  cachedMallaTex.magFilter = THREE.LinearFilter;
+  return cachedMallaTex;
 }
 
 // Gota redonda pequeña y suave (cabeza de cada hilo de lluvia).
@@ -1346,11 +1365,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     uu.push(u1);
     const vv = [v0, (v0 + v1) / 2, v1];
     const base = 0.04 + (arriba ? Math.max(0.002, activeModel.espesorMm / 1000) : 0);
-    const pos: number[] = [], idx: number[] = [];
+    const pos: number[] = [], idx: number[] = [], uvA: number[] = [];
     vv.forEach(v => uu.forEach(u => {
       const rib = getRibHeightProfile(u, freq, alto * (arriba ? 1 : 0.95), activeModel.tipo).offset;
       const p = P0.clone().addScaledVector(a, u).addScaledVector(d, v).addScaledVector(nrm, base + rib);
       pos.push(p.x, p.y, p.z);
+      uvA.push((u - u0) / Math.max(0.01, u1 - u0), (v - v0) / Math.max(0.01, v1 - v0));
     }));
     const W = uu.length;
     for (let j = 0; j < vv.length - 1; j++) for (let i = 0; i < W - 1; i++) {
@@ -1358,6 +1378,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       if (arriba) idx.push(q, s2, r, r, s2, t); else idx.push(q, r, s2, r, t, s2);
     }
     const g = new THREE.BufferGeometry();
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvA, 2));
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setIndex(idx); g.computeVertexNormals();
     // Que la cara de arriba mire hacia arriba.
@@ -2191,8 +2212,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     const activeCover = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
     const isPoly = activeCover.tipo === 'policarbonato';
-    const isTransparent = isPoly ? aluzincOpacity < 0.98 : false;
-    const finalOpacity = isPoly ? aluzincOpacity : 1.0;
+    const esTela = activeCover.tipo === 'malla' || activeCover.tipo === 'lona';
+    const isTransparent = isPoly || activeCover.tipo === 'malla' ? aluzincOpacity < 0.98 : false;
+    const finalOpacity = isPoly || activeCover.tipo === 'malla' ? aluzincOpacity : 1.0;
 
     // Aluzinc Doble Cara Sólido: Cara Exterior (Color Comercial Satinado) + Cara Interior (Fondo Esmalte Blanco de Fábrica #f8fafc)
     const aluzincMatTop = new THREE.MeshStandardMaterial({
@@ -2208,6 +2230,19 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       polygonOffsetFactor: -1.0,
       polygonOffsetUnits: -2.0
     });
+
+    // Malla raschel y lona: tela mate (sin brillo metálico). La malla deja pasar la luz por su tejido.
+    if (esTela) {
+      const spanX = Math.max(1, ...Object.values(nodes).map(n => n.x)) - Math.min(0, ...Object.values(nodes).map(n => n.x));
+      const spanZ = Math.max(1, ...Object.values(nodes).map(n => n.z || 0)) - Math.min(0, ...Object.values(nodes).map(n => n.z || 0));
+      Object.assign(aluzincMatTop, { metalness: 0, roughness: 0.95, side: THREE.DoubleSide });
+      if (activeCover.tipo === 'malla') {
+        const t = getMallaTexture().clone(); t.needsUpdate = true;
+        t.repeat.set(Math.max(4, spanX / 0.06), Math.max(4, spanZ / 0.06)); // ~6 cm por celda
+        Object.assign(aluzincMatTop, { alphaMap: t, transparent: true, alphaTest: 0.35, depthWrite: true });
+      }
+      aluzincMatTop.needsUpdate = true;
+    }
 
     const aluzincMatBottom = new THREE.MeshStandardMaterial({
       color: isPoly ? aluzincColorHex : 0xf8fafc, // ¡Esmalte Blanco Poliéster de Fábrica (#f8fafc) hacia el interior!
@@ -2335,6 +2370,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // 4. RENDERIZADO DE PERFILES CON GEOMETRÍA REAL Y DISEÑO UNIFICADO ELEGANTE
     const tubesGroup = new THREE.Group();
     tubesGroup.name = 'tubes_group';
+    const puntosLuzNoche: THREE.Vector3[] = [];
     modeloGroup.add(tubesGroup);
 
     // Material de acero estructural claro satinado (Tono limpio sin destellos ni sombras negras)
@@ -2480,14 +2516,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         cinta.position.copy(midPoint).add(new THREE.Vector3(0, -altoM / 2 - 0.008, 0));
         cinta.quaternion.copy(tubeMesh.quaternion);
         modeloGroup.add(cinta);
-        if (noche) {
-          const n = Math.max(1, Math.min(4, Math.round(distance / 2.5)));
-          for (let k = 0; k < n; k++) {
-            const luz = new THREE.PointLight(0xffc979, 2.2, 5, 1.8);
-            luz.position.copy(pA.clone().lerp(pB, (k + 0.5) / n)).add(new THREE.Vector3(0, -altoM / 2 - 0.15, 0));
-            modeloGroup.add(luz);
-          }
-        }
+        // De noche la cinta brilla sola (material emisivo); las luces reales se ponen
+        // pocas y repartidas al final (muchas PointLight hacían lento el 3D).
+        if (noche) puntosLuzNoche.push(midPoint.clone().add(new THREE.Vector3(0, -altoM / 2 - 0.15, 0)));
       }
 
       // ENCAMISADO DE CONCRETO (columna mixta): si es columna y tiene definido
@@ -2949,9 +2980,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             const foco = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.05, 20), matLum);
             foco.position.set(x, yLum, z);
             modeloGroup.add(foco);
-            const luz = new THREE.PointLight(0xffd9a0, 6, 12, 1.6);
-            luz.position.set(x, yLum - 0.1, z);
-            modeloGroup.add(luz);
+            puntosLuzNoche.push(new THREE.Vector3(x, yLum - 0.1, z));
           }
           const piso = new THREE.Mesh(new THREE.CircleGeometry(Math.max(x1 - x0, maxZNode - minZNode) * 0.8, 40), new THREE.MeshBasicMaterial({ color: 0x3b2f1e, transparent: true, opacity: 0.35 }));
           piso.rotation.x = -Math.PI / 2; piso.position.set((x0 + x1) / 2, 0.005, (minZNode + maxZNode) / 2);
@@ -3025,6 +3054,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           }
         });
       });
+    }
+
+    // Luces de noche: como máximo 4 PointLight repartidas (cada una encarece mucho el render).
+    if (puntosLuzNoche.length) {
+      const n = Math.min(4, puntosLuzNoche.length);
+      const orden = [...puntosLuzNoche].sort((a, b) => a.x - b.x || a.z - b.z);
+      for (let k = 0; k < n; k++) {
+        const p = orden[Math.floor(((k + 0.5) * orden.length) / n)];
+        const luz = new THREE.PointLight(0xffd9a0, Math.min(14, 6 + 2 * (orden.length / n - 1)), 14, 1.5);
+        luz.position.copy(p);
+        modeloGroup.add(luz);
+      }
     }
 
     // 6b. Sobretecho de cada tanque elevado (techito propio sobre el tanque)
@@ -3473,6 +3514,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     setAluzincColorHex(mod.colorDefectoHex);
   };
 
+  // Elegir la cobertura en el 3D la cambia también en el diseño (materiales, resumen y presupuesto).
+  const elegirModelo = (modeloId: string) => {
+    handleModeloChange(modeloId);
+    const cob = INVENTARIO_COBERTURAS.find(c => modeloDesdeCobertura(c.id) === modeloId);
+    if (cob && engineState?.setCoberturaTodo) engineState.setCoberturaTodo(cob.id);
+  };
+
   const diagSismo = getDiagnosticoSismo(sismoMagnitud);
 
   return (
@@ -3560,6 +3608,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <p className="text-xs font-black uppercase tracking-wide text-slate-700 flex items-center gap-1.5"><Palette className="w-4 h-4" /> Colores y acabados</p>
             <button onClick={() => setPanelColores(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-4 h-4" /></button>
           </div>
+          {engineState?.setLedVigas && (
+            <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+              <input type="checkbox" checked={Object.values(segmentsTodos).some(sg => (sg as any).led)} onChange={e => engineState.setLedVigas(e.target.checked)} />
+              Cinta LED bajo las vigas (luz cálida; suma al presupuesto)
+            </label>
+          )}
           <div>
             <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Pintura de la estructura</p>
             <div className="flex flex-wrap gap-1.5">
@@ -3698,7 +3752,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <Sliders className="w-4 h-4 text-amber-500 shrink-0" />
             <select
               value={selectedModeloId}
-              onChange={(e) => handleModeloChange(e.target.value)}
+              onChange={(e) => elegirModelo(e.target.value)}
               className="bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-800 outline-none focus:border-amber-500 cursor-pointer shadow-2xs max-w-[150px] sm:max-w-[220px] truncate"
               title="Seleccionar perfil de cobertura (TR-4, TR-5, Calamina, etc.)"
             >
@@ -4491,7 +4545,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             <span className="text-[10px] font-bold text-slate-500 uppercase">Calamina / Aluzinc Perú:</span>
             <select
               value={selectedModeloId}
-              onChange={(e) => handleModeloChange(e.target.value)}
+              onChange={(e) => elegirModelo(e.target.value)}
               className="w-full p-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:border-amber-500 cursor-pointer shadow-2xs"
             >
               {MODELOS_ALUZINC_PERU.map(m => (
