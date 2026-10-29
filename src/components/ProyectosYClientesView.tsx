@@ -22,6 +22,7 @@ import {
 import { Project, Client, ClientFile, FinanceRecord, SystemUser } from '../types';
 import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, deleteTechosDesign } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
+import { sincronizarAceptadas, presupuestoActualDiseno, fechaCorta } from '../lib/acuerdoTechos';
 import { prepararArchivoCarpeta, migrarArchivosPesados } from '../lib/carpetaArchivos';
 
 interface ProyectosYClientesViewProps {
@@ -181,6 +182,14 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
     }
     return false;
   };
+
+  // Techos: lo que el cliente aceptó en el link se fija como acordado, y el
+  // presupuesto actual de cada diseño enlazado para ver la diferencia.
+  const [actualTechos, setActualTechos] = useState<Record<string, number>>({});
+  useEffect(() => {
+    sincronizarAceptadas(projects).then(r => { if (r) setProjects(r); }).catch(() => {});
+    projects.filter(p => p.techos?.disenoId).forEach(p => presupuestoActualDiseno(p.techos!.disenoId).then(v => { if (v != null) setActualTechos(a => ({ ...a, [p.id]: v })); }).catch(() => {}));
+  }, [projects.map(p => `${p.id}:${p.techos?.propuestaId || ''}:${p.techos?.disenoId || ''}`).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setActiveTab(initialSubTab);
@@ -533,6 +542,38 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </span>
                   </div>
                   
+                  {/* Techos Metálicos: propuesta, lo acordado y el presupuesto actual del diseño */}
+                  {p.techos && (p.techos.opciones?.length || p.techos.acordado || p.techos.disenoId) && (() => {
+                    const t = p.techos, act = actualTechos[p.id], dif = t.acordado && act != null ? act - t.acordado.total : null;
+                    return (
+                      <div className="mx-5 mt-4 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-2 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-1">
+                          <p className="font-black text-indigo-900">Techo metálico{t.disenoNombre ? ` · ${t.disenoNombre}` : ''}</p>
+                          {t.acordado
+                            ? <span className="font-bold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">{t.acordado.fuente === 'link' ? 'Aceptó en el link' : 'Acordado'} · {fechaCorta(t.acordado.fecha)}</span>
+                            : t.propuestaId ? <span className="font-bold text-indigo-700 bg-white rounded-full px-2 py-0.5 border border-indigo-200">Propuesta enviada{t.propuestaFecha ? ` · ${fechaCorta(t.propuestaFecha)}` : ''} · esperando</span> : null}
+                        </div>
+                        {!!t.opciones?.length && (
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {t.opciones.map(o => { const sel = t.acordado?.opcion === o.nombre; return (
+                              <div key={o.nombre} className={`rounded-lg p-1.5 border ${sel ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-200 text-slate-700'}`}>
+                                <p className="text-[10px] font-black truncate">{o.nombre}</p>
+                                <p className="text-[11px] font-black">{formatCurrency(o.total)}</p>
+                              </div>
+                            ); })}
+                          </div>
+                        )}
+                        {(t.acordado || act != null) && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                            {t.acordado && <span>Acordado: <b>{formatCurrency(t.acordado.total)}</b></span>}
+                            {act != null && <span>Presupuesto actual del diseño: <b>{formatCurrency(act)}</b></span>}
+                            {dif != null && Math.abs(dif) >= 0.5 && <span className={`font-black ${dif > 0 ? 'text-rose-700' : 'text-sky-700'}`}>{dif > 0 ? `Te pasas ${formatCurrency(dif)}` : `Ahorras ${formatCurrency(-dif)}`}</span>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* Card Body - Stats Grid */}
                   <div className="p-5 grid grid-cols-2 gap-4 flex-1">
                     <div>

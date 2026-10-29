@@ -60,12 +60,14 @@ import {
   deleteTechosDesign, 
   popActiveTechosDesignToLoad 
 } from '../../lib/techosDesignsRepo';
+import type { TechosDelProyecto } from '../../types';
 
 interface ProjectOption {
   id: string;
   name: string;
   client: string;
   presupuesto: number;
+  techos?: TechosDelProyecto;
 }
 
 interface ClientOption {
@@ -80,6 +82,7 @@ interface TechosModuleViewProps {
   onSaveToProject?: (projectId: string, projectData: any) => void;
   onCreateProject?: (newProject: any) => void;
   onNavigateToProjects?: () => void;
+  onTechosProyecto?: (projectId: string, t: TechosDelProyecto) => void;
   currentSettings?: any;
   isAdmin?: boolean;
   currentUserName?: string;
@@ -470,6 +473,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   onSaveToProject,
   onCreateProject,
   onNavigateToProjects,
+  onTechosProyecto,
   currentSettings,
   isAdmin = false,
   currentUserName = 'Usuario'
@@ -1319,6 +1323,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             projects={projects}
             clients={clients}
             onNavigateToProjects={onNavigateToProjects}
+            onTechosProyecto={onTechosProyecto}
+            disenoId={currentEditingDesignId}
+            proyectoDelDiseno={getCachedTechosDesigns().find(d => d.id === currentEditingDesignId)?.projectId}
             currentSettings={currentSettings}
             escena={{ nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones }}
           />

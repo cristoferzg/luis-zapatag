@@ -1,3 +1,5 @@
+import type { TechosDelProyecto } from './types';
+import { conAcuerdo } from './lib/acuerdoTechos';
 import { useCatalogo, migrarPreciosAntiguos, hidratarCatalogo, EstadoCatalogo } from './lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from './components/techos/techosCadCatalog';
 import { EmpresaProvider, datosDesdeSettings, settingsDesdeDatos, DatosEmpresa } from './lib/empresa';
@@ -2040,6 +2042,12 @@ export default function App() {
     }));
   };
 
+  // Techos ↔ proyecto: guarda la propuesta enviada y, si hay acuerdo, pone ese monto como presupuesto.
+  const handleTechosProyecto = (projectId: string, t: TechosDelProyecto) => {
+    setProjects(prev => prev.map(p => p.id !== projectId ? p
+      : t.acordado ? conAcuerdo(p, t, t.acordado) : { ...p, techos: { ...(p.techos || {}), ...t } }));
+  };
+
   const handleCreateHerreriaProject = (newProject: any) => {
     setProjects(prev => [newProject, ...prev]);
   };
@@ -2086,6 +2094,7 @@ export default function App() {
             onSaveToProject={handleSaveHerreriaToProject} 
             onCreateProject={handleCreateHerreriaProject} 
             onNavigateToProjects={() => setCurrentView('projects')} 
+            onTechosProyecto={handleTechosProyecto}
             currentSettings={currentSettings}
             isAdmin={isAdmin}
             currentUserName={user ? user.name : 'Administrador Principal'}

@@ -57,6 +57,15 @@ export interface Project {
   detallesContrato?: string;
   userId?: string;
   creatorName?: string;
+  techos?: TechosDelProyecto;   // propuesta de Techos Metálicos y lo acordado con el cliente (opcional)
+}
+
+/** Enlace del proyecto con su diseño de Techos: propuesta A/B/C enviada y lo acordado. */
+export interface TechosDelProyecto {
+  disenoId?: string; disenoNombre?: string;
+  opciones?: { nombre: string; cobertura: string; total: number }[];
+  propuestaId?: string; propuestaFecha?: string;   // link enviado al cliente
+  acordado?: { opcion: string; cobertura?: string; total: number; fecha: string; fuente: 'link' | 'manual' };
 }
 
 export interface ClientFile {

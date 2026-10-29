@@ -1,5 +1,7 @@
 // Presupuesto Comercial Formal Exclusivo para Techos Metálicos y Coberturas
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import type { TechosDelProyecto } from '../../types';
+import { sincronizarAceptadas, fechaCorta } from '../../lib/acuerdoTechos';
 import { FileText, Send, CheckCircle, ArrowRight } from 'lucide-react';
 import BotonImprimir from '../common/BotonImprimir';
 import { CabeceraEmpresa, BandaMarca, CondicionesComerciales } from '../../lib/empresa';
@@ -14,6 +16,7 @@ interface ProjectOption {
   name: string;
   client: string;
   presupuesto: number;
+  techos?: TechosDelProyecto;
 }
 
 interface ClientOption {
@@ -31,6 +34,9 @@ interface TechosPresupuestoViewProps {
   onNavigateToProjects?: () => void;
   currentSettings?: any;
   escena?: { nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D> };
+  onTechosProyecto?: (projectId: string, t: TechosDelProyecto) => void;
+  disenoId?: string | null;
+  proyectoDelDiseno?: string;
 }
 
 export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
@@ -42,12 +48,23 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
   onCreateProject,
   onNavigateToProjects,
   currentSettings,
-  escena
+  escena,
+  onTechosProyecto,
+  disenoId,
+  proyectoDelDiseno
 }) => {
   const [verPropuesta, setVerPropuesta] = useState(false);
   const [clienteNombre, setClienteNombre] = useState<string>('CLIENTE INDUSTRIAL S.A.C.');
   const [ubicacion, setUbicacion] = useState<string>('LIMA - PERÚ');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('new');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => (proyectoDelDiseno && projects.some(p => p.id === proyectoDelDiseno) ? proyectoDelDiseno
+    : projects.find(p => disenoId && p.techos?.disenoId === disenoId)?.id) || 'new');
+  const proyectoSel = projects.find(p => p.id === selectedProjectId);
+  const acordado = proyectoSel?.techos?.acordado;
+  // Si el cliente aceptó por el link, se fija solo como lo acordado.
+  useEffect(() => {
+    if (!proyectoSel?.techos?.propuestaId || !onTechosProyecto) return;
+    sincronizarAceptadas([proyectoSel as any]).then(r => { const t = r?.[0]?.techos; if (t?.acordado) onTechosProyecto(proyectoSel.id, t); }).catch(() => {});
+  }, [selectedProjectId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [nuevoProyectoNombre, setNuevoProyectoNombre] = useState<string>(`Obra: ${nombreProyecto}`);
   const [enviadoExito, setEnviadoExito] = useState<boolean>(false);
 
@@ -103,9 +120,12 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
         onCreateProject(nuevoProj);
       }
     } else {
+      // Si ya hay un monto acordado con el cliente, no se pisa sin preguntar.
+      const reemplazar = !acordado || Math.abs(acordado.total - totalConIgv) < 0.5 || window.confirm(`Este proyecto tiene acordado S/ ${acordado.total.toFixed(2)} con el cliente. ¿Reemplazarlo por el presupuesto actual S/ ${totalConIgv.toFixed(2)}? (Cancelar: se guardan los datos y se mantiene lo acordado)`);
+      if (onTechosProyecto && disenoId) onTechosProyecto(selectedProjectId, { disenoId, disenoNombre: nombreProyecto });
       if (onSaveToProject) {
         onSaveToProject(selectedProjectId, {
-          presupuesto: totalConIgv,
+          presupuesto: reemplazar ? totalConIgv : acordado!.total,
           materiales: [],
           detallesContrato: especificacionesTexto
         });
@@ -199,6 +219,41 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
         </div>
       </div>
 
+      {/* LO ACORDADO CON EL CLIENTE vs EL PRESUPUESTO ACTUAL DEL DISEÑO */}
+      {isBom && proyectoSel && (
+        <div className="max-w-4xl mx-auto mb-4 rounded-2xl border border-slate-200 bg-white p-4 print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <p className="text-sm font-black text-slate-900">Acordado vs presupuesto actual · {proyectoSel.name}</p>
+            {proyectoSel.techos?.propuestaId && !acordado && <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 rounded-full px-2 py-0.5">Propuesta enviada{proyectoSel.techos.propuestaFecha ? ` el ${fechaCorta(proyectoSel.techos.propuestaFecha)}` : ''} · esperando al cliente</span>}
+          </div>
+          {acordado ? (() => {
+            const dif = totalConIgv - acordado.total;
+            return (
+              <div className="grid sm:grid-cols-3 gap-2">
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+                  <p className="text-[10px] font-black uppercase text-emerald-700">Acordado con el cliente</p>
+                  <p className="text-xl font-black text-emerald-900">S/ {acordado.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[11px] text-emerald-800">Opción {acordado.opcion}{acordado.cobertura ? ` · ${acordado.cobertura}` : ''}</p>
+                  <p className="text-[10px] text-emerald-700">{acordado.fuente === 'link' ? 'Aceptada por el cliente en el link' : 'Marcada como acordada'} · {fechaCorta(acordado.fecha)}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                  <p className="text-[10px] font-black uppercase text-slate-500">Presupuesto actual del diseño</p>
+                  <p className="text-xl font-black text-slate-900">S/ {totalConIgv.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[11px] text-slate-500">Con los cambios que hiciste después del acuerdo</p>
+                </div>
+                <div className={`rounded-xl border p-3 ${Math.abs(dif) < 0.5 ? 'bg-slate-50 border-slate-200' : dif > 0 ? 'bg-rose-50 border-rose-200' : 'bg-sky-50 border-sky-200'}`}>
+                  <p className="text-[10px] font-black uppercase text-slate-500">Diferencia</p>
+                  <p className={`text-xl font-black ${Math.abs(dif) < 0.5 ? 'text-slate-700' : dif > 0 ? 'text-rose-700' : 'text-sky-700'}`}>{dif > 0 ? '+' : ''}S/ {dif.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[11px] text-slate-600">{Math.abs(dif) < 0.5 ? 'Igual a lo acordado.' : dif > 0 ? 'Te pasas de lo acordado: conversa un adicional con el cliente.' : 'Cuesta menos de lo acordado: ganas más margen.'}</p>
+                </div>
+              </div>
+            );
+          })() : (
+            <p className="text-xs text-slate-500">Aún no hay un monto acordado. Se fija solo cuando el cliente acepta la propuesta por el link, o con <b>“Marcar como acordada”</b> en la propuesta.</p>
+          )}
+        </div>
+      )}
+
       {/* PROPUESTA VISUAL PARA EL CLIENTE */}
       {isBom && escena && (
         <div className="max-w-4xl mx-auto mb-4 rounded-2xl p-4 bg-gradient-to-r from-indigo-600 to-violet-600 text-white flex flex-wrap items-center gap-3">
@@ -212,7 +267,8 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       )}
       {verPropuesta && escena && (
         <PropuestaClienteView nodes={escena.nodes} segments={escena.segments} coverageZones={escena.coverageZones}
-          nombreProyecto={nombreProyecto} cliente={clienteNombre} ubicacion={ubicacion} onClose={() => setVerPropuesta(false)} />
+          nombreProyecto={nombreProyecto} cliente={proyectoSel?.client || clienteNombre} ubicacion={ubicacion} onClose={() => setVerPropuesta(false)}
+          proyectos={projects} proyectoId={proyectoSel?.id} onTechosProyecto={onTechosProyecto} disenoId={disenoId || undefined} />
       )}
 
       {/* HOJA IMPRESA DE COTIZACIÓN */}

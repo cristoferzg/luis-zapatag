@@ -18,6 +18,7 @@ import { publicarPropuesta, claveValida, normalizarClave } from '../../lib/propu
 import { redactarConIA } from '../../lib/redaccionIA';
 import { iaVisibleParaUI } from '../../lib/aiAccess';
 import { Sparkles } from 'lucide-react';
+import type { TechosDelProyecto } from '../../types';
 
 export interface OpcionPropuesta { nombre: string; coberturaId: string; nota: string }
 
@@ -35,11 +36,18 @@ function opcionesPorDefecto(actual?: string): OpcionPropuesta[] {
 }
 
 export default function PropuestaClienteView({
-  nodes, segments, coverageZones, nombreProyecto, cliente, ubicacion, onClose,
+  nodes, segments, coverageZones, nombreProyecto, cliente, ubicacion, onClose, proyectos = [], proyectoId, onTechosProyecto, disenoId,
 }: {
   nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D>;
   nombreProyecto: string; cliente: string; ubicacion: string; onClose: () => void;
+  proyectos?: { id: string; name: string; client: string; techos?: TechosDelProyecto }[];
+  proyectoId?: string;
+  onTechosProyecto?: (projectId: string, t: TechosDelProyecto) => void;
+  disenoId?: string;
 }) {
+  // Proyecto (de Proyectos & Clientes) al que se enlaza la propuesta y su acuerdo.
+  const [pid, setPid] = useState<string>(proyectoId || '');
+  const proy = proyectos.find(p => p.id === pid);
   const { datos } = useEmpresa();
   const color = colorMarcaDe(datos);
   const hoja = useRef<HTMLDivElement>(null);
@@ -89,6 +97,13 @@ export default function PropuestaClienteView({
     finally { setRedactando(false); }
   };
 
+  const resumenOpciones = () => opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), total: Math.round((precios[i]?.total || 0) * 100) / 100 }));
+  const marcarAcordada = (i: number) => {
+    if (!pid || !onTechosProyecto) return;
+    const o = resumenOpciones()[i];
+    onTechosProyecto(pid, { disenoId, disenoNombre: nombreProyecto, opciones: resumenOpciones(), acordado: { opcion: o.nombre, cobertura: o.cobertura, total: o.total, fecha: new Date().toISOString(), fuente: 'manual' } });
+  };
+
   const publicar = async () => {
     setPublicando(true); setError(null);
     try {
@@ -101,6 +116,7 @@ export default function PropuestaClienteView({
         incluye,
       }, claveCliente);
       setLink(`${window.location.origin}${window.location.pathname}?propuesta=${id}`);
+      if (pid && onTechosProyecto) onTechosProyecto(pid, { disenoId, disenoNombre: nombreProyecto, opciones: resumenOpciones(), propuestaId: id, propuestaFecha: new Date().toISOString() });
     } catch (e: any) {
       setError(e?.message?.includes('demasiado') || e?.message?.includes('DNI') ? e.message : 'No se pudo publicar el link. Revisa tu conexión e inténtalo de nuevo.');
     } finally { setPublicando(false); }
@@ -139,6 +155,20 @@ export default function PropuestaClienteView({
         </div>
 
         <div className="overflow-y-auto p-3 sm:p-5">
+          {/* Proyecto enlazado y lo acordado (no se imprime) */}
+          {onTechosProyecto && (
+            <div className="no-imprimir mb-3 bg-white rounded-xl border border-slate-200 p-2 flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="font-black text-slate-700">Proyecto:</span>
+              <select value={pid} onChange={e => setPid(e.target.value)} className="px-2 py-1 rounded-lg border border-slate-200 font-bold max-w-[260px]">
+                <option value="">— Sin enlazar —</option>
+                {proyectos.map(p => <option key={p.id} value={p.id}>{p.name} ({p.client})</option>)}
+              </select>
+              {proy?.techos?.acordado
+                ? <span className="font-bold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">Acordado: {proy.techos.acordado.opcion} · {S(proy.techos.acordado.total)} ({proy.techos.acordado.fuente === 'link' ? 'aceptó en el link' : 'marcado a mano'})</span>
+                : <span className="text-slate-500">{pid ? 'Al enviar el link o marcar una opción, queda enlazado al proyecto.' : 'Elige el proyecto para guardar lo acordado.'}</span>}
+            </div>
+          )}
+
           {/* Ajustes de las opciones (no se imprimen) */}
           <div className="no-imprimir mb-3 grid sm:grid-cols-3 gap-2">
             {opciones.map((o, i) => (
@@ -151,6 +181,12 @@ export default function PropuestaClienteView({
                   {INVENTARIO_COBERTURAS.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                 </select>
                 <input value={o.nota} onChange={e => setOpciones(opciones.map((x, j) => j === i ? { ...x, nota: e.target.value } : x))} className="w-full px-2 py-1 rounded-lg bg-slate-50 text-[11px]" />
+                {onTechosProyecto && (
+                  <button onClick={() => marcarAcordada(i)} disabled={!pid} title={pid ? 'El cliente eligió esta opción (en persona o por WhatsApp)' : 'Primero elige el proyecto'}
+                    className={`w-full py-1 rounded-lg text-[11px] font-black cursor-pointer disabled:opacity-40 disabled:cursor-default ${proy?.techos?.acordado?.opcion === o.nombre ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
+                    {proy?.techos?.acordado?.opcion === o.nombre ? '✓ Acordada' : 'Marcar como acordada'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
