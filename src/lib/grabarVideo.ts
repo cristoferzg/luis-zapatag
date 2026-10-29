@@ -22,7 +22,7 @@ export const puedeGrabar = (canvas?: HTMLCanvasElement | null) =>
  * Graba el canvas durante `duracionMs` (o hasta llamar a detener) y descarga
  * el archivo `<nombre>_<fecha>.mp4`. Devuelve null si no se puede grabar.
  */
-export function grabarCanvas(canvas: HTMLCanvasElement, nombre: string, opts: { duracionMs?: number; onFin?: (ext: string) => void } = {}) {
+export function grabarCanvas(canvas: HTMLCanvasElement, nombre: string, opts: { duracionMs?: number; onFin?: (ext: string) => void; onPreparando?: () => void } = {}) {
   const fmt = formatoVideo();
   if (!fmt || typeof (canvas as any).captureStream !== 'function') return null;
   const stream = (canvas as any).captureStream(30) as MediaStream;
@@ -30,16 +30,26 @@ export function grabarCanvas(canvas: HTMLCanvasElement, nombre: string, opts: { 
   const chunks: BlobPart[] = [];
   let timer = 0;
   recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-  recorder.onstop = () => {
+  recorder.onstop = async () => {
     window.clearTimeout(timer);
     stream.getTracks().forEach(t => t.stop());
-    const url = URL.createObjectURL(new Blob(chunks, { type: fmt.mime.split(';')[0] }));
+    let blob = new Blob(chunks, { type: fmt.mime.split(';')[0] });
+    let ext: string = fmt.ext;
+    // La grabación del navegador sale como MP4 fragmentado (o WebM) que WhatsApp no
+    // reconoce: se convierte a un MP4 normal H.264. Si no se puede, queda el original.
+    opts.onPreparando?.();
+    try {
+      const { videoParaWhatsApp } = await import('./comprimirVideo');
+      const listo = await videoParaWhatsApp(blob);
+      if (listo) { blob = listo; ext = 'mp4'; }
+    } catch { /* se descarga el original */ }
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${nombre}_${new Date().toISOString().split('T')[0]}.${fmt.ext}`;
+    a.download = `${nombre}_${new Date().toISOString().split('T')[0]}.${ext}`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    opts.onFin?.(fmt.ext);
+    opts.onFin?.(ext);
   };
   recorder.start(1000);
   const detener = () => { if (recorder.state !== 'inactive') recorder.stop(); };

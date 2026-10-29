@@ -52,3 +52,37 @@ export async function comprimirVideo(file: File, onProgreso?: (pct: number) => v
     input.dispose();
   }
 }
+
+/**
+ * Deja un video grabado del 3D listo para WhatsApp y celulares: MP4 normal (no
+ * fragmentado, con el índice al inicio), H.264, medidas pares, 30 cuadros/s
+ * constantes y como máximo 1280 px de lado. Si el navegador no puede codificar
+ * H.264, devuelve null (se usa el archivo original).
+ */
+export async function videoParaWhatsApp(blob: Blob): Promise<Blob | null> {
+  if (typeof VideoEncoder === 'undefined') return null;
+  const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+  try {
+    const pista = await input.getPrimaryVideoTrack();
+    if (!pista) return null;
+    const k = Math.min(1, 1280 / Math.max(pista.displayWidth, pista.displayHeight));
+    const w = Math.max(2, Math.round((pista.displayWidth * k) / 2) * 2), h = Math.max(2, Math.round((pista.displayHeight * k) / 2) * 2);
+    const codec = await getFirstEncodableVideoCodec(['avc'], { width: w, height: h });
+    if (!codec) return null;
+    const target = new BufferTarget();
+    const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target });
+    const conversion = await Conversion.init({
+      input, output,
+      video: { codec, width: w, height: h, fit: 'contain', bitrate: Math.round(Math.min(5_000_000, Math.max(1_500_000, w * h * 3))), keyFrameInterval: 2, frameRate: 30 },
+      audio: { discard: true },
+    });
+    if (!conversion.isValid) return null;
+    await conversion.execute();
+    return target.buffer ? new Blob([target.buffer], { type: 'video/mp4' }) : null;
+  } catch (e) {
+    console.warn('No se pudo preparar el video para WhatsApp:', e);
+    return null;
+  } finally {
+    input.dispose();
+  }
+}
