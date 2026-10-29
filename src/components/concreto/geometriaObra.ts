@@ -68,10 +68,10 @@ export function poligonosTecho(est: EstructuraTechos, sinTanques = false): { x: 
   const zonas = Object.values(est.coverageZones || {}).map(z => z.nodeIdsBoundary || []).filter(l => !sinTanques || !l.some(id => esNodoTanque(N[id] as any)));
   const propias = zonas.filter(l => !l.some(id => esNodoTanque(N[id] as any)));
   const aPuntos = (ls: string[][]) => ls.map(l => l.map(id => N[id]).filter(Boolean).map(n => ({ x: n.x, y: n.y, z: n.z }))).filter(p => p.length >= 3);
-  if (propias.length) return aPuntos(zonas);
-  // Sin coberturas propias: techo de una agua como un solo paño (encima de vigas y correas).
+  // Techo de una agua: un solo paño encima de vigas y correas (aunque haya franjas guardadas).
   const pl = panoUnaAgua(N as any, (est.segments || {}) as any);
-  if (pl) return [...aPuntos(zonas), pl.pts];
+  if (pl) return [...aPuntos(zonas.filter(l => !propias.includes(l))), pl.pts];
+  if (propias.length) return aPuntos(zonas);
   return aPuntos([...zonas, ...coberturaDesdeCorreas(N, est.segments || {}).map(p => p.ids)]);
 }
 

@@ -2781,18 +2781,6 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         );
         hipRoofGroup.name = 'cobertura_malla';
         modeloGroup.add(hipRoofGroup);
-      } else if (panosZona.length >= 2 && panosZona.some(pz => pz.cruzado)) {
-        // Techo con paños que caen en distintas direcciones (en L, en U…): un paño por zona.
-        const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
-        const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
-        const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
-        panosZona.forEach(pz => {
-          const gt = crearPanoZona(pz.pts, true), gb = crearPanoZona(pz.pts, false);
-          if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
-          if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
-        });
-        modeloGroup.add(grupo);
-        panosRef.current = []; movilMetaRef.current = null;
       } else if (panoLargo) {
         const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
         const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
@@ -2847,6 +2835,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           modeloGroup.add(caja);
           aplicarApertura(aperturaRef.current);
         }
+      } else if (panosZona.length >= 2 && panosZona.some(pz => pz.cruzado)) {
+        // Techo con paños que caen en distintas direcciones (en L, en U…): un paño por zona.
+        const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
+        const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
+        const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
+        panosZona.forEach(pz => {
+          const gt = crearPanoZona(pz.pts, true), gb = crearPanoZona(pz.pts, false);
+          if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
+          if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
+        });
+        modeloGroup.add(grupo);
+        panosRef.current = []; movilMetaRef.current = null;
       } else if (topProfilePoints.length >= 2) {
         const minZNode = Math.min(...allNodeArray.map(n => n.z || 0));
         const maxZNode = Math.max(...allNodeArray.map(n => n.z || 0));

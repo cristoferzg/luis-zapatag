@@ -398,12 +398,14 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         });
         // Coberturas guardadas; si el diseño no tiene, se deducen de las correas.
         const zonas: { ids: string[]; mat: string; pts?: { x: number; y: number; z: number }[] }[] = Object.values(est.coverageZones || {}).map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId }));
-        if (!zonas.some(z => !z.ids.some(id => esNodoTanque(N[id])))) {
-          // Techo de una agua: un solo paño apoyado encima de vigas y correas.
-          const pl = panoUnaAgua(N, est.segments || {});
-          if (pl) zonas.push({ ids: [], pts: pl.pts, mat: 'cob_aluzinc_030' });
-          else coberturaDesdeCorreas(N, est.segments || {}).forEach(p => zonas.push({ ids: p.ids, mat: 'cob_aluzinc_030' }));
-        }
+        // Techo de una agua (un solo plano): un solo paño apoyado encima de vigas y correas,
+        // aunque el diseño tenga sus coberturas en franjas entre correas.
+        const pl = panoUnaAgua(N, est.segments || {});
+        const propias = zonas.filter(z => !z.ids.some(id => esNodoTanque(N[id])));
+        if (pl) {
+          const mat = propias[0]?.mat || 'cob_aluzinc_030';
+          zonas.splice(0, zonas.length, ...zonas.filter(z => !propias.includes(z)), { ids: [], pts: pl.pts, mat });
+        } else if (!propias.length) coberturaDesdeCorreas(N, est.segments || {}).forEach(p => zonas.push({ ids: p.ids, mat: 'cob_aluzinc_030' }));
         zonas.forEach(z => {
           const nodos = z.pts || z.ids.map(id => N[id]).filter(Boolean);
           if (!conTecho || nodos.some(n => (n?.y ?? 0) > yCorte + 0.06)) return;
