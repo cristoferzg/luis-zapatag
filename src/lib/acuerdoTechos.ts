@@ -8,13 +8,26 @@ import type { Project, TechosDelProyecto } from '../types';
 import { getCachedTechosDesigns } from './techosDesignsRepo';
 import { leerPropuesta } from './propuestas';
 
-/** Presupuesto actual (precio de venta) de un diseño de Techos guardado. */
-export async function presupuestoActualDiseno(disenoId?: string): Promise<number | null> {
+/** Presupuesto actual de un diseño de Techos guardado: precio de venta (con tus % de
+ *  gastos y utilidad) y costo directo (materiales + mano de obra + equipos). */
+export async function datosDiseno(disenoId?: string): Promise<{ venta: number; costo: number } | null> {
   if (!disenoId) return null;
   const d = getCachedTechosDesigns().find(x => x.id === disenoId);
   if (!d) return null;
   const { generarReportePresupuestoBom } = await import('../components/techos/techosCadCalculations');
-  return generarReportePresupuestoBom(d.nodes || {}, d.segments || {}, (d as any).coverageZones || {}).precioVentaFinalSoles;
+  const r = generarReportePresupuestoBom(d.nodes || {}, d.segments || {}, (d as any).coverageZones || {});
+  return { venta: r.precioVentaFinalSoles, costo: r.costoDirectoTotalSoles };
+}
+export async function presupuestoActualDiseno(disenoId?: string): Promise<number | null> {
+  return (await datosDiseno(disenoId))?.venta ?? null;
+}
+
+/** Precio de cada opción partiendo del precio pactado: la opción base vale exactamente
+ *  ese precio y las demás suman o restan solo la diferencia de su cobertura. */
+export function opcionesDesdePrecio(opciones: { nombre: string; cobertura: string; total: number }[], baseNombre: string | undefined, precio: number) {
+  const base = opciones.find(o => o.nombre === baseNombre) || opciones[Math.min(1, opciones.length - 1)];
+  if (!base || !(precio > 0)) return opciones;
+  return opciones.map(o => ({ ...o, total: Math.max(0, Math.round((precio + (o.total - base.total)) * 100) / 100) }));
 }
 
 /** Aplica un acuerdo al proyecto: guarda el detalle y pone el monto como presupuesto. */

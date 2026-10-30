@@ -227,24 +227,27 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
             {proyectoSel.techos?.propuestaId && !acordado && <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 rounded-full px-2 py-0.5">Propuesta enviada{proyectoSel.techos.propuestaFecha ? ` el ${fechaCorta(proyectoSel.techos.propuestaFecha)}` : ''} · esperando al cliente</span>}
           </div>
           {acordado ? (() => {
-            const dif = totalConIgv - acordado.total;
+            // Lo pactado es el precio del proyecto; lo que importa es cuánto te cuesta el diseño.
+            const pactado = Number(proyectoSel.presupuesto) || acordado.total;
+            const costo = Number(design.costoDirectoTotalSoles) || 0, margen = pactado - costo;
+            const fmt = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             return (
               <div className="grid sm:grid-cols-3 gap-2">
                 <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-                  <p className="text-[10px] font-black uppercase text-emerald-700">Acordado con el cliente</p>
-                  <p className="text-xl font-black text-emerald-900">S/ {acordado.total.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] font-black uppercase text-emerald-700">Precio pactado con el cliente</p>
+                  <p className="text-xl font-black text-emerald-900">S/ {fmt(pactado)}</p>
                   <p className="text-[11px] text-emerald-800">Opción {acordado.opcion}{acordado.cobertura ? ` · ${acordado.cobertura}` : ''}</p>
-                  <p className="text-[10px] text-emerald-700">{acordado.fuente === 'link' ? 'Aceptada por el cliente en el link' : 'Marcada como acordada'} · {fechaCorta(acordado.fecha)}</p>
+                  <p className="text-[10px] text-emerald-700">{acordado.fuente === 'link' ? 'Aceptada por el cliente en el link' : 'Acordado'} · {fechaCorta(acordado.fecha)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
-                  <p className="text-[10px] font-black uppercase text-slate-500">Presupuesto actual del diseño</p>
-                  <p className="text-xl font-black text-slate-900">S/ {totalConIgv.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
-                  <p className="text-[11px] text-slate-500">Con los cambios que hiciste después del acuerdo</p>
+                  <p className="text-[10px] font-black uppercase text-slate-500">Costo del diseño actual</p>
+                  <p className="text-xl font-black text-slate-900">S/ {fmt(costo)}</p>
+                  <p className="text-[11px] text-slate-500">Materiales + mano de obra + equipos (sin gastos generales ni utilidad)</p>
                 </div>
-                <div className={`rounded-xl border p-3 ${Math.abs(dif) < 0.5 ? 'bg-slate-50 border-slate-200' : dif > 0 ? 'bg-rose-50 border-rose-200' : 'bg-sky-50 border-sky-200'}`}>
-                  <p className="text-[10px] font-black uppercase text-slate-500">Diferencia</p>
-                  <p className={`text-xl font-black ${Math.abs(dif) < 0.5 ? 'text-slate-700' : dif > 0 ? 'text-rose-700' : 'text-sky-700'}`}>{dif > 0 ? '+' : ''}S/ {dif.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</p>
-                  <p className="text-[11px] text-slate-600">{Math.abs(dif) < 0.5 ? 'Igual a lo acordado.' : dif > 0 ? 'Te pasas de lo acordado: conversa un adicional con el cliente.' : 'Cuesta menos de lo acordado: ganas más margen.'}</p>
+                <div className={`rounded-xl border p-3 ${margen >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                  <p className="text-[10px] font-black uppercase text-slate-500">Te queda de margen</p>
+                  <p className={`text-xl font-black ${margen >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>S/ {fmt(margen)}</p>
+                  <p className="text-[11px] text-slate-600">{margen >= 0 ? `${pactado > 0 ? Math.round((margen / pactado) * 100) : 0}% del precio. Si cotizaras hoy con tus % saldría S/ ${fmt(totalConIgv)}.` : 'El diseño cuesta más de lo pactado: revisa perfiles o conversa un adicional.'}</p>
                 </div>
               </div>
             );

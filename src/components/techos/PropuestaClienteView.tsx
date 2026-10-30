@@ -40,7 +40,7 @@ export default function PropuestaClienteView({
 }: {
   nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D>;
   nombreProyecto: string; cliente: string; ubicacion: string; onClose: () => void;
-  proyectos?: { id: string; name: string; client: string; techos?: TechosDelProyecto }[];
+  proyectos?: { id: string; name: string; client: string; presupuesto?: number; techos?: TechosDelProyecto }[];
   proyectoId?: string;
   onTechosProyecto?: (projectId: string, t: TechosDelProyecto) => void;
   disenoId?: string;
@@ -75,6 +75,16 @@ export default function PropuestaClienteView({
     const area = (r.resumenCoberturas || []).reduce((s, c) => s + (c.areaEfectivaCalculadaM2 || 0), 0);
     return { total: r.precioVentaFinalSoles, area };
   }), [opciones, nodes, segments, coverageZones]);
+  // Con un proyecto enlazado que ya tiene precio pactado, las opciones PARTEN de ese precio:
+  // la opción recomendada vale exactamente eso y las demás solo suman o restan su cobertura.
+  const precioProyecto = Number(proy?.presupuesto) || 0;
+  const [partirDelProyecto, setPartirDelProyecto] = useState(true);
+  const usarBase = partirDelProyecto && precioProyecto > 0;
+  const totalDe = (i: number) => {
+    const t = precios[i]?.total || 0;
+    if (!usarBase) return t;
+    return Math.max(0, Math.round((precioProyecto + t - (precios[recomendada]?.total || 0)) * 100) / 100);
+  };
   const area = precios[0]?.area || 0;
   const nombreCob = (id: string) => INVENTARIO_COBERTURAS.find(c => c.id === id)?.nombre || id;
   const incluye = [
@@ -89,7 +99,7 @@ export default function PropuestaClienteView({
     try {
       const t = await redactarConIA('propuesta', {
         empresa: datos.nombre, cliente, proyecto: nombreProyecto, ubicacion, areaM2: Math.round(area * 10) / 10,
-        opciones: opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), precio: Math.round(precios[i]?.total || 0) })),
+        opciones: opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), precio: Math.round(totalDe(i)) })),
         incluye,
       });
       if (t) setCarta(t);
@@ -97,7 +107,7 @@ export default function PropuestaClienteView({
     finally { setRedactando(false); }
   };
 
-  const resumenOpciones = () => opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), total: Math.round((precios[i]?.total || 0) * 100) / 100 }));
+  const resumenOpciones = () => opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), total: totalDe(i) }));
   const marcarAcordada = (i: number) => {
     if (!pid || !onTechosProyecto) return;
     const o = resumenOpciones()[i];
@@ -110,7 +120,7 @@ export default function PropuestaClienteView({
       const id = await publicarPropuesta({
         empresa: { nombre: datos.nombre, telefono: datos.telefono, ruc: datos.ruc, logo: datos.logo && datos.logo.length < 250000 ? datos.logo : '', color },
         proyecto: nombreProyecto, cliente, ubicacion,
-        opciones: opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), nota: o.nota, total: precios[i]?.total || 0, recomendada: i === recomendada })),
+        opciones: opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), nota: o.nota, total: totalDe(i), recomendada: i === recomendada })),
         imagen: foto.despues || '', antes: foto.antes || '', carta,
         escena: { nodes, segments, coverageZones },
         incluye,
@@ -166,6 +176,12 @@ export default function PropuestaClienteView({
               {proy?.techos?.acordado
                 ? <span className="font-bold text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">Acordado: {proy.techos.acordado.opcion} · {S(proy.techos.acordado.total)} ({proy.techos.acordado.fuente === 'link' ? 'aceptó en el link' : 'marcado a mano'})</span>
                 : <span className="text-slate-500">{pid ? 'Al enviar el link o marcar una opción, queda enlazado al proyecto.' : 'Elige el proyecto para guardar lo acordado.'}</span>}
+              {precioProyecto > 0 && (
+                <label className="w-full inline-flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
+                  <input type="checkbox" checked={partirDelProyecto} onChange={e => setPartirDelProyecto(e.target.checked)} />
+                  Partir del precio del proyecto ({S(precioProyecto)}): la opción recomendada vale eso y las otras solo cambian por la cobertura
+                </label>
+              )}
             </div>
           )}
 
@@ -239,7 +255,7 @@ export default function PropuestaClienteView({
                   {i === recomendada && <span className="absolute -top-2.5 left-3 text-[10px] font-black text-white rounded-full px-2 py-0.5" style={{ background: color }}>RECOMENDADA</span>}
                   <p className="text-xs font-black uppercase text-slate-500">Opción {String.fromCharCode(65 + i)}</p>
                   <p className="text-lg font-black leading-tight">{o.nombre}</p>
-                  <p className="text-2xl font-black mt-1">{S(precios[i]?.total || 0)}</p>
+                  <p className="text-2xl font-black mt-1">{S(totalDe(i))}</p>
                   <p className="text-[11px] font-bold text-slate-700 mt-1">{nombreCob(o.coberturaId)}</p>
                   <p className="text-[11px] text-slate-500 mt-1">{o.nota}</p>
                 </div>
@@ -249,7 +265,7 @@ export default function PropuestaClienteView({
             <h2 className="text-sm font-black uppercase mb-1.5" style={{ color }}>Incluye</h2>
             <ul className="text-xs text-slate-700 space-y-1 mb-2">{incluye.map(t => <li key={t}>✓ {t}</li>)}</ul>
 
-            <CondicionesComerciales total={precios[recomendada]?.total || 0} />
+            <CondicionesComerciales total={totalDe(recomendada)} />
             <div className="mt-4 text-[10px] text-slate-400 flex items-center justify-between gap-2"><CabeceraEmpresaMini /><span>Los precios de las opciones B y C se calculan con el mismo diseño cambiando la cobertura.</span></div>
           </div>
         </div>

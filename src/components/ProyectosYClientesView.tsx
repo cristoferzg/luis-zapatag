@@ -22,7 +22,7 @@ import {
 import { Project, Client, ClientFile, FinanceRecord, SystemUser } from '../types';
 import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, deleteTechosDesign } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
-import { sincronizarAceptadas, presupuestoActualDiseno, fechaCorta } from '../lib/acuerdoTechos';
+import { sincronizarAceptadas, datosDiseno, fechaCorta, opcionesDesdePrecio } from '../lib/acuerdoTechos';
 import { prepararArchivoCarpeta, migrarArchivosPesados } from '../lib/carpetaArchivos';
 
 interface ProyectosYClientesViewProps {
@@ -185,10 +185,10 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
 
   // Techos: lo que el cliente aceptó en el link se fija como acordado, y el
   // presupuesto actual de cada diseño enlazado para ver la diferencia.
-  const [actualTechos, setActualTechos] = useState<Record<string, number>>({});
+  const [actualTechos, setActualTechos] = useState<Record<string, { venta: number; costo: number }>>({});
   useEffect(() => {
     sincronizarAceptadas(projects).then(r => { if (r) setProjects(r); }).catch(() => {});
-    projects.filter(p => p.techos?.disenoId).forEach(p => presupuestoActualDiseno(p.techos!.disenoId).then(v => { if (v != null) setActualTechos(a => ({ ...a, [p.id]: v })); }).catch(() => {}));
+    projects.filter(p => p.techos?.disenoId).forEach(p => datosDiseno(p.techos!.disenoId).then(v => { if (v) setActualTechos(a => ({ ...a, [p.id]: v })); }).catch(() => {}));
   }, [projects.map(p => `${p.id}:${p.techos?.propuestaId || ''}:${p.techos?.disenoId || ''}`).join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -303,6 +303,9 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
       client: pClient,
       status: pStatus,
       presupuesto: Number(pPresupuesto),
+      // Si cambias el monto a mano, ese es el precio pactado con el cliente.
+      ...(baseProject.techos?.acordado && Math.abs(baseProject.techos.acordado.total - Number(pPresupuesto)) > 0.004
+        ? { techos: { ...baseProject.techos, acordado: { ...baseProject.techos.acordado, total: Number(pPresupuesto), fecha: new Date().toISOString(), fuente: 'manual' as const } } } : {}),
       plazoEstimado: pPlazoEstimado,
       date: pEditingId ? baseProject.date : new Date().toISOString().split('T')[0],
       userId: baseProject.userId || currentUser?.id || (isAdmin ? 'admin' : 'user'),
@@ -513,7 +516,6 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
               const gastosOperativos = finances.filter(f => (f.type === 'gasto' || f.type === 'gastos' || f.type === 'familia') && f.sourceProject === p.name).reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
               const deudasPagadas = finances.filter(f => f.type === 'deuda' && f.sourceProject === p.name).reduce((sum, f) => sum + (f.payments?.reduce((s, pay) => s + (Number(pay.amount) || 0), 0) || (f.isPaid ? (Number(f.amount) || 0) : 0)), 0);
               const costoTotal = totalMateriales + totalPersonal + gastosOperativos + deudasPagadas;
-              const rentabilidadAprox = (Number(p.presupuesto) || 0) - costoTotal;
               const porCobrar = (Number(p.presupuesto) || 0) - totalCobrado;
               
               return (
@@ -544,7 +546,12 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                   
                   {/* Techos Metálicos: propuesta, lo acordado y el presupuesto actual del diseño */}
                   {p.techos && (p.techos.opciones?.length || p.techos.acordado || p.techos.disenoId) && (() => {
-                    const t = p.techos, act = actualTechos[p.id], dif = t.acordado && act != null ? act - t.acordado.total : null;
+                    const t = p.techos, d = actualTechos[p.id];
+                    // El precio del proyecto es lo pactado: las opciones parten de él y solo suman o
+                    // restan la diferencia de cobertura (así nunca aparece un precio "inventado").
+                    const precio = Number(p.presupuesto) || 0;
+                    const opciones = t.opciones?.length ? opcionesDesdePrecio(t.opciones, t.acordado?.opcion, precio) : [];
+                    const margenDiseno = d && precio > 0 ? precio - d.costo : null;
                     return (
                       <div className="mx-5 mt-4 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-2 text-xs">
                         <div className="flex flex-wrap items-center justify-between gap-1">
@@ -553,23 +560,22 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                             ? <span className="font-bold text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">{t.acordado.fuente === 'link' ? 'Aceptó en el link' : 'Acordado'} · {fechaCorta(t.acordado.fecha)}</span>
                             : t.propuestaId ? <span className="font-bold text-indigo-700 bg-white rounded-full px-2 py-0.5 border border-indigo-200">Propuesta enviada{t.propuestaFecha ? ` · ${fechaCorta(t.propuestaFecha)}` : ''} · esperando</span> : null}
                         </div>
-                        {!!t.opciones?.length && (
+                        {!!opciones.length && (
                           <div className="grid grid-cols-3 gap-1.5">
-                            {t.opciones.map(o => { const sel = t.acordado?.opcion === o.nombre; return (
-                              <div key={o.nombre} className={`rounded-lg p-1.5 border ${sel ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-200 text-slate-700'}`}>
+                            {opciones.map(o => { const sel = t.acordado?.opcion === o.nombre; return (
+                              <div key={o.nombre} className={`rounded-lg p-1.5 border min-w-0 ${sel ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white border-slate-200 text-slate-700'}`}>
                                 <p className="text-[10px] font-black truncate">{o.nombre}</p>
-                                <p className="text-[11px] font-black">{formatCurrency(o.total)}</p>
+                                <p className="text-[11px] font-black truncate">{formatCurrency(o.total)}</p>
                               </div>
                             ); })}
                           </div>
                         )}
-                        {(t.acordado || act != null) && (
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                            {t.acordado && <span>Acordado: <b>{formatCurrency(t.acordado.total)}</b></span>}
-                            {act != null && <span>Presupuesto actual del diseño: <b>{formatCurrency(act)}</b></span>}
-                            {dif != null && Math.abs(dif) >= 0.5 && <span className={`font-black ${dif > 0 ? 'text-rose-700' : 'text-sky-700'}`}>{dif > 0 ? `Te pasas ${formatCurrency(dif)}` : `Ahorras ${formatCurrency(-dif)}`}</span>}
-                          </div>
-                        )}
+                        <div className="space-y-0.5 text-[11px]">
+                          <p>Precio pactado (presupuesto del proyecto): <b>{formatCurrency(precio)}</b></p>
+                          {d && <p>Costo del diseño (materiales + mano de obra + equipos): <b>{formatCurrency(d.costo)}</b></p>}
+                          {margenDiseno != null && <p className={`font-black ${margenDiseno >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{margenDiseno >= 0 ? `Te queda ${formatCurrency(margenDiseno)} de margen` : `Pierdes ${formatCurrency(-margenDiseno)}: el diseño cuesta más de lo pactado`}</p>}
+                          {d && <p className="text-slate-500">Si cotizaras hoy con tus % de gastos y utilidad saldría {formatCurrency(d.venta)}.</p>}
+                        </div>
                       </div>
                     );
                   })()}
@@ -595,16 +601,23 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </div>
                     
                     <div className="col-span-2 pt-3 border-t border-slate-100 flex justify-between items-center">
-                      <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Costo (Mat+Per+Gast)</p>
-                        <p className="font-semibold text-slate-700">{formatCurrency(costoTotal)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Margen (Utilidad)</p>
-                        <p className={`font-bold ${rentabilidadAprox >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          {formatCurrency(rentabilidadAprox)}
-                        </p>
-                      </div>
+                      {(() => {
+                        // Sin gastos registrados todavía, el margen real sería engañoso (= todo el presupuesto):
+                        // se usa el costo estimado del diseño de Techos enlazado.
+                        const est = costoTotal === 0 ? actualTechos[p.id]?.costo : undefined;
+                        const costo = est ?? costoTotal, margen = (Number(p.presupuesto) || 0) - costo;
+                        return (<>
+                          <div>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{est != null ? 'Costo estimado (diseño)' : 'Costo (Mat+Per+Gast)'}</p>
+                            <p className="font-semibold text-slate-700">{formatCurrency(costo)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{est != null ? 'Margen estimado' : 'Margen (Utilidad)'}</p>
+                            <p className={`font-bold ${margen >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(margen)}</p>
+                            {est != null && <p className="text-[10px] text-slate-400">Se actualiza al registrar materiales y gastos reales</p>}
+                          </div>
+                        </>);
+                      })()}
                     </div>
                   </div>
                   
