@@ -1474,7 +1474,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     minZ: number,
     maxZ: number,
     overhangX: number = 0.35,
-    overhangZ: number = 0.35
+    overhangZ: number = 0.35,
+    holgura: number = 0.040
   ): THREE.BufferGeometry => {
     const vertices: number[] = [];
     const normals: number[] = [];
@@ -1540,7 +1541,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const segmentsX = xs.length - 1;
 
     // Asiento exacto sobre las correas superiores
-    const purlinClearance = 0.040; // 40mm sobre el eje del cordón/correa
+    const purlinClearance = holgura; // sobre el eje del cordón/correa (mín. 40 mm; más si el perfil es alto)
     const baseCoreThickness = isSandwich ? (activeModel.espesorMm / 1000) : 0;
     const bottomClearance = purlinClearance;
     const topClearance = purlinClearance + baseCoreThickness + sheetThicknessM;
@@ -2585,6 +2586,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       s => !esDeTanque(s.id) && (s.rolEstructural === 'cordon_superior' || s.rolEstructural === 'correa' || s.rolEstructural === 'viga_principal')
     );
     
+    // La plancha va sobre la cara de arriba del perfil más alto (pares de 100 mm, etc.).
+    const holguraTop = Math.max(0.04, ...topSegments.map(s => {
+      const pf = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === s.profileId);
+      return pf ? Math.max(pf.altoMm || pf.anchoMm, pf.anchoMm) / 2000 + 0.008 : 0;
+    }));
     if (topSegments.length > 0) {
       topSegments.forEach(s => {
         const nA = nodes[s.nodeAId];
@@ -2898,7 +2904,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           minZNode,
           maxZNode,
           0.30,
-          0.30
+          0.30,
+          holguraTop
         );
 
         // Sombreado plano (flat) para que los dientes del TR-4 se vean NÍTIDOS y
@@ -2923,7 +2930,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           for (let k = 0; k < n; k++) {
             const a0 = gather + dir * k * p, a1 = gather + dir * (k + 1) * p;
             const holgura = movil.tipo === 'lamas' ? 0.015 : 0;
-            const geo = createAdaptiveAluzincGeometry(coberturaProfile, Math.min(a0, a1) + holgura, Math.max(a0, a1) - holgura, 0.30, movil.tipo === 'corredizo' ? 0.05 : 0.0);
+            const geo = createAdaptiveAluzincGeometry(coberturaProfile, Math.min(a0, a1) + holgura, Math.max(a0, a1) - holgura, 0.30, movil.tipo === 'corredizo' ? 0.05 : 0.0, holguraTop);
             const mesh = new THREE.Mesh(geo, [flatTop, flatBottom]);
             mesh.name = 'cobertura_malla';
             const lama = movil.tipo === 'lamas';

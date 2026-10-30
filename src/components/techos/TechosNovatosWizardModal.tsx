@@ -45,7 +45,8 @@ export type TipoTechoWizard =
   | 'forma_u'
   | 'marquesina'
   | 'pergola'
-  | 'sol_sombra';
+  | 'sol_sombra'
+  | 'alpino';
 
 export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> = ({
   isOpen,
@@ -77,6 +78,9 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [voladoMarqStr, setVoladoMarqStr] = useState<string>('2.5');
   const [soporteMarq, setSoporteMarq] = useState<'tensores' | 'mensulas' | 'columnas'>('tensores');
   const [sepViguetasStr, setSepViguetasStr] = useState<string>('0.60');
+  // Techo alpino (cabaña en A)
+  const [cumbreraAlpStr, setCumbreraAlpStr] = useState<string>('6.0');
+  const [porticosAlpStr, setPorticosAlpStr] = useState<string>('1.2');
   const [sepListonesStr, setSepListonesStr] = useState<string>('0.25');
   const [sepLamasStr, setSepLamasStr] = useState<string>('0.10');
   const [caidaSolStr, setCaidaSolStr] = useState<string>('3');
@@ -287,7 +291,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const alturaColM = Math.max(0.5, parseFloat(alturaColStr) || 4.5);
   const flechaM = Math.max(0.2, parseFloat(flechaStr) || 2.0);
   const pendientePct = Math.max(1, parseFloat(pendienteStr) || 20);
-  const sinTijeral = tipo === 'pergola' || tipo === 'sol_sombra' || tipo === 'marquesina';
+  const sinTijeral = tipo === 'pergola' || tipo === 'sol_sombra' || tipo === 'marquesina' || tipo === 'alpino';
   const alturaCol2M = Math.max(alturaColM + 0.2, parseFloat(alturaCol2Str) || 6.0);
   const numTijerales = Math.max(2, parseInt(numTijeralesStr) || 5);
   const numDientes = Math.max(1, parseInt(numDientesStr) || 3);
@@ -462,6 +466,8 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
       engineState.generateMarquesina(Math.max(0.5, parseFloat(voladoMarqStr) || 2.5), largoM, alturaColM, pendientePct, soporteMarq);
     } else if (tipo === 'sol_sombra') {
       engineState.generateSolYSombra(luzM, largoM, alturaColM, Math.max(0, parseFloat(caidaSolStr) || 0), Math.max(0.05, parseFloat(sepLamasStr) || 0.1), lamaSol, ledSol);
+    } else if (tipo === 'alpino') {
+      engineState.generateRoofAlpino(luzM, largoM, Math.max(alturaColM + luzM * 0.5, parseFloat(cumbreraAlpStr) || 6), alturaColM, Math.max(0.6, parseFloat(porticosAlpStr) || 1.2));
     } else if (tipo === 'pergola') {
       engineState.generatePergola(luzM, largoM, alturaColM, Math.max(0.3, parseFloat(sepViguetasStr) || 0.6), Math.max(0.08, parseFloat(sepListonesStr) || 0.25));
     } else if (tipo === 'seis_aguas') {
@@ -720,6 +726,27 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 <div className="text-[10px] text-slate-500 mt-0.5">Volado anclado al muro</div>
               </button>
 
+              {/* ALPINO */}
+              <button
+                type="button"
+                onClick={() => {
+                  setTipo('alpino');
+                  // Medidas típicas de una cabaña en A (si venían las de una nave grande)
+                  if ((parseFloat(alturaColStr) || 0) > 1.5) setAlturaColStr('0.6');
+                  if ((parseFloat(luzStr) || 0) > 10) setLuzStr('6');
+                  if ((parseFloat(largoStr) || 0) > 16) setLargoStr('8');
+                }}
+                className={`p-2.5 sm:p-3 rounded-2xl border text-left flex flex-col items-center text-center transition-all cursor-pointer ${
+                  tipo === 'alpino'
+                    ? 'border-amber-500 bg-amber-50 text-amber-950 ring-2 ring-amber-500/20 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/70 text-slate-700'
+                }`}
+              >
+                <div className="text-xl sm:text-2xl mb-1">🏔️</div>
+                <div className="text-xs font-bold leading-tight">Alpino (cabaña en A)</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Dos aguas empinadas casi hasta el suelo</div>
+              </button>
+
               {/* PÉRGOLA */}
               <button
                 type="button"
@@ -908,7 +935,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {/* ALTURA DE COLUMNAS */}
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">Altura de Columnas (H):</span>
+                  <span className="text-xs font-bold text-slate-800">{tipo === 'alpino' ? 'Altura del arranque (zócalo):' : 'Altura de Columnas (H):'}</span>
                   <div className="flex items-center gap-1">
                     <input
                       type="text"
@@ -1275,6 +1302,38 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                   </label>
                   <p className="text-[10px] text-slate-500 leading-snug">Lamas más juntas = más sombra. Lamas de 5 cm cada 10 cm dan ≈ la mitad de sombra a mediodía. La caída suave escurre el agua de la lluvia.</p>
                 </div>
+              )}
+
+              {/* OPCIONES PARA ALPINO */}
+              {tipo === 'alpino' && (
+                <>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Altura de la cumbrera:</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={cumbreraAlpStr} onChange={(e) => setCumbreraAlpStr(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder="6.0" />
+                        <span className="text-xs font-bold text-slate-500">m</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-snug">
+                      Ángulo de cada agua: <b>{Math.round(Math.atan2(Math.max(alturaColM + luzM * 0.5, parseFloat(cumbreraAlpStr) || 6) - alturaColM, luzM / 2) * 180 / Math.PI)}°</b>. Lo típico es 55° a 65°: la lluvia corre rápido y arriba queda espacio para un altillo.
+                    </p>
+                  </div>
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800">Pórticos en A cada:</span>
+                      <div className="flex items-center gap-1">
+                        <input type="text" inputMode="decimal" value={porticosAlpStr} onChange={(e) => setPorticosAlpStr(e.target.value)}
+                          className="w-20 bg-emerald-50 border border-emerald-300 rounded-lg px-2 py-1 text-right font-mono font-black text-emerald-900 text-xs focus:border-emerald-500 focus:bg-white focus:outline-none"
+                          placeholder="1.2" />
+                        <span className="text-xs font-bold text-slate-500">m</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-snug">Cada pórtico lleva un tirante a media altura (piso del altillo). Correas cada ~90 cm y arriostres en cruz en los extremos.</p>
+                  </div>
+                </>
               )}
 
               {/* OPCIONES PARA PÉRGOLA */}
@@ -2258,6 +2317,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
           )}
 
           {/* PASO 4: CONFIGURACIÓN DE ESPACIOS Y MODULACIÓN ENTRE MONTANTES */}
+          {tipo !== 'alpino' && (
           <div className="bg-slate-50/95 p-3.5 sm:p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
               <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
@@ -2408,6 +2468,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               </div>
             </div>
           </div>
+          )}
 
           {/* PASO 5: ANÁLISIS E.090 Y SELECCIÓN DE PERFILES */}
           <div className="bg-red-50/80 border border-red-200 rounded-2xl p-3.5 sm:p-4 space-y-3">

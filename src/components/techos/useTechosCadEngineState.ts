@@ -22,6 +22,7 @@ import {
 } from './techosCadEngineTypes';
 
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { generarTechoAlpino } from './techoAlpino';
 import { generarReportePresupuestoBom } from './techosCadCalculations';
 import { TipoTijeral } from './techosCadColors';
 import { generateDxfContent } from '../../lib/dxfParser';
@@ -131,6 +132,8 @@ export interface UseTechosCadEngineReturn {
   generateRoofUShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
   /** Marquesina / alero volado anclado a un muro. */
   generateMarquesina: (voladoM: number, largoM: number, alturaMuroM: number, pendientePct: number, soporte: 'tensores' | 'mensulas' | 'columnas') => void;
+  /** Techo alpino (cabaña en A): dos aguas muy empinadas casi hasta el suelo. */
+  generateRoofAlpino: (anchoM: number, largoM: number, alturaCumbreraM: number, alturaBaseM: number, sepPorticosM: number) => void;
   /** Pérgola: columnas, vigas, viguetas y listones (sin cobertura). */
   generatePergola: (anchoM: number, largoM: number, alturaM: number, sepViguetasM: number, sepListonesM: number) => void;
   generateSolYSombra: (anchoM: number, largoM: number, alturaM: number, pendientePct: number, sepLamasM: number, lama: 'liviana' | 'ancha', led: boolean) => void;
@@ -3297,6 +3300,13 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(N, S, zonas);
   }, [activeProfileId, activeCoverageId, pushHistory]);
 
+  // Techo alpino (cabaña en A): ver techoAlpino.ts.
+  const generateRoofAlpino = useCallback((anchoM: number, largoM: number, alturaCumbreraM: number, alturaBaseM: number, sepPorticosM: number) => {
+    const e = generarTechoAlpino({ anchoM, largoM, alturaCumbreraM, alturaBaseM, sepPorticosM, coberturaId: activeCoverageId || 'cob_aluzinc_030', perfilDefecto: activeProfileId });
+    setNodes(e.nodes); setSegments(e.segments); setCoverageZones(e.coverageZones);
+    pushHistory(e.nodes, e.segments, e.coverageZones);
+  }, [activeProfileId, activeCoverageId, pushHistory]);
+
   // Pérgola: 4+ columnas, 2 vigas principales a lo largo, viguetas
   // transversales con volado de 30 cm y listones encima (sin cobertura).
   const generatePergola = useCallback((
@@ -4386,6 +4396,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofLShaped,
     generateRoofUShaped,
     generateMarquesina,
+    generateRoofAlpino,
     generatePergola,
     generateSolYSombra,
     generateRoofButterfly,
