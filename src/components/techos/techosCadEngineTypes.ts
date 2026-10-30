@@ -154,7 +154,7 @@ export interface Segment3D {
 }
 
 // Canaletas: material, modelo (sección), dónde van y cómo baja el agua. Todo opcional.
-export type FormaCanaleta = 'rectangular' | 'media_cana' | 'moldura' | 'cajon';
+export type FormaCanaleta = 'rectangular' | 'media_cana' | 'moldura' | 'cajon' | 'escondida';
 export type LadosCanaleta = 'caida' | 'caida_lados' | 'perimetro';
 export type BajadaCanaleta = 'tubo' | 'gargola';
 export interface CanaletaCfg {

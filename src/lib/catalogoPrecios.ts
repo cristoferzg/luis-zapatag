@@ -118,6 +118,7 @@ function construirItems(): ItemCatalogo[] {
     ['agua:soporte', 'Soporte de canaleta', 'unidad'], ['agua:tapa', 'Tapa de canaleta', 'unidad'], ['agua:embudo', 'Embudo / salida de canaleta', 'unidad'],
     ['agua:abrazadera', 'Abrazadera para bajada', 'unidad'], ['agua:codo', 'Codo para bajada', 'unidad'],
     ['agua:esquinero', 'Esquinero de canaleta', 'unidad'], ['agua:gargola', 'Gárgola / salida libre de canaleta', 'unidad'],
+    ['agua:babeta', 'Babeta / tapajuntas de muro (canaleta escondida)', 'm'], ['agua:rebose', 'Rebose de canaleta escondida', 'unidad'],
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
   // Iluminación LED en vigas (sol y sombra / pérgola)
   ([

@@ -3023,6 +3023,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           const pts: [number, number][] = [[-0.06, 0.11], [-0.06, 0], [0.05, 0], [0.065, 0.03], [0.055, 0.05], [0.075, 0.08], [0.07, 0.11]];
           f.moveTo(...pts[0]); pts.slice(1).forEach(p => f.lineTo(...p));
           [...pts].reverse().forEach(([u, v]) => f.lineTo(u + (u < 0 ? e : -e), v + (v < 0.005 ? e : 0)));
+        } else if (cfg.forma === 'escondida') {
+          // Canal en U ancho de paredes rectas (28 × 18 cm).
+          const w = 0.14, h = 0.18;
+          f.moveTo(-w, h); f.lineTo(-w, 0); f.lineTo(w, 0); f.lineTo(w, h);
+          f.lineTo(w - e, h); f.lineTo(w - e, e); f.lineTo(-w + e, e); f.lineTo(-w + e, h);
         } else {
           const w = cfg.forma === 'cajon' ? 0.13 : 0.075, h = cfg.forma === 'cajon' ? 0.16 : 0.1;
           f.moveTo(-w, h); f.lineTo(-w * 0.85, 0); f.lineTo(w * 0.85, 0); f.lineTo(w, h);
@@ -3032,12 +3037,37 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         return f;
       };
       const forma = seccion();
-      const bajo = cfg.forma === 'cajon' ? 0.17 : 0.12; // la canaleta queda bajo el borde de la plancha
+      const escondida = cfg.forma === 'escondida';
+      // La canaleta queda bajo el borde de la plancha; la escondida la recibe 6 cm adentro.
+      const bajo = escondida ? 0.12 : cfg.forma === 'cajon' ? 0.17 : 0.12;
+      const sale = escondida ? 0.08 : 0.05; // centro de la canaleta respecto del borde de la plancha
+      const matMuro = new THREE.MeshStandardMaterial({ color: 0xb4532a, roughness: 0.9 });
       tramosCanaleta(nodes as any, segments as any, cfg.lados).forEach(t => {
         const fuera = new THREE.Vector3(t.afuera.x, 0, t.afuera.z).normalize();
+        if (escondida && t.caida) {
+          // Parapeto (muro que tapa la canaleta desde la calle), babeta y rebose.
+          const P = t.pts[0], Q = t.pts[t.pts.length - 1];
+          const largo = Math.hypot(Q.x - P.x, Q.z - P.z) + 0.6;
+          const yTope = Math.max(P.y, Q.y) - bajo + 0.18 + 0.4, esp = 0.15, dMuro = sale + 0.14 + esp / 2;
+          const cx = (P.x + Q.x) / 2 + fuera.x * dMuro, cz = (P.z + Q.z) / 2 + fuera.z * dMuro;
+          const rot = Math.atan2(Q.x - P.x, Q.z - P.z);
+          const muro = new THREE.Mesh(new THREE.BoxGeometry(esp, yTope, largo), matMuro);
+          muro.position.set(cx, yTope / 2, cz); muro.rotation.y = rot; muro.name = 'parapeto_canaleta';
+          modeloGroup.add(muro);
+          const tapa = new THREE.Mesh(new THREE.BoxGeometry(esp + 0.06, 0.04, largo), new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 }));
+          tapa.position.set(cx, yTope + 0.02, cz); tapa.rotation.y = rot; tapa.name = 'parapeto_canaleta';
+          modeloGroup.add(tapa);
+          const dBab = dMuro - esp / 2 - 0.006, yBab0 = Math.max(P.y, Q.y) - bajo + 0.18 - 0.03;
+          const babeta = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.3, largo - 0.2), new THREE.MeshStandardMaterial({ color: 0x6b7280, metalness: 0.6, roughness: 0.4 }));
+          babeta.position.set((P.x + Q.x) / 2 + fuera.x * dBab, yBab0 + 0.15, (P.z + Q.z) / 2 + fuera.z * dBab); babeta.rotation.y = rot; babeta.name = 'babeta';
+          modeloGroup.add(babeta);
+          const rebose = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, esp + 0.12), matCanal);
+          rebose.position.set(cx, Math.max(P.y, Q.y) - bajo + 0.15, cz); rebose.rotation.y = rot + Math.PI / 2; rebose.name = 'rebose';
+          modeloGroup.add(rebose);
+        }
         for (let i = 0; i + 1 < t.pts.length; i++) {
           let A = new THREE.Vector3(t.pts[i].x, t.pts[i].y - bajo, t.pts[i].z), B = new THREE.Vector3(t.pts[i + 1].x, t.pts[i + 1].y - bajo, t.pts[i + 1].z);
-          A.addScaledVector(fuera, 0.05); B.addScaledVector(fuera, 0.05);
+          A.addScaledVector(fuera, sale); B.addScaledVector(fuera, sale);
           let Z = new THREE.Vector3().subVectors(B, A); const L = Z.length(); if (L < 0.02) continue; Z.normalize();
           const X = fuera.clone().addScaledVector(Z, -fuera.dot(Z)).normalize();
           let Y = new THREE.Vector3().crossVectors(Z, X);
@@ -3055,8 +3085,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const L = Math.hypot(B.x - A.x, B.z - A.z);
         posicionesBajadas(0.15, Math.max(0.3, L - 0.15)).forEach(d => {
           const k = d / Math.max(0.01, L);
-          const x = A.x + (B.x - A.x) * k + fuera.x * 0.05, z = A.z + (B.z - A.z) * k + fuera.z * 0.05, y = A.y + (B.y - A.y) * k - bajo;
-          if (cfg.bajada === 'gargola') {
+          const x = A.x + (B.x - A.x) * k + fuera.x * sale, z = A.z + (B.z - A.z) * k + fuera.z * sale, y = A.y + (B.y - A.y) * k - bajo;
+          if (escondida && cfg.bajada === 'gargola') {
+            // Gárgola que atraviesa el parapeto y bota el agua a la calle.
+            const gg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.75, 12), matCanal);
+            gg.position.set(x + fuera.x * 0.3, y + 0.03, z + fuera.z * 0.3);
+            gg.rotation.set(fuera.z ? Math.PI / 2 : 0, 0, fuera.x ? Math.PI / 2 : 0);
+            gg.name = 'gargola';
+            modeloGroup.add(gg);
+          } else if (cfg.bajada === 'gargola') {
             // Gárgola: tubo corto hacia afuera, el agua cae libre.
             const gg = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.4, 12), matCanal);
             gg.position.set(x + fuera.x * 0.2, y + 0.01, z + fuera.z * 0.2);
@@ -3675,14 +3712,19 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                 <p className="text-[10px] font-black text-slate-500 uppercase">Modelo</p>
                 <div className="flex flex-wrap gap-1.5">{(Object.keys(NOMBRE_FORMA) as (keyof typeof NOMBRE_FORMA)[]).map(k => <button key={k} onClick={() => guardar({ forma: k })} className={chip(cfg.forma === k)}>{NOMBRE_FORMA[k]}</button>)}</div>
               </div>
-              <div className="space-y-1">
+              {cfg.forma === 'escondida' && (
+                <p className="text-[10px] text-slate-600 bg-amber-50 border border-amber-200 rounded-lg p-2 leading-snug">
+                  Va <b>detrás de un muro (parapeto)</b> que la tapa desde la calle: la plancha entra 5–8 cm en un canal de 28 × 18 cm, una <b>babeta</b> sella el muro y un <b>rebose</b> más arriba evita que el agua entre si se tapa. Va solo en el borde de la caída. El muro se cotiza en Obra Civil.
+                </p>
+              )}
+              {cfg.forma !== 'escondida' && <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-500 uppercase">Material</p>
                 <div className="flex gap-1.5">{(['galvanizada', 'pvc'] as const).map(k => <button key={k} onClick={() => guardar({ material: k })} className={chip(cfg.material === k)}>{k === 'pvc' ? 'PVC' : 'Galvanizada'}</button>)}</div>
-              </div>
-              <div className="space-y-1">
+              </div>}
+              {cfg.forma !== 'escondida' && <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-500 uppercase">Dónde va</p>
                 <div className="flex flex-wrap gap-1.5">{(Object.keys(NOMBRE_LADOS) as (keyof typeof NOMBRE_LADOS)[]).map(k => <button key={k} onClick={() => guardar({ lados: k })} className={chip(cfg.lados === k)}>{NOMBRE_LADOS[k]}</button>)}</div>
-              </div>
+              </div>}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-500 uppercase">Cómo baja el agua</p>
                 <div className="flex flex-wrap gap-1.5">{(Object.keys(NOMBRE_BAJADA) as (keyof typeof NOMBRE_BAJADA)[]).map(k => <button key={k} onClick={() => guardar({ bajada: k })} className={chip(cfg.bajada === k)}>{NOMBRE_BAJADA[k]}</button>)}</div>

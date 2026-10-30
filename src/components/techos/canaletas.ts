@@ -10,12 +10,15 @@ import { precio, itemCatalogo } from '../../lib/catalogoPrecios';
 import { zonaPrincipal } from './mecanismoMovil';
 import { panoUnaAgua } from './coberturaAuto';
 
-export const NOMBRE_FORMA: Record<FormaCanaleta, string> = { rectangular: 'Rectangular (U)', media_cana: 'Media caña (redonda)', moldura: 'Moldura / cornisa (K)', cajon: 'Cajón (canal ancho)' };
+export const NOMBRE_FORMA: Record<FormaCanaleta, string> = { rectangular: 'Rectangular (U)', media_cana: 'Media caña (redonda)', moldura: 'Moldura / cornisa (K)', cajon: 'Cajón (canal ancho)', escondida: 'Escondida (detrás del muro)' };
 export const NOMBRE_LADOS: Record<LadosCanaleta, string> = { caida: 'Solo en el borde de la caída', caida_lados: 'Caída y los costados', perimetro: 'Todo el borde del techo' };
 export const NOMBRE_BAJADA: Record<BajadaCanaleta, string> = { tubo: 'Tubo de bajada hasta el piso', gargola: 'Gárgola (chorro libre, sin tubo)' };
 export const cfgCanaleta = (zonas: Record<string, CoverageZone3D>): Required<CanaletaCfg> => {
   const c = zonaPrincipal(zonas)?.canaleta;
-  return { activa: c?.activa !== false, material: c?.material || 'galvanizada', forma: c?.forma || 'rectangular', lados: c?.lados || 'caida', bajada: c?.bajada || 'tubo' };
+  const forma = c?.forma || 'rectangular';
+  // La escondida va solo en el borde de la caída (detrás del parapeto) y es de plancha galvanizada.
+  if (forma === 'escondida') return { activa: c?.activa !== false, material: 'galvanizada', forma, lados: 'caida', bajada: c?.bajada || 'gargola' };
+  return { activa: c?.activa !== false, material: c?.material || 'galvanizada', forma, lados: c?.lados || 'caida', bajada: c?.bajada || 'tubo' };
 };
 
 type P3 = { x: number; y: number; z: number };
@@ -124,12 +127,19 @@ export function metradoCanaletas(nodes: Record<string, Node3D>, zonas: Record<st
   };
   const mCanaleta = Math.ceil(largoTotal * 1.05 * 10) / 10;
   add(tipo === 'pvc' ? 'agua:canaleta_pvc' : 'agua:canaleta_galv', mCanaleta, `${NOMBRE_FORMA[cfg.forma]} · ${NOMBRE_LADOS[cfg.lados].toLowerCase()} · ${largoTotal.toFixed(2)} m + 5 %`);
-  add('agua:soporte', tramos.reduce((n, t) => n + Math.ceil(largoTramo(t) / 0.8), 0), 'un soporte cada 80 cm');
+  const escondida = cfg.forma === 'escondida';
+  add('agua:soporte', tramos.reduce((n, t) => n + Math.ceil(largoTramo(t) / 0.8), 0), escondida ? 'un soporte anclado al muro cada 80 cm' : 'un soporte cada 80 cm');
+  if (escondida) {
+    // Canaleta escondida: babeta que sella el muro sobre la canaleta y un rebose por tramo
+    // (si se tapa, el agua sale a la calle y no al interior). El parapeto es obra de albañilería.
+    add('agua:babeta', Math.ceil(largoTotal * 1.05 * 10) / 10, 'babeta / tapajuntas a lo largo del muro (el parapeto se cotiza en Obra Civil)');
+    add('agua:rebose', caidas.length, 'un rebose por canaleta, más arriba que la salida');
+  }
   // Tapas en los extremos abiertos: todo el borde no tiene; con costados quedan 2 por caída en la parte alta.
   add('agua:tapa', cfg.lados === 'perimetro' ? 0 : 2 * caidas.length, 'tapa en cada extremo');
   if (cfg.lados !== 'caida') add('agua:esquinero', cfg.lados === 'perimetro' ? 4 : 2 * caidas.length, 'unión en las esquinas');
   if (cfg.bajada === 'gargola') {
-    add('agua:gargola', bajadas, 'salida libre del agua (sin tubo de bajada)');
+    add('agua:gargola', bajadas, escondida ? 'gárgola que atraviesa el muro (salida a la calle)' : 'salida libre del agua (sin tubo de bajada)');
   } else {
     add('agua:embudo', bajadas, 'salida de canaleta a bajada');
     add(tipo === 'pvc' ? 'agua:bajada_pvc' : 'agua:bajada_galv', Math.ceil(bajadas * (alturaProm + 0.3) * 10) / 10, `${bajadas} bajadas de ${alturaProm.toFixed(2)} m (una cada ${MAX_TRAMO_BAJADA_M} m como máximo)`);
