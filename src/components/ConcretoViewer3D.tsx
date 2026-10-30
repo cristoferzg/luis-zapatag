@@ -48,23 +48,12 @@ const TEX = {
     g.fillStyle = hex(base); g.fillRect(0, 0, 256, 256);
     for (let x = 0; x < 256; x += 16) { g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x, 0, 5, 256); g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(x + 8, 0, 4, 256); }
   }),
-  // Teja (andina o española): cañones redondos y la sombra del escalón de cada fila.
-  teja: (base: number) => texturaCanvas(g => {
-    g.fillStyle = hex(base); g.fillRect(0, 0, 256, 256);
-    for (let x = 0; x < 256; x += 32) {
-      const gr = g.createLinearGradient(x, 0, x + 32, 0);
-      gr.addColorStop(0, 'rgba(0,0,0,.28)'); gr.addColorStop(0.5, 'rgba(255,255,255,.22)'); gr.addColorStop(1, 'rgba(0,0,0,.28)');
-      g.fillStyle = gr; g.fillRect(x, 0, 32, 256);
-    }
-    for (let y = 0; y < 256; y += 64) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, y + 56, 256, 8); }
-  }),
 };
 
 // Material de cobertura según su categoría en el catálogo de Techos.
 function materialCobertura(materialId: string): THREE.Material {
   const cat = INVENTARIO_COBERTURAS.find(c => c.id === materialId)?.categoria || 'aluzinc_tr4';
   const ondulada = (color: number) => { const t = TEX.ondulada(color); t.repeat.set(1.2, 1.2); return new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide }); };
-  if (/teja/.test(materialId)) { const t = TEX.teja(/andina/.test(materialId) ? 0xa63a1e : 0xb9461f); t.repeat.set(1.3, 2.6); return new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide }); }
   switch (cat) {
     case 'policarbonato_alveolar': return new THREE.MeshLambertMaterial({ color: 0xbfe3f2, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
     case 'upvc_termoacustica': return ondulada(0xe7ebef);
