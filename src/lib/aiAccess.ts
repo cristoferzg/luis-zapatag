@@ -17,6 +17,9 @@ import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
 export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2 } as const;
+/** Regalo de bienvenida: créditos extra (no vencen) que cada cuenta recibe una sola vez,
+ *  cuando se crea su saldo. Igual que CREDITOS_BIENVENIDA en functions/index.js. */
+export const CREDITOS_BIENVENIDA = 5;
 export type AccionIA = keyof typeof COSTO_CREDITOS;
 
 export interface AIPlan {
@@ -34,7 +37,7 @@ export interface PackCreditos { id: string; creditos: number; precioSoles: numbe
 
 export const PLANES_IA_DEFAULT: AIPlan[] = [
   { id: 'gratis', nombre: 'Gratis', precioSoles: 0, creditosMes: 0,
-    beneficios: ['Lectura de boletas con código QR', 'La IA se usa con un plan o una recarga'] },
+    beneficios: ['Lectura de boletas con código QR', `${CREDITOS_BIENVENIDA} créditos de bienvenida para probar la IA`, 'Luego, la IA se usa con un plan o una recarga'] },
   { id: 'maestro', nombre: 'Maestro', precioSoles: 19.90, creditosMes: 200,
     beneficios: ['Registra tus gastos con una foto', 'Hasta 20 planos a mano al mes', 'Recargas cuando las necesites'] },
   { id: 'taller', nombre: 'Taller Pro', precioSoles: 49.90, creditosMes: 600, destacado: true,
@@ -137,7 +140,7 @@ export interface AICheck {
 /** Saldo efectivo como lo calcula el servidor (recarga mensual / vencimiento). */
 export function saldoEfectivo(a: AIAccess | null, planes: AIPlan[]): { planId: string; mes: number; extra: number } {
   const gratis = planes.find(p => p.id === 'gratis')?.creditosMes ?? 0;
-  if (!a) return { planId: 'gratis', mes: gratis, extra: 0 };
+  if (!a) return { planId: 'gratis', mes: gratis, extra: CREDITOS_BIENVENIDA }; // aún no usa la IA: tiene su regalo
   const vencido = !!a.venceEl && new Date(a.venceEl).getTime() < Date.now();
   const planId = vencido ? 'gratis' : (a.planId || 'gratis');
   const recarga = planId === 'gratis' ? gratis : (planes.find(p => p.id === planId)?.creditosMes ?? 0);
@@ -197,7 +200,7 @@ export async function grantAIPlan(userId: string, planId: string, periodo: 'mens
     venceEl: vence.toISOString(),
     creditosRestantes: plan.creditosMes,
     creditosMesPlan: plan.creditosMes,
-    creditosExtra: previo?.creditosExtra || 0,
+    creditosExtra: previo ? (previo.creditosExtra || 0) : CREDITOS_BIENVENIDA,
     mes: mesActual(),
     usosTotales: previo?.usosTotales || 0,
   };
@@ -207,7 +210,7 @@ export async function grantAIPlan(userId: string, planId: string, periodo: 'mens
 /** Suma una recarga de créditos (no vence). Lo usa el admin al validar la compra. */
 export async function grantCreditos(userId: string, creditos: number): Promise<void> {
   const previo = await getAIAccess(userId);
-  const base: AIAccess = previo || { userId, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: 0 };
+  const base: AIAccess = previo || { userId, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: CREDITOS_BIENVENIDA };
   await setDoc(doc(db, 'ai_access', userId), { ...base, creditosExtra: (base.creditosExtra || 0) + creditos });
 }
 

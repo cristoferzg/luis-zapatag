@@ -84,7 +84,7 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
                 <Coins className="w-6 h-6 text-amber-500" />
                 <div>
                   <p className="text-sm font-black text-slate-800">{saldo.mes + saldo.extra} créditos disponibles</p>
-                  <p className="text-[11px] text-slate-500">Plan {actual?.nombre || 'Gratis'} · {saldo.mes} del mes{saldo.extra ? ` + ${saldo.extra} de recargas` : ''}</p>
+                  <p className="text-[11px] text-slate-500">Plan {actual?.nombre || 'Gratis'} · {saldo.mes} del mes{saldo.extra ? ` + ${saldo.extra} extra (no vencen)` : ''}</p>
                 </div>
               </div>
               {motivo === 'agotado' && <p className="text-xs font-bold text-amber-800">{comprasPermitidas() ? 'No te alcanzan para esta acción. Recarga o sube de plan 👇' : 'No te alcanzan para esta acción este mes.'}</p>}

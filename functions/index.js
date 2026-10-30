@@ -138,7 +138,10 @@ function errorDeIA(e) {
   if (status === 400 || status === 413) return new HttpsError('invalid-argument', 'La imagen no se pudo procesar (muy pesada o en un formato no válido). Prueba con otra foto.');
   return new HttpsError('unavailable', `No se pudo contactar el servicio de IA${status ? ` (código ${status})` : ''}. Intenta de nuevo en un momento.`);
 }
-const CREDITOS_GRATIS_DEFAULT = 0; // la IA es de pago: el plan Gratis no trae créditos
+const CREDITOS_GRATIS_DEFAULT = 0; // la IA es de pago: el plan Gratis no trae créditos al mes
+// Regalo de bienvenida: créditos extra (no vencen) que recibe cada cuenta UNA vez,
+// al crearse su saldo. Igual que CREDITOS_BIENVENIDA del cliente (src/lib/aiAccess.ts).
+const CREDITOS_BIENVENIDA = 5;
 // Igual que PLANES_IA_DEFAULT del cliente (src/lib/aiAccess.ts).
 const PLANES_DEFAULT = [
   { id: 'gratis', creditosMes: 0 },
@@ -167,7 +170,7 @@ async function cobrarUsoIA(request, accion) {
   let descontado = { mes: 0, extra: 0 };
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    const a = snap.exists ? snap.data() : { userId: ws, planId: 'gratis', creditosRestantes: creditosGratis, creditosExtra: 0, mes: mesActual() };
+    const a = snap.exists ? snap.data() : { userId: ws, planId: 'gratis', creditosRestantes: creditosGratis, creditosExtra: CREDITOS_BIENVENIDA, mes: mesActual() };
     const vencido = a.venceEl && new Date(a.venceEl).getTime() < Date.now();
     const planId = vencido ? 'gratis' : (a.planId || 'gratis');
     const plan = planes.find((p) => p.id === planId);
