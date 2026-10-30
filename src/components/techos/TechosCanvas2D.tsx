@@ -52,7 +52,7 @@ import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS, INVENTARIO_COBERTURAS } from './techosCadCatalog';
 import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64, OPCIONES_PLANO_DEFECTO, OpcionesPlano } from '../../lib/roofPlanScan';
 import { safeStorage } from '../../lib/storageManager';
-import { checkAIAccess, iaVisibleParaUI, motivoErrorIA, getAICtx } from '../../lib/aiAccess';
+import { checkAIAccess, iaVisibleParaUI, motivoErrorIA, getAICtx, pedirPinSiLimitada, AVISO_CONFIRMA_PIN } from '../../lib/aiAccess';
 import PlanesIAModal from '../PlanesIAModal';
 import TechosRevisionPanel, { useRevisionDiseno } from './TechosRevisionPanel';
 import { 
@@ -164,6 +164,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !engineState) return;
+    if (pedirPinSiLimitada()) { setIaNotice(AVISO_CONFIRMA_PIN); setTimeout(() => setIaNotice(null), 9000); return; }
     setIaReading(true);
     setIaNotice('Analizando el plano con IA… (puede tardar unos segundos)');
     try {
@@ -183,7 +184,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       const code = String(err?.code || err?.message || '');
       console.warn('Leer plano:', code, err?.message);
       const sinCreditos = motivoErrorIA(err);
-      if (sinCreditos) {
+      if (pedirPinSiLimitada(err)) {
+        setIaNotice(AVISO_CONFIRMA_PIN);
+      } else if (sinCreditos) {
         setShowPlanesIA(sinCreditos);
         setIaNotice(comprasPermitidas() ? 'No te alcanzan los créditos para leer el plano. Recarga créditos o sube de plan.' : 'No te alcanzan los créditos de este mes para leer el plano.');
       } else if (code.includes('failed-precondition') && getAICtx().isAdmin && /clave|saldo|permiso/i.test(String(err?.message || ''))) {

@@ -1590,6 +1590,12 @@ export default function App() {
   // "Ahora no" (o si el servidor no responde) la oculta hasta el día siguiente.
   const hoyISO = () => new Date().toISOString().slice(0, 10);
   const [renovar, setRenovar] = useState({ pin: '', error: '', cargando: false, oculto: safeStorage.getItem<string>('innova_renovar_omitido', '') === hoyISO() });
+  // La IA pide confirmar el PIN (sesión limitada): se vuelve a mostrar el aviso.
+  useEffect(() => {
+    const h = () => setRenovar(r => ({ ...r, oculto: false, error: '' }));
+    window.addEventListener('innova_confirmar_pin', h);
+    return () => window.removeEventListener('innova_confirmar_pin', h);
+  }, []);
   const omitirRenovar = () => { safeStorage.setItem('innova_renovar_omitido', hoyISO()); setRenovar(r => ({ ...r, oculto: true })); };
   const enviarRenovar = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -2450,6 +2456,9 @@ export default function App() {
                         {isAdmin ? 'Administrador' : 'Usuario'}
                       </p>
                     </div>
+                    <p className="text-[9px] text-slate-500 mt-0.5 truncate" title="Fecha de esta versión de la app">
+                      Versión {new Date(__BUILD__).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
                 </div>
                 <button 
@@ -2540,7 +2549,7 @@ export default function App() {
           <div className="fixed inset-0 z-[150] bg-slate-900/50 flex items-center justify-center p-4">
             <form onSubmit={enviarRenovar} className="bg-white w-full max-w-xs rounded-3xl shadow-2xl p-5 space-y-3 text-center">
               <p className="text-sm font-black text-slate-900">Confirma tu PIN</p>
-              <p className="text-[11px] text-slate-500 leading-snug">Solo esta vez, para ver los comunicados y tu configuración.</p>
+              <p className="text-[11px] text-slate-500 leading-snug">Solo esta vez, para ver los comunicados, tu configuración y usar la IA.</p>
               <input autoFocus inputMode="numeric" maxLength={6} value={renovar.pin} onChange={e => setRenovar(r => ({ ...r, pin: e.target.value.replace(/\D/g, ''), error: '' }))}
                 className="w-full text-center tracking-[0.5em] font-mono text-xl font-black px-3 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:border-amber-400" placeholder="••••••" />
               {renovar.error && <p className="text-[11px] font-bold text-rose-600">{renovar.error}</p>}

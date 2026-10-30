@@ -4,6 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Fecha de compilación: se muestra en el menú para saber qué versión tiene cada equipo.
+  define: { __BUILD__: JSON.stringify(new Date().toISOString()) },
   resolve: {
     dedupe: ['react', 'react-dom'],
   },

@@ -14,7 +14,7 @@
 // Nunca se muestra en la interfaz qué proveedor o modelo hay detrás.
 // =============================================================================
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 
 export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2 } as const;
 export type AccionIA = keyof typeof COSTO_CREDITOS;
@@ -160,6 +160,19 @@ export async function checkAIAccess(accion: AccionIA = 'boleta'): Promise<AIChec
   if (total >= COSTO_CREDITOS[accion]) return { ok: true, restantes: total, planId: s.planId, planNombre };
   return { ok: false, motivo: 'agotado', restantes: total, planId: s.planId, planNombre };
 }
+
+/**
+ * Sesión limitada (se pulsó "Ahora no" al confirmar el PIN): el servidor no sabe
+ * quién es, así que la IA no puede cobrar ni usarse. Abre el aviso de confirmar
+ * el PIN y devuelve true. Úsalo antes de llamar a la IA o con su error.
+ */
+export function pedirPinSiLimitada(err?: any): boolean {
+  const porError = !!err && /CONFIRMA_PIN/.test(`${err?.message || ''} ${err?.details || ''}`);
+  if (!porError && !auth.currentUser?.isAnonymous) return false;
+  window.dispatchEvent(new CustomEvent('innova_confirmar_pin'));
+  return true;
+}
+export const AVISO_CONFIRMA_PIN = 'Para usar la IA confirma tu PIN (tu sesión está en modo limitado).';
 
 /** ¿El error que devolvió el servidor es por falta de créditos/plan? */
 export function motivoErrorIA(err: any): 'agotado' | 'sin_plan' | null {

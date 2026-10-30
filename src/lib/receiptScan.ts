@@ -11,7 +11,7 @@
 // Siempre con revisión humana: los datos se cargan al formulario y el usuario
 // confirma antes de guardar.
 // ============================================================================
-import { motivoErrorIA } from './aiAccess';
+import { motivoErrorIA, pedirPinSiLimitada, AVISO_CONFIRMA_PIN } from './aiAccess';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from './firebase';
 import jsQR from 'jsqr';
@@ -182,6 +182,7 @@ function fileToBase64(file: File): Promise<string> {
 
 /** Llama a la Cloud Function de IA de visión (requiere despliegue). */
 export async function scanReceiptWithAI(base64: string, mimeType: string, region = 'us-central1'): Promise<ReceiptData> {
+  if (pedirPinSiLimitada()) throw new Error(AVISO_CONFIRMA_PIN);
   const functions = getFunctions(app, region);
   const callable = httpsCallable<{ imageBase64: string; mimeType: string }, ReceiptData>(functions, 'scanReceipt', { timeout: 120000 });
   const { data } = await callable({ imageBase64: base64, mimeType });

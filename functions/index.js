@@ -127,12 +127,15 @@ const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2 };
 function errorDeIA(e) {
   const status = e?.status || e?.statusCode;
   console.error('[IA] error de la API', status, e?.error?.error?.type || '', e?.message || e);
+  // Sin saldo en la cuenta de IA: la API responde 400 con "credit balance is too low";
+  // se revisa antes que el 400 genérico para no culpar a la imagen.
+  const texto = `${e?.message || ''} ${e?.error?.error?.message || ''}`;
+  if (status === 402 || /credit balance|billing|spend limit|usage limit/i.test(texto)) return new HttpsError('failed-precondition', 'La cuenta de IA no tiene saldo o llegó a su límite de gasto.');
   if (status === 401) return new HttpsError('failed-precondition', 'La clave de IA no es válida.');
   if (status === 403) return new HttpsError('failed-precondition', 'La clave de IA no tiene permiso para usar este modelo.');
   if (status === 429 || status === 529) return new HttpsError('resource-exhausted', 'Servicio de IA ocupado, intenta de nuevo.');
   if (status === 404) return new HttpsError('failed-precondition', 'El modelo de IA configurado no está disponible para esta clave (revisa la configuración de las funciones).');
   if (status === 400 || status === 413) return new HttpsError('invalid-argument', 'La imagen no se pudo procesar (muy pesada o en un formato no válido). Prueba con otra foto.');
-  if (status === 402 || /credit|balance|billing/i.test(String(e?.message || ''))) return new HttpsError('failed-precondition', 'La cuenta de IA no tiene saldo o llegó a su límite de gasto.');
   return new HttpsError('unavailable', `No se pudo contactar el servicio de IA${status ? ` (código ${status})` : ''}. Intenta de nuevo en un momento.`);
 }
 const CREDITOS_GRATIS_DEFAULT = 0; // la IA es de pago: el plan Gratis no trae créditos
@@ -149,7 +152,9 @@ async function cobrarUsoIA(request, accion) {
   const token = request.auth?.token || {};
   if (token.role === 'admin') return async () => {};
   const ws = String(token.workspace || '').replace(/^user_/, '');
-  if (!ws) throw new HttpsError('permission-denied', 'SIN_PLAN');
+  // Sin rol ni workspace = sesión limitada (se pulsó "Ahora no" al confirmar el PIN):
+  // no se sabe de quién cobrar. Se pide confirmar el PIN (también al admin).
+  if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
   const costo = COSTO_CREDITOS[accion] || 1;
   const ref = db.collection('ai_access').doc(ws);
   const cfgSnap = await db.collection('config_ia').doc('planes').get();
