@@ -180,7 +180,7 @@ export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
   { id: 'tr5_poly_opal', nombre: 'Policarbonato TR-5 Opalino (Luz Difusa 6mm)', espesorMm: 6.0, tipo: 'policarbonato', opacidadDefecto: 0.60, colorDefectoHex: 0xf8fafc, ribHeightMm: 38, ribCountPerMeter: 5.2 },
   { id: 'st1000_sand', nombre: 'Panel Termoacústico ST-1000 (Sandwich PUR 30mm)', espesorMm: 30.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x15803d, ribHeightMm: 40, ribCountPerMeter: 3 },
   { id: 'eternit_p4', nombre: 'Eternit Fibrocemento Perfil 4 (Gran Onda 5 mm)', espesorMm: 5.0, tipo: 'fibrocemento', opacidadDefecto: 1.0, colorDefectoHex: 0x9ca3af, ribHeightMm: 52, ribCountPerMeter: 5.65 },
-  { id: 'eternit_teja', nombre: 'Eternit Teja Andina (Fibrocemento)', espesorMm: 5.0, tipo: 'teja_andina', opacidadDefecto: 1.0, colorDefectoHex: 0xb45309, ribHeightMm: 60, ribCountPerMeter: 4.2 },
+  { id: 'eternit_teja', nombre: 'Teja Andina Fibrocemento (5 mm · filas de 38 cm)', espesorMm: 5.0, tipo: 'teja_andina', opacidadDefecto: 1.0, colorDefectoHex: 0xa63a1e, ribHeightMm: 55, ribCountPerMeter: 4.2 },
   { id: 'upvc_teja_espanola', nombre: 'Teja Española UPVC (2.3 mm · onda 30 mm · paso 219 mm)', espesorMm: 2.3, tipo: 'teja_espanola', opacidadDefecto: 1.0, colorDefectoHex: 0xb9461f, ribHeightMm: 30, ribCountPerMeter: 4.17 },
   { id: 'malla_raschel_50', nombre: 'Malla Raschel 50 % (sombra ligera)', espesorMm: 0.5, tipo: 'malla', opacidadDefecto: 0.45, colorDefectoHex: 0x166534, ribHeightMm: 1, ribCountPerMeter: 3 },
   { id: 'malla_raschel_65', nombre: 'Malla Raschel 65 %', espesorMm: 0.6, tipo: 'malla', opacidadDefecto: 0.6, colorDefectoHex: 0x166534, ribHeightMm: 1, ribCountPerMeter: 3 },
@@ -190,6 +190,12 @@ export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
   { id: 'poli_compacto', nombre: 'Policarbonato compacto 4 mm (liso)', espesorMm: 4, tipo: 'lona', opacidadDefecto: 0.35, colorDefectoHex: 0xbae6fd, ribHeightMm: 1, ribCountPerMeter: 3 },
   { id: 'sandwich_pur_50', nombre: 'Panel Sándwich PUR Industrial 50mm (Aislante Térmico)', espesorMm: 50.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x047857, ribHeightMm: 45, ribCountPerMeter: 3 }
 ];
+
+/** Tejas: largo de cada fila (m) y alto del escalón donde una fila monta sobre la otra. */
+const ESCALON_TEJA: Record<string, { paso: number; alto: number }> = {
+  teja_espanola: { paso: 0.219, alto: 0.014 },
+  teja_andina: { paso: 0.38, alto: 0.02 },
+};
 
 export interface DetalleZonaCritica {
   id: string;
@@ -1373,12 +1379,20 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const uu: number[] = [u0];
     for (let k = Math.floor(u0 / periodo) - 1; k * periodo <= u1 + periodo; k++) fr.forEach(f => { const u = (k + f) * periodo; if (u > u0 && u < u1) uu.push(u); });
     uu.push(u1);
+    // Tejas: escalón en cada fila (el borde de abajo de cada fila monta sobre la siguiente).
+    const teja = ESCALON_TEJA[activeModel.tipo];
     const vv = [v0, (v0 + v1) / 2, v1];
+    if (teja) {
+      for (let dd = teja.paso; v1 - dd > v0; dd += teja.paso) vv.push(v1 - dd, v1 - dd - 0.004);
+      for (let v = v0; v < v1; v += teja.paso / 3) vv.push(v);
+      vv.sort((p, q) => p - q);
+    }
+    const escalon = (v: number) => { if (!teja) return 0; const f = (((v1 - v) / teja.paso) % 1 + 1) % 1; return (1 - f) * teja.alto; };
     const base = 0.04 + (arriba ? Math.max(0.002, activeModel.espesorMm / 1000) : 0);
     const pos: number[] = [], idx: number[] = [], uvA: number[] = [];
     vv.forEach(v => uu.forEach(u => {
       const rib = getRibHeightProfile(u, freq, alto * (arriba ? 1 : 0.95), activeModel.tipo).offset;
-      const p = P0.clone().addScaledVector(a, u).addScaledVector(d, v).addScaledVector(nrm, base + rib);
+      const p = P0.clone().addScaledVector(a, u).addScaledVector(d, v).addScaledVector(nrm, base + rib + escalon(v));
       pos.push(p.x, p.y, p.z);
       uvA.push((u - u0) / Math.max(0.01, u1 - u0), (v - v0) / Math.max(0.01, v1 - v0));
     }));
@@ -1408,15 +1422,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       // Malla raschel, lona y láminas lisas: superficie tensada, sin ondas.
       return { offset: 0, slopeZ: 0 };
     }
-    if (tipo === 'teja_espanola') {
-      // Teja española: cañón redondeado arriba y canal angosto abajo.
+    if (tipo === 'teja_espanola' || tipo === 'teja_andina') {
+      // Teja española y teja andina: cañón redondeado arriba y canal angosto abajo.
       const period = 1 / Math.max(1, freq);
       const phase = ((zPos % period) + period) % period;
       const s = Math.sin((phase / period) * Math.PI);
       const k = 0.6;
       return { offset: Math.pow(s, k) * height, slopeZ: 0 };
     }
-    if (tipo === 'calamina_ondulada' || tipo === 'fibrocemento' || tipo === 'teja_andina') {
+    if (tipo === 'calamina_ondulada' || tipo === 'fibrocemento') {
       const period = 1 / Math.max(1, freq);
       const phase = ((zPos % period) + period) % period;
       const angle = (phase / period) * Math.PI * 2;
@@ -1483,7 +1497,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     const activeModel = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
     const isSandwich = activeModel.tipo === 'termoacustico';
-    const esTejaEsp = activeModel.tipo === 'teja_espanola';
+    const teja = ESCALON_TEJA[activeModel.tipo];
 
     const minX = topPoints[0]?.x ?? 0;
     const maxX = topPoints[topPoints.length - 1]?.x ?? 12;
@@ -1506,19 +1520,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       for (let k = 0; k < n; k++) xs.push(quiebres[i] + (quiebres[i + 1] - quiebres[i]) * k / n);
     }
     xs.push(x1);
-    const PASO_TEJA = 0.219, ESCALON_TEJA = 0.014;
     const pendienteEn = (x: number) => evaluateRoofHeightAtX(x, topPoints).slope;
     // distancia desde el alero bajo de cada faldón (los escalones bajan hacia el alero)
     const escalonTeja = (x: number) => {
-      if (!esTejaEsp) return 0;
+      if (!teja) return 0;
       const d = pendienteEn(x) >= 0 ? x - x0 : x1 - x;
-      const u = ((d / PASO_TEJA) % 1 + 1) % 1;
-      return (1 - u) * ESCALON_TEJA;
+      const u = ((d / teja.paso) % 1 + 1) % 1;
+      return (1 - u) * teja.alto;
     };
-    if (esTejaEsp) {
+    if (teja) {
       const extra: number[] = [];
-      for (let x = x0; x < x1; x += PASO_TEJA / 3) extra.push(x);
-      for (let d = 0; d < x1 - x0; d += PASO_TEJA) { extra.push(x0 + d, x0 + d - 0.004, x1 - d, x1 - d + 0.004); }
+      for (let x = x0; x < x1; x += teja.paso / 3) extra.push(x);
+      for (let d = 0; d < x1 - x0; d += teja.paso) { extra.push(x0 + d, x0 + d - 0.004, x1 - d, x1 - d + 0.004); }
       const todas = [...xs, ...extra].filter(x => x >= x0 && x <= x1).sort((a, b) => a - b);
       xs.length = 0;
       todas.forEach(x => { if (!xs.length || x - xs[xs.length - 1] > 0.002) xs.push(x); });
@@ -1527,7 +1540,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const z0 = minZ - overhangZ, z1 = maxZ + overhangZ;
     const periodo = 1 / ribFreq;
     const esTR5Malla = activeModel.tipo === 'aluzinc_tr5';
-    const ondaRedonda = esTejaEsp || activeModel.tipo === 'calamina_ondulada' || activeModel.tipo === 'fibrocemento' || activeModel.tipo === 'teja_andina';
+    const ondaRedonda = !!teja || activeModel.tipo === 'calamina_ondulada' || activeModel.tipo === 'fibrocemento' || activeModel.tipo === 'teja_andina';
     const fracciones = ondaRedonda
       ? Array.from({ length: 12 }, (_, i) => i / 12)
       : (esTR5Malla ? [0, 0.22, 0.34, 0.56] : [0, 0.15, 0.35, 0.50]);
