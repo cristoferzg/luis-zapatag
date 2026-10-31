@@ -83,9 +83,15 @@ export default function PandeoEstructura3D({ nodes, segments, riesgos, escala = 
     });
     rehacer(1);
 
-    // Cámara orbital simple
-    let az = -0.8, pol = 1.05, rad = Math.max(8, Math.max(tam.x, tam.y, tam.z) * 2.2);
-    const obj = new THREE.Vector3(centro.x, tam.y * 0.45, centro.z);
+    // Cámara orbital simple, encuadrada a la esfera que envuelve la estructura
+    // (según el ancho y alto del cuadro, para que nunca quede cortada).
+    const esfera = caja.getBoundingSphere(new THREE.Sphere());
+    const obj = esfera.center.clone();
+    const distanciaAjuste = () => {
+      const vfov = (camera.fov * Math.PI) / 180, hfov = 2 * Math.atan(Math.tan(vfov / 2) * camera.aspect);
+      return Math.max(4, (esfera.radius * 1.15) / Math.sin(Math.min(vfov, hfov) / 2));
+    };
+    let az = -0.8, pol = 1.05, rad = distanciaAjuste();
     const actualizar = () => {
       pol = Math.max(0.15, Math.min(Math.PI / 2 - 0.02, pol));
       camera.position.set(obj.x + rad * Math.sin(pol) * Math.cos(az), obj.y + rad * Math.cos(pol), obj.z + rad * Math.sin(pol) * Math.sin(az));
@@ -110,7 +116,12 @@ export default function PandeoEstructura3D({ nodes, segments, riesgos, escala = 
     const wheel = (e: WheelEvent) => { e.preventDefault(); rad = Math.max(2, Math.min(200, rad * (e.deltaY < 0 ? 0.9 : 1.1))); actualizar(); };
     el.addEventListener('pointerdown', down); el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
     el.addEventListener('wheel', wheel, { passive: false });
-    const resize = () => { const w = mount.clientWidth, h = mount.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); };
+    let ajustado = false;
+    const resize = () => {
+      const w = mount.clientWidth, h = mount.clientHeight; if (!w || !h) return;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+      if (!ajustado) { rad = distanciaAjuste(); ajustado = true; actualizar(); } // primer tamaño real: encuadrar
+    };
     const ro = new ResizeObserver(resize); ro.observe(mount); resize();
 
     let raf = 0, t0 = performance.now();

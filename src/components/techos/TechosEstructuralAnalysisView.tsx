@@ -1,6 +1,6 @@
 // Módulo de Análisis Estructural, Simulador de Pandeo y Normativa Peruana (RNE E.020, E.030, E.050, E.090)
 // Diseño amigable con la paleta y componentes de la plataforma
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ShieldCheck, 
   Activity, 
@@ -16,15 +16,18 @@ import {
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import PandeoEstructura3D, { Riesgo } from './PandeoEstructura3D';
-import { propsPerfil, factorK, limitesLambda, seAnaliza, perfilRecomendado, perfilMasEconomico, cumpleTramo } from './propiedadesPerfil';
+import { seAnaliza, perfilRecomendado, perfilMasEconomico } from './propiedadesPerfil';
+import { calcularMemoria, contextoCargas } from './memoriaCalculo';
+import MemoriaCalculoTechos, { ESTILO_ESTADO } from './MemoriaCalculoTechos';
 import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
 
 interface TechosEstructuralAnalysisViewProps {
   engineState: UseTechosCadEngineReturn;
+  nombreProyecto?: string;
 }
 
-export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisViewProps> = ({ engineState }) => {
-  const { structuralReport, structuralInputs, setStructuralInputs, segments, nodes } = engineState;
+export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisViewProps> = ({ engineState, nombreProyecto }) => {
+  const { structuralInputs, setStructuralInputs, segments, nodes } = engineState;
 
   // Estados locales como string para edición numérica fluida sin saltos ni bloqueos al borrar
   const [cmStr, setCmStr] = useState<string>(String(structuralInputs.cargaMuertaKgM2 || 15));
@@ -36,7 +39,6 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
   const [pieza3d, setPieza3d] = useState<string | null>(null);
   const [bucklingScale, setBucklingScale] = useState<number>(1.5);
 
-  const isOK = structuralReport.resultadoGlobal === 'CUMPLE';
 
   const perfilDe = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id);
   const [avisoAplicar, setAvisoAplicar] = useState<string | null>(null);
@@ -44,53 +46,14 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
   const precioM = (p: any) => { const largo = p.longitudComercialM || 6; return precio(clavePerfilDe(p), (p.costoMetroSol || 0) * largo) / largo; };
   const [ahorro, setAhorro] = useState<null | { cambios: { rol: string; n: number; de: string; a: string; ahorro: number }[]; nuevos: Record<string, string>; total: number }>(null);
 
-  // Cargas de servicio: área del techo en planta × (muerta + viva), repartida.
-  const ns = Object.values(nodes);
-  const xs = ns.map(n => n.x), zs = ns.map(n => n.z || 0);
-  const areaTecho = ns.length ? (Math.max(...xs) - Math.min(...xs)) * (Math.max(...zs) - Math.min(...zs)) : 0;
-  const qArea = ((structuralInputs.cargaMuertaKgM2 || 15) + (structuralInputs.cargaVivaKgM2 || 30)) * 9.81; // N/m²
-  const largoDe = (seg: any) => { const a = nodes[seg.nodeAId], b = nodes[seg.nodeBId]; return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0)) : 0; };
-  const segs = Object.values(segments) as any[];
-  const nCols = Math.max(1, segs.filter(sg => sg.rolEstructural === 'columna' && Math.min(nodes[sg.nodeAId]?.y ?? 9, nodes[sg.nodeBId]?.y ?? 9) < 0.1).length);
-  const LVigas = segs.filter(sg => /^viga|^cordon_superior/.test(sg.rolEstructural)).reduce((x, sg) => x + largoDe(sg), 0);
-  const LCorreas = segs.filter(sg => sg.rolEstructural === 'correa').reduce((x, sg) => x + largoDe(sg), 0);
-  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
-  const cargasDe = (rol: string) => {
-    if (rol === 'columna') return { PkN: (areaTecho * qArea / 1000 / nCols) * 1.5 };   // ×1.5 viento/sismo y reparto desigual
-    if (/^viga|^cordon_superior/.test(rol) && LVigas > 0) return { qNm: qArea * clamp(areaTecho / LVigas, 0.5, 4) * 1.2 };
-    if (rol === 'correa' && LCorreas > 0) return { qNm: qArea * clamp(areaTecho / LCorreas, 0.3, 2.5) };
-    return {};
-  };
-
-  // Cálculos de pandeo por elemento con la sección REAL de su perfil.
-  const bucklingAnalysis = Object.values(segments).map(seg => {
-    const nA = nodes[seg.nodeAId];
-    const nB = nodes[seg.nodeBId];
-    if (!nA || !nB || !seAnaliza(seg.rolEstructural)) return null;
-    const lengthM = Math.hypot(nB.x - nA.x, nB.y - nA.y, (nB.z || 0) - (nA.z || 0));
-    const perfil = perfilDe(seg.profileId);
-    const pr = propsPerfil(perfil) || { areaCm2: 4, iMinCm4: 6, rMinCm: 1.2 };
-    const K = factorK(seg.rolEstructural);
-    const lambdaEsbeltez = (K * lengthM * 100) / pr.rMinCm;
-    const lim = limitesLambda(seg.rolEstructural);
-    const esbeltezOk = lambdaEsbeltez <= lim.maximo;
-    // Carga crítica de Euler: Pcr = π²·E·I / (K·L)², acero A36 (E = 200 GPa).
-    const PcrkN = (Math.PI ** 2 * 200e6 * (pr.iMinCm4 * 1e-8)) / Math.pow(K * Math.max(lengthM, 0.01), 2);
-    // Con las cargas del techo: BAJO si cumple esbeltez E.090 y carga (columna) o flecha (viga).
-    const riesgoPandeo: 'BAJO' | 'MEDIO' | 'ALTO' = lambdaEsbeltez > lim.maximo ? 'ALTO'
-      : (perfil && cumpleTramo(perfil, seg.rolEstructural, lengthM, cargasDe(seg.rolEstructural))) || lambdaEsbeltez <= lim.bajo ? 'BAJO' : 'MEDIO';
-    return {
-      id: seg.id,
-      rol: seg.rolEstructural,
-      perfil: perfil?.nombre || seg.profileId,
-      longitudM: lengthM.toFixed(2),
-      lambdaEsbeltez: lambdaEsbeltez.toFixed(0),
-      limite: lim.maximo,
-      esbeltezOk,
-      PcrkN: PcrkN.toFixed(1),
-      riesgoPandeo
-    };
-  }).filter(Boolean) as any[];
+  // Cargas, verificación de cada pieza y memoria (memoriaCalculo.ts): mismos números en todo.
+  const { cargasDe } = contextoCargas(nodes, segments, structuralInputs);
+  const memoria = useMemo(() => calcularMemoria(nodes, segments, engineState.coverageZones || {}, structuralInputs),
+    [nodes, segments, engineState.coverageZones, structuralInputs]);
+  const bucklingAnalysis = memoria.piezas.map(p => ({
+    id: p.id, rol: p.rol, nombre: p.nombre, perfil: p.perfil, longitudM: p.L.toFixed(2), lambdaEsbeltez: p.lambda.toFixed(0),
+    limite: p.limite, esbeltezOk: p.lambda <= p.limite, PcrkN: p.PcrkN.toFixed(1), riesgoPandeo: p.riesgo,
+  }));
 
   // Por cada rol y perfil actual, cambia al perfil más liviano que deja el tramo
   // más largo en riesgo BAJO. No cambia los roles ni los elementos que ya cumplen.
@@ -188,13 +151,10 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
             💰 <span>PERFIL MÁS ECONÓMICO QUE CUMPLE</span>
           </button>
 
-          <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 text-xs font-bold tracking-wide shadow-2xs ${
-            isOK 
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-              : 'bg-rose-50 text-rose-800 border-rose-300'
-          }`}>
-            {isOK ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}
-            <span>{isOK ? 'CUMPLE PREDISEÑO ESTRUCTURAL' : 'REQUIERE REFUERZO / MAYOR PERFIL'}</span>
+          {/* Estado real: sale de la memoria (grupos que cumplen o no). */}
+          <div className={`px-4 py-2 rounded-xl border flex items-center gap-2 text-xs font-bold tracking-wide shadow-2xs ${ESTILO_ESTADO[memoria.estado].clase}`}>
+            {memoria.estado === 'CUMPLE' ? <CheckCircle className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className={`w-4 h-4 ${memoria.estado === 'NO_CUMPLE' ? 'text-rose-600' : 'text-amber-600'}`} />}
+            <span>{memoria.estado === 'CUMPLE' ? 'CUMPLE PREDISEÑO' : memoria.estado === 'NO_CUMPLE' ? 'NO CUMPLE: REQUIERE MAYOR PERFIL' : 'CUMPLE CON OBSERVACIONES'}</span>
           </div>
         </div>
       </div>
@@ -317,6 +277,9 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
         </div>
       </div>
 
+      {/* MEMORIA DE CÁLCULO (imprimible) */}
+      <MemoriaCalculoTechos memoria={memoria} nombreProyecto={nombreProyecto} onAplicarRecomendados={aplicarRecomendados} />
+
       {/* 3. SIMULADOR ANIMADO DE PANDEO ESTRUCTURAL */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -371,7 +334,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
                 <PandeoEstructura3D nodes={nodes} segments={segments} riesgos={riesgos} escala={bucklingScale} animar={isSimulatingBuckling} alSeleccionar={setPieza3d} />
                 {sel && (
                   <div className="absolute left-3 bottom-3 bg-white/95 border border-slate-200 rounded-xl shadow-lg px-3 py-2 text-[11px] space-y-0.5">
-                    <p className="font-black text-slate-800 capitalize">{String(sel.rol).replace(/_/g, ' ')} · {sel.longitudM} m</p>
+                    <p className="font-black text-slate-800">{sel.nombre} · {sel.longitudM} m</p>
                     <p className="text-slate-600">{sel.perfil}</p>
                     <p className="text-slate-600">Esbeltez λ = {sel.lambdaEsbeltez} (máx. {sel.limite}) · Pcr = {sel.PcrkN} kN</p>
                     <p className={`font-black ${sel.riesgoPandeo === 'ALTO' ? 'text-rose-600' : sel.riesgoPandeo === 'MEDIO' ? 'text-amber-600' : 'text-emerald-600'}`}>Riesgo {sel.riesgoPandeo.toLowerCase()}</p>
@@ -385,7 +348,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
 
         {/* Lienzo 2D de Simulación de Pandeo en Líneas */}
         <div className="w-full h-48 bg-slate-50 border border-slate-200 rounded-xl relative overflow-hidden flex items-center justify-center p-4">
-          <svg className="w-full h-full">
+          <svg className="w-full h-full" viewBox="0 0 800 180" preserveAspectRatio="xMidYMid meet">
             {/* Suelo */}
             <line x1="50" y1="160" x2="350" y2="160" stroke="#94a3b8" strokeWidth="4" />
             <line x1="450" y1="160" x2="750" y2="160" stroke="#94a3b8" strokeWidth="4" />
@@ -463,62 +426,6 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
         </div>
       </div>
 
-      {/* 4. TABLA DE EVALUACIÓN DE ESBELTEZ Y PANDEO POR PIEZA */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-        <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-amber-600" />
-          <span>VERIFICACIÓN DE ESBELTEZ Y CARGA CRÍTICA (Pcr) DE PANDEO</span>
-        </h3>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 uppercase text-[10px] font-black">
-                <th className="p-3">ID Elemento</th>
-                <th className="p-3">Rol Estructural</th>
-                <th className="p-3">Perfil</th>
-                <th className="p-3">Longitud</th>
-                <th className="p-3">Esbeltez (λ = KL/r)</th>
-                <th className="p-3">Carga Crítica (Pcr)</th>
-                <th className="p-3">Nivel de Riesgo Pandeo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {bucklingAnalysis.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-6 text-center text-slate-400 font-medium">
-                    No hay elementos trazados en el modelo CAD para simular pandeo.
-                  </td>
-                </tr>
-              ) : (
-                bucklingAnalysis.map((b: any) => (
-                  <tr key={b.id} className="hover:bg-slate-50/80 transition-colors font-mono">
-                    <td className="p-3 text-amber-700 font-bold">{b.id}</td>
-                    <td className="p-3 text-slate-700 capitalize font-sans">{b.rol.replace('_', ' ')}</td>
-                    <td className="p-3 text-slate-600 font-sans text-[11px]">{b.perfil}</td>
-                    <td className="p-3 text-slate-600">{b.longitudM} m</td>
-                    <td className={`p-3 font-bold ${b.esbeltezOk ? 'text-emerald-700' : 'text-rose-600'}`}>
-                      {b.lambdaEsbeltez} {b.esbeltezOk ? `✓ (<=${b.limite})` : `⚠️ Excesiva (>${b.limite})`}
-                    </td>
-                    <td className="p-3 text-sky-700 font-bold">{b.PcrkN} kN</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${
-                        b.riesgoPandeo === 'BAJO' 
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-300' 
-                          : b.riesgoPandeo === 'MEDIO'
-                          ? 'bg-amber-50 text-amber-800 border border-amber-300'
-                          : 'bg-rose-50 text-rose-800 border border-rose-300'
-                      }`}>
-                        RIESGO {b.riesgoPandeo}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 };

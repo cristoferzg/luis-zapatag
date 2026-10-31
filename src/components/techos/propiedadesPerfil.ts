@@ -46,7 +46,7 @@ export function perfilRecomendado(catalogo: PerfilTubularItem[], actual: PerfilT
 
 /** Cargas de servicio de un grupo de elementos (para el perfil más económico). */
 export interface CargasGrupo {
-  PkN?: number;   // columnas: carga axial por columna (kN)
+  PkN?: number;   // columnas y barras de tijerales: fuerza axial (kN)
   qNm?: number;   // vigas y correas: carga repartida sobre el tramo (N/m)
 }
 const E_ACERO = 200e9; // Pa
@@ -68,9 +68,10 @@ export function cumpleTramo(p: PerfilTubularItem, rol: RolEstructuralSegmento, L
   if (rol === 'columna' && (p.espesorMm < 2.0 || ladoMin < 50)) return false;
   if (!SECUNDARIOS.includes(rol) && rol !== 'columna' && p.espesorMm < 1.5) return false;
   if (lambda > limitesLambda(rol).maximo) return false;
-  if (rol === 'columna') {
+  if (cargas.PkN) {
+    // Fuerza axial (columnas y barras de tijerales): Euler con FS 3 y fluencia (0.6·Fy·A, Fy 250 MPa).
     const Pcr = (Math.PI ** 2 * E_ACERO * pr.iMinCm4 * 1e-8) / Math.pow(factorK(rol) * Math.max(L, 0.01), 2) / 1000; // kN
-    return Pcr / 3 >= (cargas.PkN || 0);
+    return Pcr / 3 >= cargas.PkN && 0.6 * 250e3 * pr.areaCm2 * 1e-4 >= cargas.PkN;
   }
   if (cargas.qNm) {
     const flecha = (5 * cargas.qNm * L ** 4) / (384 * E_ACERO * pr.iMaxCm4 * 1e-8);
