@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Innova Contratistas</string>
+    <string name="title_activity_main">Innova Contratistas</string>
+    <string name="package_name">pe.innovacontratistas.app</string>
+    <string name="custom_url_scheme">pe.innovacontratistas.app</string>
+</resources>

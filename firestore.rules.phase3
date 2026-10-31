@@ -1,0 +1,108 @@
+rules_version = '2';
+
+// =============================================================================
+// PHASE 3 RULES (claims-based) — DO NOT deploy until the loginWithPin Cloud
+// Function is live AND the client signs in with the custom token it returns.
+// These rules trust `request.auth.token.role` / `request.auth.token.workspace`,
+// which only exist when the session was created by the Cloud Function.
+//
+// Test first with the emulator:
+//   firebase emulators:start --only firestore,functions
+// Then deploy:
+//   firebase deploy --only firestore:rules
+//
+// This is a STARTING POINT — tune per-collection access to your needs.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+    function myWorkspace() {
+      return signedIn() ? request.auth.token.workspace : '';
+    }
+    function ownsDoc() {
+      return signedIn() && resource.data.userId == myWorkspace();
+    }
+    function ownsNewDoc() {
+      return signedIn() && request.resource.data.userId == myWorkspace();
+    }
+
+    // --- Private, per-workspace collections ---------------------------------
+    match /projects/{id} {
+      allow read: if isAdmin() || ownsDoc();
+      allow create: if isAdmin() || ownsNewDoc();
+      allow update, delete: if isAdmin() || ownsDoc();
+    }
+    match /clients/{id} {
+      allow read: if isAdmin() || ownsDoc();
+      allow create: if isAdmin() || ownsNewDoc();
+      allow update, delete: if isAdmin() || ownsDoc();
+    }
+    match /finances/{id} {
+      allow read: if isAdmin() || ownsDoc();
+      allow create: if isAdmin() || ownsNewDoc();
+      allow update, delete: if isAdmin() || ownsDoc();
+    }
+    match /settings/{id} {
+      allow read: if isAdmin() || ownsDoc();
+      allow create: if isAdmin() || ownsNewDoc();
+      allow update, delete: if isAdmin() || ownsDoc();
+    }
+
+    // --- The PIN directory: only admins (and the Cloud Function) may read -----
+    // Normal clients NEVER read this collection; they authenticate via the
+    // loginWithPin function, which uses the Admin SDK and bypasses these rules.
+    match /usuarios/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    // --- Shared/global collections ------------------------------------------
+    // Readable by any signed-in session; writes restricted as appropriate.
+    match /notificaciones/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /cursos/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /tutoriales/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /biblioteca/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    // Tickets & asesorías: any signed-in user can create/read; author or admin
+    // can modify. Adjust if you need stricter per-user visibility.
+    match /tickets/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+    match /asesorias/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // Configuración global de la Academia (p.ej. límite diario de videos):
+    // cualquier sesión la lee; solo el admin la cambia.
+    match /config_academia/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Everything else: deny by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

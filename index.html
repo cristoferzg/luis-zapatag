@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Innova Contratistas</title>
+    <meta name="description" content="Plataforma integral para controlar proyectos de estructuras metálicas, módulo CAD de herrería y cerrajería, clientes y finanzas personales (gastos, familia, inversiones, deudas)." />
+    <meta property="og:title" content="Innova Contratistas" />
+    <meta property="og:description" content="Plataforma integral para controlar proyectos de estructuras metálicas, módulo CAD de herrería y cerrajería, clientes y finanzas personales (gastos, familia, inversiones, deudas)." />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="InnovaApp" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <script>
+      (function() {
+        // Prevent fatal crash when environment defines window.fetch as a getter without a setter or HMR WebSocket errors
+        var origError = console.error;
+        console.error = function() {
+          var str = '';
+          for (var i = 0; i < arguments.length; i++) {
+            var a = arguments[i];
+            str += ' ' + (typeof a === 'string' ? a : (a && (a.message || a.stack)) || String(a));
+          }
+          if (
+            str.indexOf('[vite]') !== -1 ||
+            str.indexOf('WebSocket') !== -1 ||
+            str.indexOf('vite-plugin-pwa') !== -1 ||
+            str.indexOf('reading \'send\'') !== -1 ||
+            str.indexOf('reading "send"') !== -1 ||
+            str.indexOf('failed to connect to websocket') !== -1 ||
+            str.indexOf('service worker in dev mode') !== -1 ||
+            str.indexOf('INTERNAL ASSERTION FAILED') !== -1 ||
+            str.indexOf('Pending promise was never set') !== -1
+          ) {
+            return;
+          }
+          origError.apply(console, arguments);
+        };
+
+        window.addEventListener('error', function(event) {
+          var msg = event && (event.message || '');
+          if (typeof msg === 'string' && (
+            (msg.indexOf('fetch') !== -1 && (msg.indexOf('getter') !== -1 || msg.indexOf('read only') !== -1)) ||
+            msg.indexOf('[vite]') !== -1 ||
+            msg.indexOf('WebSocket') !== -1 ||
+            msg.indexOf('vite-plugin-pwa') !== -1 ||
+            msg.indexOf('reading \'send\'') !== -1 ||
+            msg.indexOf('reading "send"') !== -1 ||
+            msg.indexOf('INTERNAL ASSERTION FAILED') !== -1 ||
+            msg.indexOf('Pending promise was never set') !== -1
+          )) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var reason = event && event.reason;
+          var msg = typeof reason === 'string' ? reason : (reason && (reason.message || reason.stack)) || String(reason || '');
+          if (typeof msg === 'string' && (
+            msg.indexOf('[vite]') !== -1 ||
+            msg.indexOf('WebSocket') !== -1 ||
+            msg.indexOf('vite-plugin-pwa') !== -1 ||
+            msg.indexOf('service worker') !== -1 ||
+            msg.indexOf('reading \'send\'') !== -1 ||
+            msg.indexOf('reading "send"') !== -1 ||
+            msg.indexOf('INTERNAL ASSERTION FAILED') !== -1 ||
+            msg.indexOf('Pending promise was never set') !== -1
+          )) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        });
+
+        try {
+          var originalFetch = window.fetch;
+          var customFetch = originalFetch;
+          var descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
+          
+          if (!descriptor && Object.getPrototypeOf) {
+            var proto = Object.getPrototypeOf(window);
+            while (proto && !descriptor) {
+              descriptor = Object.getOwnPropertyDescriptor(proto, 'fetch');
+              if (descriptor) break;
+              proto = Object.getPrototypeOf(proto);
+            }
+          }
+
+          if (!descriptor || (!descriptor.set && !descriptor.writable)) {
+            Object.defineProperty(window, 'fetch', {
+              get: function() {
+                var fn = customFetch || originalFetch;
+                return typeof fn === 'function' ? fn.bind(window) : fn;
+              },
+              set: function(val) {
+                customFetch = val;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (e) {}
+
+        // Safe wrappers for modal dialogs in iframe sandbox environments
+        try {
+          var origAlert = window.alert;
+          window.alert = function(msg) {
+            try {
+              if (origAlert) origAlert.call(window, msg);
+            } catch (e) {
+              console.warn('[Dialog Alert]:', msg);
+            }
+          };
+          var origConfirm = window.confirm;
+          window.confirm = function(msg) {
+            try {
+              if (origConfirm) return origConfirm.call(window, msg);
+              return true;
+            } catch (e) {
+              console.warn('[Dialog Confirm]:', msg);
+              return true;
+            }
+          };
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
