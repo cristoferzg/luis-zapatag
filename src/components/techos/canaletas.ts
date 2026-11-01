@@ -3,7 +3,8 @@
 // (un lado en techos de una caída, los dos en dos aguas) a todo el largo del
 // techo; las bajadas van en los extremos y cada 10 m como máximo. Se dibujan
 // en el 3D y suman su metrado al presupuesto. Se pueden apagar por diseño
-// (campo opcional `canaleta` en la cobertura principal).
+// (campo opcional `canaleta` en la cobertura principal). Vienen APAGADAS: se
+// activan en el panel "Canaletas y bajadas".
 // =============================================================================
 import type { Node3D, Segment3D, CoverageZone3D, CanaletaCfg, FormaCanaleta, LadosCanaleta, BajadaCanaleta } from './techosCadEngineTypes';
 import { precio, itemCatalogo } from '../../lib/catalogoPrecios';
@@ -17,8 +18,8 @@ export const cfgCanaleta = (zonas: Record<string, CoverageZone3D>): Required<Can
   const c = zonaPrincipal(zonas)?.canaleta;
   const forma = c?.forma || 'rectangular';
   // La escondida va solo en el borde de la caída (detrás del parapeto) y es de plancha galvanizada.
-  if (forma === 'escondida') return { activa: c?.activa !== false, material: 'galvanizada', forma, lados: 'caida', bajada: c?.bajada || 'gargola' };
-  return { activa: c?.activa !== false, material: c?.material || 'galvanizada', forma, lados: c?.lados || 'caida', bajada: c?.bajada || 'tubo' };
+  if (forma === 'escondida') return { activa: c?.activa === true, material: 'galvanizada', forma, lados: 'caida', bajada: c?.bajada || 'gargola' };
+  return { activa: c?.activa === true, material: c?.material || 'galvanizada', forma, lados: c?.lados || 'caida', bajada: c?.bajada || 'tubo' };
 };
 
 type P3 = { x: number; y: number; z: number };
@@ -95,7 +96,7 @@ export function alerosConCanaleta(perfil: { x: number; y: number }[]): AleroCana
 
 export const canaletaActiva = (zonas: Record<string, CoverageZone3D>) => {
   const z = zonaPrincipal(zonas);
-  return !!z && z.canaleta?.activa !== false;
+  return !!z && z.canaleta?.activa === true; // apagada hasta que se active en el panel
 };
 
 /** Posiciones (z) de las bajadas a lo largo de una canaleta. */

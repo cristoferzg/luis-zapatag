@@ -174,7 +174,7 @@ export interface CoverageZone3D {
   orientacionInclinacionDeg: number; // Orientación del flujo de agua (0°, 90°, 180°, 270°)
   selected?: boolean;
   movil?: TechoMovil;           // Techo movible (opcional): mecanismo de apertura
-  canaleta?: CanaletaCfg; // canaletas y bajadas (por defecto activas)
+  canaleta?: CanaletaCfg; // canaletas y bajadas (apagadas si no se activan)
 }
 
 // Techo movible: la cobertura se divide en paños que se abren a lo largo (Z).

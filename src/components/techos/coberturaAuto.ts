@@ -28,7 +28,9 @@ export function panoUnaAgua(nodes: Record<string, { x: number; y: number; z?: nu
       muestras.push({ x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t, z: (A.z || 0) + ((B.z || 0) - (A.z || 0)) * t });
     }
   });
-  const top = muestras.filter(p => !muestras.some(q => q.y > p.y + 0.3 && Math.hypot(q.x - p.x, q.z - p.z) < 0.3));
+  // Solo lo más alto: se descarta lo que tiene otra pieza 25 cm o más encima (vigas de
+  // borde bajo los tijerales). Con 30 cm justos el redondeo dejaba unas y otras no.
+  const top = muestras.filter(p => !muestras.some(q => q.y > p.y + 0.25 && Math.hypot(q.x - p.x, q.z - p.z) < 0.3));
   if (top.length < 6) return null;
   const n = top.length;
   const m = (f: (p: { x: number; y: number; z: number }) => number) => top.reduce((s, p) => s + f(p), 0) / n;
