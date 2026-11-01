@@ -26,6 +26,22 @@ import {
 } from './drywall/calculoDrywall';
 import { CotizacionDrywall, KEY_COT_ACTUAL, KEY_COT_LISTA, cotizacionVacia, leerCotizacionActual, leerCotizaciones } from './drywall/cotizacionDrywall';
 
+// Lo dibujado en el plano / 3D (compartido con Obra Civil), metrado como drywall por piso.
+function usePlanoDrywall() {
+  const catalogo = useCatalogo();
+  const [disenos, setDisenos] = useState<SavedTechosDesign[]>(getCachedTechosDesigns);
+  useEffect(() => { fetchAllTechosDesigns().then(setDisenos).catch(() => {}); }, []);
+  const techosId = safeStorage.getItem<string>(KEY_OBRA_TECHOS_ID, '') || '';
+  const diseno = disenos.find(d => d.id === techosId) || null;
+  const plano = useMemo(() => {
+    const niveles = safeStorage.getItem<string[]>('concreto_metrados_niveles', ['Cimentación', 'Piso 1']) || ['Cimentación', 'Piso 1'];
+    const elems = safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || [];
+    const cielos = safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {};
+    return metradoDrywall(niveles, diseno as unknown as EstructuraTechos | null, elems, cielos).filter(p => p.lineas.length > 0);
+  }, [diseno, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { plano, diseno };
+}
+
 const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const f2 = (n: number) => n.toLocaleString('es-PE', { maximumFractionDigits: 2 });
 type Pestana = 'cotizar' | 'elevacion' | 'plano' | 'presupuesto';
@@ -41,6 +57,10 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
   const [muroSel, setMuroSel] = useState<string | null>(null);
   const catalogo = useCatalogo();
   const resultado = useMemo(() => metradoPartidas(cot.partidas), [cot.partidas, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Lo dibujado en el plano/3D se suma solo a la cotización (salvo que se quite en Presupuesto).
+  const { plano } = usePlanoDrywall();
+  const planoSuma = cot.excluirPlano ? [] : plano;
+  const directoPlano = planoSuma.reduce((x, p) => x + p.materiales + p.manoObra, 0);
 
   const tabs: { id: Pestana; label: string; corto: string; icon: any }[] = [
     { id: 'cotizar', label: 'Cotizar', corto: 'Cotizar', icon: Calculator },
@@ -81,7 +101,8 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          {pestana === 'cotizar' && <Cotizar cot={cot} setCot={setCot} total={resultado.total * (1 + (cot.gg + cot.util) / 100)}
+          {pestana === 'cotizar' && <Cotizar cot={cot} setCot={setCot} total={(resultado.total + directoPlano) * (1 + (cot.gg + cot.util) / 100)}
+            plano={plano} onVerPlano={() => setPestana('plano')}
             onVerMuro={id => { setMuroSel(id); setPestana('elevacion'); }} onPresupuesto={() => setPestana('presupuesto')} />}
           {pestana === 'elevacion' && <Elevacion cot={cot} setCot={setCot} sel={muroSel} setSel={setMuroSel} onCotizar={() => setPestana('cotizar')} />}
           {pestana === 'presupuesto' && <Presupuesto cot={cot} setCot={setCot} onIrAPrecios={onIrAPrecios} />}
@@ -114,9 +135,10 @@ const FAMILIAS: { id: Sistema['familia'] | 'deco'; titulo: string; ids: SistemaI
 ];
 
 // ── 1. Cotizar ──────────────────────────────────────────────────────────────
-function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto }: {
+function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPlano }: {
   cot: CotizacionDrywall; setCot: (f: (c: CotizacionDrywall) => CotizacionDrywall) => void; total: number;
   onVerMuro: (id: string) => void; onPresupuesto: () => void;
+  plano: ReturnType<typeof usePlanoDrywall>['plano']; onVerPlano: () => void;
 }) {
   const [abierta, setAbierta] = useState<string | null>(cot.partidas[cot.partidas.length - 1]?.id || null);
   const [lista, setLista] = useState<CotizacionDrywall[]>(leerCotizaciones);
@@ -133,10 +155,29 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto }: {
     safeStorage.setItem(KEY_COT_LISTA, l); setLista(l); setCot(() => nueva);
     avisar('✓ Cotización guardada en Mis cotizaciones');
   };
-  const medidaTotal = cot.partidas.reduce((x, p) => { const m = medidaPartida(p); return m.unidad === 'm²' ? x + m.valor : x; }, 0);
+  const planoSuma = cot.excluirPlano ? [] : plano;
+  const m2Plano = planoSuma.reduce((x, p) => x + p.tabiquesM2 + p.cieloM2, 0);
+  const medidaTotal = cot.partidas.reduce((x, p) => { const m = medidaPartida(p); return m.unidad === 'm²' ? x + m.valor : x; }, 0) + m2Plano;
 
   return (
-    <div className="p-3 sm:p-5 space-y-4 max-w-5xl mx-auto pb-28">
+    // PC ancho: dos columnas (cotización a la izquierda, resumen fijo a la derecha) para
+    // aprovechar los costados; en celular y laptop pequeña todo va en una columna.
+    <div className="p-3 sm:p-5 max-w-[1600px] mx-auto pb-6 xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-5 xl:items-start">
+    <div className="space-y-4 min-w-0">
+      {/* Lo dibujado en el plano / 3D: se suma solo, sin escribirlo otra vez */}
+      {plano.length > 0 && (
+        <div className={`xl:hidden rounded-2xl p-3 sm:p-4 border flex flex-wrap items-center gap-3 ${cot.excluirPlano ? 'bg-slate-50 border-slate-200' : 'bg-violet-50 border-violet-200'}`}>
+          <PenTool className="w-5 h-5 text-violet-600 shrink-0" />
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-sm font-black text-slate-800">Dibujado en el plano / 3D {cot.excluirPlano ? '(no se está sumando)' : '· ya está en tu presupuesto'}</p>
+            <p className="text-[11px] text-slate-600">{plano.map(p => `${p.nivel}: tabiques ${f2(p.tabiquesM2)} m², cielo ${f2(p.cieloM2)} m²`).join(' · ')}. Se actualiza solo cuando dibujas; no lo agregues otra vez aquí.</p>
+          </div>
+          <button onClick={onVerPlano} className="px-3 py-1.5 rounded-lg bg-white border border-violet-200 text-violet-700 text-xs font-bold cursor-pointer hover:bg-violet-100">Ver plano</button>
+          <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer">
+            <input type="checkbox" checked={!cot.excluirPlano} onChange={e => setCot(c => ({ ...c, excluirPlano: !e.target.checked }))} /> Sumar
+          </label>
+        </div>
+      )}
       {/* Datos de la cotización */}
       <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -303,15 +344,56 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto }: {
       </div>
 
       {/* Barra de total */}
-      {cot.partidas.length > 0 && (
-        <div className="fixed bottom-3 left-3 right-3 lg:left-auto lg:right-8 lg:w-[420px] z-30 bg-slate-900 text-white rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3">
+      {/* Va pegada al fondo mientras bajas, pero al final queda debajo de la última partida (no tapa botones). */}
+      {(cot.partidas.length > 0 || planoSuma.length > 0) && (
+        <div className="xl:hidden sticky bottom-3 z-20 ml-auto w-full lg:w-[420px] bg-slate-900/95 backdrop-blur text-white rounded-2xl shadow-xl px-4 py-2.5 flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase">{cot.partidas.length} partidas · {f2(medidaTotal)} m²</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">{cot.partidas.length} partidas{planoSuma.length ? ' + plano' : ''} · {f2(medidaTotal)} m²</p>
             <p className="text-lg font-black font-mono">{S(total)}</p>
           </div>
           <button onClick={onPresupuesto} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-500 text-white text-xs font-black cursor-pointer hover:bg-violet-400"><ClipboardList className="w-4 h-4" /> Ver presupuesto</button>
         </div>
       )}
+    </div>
+
+    {/* Resumen fijo (solo PC ancho) */}
+    <aside className="hidden xl:block sticky top-4 space-y-3">
+      <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-xl space-y-3">
+        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Resumen de la cotización</p>
+        <div>
+          <p className="text-3xl font-black font-mono leading-none">{S(total)}</p>
+          <p className="text-[11px] text-slate-400 mt-1">{cot.partidas.length} partidas{planoSuma.length ? ' + plano' : ''} · {f2(medidaTotal)} m² · incluye GG {cot.gg}% y utilidad {cot.util}%</p>
+        </div>
+        {cot.partidas.length > 0 && (
+          <div className="max-h-[38vh] overflow-y-auto divide-y divide-white/10 rounded-xl bg-white/5">
+            {cot.partidas.map((p, i) => { const s = sistemaDe(p.sistema); const m = medidaPartida(p); return (
+              <button key={p.id} onClick={() => setAbierta(p.id)} className="w-full flex items-center gap-2 px-3 py-2 text-left cursor-pointer hover:bg-white/10">
+                <span>{s.emoji}</span>
+                <span className="flex-1 min-w-0 text-xs font-bold truncate">{i + 1}. {p.nombre || s.corto}</span>
+                <span className="text-xs font-mono text-slate-300 shrink-0">{f2(m.valor)} {m.unidad}</span>
+              </button>
+            ); })}
+          </div>
+        )}
+        <button onClick={onPresupuesto} disabled={!cot.partidas.length && !planoSuma.length} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-violet-500 text-white text-sm font-black cursor-pointer hover:bg-violet-400 disabled:opacity-40"><ClipboardList className="w-4 h-4" /> Ver presupuesto</button>
+      </div>
+      {plano.length > 0 ? (
+        <div className={`rounded-2xl p-3 border space-y-2 ${cot.excluirPlano ? 'bg-white border-slate-200' : 'bg-violet-50 border-violet-200'}`}>
+          <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><PenTool className="w-4 h-4 text-violet-600" />Dibujado en el plano / 3D</p>
+          {plano.map(p => <p key={p.nivel} className="text-[11px] text-slate-600">{p.nivel}: tabiques <b>{f2(p.tabiquesM2)} m²</b> · cielo <b>{f2(p.cieloM2)} m²</b></p>)}
+          <p className="text-[10px] text-slate-500">{cot.excluirPlano ? 'No se está sumando.' : 'Ya está en el presupuesto: se actualiza solo cuando dibujas.'}</p>
+          <div className="flex items-center gap-2">
+            <button onClick={onVerPlano} className="px-3 py-1.5 rounded-lg bg-white border border-violet-200 text-violet-700 text-xs font-bold cursor-pointer hover:bg-violet-100">Ver plano</button>
+            <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer"><input type="checkbox" checked={!cot.excluirPlano} onChange={e => setCot(c => ({ ...c, excluirPlano: !e.target.checked }))} /> Sumar</label>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl p-3 border border-dashed border-slate-300 text-[11px] text-slate-500">
+          <p className="font-bold text-slate-700 mb-0.5">¿Tienes el plano?</p>
+          Dibuja los tabiques y cielos en <button onClick={onVerPlano} className="font-bold text-violet-700 underline cursor-pointer">Plano con Techos</button> y se suman solos aquí.
+        </div>
+      )}
+    </aside>
     </div>
   );
 }
@@ -475,19 +557,9 @@ function Presupuesto({ cot, setCot, onIrAPrecios }: { cot: CotizacionDrywall; se
   const catalogo = useCatalogo();
   const { datos } = useEmpresa();
   const hojaRef = useRef<HTMLDivElement>(null);
-  const [disenos, setDisenos] = useState<SavedTechosDesign[]>(getCachedTechosDesigns);
-  useEffect(() => { fetchAllTechosDesigns().then(setDisenos).catch(() => {}); }, []);
-  const techosId = safeStorage.getItem<string>(KEY_OBRA_TECHOS_ID, '') || '';
-  const diseno = disenos.find(d => d.id === techosId) || null;
-
+  const { plano, diseno } = usePlanoDrywall();
   const cotRes = useMemo(() => metradoPartidas(cot.partidas), [cot.partidas, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
-  const plano = useMemo(() => {
-    const niveles = safeStorage.getItem<string[]>('concreto_metrados_niveles', ['Cimentación', 'Piso 1']) || ['Cimentación', 'Piso 1'];
-    const elems = safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || [];
-    const cielos = safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {};
-    return metradoDrywall(niveles, diseno as unknown as EstructuraTechos | null, elems, cielos).filter(p => p.lineas.length > 0);
-  }, [diseno, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
-  const conPlano = cot.incluirPlano ? plano : [];
+  const conPlano = cot.excluirPlano ? [] : plano; // lo dibujado se suma solo
 
   const materiales = cotRes.materiales + conPlano.reduce((x, p) => x + p.materiales, 0);
   const manoObra = cotRes.manoObra + conPlano.reduce((x, p) => x + p.manoObra, 0);
@@ -518,7 +590,7 @@ function Presupuesto({ cot, setCot, onIrAPrecios }: { cot: CotizacionDrywall; se
       <div className="flex flex-wrap items-center gap-2 no-imprimir">
         {plano.length > 0 && (
           <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 cursor-pointer bg-white rounded-xl px-3 py-2 shadow-xs">
-            <input type="checkbox" checked={cot.incluirPlano} onChange={e => setCot(c => ({ ...c, incluirPlano: e.target.checked }))} /> Incluir lo dibujado en “Plano con Techos”
+            <input type="checkbox" checked={!cot.excluirPlano} onChange={e => setCot(c => ({ ...c, excluirPlano: !e.target.checked }))} /> Sumar lo dibujado en el plano / 3D
           </label>
         )}
         <div className="flex-1" />

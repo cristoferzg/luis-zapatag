@@ -11,7 +11,8 @@ export interface CotizacionDrywall {
   partidas: Partida[];
   gg: number;             // % gastos generales
   util: number;           // % utilidad
-  incluirPlano: boolean;  // sumar lo dibujado en "Plano con Techos"
+  incluirPlano: boolean;  // (anterior) ya no se usa: lo dibujado se suma solo
+  excluirPlano?: boolean; // true = NO sumar lo dibujado en el plano/3D (por defecto se suma)
   actualizado?: string;
 }
 export const KEY_COT_ACTUAL = 'drywall_cotizacion_actual';
