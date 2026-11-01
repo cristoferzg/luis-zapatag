@@ -1637,6 +1637,8 @@ export default function App() {
     }
     return true;
   });
+  // "No se dio": el trabajo no se concretó; sus números no cuentan en liquidez ni balance.
+  const proyectosBalance = filteredProjects.filter(p => !p.excluidoBalance);
 
   // Clientes: el admin no ve aquí los de sus usuarios (están en "Supervisión").
   const workspacesDeUsuarios = useMemo(() => {
@@ -2095,9 +2097,9 @@ export default function App() {
     // pantalla de mantenimiento en vez del módulo real.
     if (vistaBloqueada(currentView)) return renderMantenimiento();
     switch (currentView) {
-      case 'dashboard': return <DashboardView projects={filteredProjects} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} />;
+      case 'dashboard': return <DashboardView projects={proyectosBalance} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} />;
       case 'admin_purchases': return <AdminPurchasesView />;
-      case 'reporte': return <ReporteMesView projects={filteredProjects} finances={filteredFinances} />;
+      case 'reporte': return <ReporteMesView projects={proyectosBalance} finances={filteredFinances} />;
       case 'supervision': return isAdmin ? (
         <SupervisionView usuarios={usuarios} projects={projects} clients={clients} finances={finances} settings={settings}
           setProjects={setProjects} setClients={setClients} setFinances={setFinances} setSettings={setSettings} />
@@ -2179,10 +2181,10 @@ export default function App() {
             isAdmin={isAdmin}
           />
         );
-      case 'finances': return <FinanceGenericView type="inversion" title="Finanzas" subtitle="" icon={TrendingUp} colorClass="indigo" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
-      case 'familia': return <FinanceGenericView type="familia" title="Finanzas Familiares" subtitle="Control de gastos personales" icon={Home} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
-      case 'inversion': return <FinanceGenericView type="inversion" title="Inversiones" subtitle="Capital invertido en equipos/negocio" icon={TrendingUp} colorClass="emerald" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
-      case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={filteredProjects} />;
+      case 'finances': return <FinanceGenericView type="inversion" title="Finanzas" subtitle="" icon={TrendingUp} colorClass="indigo" finances={filteredFinances} setFinances={setFinances} projects={proyectosBalance} />;
+      case 'familia': return <FinanceGenericView type="familia" title="Finanzas Familiares" subtitle="Control de gastos personales" icon={Home} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={proyectosBalance} />;
+      case 'inversion': return <FinanceGenericView type="inversion" title="Inversiones" subtitle="Capital invertido en equipos/negocio" icon={TrendingUp} colorClass="emerald" finances={filteredFinances} setFinances={setFinances} projects={proyectosBalance} />;
+      case 'deuda': return <FinanceGenericView type="deuda" title="Deudas y Préstamos" subtitle="Control de cuentas por pagar" icon={CreditCard} colorClass="rose" finances={filteredFinances} setFinances={setFinances} projects={proyectosBalance} />;
       case 'precios': return <CatalogoPreciosView projects={filteredProjects} />;
       case 'concreto': return <ConcretoMetradosView onIrATechos={() => setCurrentView('techos')} />;
       case 'drywall': return <DrywallView onIrATechos={() => setCurrentView('techos')} onIrAPrecios={() => setCurrentView('precios')} />;

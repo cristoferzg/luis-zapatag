@@ -1,24 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import JSZip from 'jszip';
-import { 
-  Briefcase, 
-  Users, 
-  DollarSign, 
-  FileText, 
-  Edit2, 
-  Trash2, 
-  Plus, 
-  UserPlus,
-  FolderKanban,
-  Box,
-  Search,
-  Eye,
-  Download,
-  Image as ImageIcon,
-  StickyNote,
-  FileArchive,
-  ArrowLeft,
-} from 'lucide-react';
+import { Briefcase, Users, DollarSign, FileText, Edit2, Trash2, Plus, UserPlus, FolderKanban, Box, Search, Eye, Download, Image as ImageIcon, StickyNote, FileArchive, ArrowLeft, EyeOff } from 'lucide-react';
 import { Project, Client, ClientFile, FinanceRecord, SystemUser } from '../types';
 import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, deleteTechosDesign } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
@@ -543,6 +525,9 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                       {p.status}
                     </span>
                   </div>
+                  {p.excluidoBalance && (
+                    <p className="mx-5 mt-2 text-[11px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1.5">No se dio · sus cobros y gastos no cuentan en la liquidez ni en el balance del panel.</p>
+                  )}
                   
                   {/* Techos Metálicos: propuesta, lo acordado y el presupuesto actual del diseño */}
                   {p.techos && (p.techos.opciones?.length || p.techos.acordado || p.techos.disenoId) && (() => {
@@ -645,6 +630,14 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                       >
                         <FileText className="w-4 h-4" />
                         <span className="hidden sm:inline">Especificaciones</span>
+                      </button>
+                      <button
+                        onClick={() => setProjects(prev => prev.map(x => x.id === p.id ? { ...x, excluidoBalance: !x.excluidoBalance } : x))}
+                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${p.excluidoBalance ? 'bg-slate-700 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                        title={p.excluidoBalance ? 'El trabajo no se dio: no cuenta en liquidez ni balance. Toca para volver a contarlo.' : 'Si el trabajo no se dio, quítalo de la liquidez y el balance del panel (no se borra).'}
+                      >
+                        {p.excluidoBalance ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        <span className="hidden sm:inline whitespace-nowrap">{p.excluidoBalance ? 'No se dio' : '¿No se dio?'}</span>
                       </button>
                       <button 
                         onClick={() => { setPName(p.name); setPClient(p.client); setPPresupuesto(p.presupuesto.toString()); setPPlazoEstimado(p.plazoEstimado || ''); setPStatus(p.status); setPEditingId(p.id); }} 

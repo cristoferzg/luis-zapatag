@@ -58,6 +58,8 @@ export interface Project {
   userId?: string;
   creatorName?: string;
   techos?: TechosDelProyecto;   // propuesta de Techos Metálicos y lo acordado con el cliente (opcional)
+  /** "No se dio": el trabajo no se concretó; sus números no cuentan en liquidez ni balance. */
+  excluidoBalance?: boolean;
 }
 
 /** Enlace del proyecto con su diseño de Techos: propuesta A/B/C enviada y lo acordado. */
