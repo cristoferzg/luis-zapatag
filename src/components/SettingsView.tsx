@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { fechaCompilacion } from '../lib/version';
 import { 
   Building2, CreditCard, Save, Download, 
   Upload, Image as ImageIcon, Trash2, 
@@ -1305,6 +1306,7 @@ export default function SettingsView({
                     ? 'Define la versión que se mostrará en el menú lateral y estado del sistema de los usuarios.'
                     : 'Versión actual del sistema configurada por el Administrador.'}
                 </p>
+                <p className="text-[11px] font-bold text-slate-600 mt-1">Compilación de esta app: <span className="font-mono">{fechaCompilacion}</span> <span className="font-normal text-slate-400">(se pone sola al publicar; en el menú se ve junto a la versión)</span></p>
               </div>
 
               {/* Almacenamiento Cloud Nativo */}

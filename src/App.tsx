@@ -19,6 +19,7 @@ import { loginWithPinViaFunction } from './lib/pinAuth';
 import { useFirestoreArraySync } from './lib/db';
 import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
 import { useSaldoIA } from './lib/saldoIA';
+import { fechaCompilacion } from './lib/version';
 import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
 import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins } from 'lucide-react';
@@ -2424,11 +2425,11 @@ export default function App() {
         {/* Software Version Info & Status for All Users */}
         {!isSidebarCollapsed && (
           <div className="px-5 py-2.5 border-t border-slate-800/80 bg-slate-950/70 flex items-center justify-between text-[11px]">
-            <div className="flex items-center space-x-1.5 text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span className="font-mono font-bold text-slate-300">{currentSettings.softwareVersion || 'v3.9.5 Pro'}</span>
+            <div className="flex items-center space-x-1.5 text-slate-400 min-w-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+              <span className="font-mono font-bold text-slate-300 truncate" title="Versión del sistema · fecha de esta compilación">{currentSettings.softwareVersion || 'v3.9.5 Pro'} <span className="font-semibold text-slate-500">· {fechaCompilacion}</span></span>
             </div>
-            <span className="text-[10px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+            <span className="shrink-0 whitespace-nowrap text-[10px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
               Al Día
             </span>
           </div>
@@ -2463,9 +2464,6 @@ export default function App() {
                         {isAdmin ? 'Administrador' : 'Usuario'}
                       </p>
                     </div>
-                    <p className="text-[9px] text-slate-500 mt-0.5 truncate" title="Fecha de esta versión de la app">
-                      Versión {new Date(__BUILD__).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </p>
                     {conMembresia && saldoIA && !saldoIA.ilimitado && (
                       <button onClick={() => { setCurrentView('membresia'); setIsMobileMenuOpen(false); }} title="Tus créditos Premium"
                         className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[10px] font-black cursor-pointer hover:bg-amber-400/25">
