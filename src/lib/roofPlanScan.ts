@@ -15,6 +15,7 @@ import { avisarSaldoIA } from './saldoIA';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from './firebase';
 import type { Node3D, Segment3D, RolEstructuralSegmento, CoverageZone3D } from '../components/techos/techosCadEngineTypes';
+import { armarDosAguas } from '../components/techos/techoDosAguasPlano';
 
 export interface RoofPlanColumna { x: number; z: number; }
 export interface RoofPlanViga { x1: number; z1: number; x2: number; z2: number; tipo: 'viga' | 'tijeral'; }
@@ -32,6 +33,12 @@ export interface RoofPlanData {
   caida?: CaidaDibujo;
   alturaAltaM?: number | null;
   alturaBajaM?: number | null;
+  /** Forma leída del tijeral dibujado de perfil o de los textos. */
+  forma?: 'una_agua' | 'dos_aguas' | 'parabolico' | 'plano' | null;
+  alturaCumbreraM?: number | null;  // alto del tijeral en la cumbrera
+  aleroM?: number | null;           // ala por lado
+  columnasCadaM?: number | null;    // separación escrita entre columnas
+  medidasAcabadas?: boolean;        // anchoM/largoM incluyen los aleros
 }
 
 /** Lo que el usuario indica antes de leer el plano (lo que no esté, se lee del dibujo). */
@@ -43,10 +50,15 @@ export interface OpcionesPlano {
   columnasCadaM: number;    // 0 = solo las dibujadas
   correasCadaM: number;
   coberturaId: string;
+  forma?: 'leer' | 'una_agua' | 'dos_aguas';
+  aleroM?: number | null;
+  /** Lo que el cliente mandó por chat (medidas, columnas cada X, alero…): la IA lo usa como dato. */
+  notas?: string;
 }
 
 export const OPCIONES_PLANO_DEFECTO: OpcionesPlano = {
   caida: 'leer', alturaBajaM: null, alturaAltaM: null, pendientePct: 10, columnasCadaM: 5, correasCadaM: 1, coberturaId: '',
+  forma: 'leer', aleroM: null, notas: '',
 };
 
 /**
@@ -88,13 +100,14 @@ export function fileToBase64(file: File, maxLado = 2000): Promise<{ base64: stri
 export async function analyzeRoofPlanWithAI(
   base64: string,
   mimeType: string,
-  region = 'us-central1'
+  region = 'us-central1',
+  notas = '',
 ): Promise<RoofPlanData> {
   // Solo en desarrollo: probar el armado con una respuesta ya escrita (sin gastar créditos).
   if (import.meta.env.DEV && (window as any).__planSimulado) return (window as any).__planSimulado as RoofPlanData;
   const functions = getFunctions(app, region);
-  const callable = httpsCallable<{ imageBase64: string; mimeType: string }, RoofPlanData>(functions, 'analyzeRoofPlan', { timeout: 300000 });
-  const res = await callable({ imageBase64: base64, mimeType });
+  const callable = httpsCallable<{ imageBase64: string; mimeType: string; notas?: string }, RoofPlanData>(functions, 'analyzeRoofPlan', { timeout: 300000 });
+  const res = await callable({ imageBase64: base64, mimeType, ...(notas.trim() ? { notas: notas.trim().slice(0, 800) } : {}) });
   avisarSaldoIA(); // se descontaron créditos: el contador de la cabecera se actualiza
   return res.data;
 }
@@ -112,6 +125,8 @@ export function buildSceneFromPlan(
   correaProfileId = profileId,
 ): { nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; zones: Record<string, CoverageZone3D>; resumen: string } {
   const o0 = { ...OPCIONES_PLANO_DEFECTO, ...opciones };
+  const forma = o0.forma && o0.forma !== 'leer' ? o0.forma : plan.forma;
+  if (forma === 'dos_aguas') return dosAguasDesdePlano(plan, o0);
   // La IA mide con Z hacia arriba de la hoja; en la planta de Techos Z crece hacia
   // abajo. Se refleja para que el diseño se vea igual que el dibujo en papel.
   const zs = [...(plan.perimetro || []).map(p => p.z), ...plan.columnas.map(c => c.z), ...plan.vigas.flatMap(v => [v.z1, v.z2])].filter(Number.isFinite);
@@ -297,4 +312,33 @@ function cascoConvexo(pts: P2[]): P2[] {
   p.forEach(q => { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 1e-6) lo.pop(); lo.push(q); });
   [...p].reverse().forEach(q => { while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 1e-6) up.pop(); up.push(q); });
   return [...lo.slice(0, -1), ...up.slice(0, -1)];
+}
+
+/**
+ * Techo a dos aguas desde lo leído: medidas a ejes de columnas, alero, columnas
+ * cada X y altura de la cumbrera. La cumbrera corre a lo largo (el lado mayor).
+ */
+function dosAguasDesdePlano(plan: RoofPlanData, o: OpcionesPlano): ReturnType<typeof buildSceneFromPlan> {
+  const alero = Math.max(0, o.aleroM ?? plan.aleroM ?? 0);
+  const pts = plan.columnas.length >= 4 ? plan.columnas : (plan.perimetro || []);
+  let ejeX = 0, ejeZ = 0;
+  if (pts.length >= 3) {
+    const xs = pts.map(p => p.x), zs = pts.map(p => p.z);
+    ejeX = Math.max(...xs) - Math.min(...xs); ejeZ = Math.max(...zs) - Math.min(...zs);
+  }
+  // Manda lo ESCRITO (los puntos a pulso salen corridos); los puntos solo dicen hacia dónde va el largo.
+  const quitar = plan.medidasAcabadas ? 2 * alero : 0;
+  const escritoA = (plan.anchoM || 0) - quitar, escritoL = (plan.largoM || 0) - quitar;
+  const girado = ejeX >= 1 && ejeZ >= 1 ? ejeX > ejeZ : false; // la cumbrera va por el lado mayor
+  if (escritoA >= 1 && escritoL >= 1) { ejeX = Math.min(escritoA, escritoL); ejeZ = Math.max(escritoA, escritoL); if (girado) [ejeX, ejeZ] = [ejeZ, ejeX]; }
+  if (ejeX < 1 || ejeZ < 1) { ejeX = Math.max(1, ejeX); ejeZ = Math.max(1, ejeZ); }
+  const ancho = Math.min(ejeX, ejeZ), largo = Math.max(ejeX, ejeZ);
+  // Separación: la escrita, o la de las columnas dibujadas en una fila, o la de las opciones.
+  const fila = plan.columnas.length >= 4 ? Math.round(plan.columnas.length / 2) : 0;
+  const cada = plan.columnasCadaM || (fila >= 2 ? largo / (fila - 1) : 0) || o.columnasCadaM || 5;
+  const H = o.alturaBajaM ?? plan.alturaBajaM ?? (plan.alturaColM > 0 ? plan.alturaColM : 3);
+  const cumbrera = plan.alturaCumbreraM ?? Math.max(0.5, Math.round(((o.pendientePct || 20) / 100) * (ancho / 2 + alero) * 100) / 100);
+  const r = armarDosAguas({ anchoM: ancho + 2 * alero, largoM: largo + 2 * alero, aleroAnchoM: alero, aleroLargoM: alero, columnasCadaM: cada, alturaColM: H, cumbreraM: cumbrera, coberturaId: o.coberturaId });
+  if (girado) Object.values(r.nodes).forEach(n => { const x = n.x; n.x = n.z; n.z = x; });
+  return { nodes: r.nodes, segments: r.segments, zones: r.zones, resumen: `Techo a ${r.resumen}` };
 }

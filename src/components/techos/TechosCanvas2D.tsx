@@ -170,7 +170,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     setIaNotice('Analizando el plano con IA… (puede tardar unos segundos)');
     try {
       const { base64, mimeType } = await fileToBase64(file);
-      const plan = await analyzeRoofPlanWithAI(base64, mimeType);
+      const plan = await analyzeRoofPlanWithAI(base64, mimeType, undefined, opcionesPlano.notas || '');
       const nCols = plan.columnas?.length || 0;
       const nVig = plan.vigas?.length || 0;
       if (nCols === 0 && nVig === 0 && (plan.perimetro?.length || 0) < 3) {
@@ -2900,6 +2900,21 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 </button>
                 <div className="space-y-3">
                   <div>
+                    <label className={lbl}>Forma del techo</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {([['leer', 'Leer del dibujo'], ['una_agua', 'Una agua'], ['dos_aguas', 'Dos aguas']] as const).map(([v, t]) => (
+                        <button key={v} type="button" onClick={() => setOpc({ forma: v })}
+                          className={`py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${(o.forma || 'leer') === v ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-white border-slate-200 text-slate-600'}`}>{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={lbl}>Datos que te pasó el cliente (opcional)</label>
+                    <textarea className={`${inp} font-medium min-h-[64px]`} maxLength={800} placeholder="Ej.: 11.80 de ancho y 32 de largo acabado, columnas cada 4.28, 1 m de ala por lado, tijeral de 1.20 de alto"
+                      defaultValue={o.notas || ''} onChange={e => setOpc({ notas: e.target.value })} />
+                    <p className="text-[10px] text-slate-500 mt-0.5">Copia aquí lo que te escribieron por WhatsApp: la IA lo usa junto con el dibujo y manda sobre lo que se ve.</p>
+                  </div>
+                  <div>
                     <label className={lbl}>¿Hacia dónde cae el agua? (según el dibujo)</label>
                     <div className="grid grid-cols-3 gap-1.5">
                       {([['leer', 'Leer del plano'], ['arriba', '↑ Arriba'], ['abajo', '↓ Abajo'], ['izquierda', '← Izquierda'], ['derecha', '→ Derecha'], ['ninguna', 'Plano (sin caída)']] as const).map(([v, t]) => (
@@ -2921,6 +2936,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                       <input className={inp} inputMode="decimal" placeholder="Solo dibujadas" defaultValue={o.columnasCadaM || ''} onChange={e => setOpc({ columnasCadaM: num(e.target.value) ?? 0 })} /></div>
                     <div><label className={lbl}>Correas cada (m)</label>
                       <input className={inp} inputMode="decimal" defaultValue={o.correasCadaM} onChange={e => setOpc({ correasCadaM: num(e.target.value) ?? 1 })} /></div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div><label className={lbl}>Alero / ala (m)</label>
+                      <input className={inp} inputMode="decimal" placeholder="Del plano" defaultValue={o.aleroM ?? ''} onChange={e => setOpc({ aleroM: e.target.value.trim() === '' ? null : (parseFloat(e.target.value.replace(',', '.')) >= 0 ? parseFloat(e.target.value.replace(',', '.')) : null) })} /></div>
                   </div>
                   <p className="text-[10px] text-slate-500 -mt-1">La pendiente se usa si no pones la altura del lado alto. "Columnas cada" agrega columnas en las esquinas y donde el borde no las tiene (vacío = solo las dibujadas).</p>
                   <div><label className={lbl}>Cobertura</label>

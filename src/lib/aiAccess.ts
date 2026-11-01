@@ -173,6 +173,7 @@ export async function checkAIAccess(accion: AccionIA = 'boleta'): Promise<AIChec
  */
 export function pedirPinSiLimitada(err?: any): boolean {
   const porError = !!err && /CONFIRMA_PIN/.test(`${err?.message || ''} ${err?.details || ''}`);
+  if (import.meta.env.DEV && (window as any).__planSimulado) return false; // pruebas locales con respuesta simulada
   if (!porError && !auth.currentUser?.isAnonymous) return false;
   window.dispatchEvent(new CustomEvent('innova_confirmar_pin'));
   return true;
