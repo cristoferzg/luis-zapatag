@@ -3173,9 +3173,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     // Lados de la obra en el suelo: así se sabe qué es "adelante (calle)", "atrás",
     // "izquierda" y "derecha" al elegir la caída (es lo mismo que la planta).
-    if (!modoCliente && allNodeArray.length > 1) {
+    // Con el lienzo vacío se rotula alrededor de la plataforma, para orientarse desde el inicio.
+    if (!modoCliente) {
+      const vacio = allNodeArray.length < 2;
       const xs = allNodeArray.map(n => n.x), zs = allNodeArray.map(n => n.z || 0);
-      const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+      const x0 = vacio ? minX + 0.6 : Math.min(...xs), x1 = vacio ? maxX - 0.6 : Math.max(...xs);
+      const z0 = vacio ? minZ + 0.6 : Math.min(...zs), z1 = vacio ? maxZ - 0.6 : Math.max(...zs);
       const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, sep = 1.6, h = Math.max(0.45, Math.min(1.1, Math.max(x1 - x0, z1 - z0) / 22));
       const lados: [string, string, number, number, number][] = [
         ['ADELANTE · CALLE', '#0f172a', cx, z1 + sep, 0], ['ATRÁS', '#475569', cx, z0 - sep, Math.PI],

@@ -443,10 +443,11 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Planta: dónde queda la calle (abajo = adelante) y hacia dónde cae el agua.
   const guiaCalle = useMemo(() => {
     const ns = Object.values(nodesTodos).filter(n => !/^TQ/.test(n.nodeLabel || ''));
-    if (ns.length < 2) return null;
+    // Lienzo nuevo: igual se muestran los lados alrededor del origen, para orientarse al dibujar.
+    if (ns.length < 2) return { minX: -4, maxX: 4, minZ: -3, maxZ: 3, caida: null as ReturnType<typeof caidaPrincipal> | null, vacio: true };
     const xs = ns.map(n => n.x), zs = ns.map(n => n.z || 0);
     const caida = caidaPrincipal(nodesTodos as any, segmentsTodos as any, (engineState?.coverageZones || {}) as any);
-    return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs), caida };
+    return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs), caida, vacio: false };
   }, [nodesTodos, segmentsTodos, engineState?.coverageZones]);
   const selectedElementIds = engineState?.selectedElementIds || [];
   // Tijeral a ajustar desde la barra: el seleccionado o, si no, el último dibujado.
@@ -1883,6 +1884,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                       <rect x={cx - 92} y={abajo - 13} width={184} height={22} rx={11} fill="#0f172a" opacity={0.85} />
                       <text x={cx} y={abajo + 2} textAnchor="middle" fontSize="11" fontWeight="900" fill="#ffffff">▼ ADELANTE · CALLE</text>
                       <text x={cx} y={arriba} textAnchor="middle" fontSize="10" fontWeight="800" fill="#64748b">ATRÁS ▲</text>
+                      <text x={g.minX * scale - 40} y={cz} textAnchor="end" fontSize="10" fontWeight="800" fill="#64748b">◀ IZQUIERDA</text>
+                      <text x={g.maxX * scale + 40} y={cz} textAnchor="start" fontSize="10" fontWeight="800" fill="#64748b">DERECHA ▶</text>
+                      {g.vacio && <rect x={g.minX * scale} y={g.minZ * scale} width={(g.maxX - g.minX) * scale} height={(g.maxZ - g.minZ) * scale} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="6 6" rx={6} />}
                       {dir && (
                         <g opacity={0.9}>
                           <line x1={cx - dir[0] * L / 2} y1={cz - dir[1] * L / 2} x2={cx + dir[0] * L / 2} y2={cz + dir[1] * L / 2} stroke="#0284c7" strokeWidth={7} strokeLinecap="round" />
@@ -1900,6 +1904,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                     {/* Suelo / Plano de Cimentación Y=0 */}
                     <line x1={-4000} y1={0} x2={4000} y2={0} stroke="#475569" strokeWidth="3" />
                     <rect x={-4000} y={0} width={8000} height={500} fill="#f8fafc" opacity="0.8" />
+                    {/* Lados vistos desde ADELANTE (la calle): izquierda y derecha, como en la planta */}
+                    {guiaCalle && (
+                      <g>
+                        <text x={guiaCalle.minX * scale - 30} y={40} textAnchor="end" fontSize="11" fontWeight="900" fill="#475569">◀ IZQUIERDA</text>
+                        <text x={guiaCalle.maxX * scale + 30} y={40} textAnchor="start" fontSize="11" fontWeight="900" fill="#475569">DERECHA ▶</text>
+                        <text x={((guiaCalle.minX + guiaCalle.maxX) / 2) * scale} y={62} textAnchor="middle" fontSize="10" fontWeight="800" fill="#64748b">visto desde ADELANTE (calle) · atrás queda al fondo</text>
+                      </g>
+                    )}
                     <g transform="translate(-160, 16)">
                       <rect x="0" y="-12" width="170" height="20" rx="6" fill="#0f172a" opacity="0.85" />
                       <text x="85" y="2" textAnchor="middle" fill="#ffffff" fontSize="9.5" fontWeight="bold">
