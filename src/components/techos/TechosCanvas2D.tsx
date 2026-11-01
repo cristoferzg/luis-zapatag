@@ -50,6 +50,7 @@ import TechosCoberturaTanqueModal from './TechosCoberturaTanqueModal';
 import { TechosViewModeGuideBanner } from './TechosViewModeGuideBanner';
 import useTechosDimensions from './useTechosDimensions';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { caidaPrincipal } from './coberturaAuto';
 import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64, OPCIONES_PLANO_DEFECTO, OpcionesPlano } from '../../lib/roofPlanScan';
 import { safeStorage } from '../../lib/storageManager';
 import { checkAIAccess, iaVisibleParaUI, motivoErrorIA, getAICtx, pedirPinSiLimitada, AVISO_CONFIRMA_PIN } from '../../lib/aiAccess';
@@ -424,6 +425,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     Object.values(nodesTodos).forEach(nd => { if (!usados.has(nd.id) || visibles.has(nd.id)) nv[nd.id] = nd; });
     return { nodes: nv, segments: vis, nOcultos: n };
   }, [nodesTodos, segmentsTodos]);
+  // Planta: dónde queda la calle (abajo = adelante) y hacia dónde cae el agua.
+  const guiaCalle = useMemo(() => {
+    const ns = Object.values(nodesTodos).filter(n => !/^TQ/.test(n.nodeLabel || ''));
+    if (ns.length < 2) return null;
+    const xs = ns.map(n => n.x), zs = ns.map(n => n.z || 0);
+    const caida = caidaPrincipal(nodesTodos as any, segmentsTodos as any, (engineState?.coverageZones || {}) as any);
+    return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs), caida };
+  }, [nodesTodos, segmentsTodos, engineState?.coverageZones]);
   const selectedElementIds = engineState?.selectedElementIds || [];
   // Tijeral a ajustar desde la barra: el seleccionado o, si no, el último dibujado.
   const tijeralSel = selectedElementIds.map(id => engineState?.segments?.[id]?.tijeral?.id).find(Boolean) || null;
@@ -1820,6 +1829,28 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 <line x1={0} y1={0} x2={60} y2={0} stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" className="pointer-events-none" />
                 <line x1={0} y1={0} x2={0} y2={vista === 'planta' ? 60 : -60} stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" className="pointer-events-none" />
                 <circle cx={0} cy={0} r={4} fill="#0f172a" className="pointer-events-none" />
+
+                {/* PLANTA: la calle va abajo (adelante) y la flecha azul muestra hacia dónde cae el agua */}
+                {vista === 'planta' && guiaCalle && (() => {
+                  const g = guiaCalle, cx = ((g.minX + g.maxX) / 2) * scale, cz = ((g.minZ + g.maxZ) / 2) * scale;
+                  const abajo = g.maxZ * scale + 58, arriba = g.minZ * scale - 46;
+                  const L = Math.max(36, Math.min(110, Math.min(g.maxX - g.minX, g.maxZ - g.minZ) * scale * 0.35));
+                  const dir = g.caida === 'adelante' ? [0, 1] : g.caida === 'atras' ? [0, -1] : g.caida === 'derecha' ? [1, 0] : g.caida === 'izquierda' ? [-1, 0] : null;
+                  return (
+                    <g className="pointer-events-none select-none">
+                      <rect x={cx - 92} y={abajo - 13} width={184} height={22} rx={11} fill="#0f172a" opacity={0.85} />
+                      <text x={cx} y={abajo + 2} textAnchor="middle" fontSize="11" fontWeight="900" fill="#ffffff">▼ ADELANTE · CALLE</text>
+                      <text x={cx} y={arriba} textAnchor="middle" fontSize="10" fontWeight="800" fill="#64748b">ATRÁS ▲</text>
+                      {dir && (
+                        <g opacity={0.9}>
+                          <line x1={cx - dir[0] * L / 2} y1={cz - dir[1] * L / 2} x2={cx + dir[0] * L / 2} y2={cz + dir[1] * L / 2} stroke="#0284c7" strokeWidth={7} strokeLinecap="round" />
+                          <polygon points={`${cx + dir[0] * (L / 2 + 14)},${cz + dir[1] * (L / 2 + 14)} ${cx + dir[0] * L / 2 - dir[1] * 11},${cz + dir[1] * L / 2 + dir[0] * 11} ${cx + dir[0] * L / 2 + dir[1] * 11},${cz + dir[1] * L / 2 - dir[0] * 11}`} fill="#0284c7" />
+                          <text x={cx + (dir[1] ? 14 : 0)} y={cz + (dir[0] ? -14 : 4)} textAnchor={dir[1] ? 'start' : 'middle'} fontSize="10" fontWeight="900" fill="#0369a1" stroke="#ffffff" strokeWidth={3} paintOrder="stroke">cae el agua</text>
+                        </g>
+                      )}
+                    </g>
+                  );
+                })()}
 
                 {/* REFERENCIAS VISUALES Y GUÍAS DE ELEVACIÓN PARA PRINCIPIANTES */}
                 {vista === 'seccion' && (

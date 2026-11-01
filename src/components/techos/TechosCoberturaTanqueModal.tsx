@@ -13,7 +13,7 @@ import { INVENTARIO_COBERTURAS, INVENTARIO_PERFILES_TUBULARES } from './techosCa
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import { MODELOS_TENSOR, TipoTensor, sugerido, generarTensores, quitarTensoresAuto, modeloTensor } from './tensores';
 import { safeStorage } from '../../lib/storageManager';
-import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA, pendienteActual, cambiarPendiente, PENDIENTE_MIN_PCT, inclinarTechoPlano } from './coberturaAuto';
+import { zonasDesdeCorreas, generarTanque, TANQUES_ROTOPLAS, caidaPrincipal, transformarEscena, opParaCaida, DireccionCaida, NOMBRE_CAIDA, pendienteActual, cambiarPendiente, PENDIENTE_MIN_PCT, inclinarTechoPlano, invertirCaida } from './coberturaAuto';
 
 interface Props {
   engineState: any;
@@ -153,6 +153,14 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
     setMsg(`✓ El techo ahora cae hacia ${NOMBRE_CAIDA[d].toLowerCase()} con ${pct}%. Cambia el % abajo si quieres.`);
   };
   const pend = useMemo(() => pendienteActual(nodes, segments, zones), [nodes, segments, zones]);
+  // Invertir la caída sin mover nada en planta (solo techos de una agua).
+  const invertida = useMemo(() => invertirCaida(nodes, segments, zones), [nodes, segments, zones]);
+  const invertirAqui = () => {
+    if (!invertida) return;
+    engineState.loadScene(invertida, segments, zones);
+    const nueva = caidaPrincipal(invertida, segments, zones);
+    setMsg(`✓ Ahora el agua cae hacia ${nueva ? NOMBRE_CAIDA[nueva].toLowerCase() : 'el otro lado'}. Las columnas siguen en su sitio: solo cambiaron sus alturas (el lado alto pasó a ser el bajo).`);
+  };
   const [pctNuevo, setPctNuevo] = useState<string>('');
   const aplicarPendiente = (pct: number) => {
     const n2 = cambiarPendiente(nodes, segments, zones, pct);
@@ -253,8 +261,17 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
             {ten.tipo === 'rigido' && <p className="text-[10px] text-slate-500">Para dibujar uno a mano usa la herramienta Cruz; la herramienta Tensor usa varilla o cable.</p>}
             {ten.tipo !== 'rigido' && <p className="text-[10px] text-slate-500">Para uno a mano: Más herramientas → <b>Tensor</b> y toca dos nodos; usa el modelo elegido aquí.</p>}
           </>) : modo === 'caida' ? (<>
-            <p className="text-xs text-slate-500">Hacia dónde escurre el agua del techo, visto en planta (abajo = adelante / calle). Al cambiarla se gira todo el diseño: columnas, tijerales, correas y cobertura.</p>
+            <p className="text-xs text-slate-500">Hacia dónde escurre el agua, visto en la <b>planta</b>: el lado de <b>abajo</b> es <b>adelante (la calle)</b> y el de arriba es atrás. En la planta lo ves rotulado, con una flecha azul.</p>
             <p className="text-sm font-black text-slate-800">Caída actual: <span className="text-sky-700">{caida ? NOMBRE_CAIDA[caida] : 'techo plano o sin cobertura'}</span></p>
+            {invertida && (
+              <div className="rounded-xl border-2 border-sky-200 bg-sky-50 p-2.5 space-y-1.5">
+                <button onClick={invertirAqui} className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-black cursor-pointer">
+                  <FlipVertical className="w-4 h-4" /> Invertir la caída aquí (sin mover columnas)
+                </button>
+                <p className="text-[10px] text-sky-900 leading-snug">El agua cae hacia el lado contrario y todo queda donde lo dibujaste: el lado alto pasa a ser el bajo. Úsalo si en tu plano la calle está del otro lado.</p>
+              </div>
+            )}
+            <p className="text-[11px] font-bold text-slate-500">O gira todo el diseño para que caiga hacia:</p>
             <div className="grid grid-cols-3 gap-2 max-w-[260px] mx-auto">
               <div />
               <button onClick={() => orientar('atras')} className={`flex flex-col items-center gap-0.5 py-2 rounded-xl text-[11px] font-bold cursor-pointer disabled:opacity-40 ${caida === 'atras' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'}`}><ArrowUp className="w-4 h-4" />Atrás</button>

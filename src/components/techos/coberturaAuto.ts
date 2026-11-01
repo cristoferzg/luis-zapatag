@@ -256,6 +256,35 @@ export function transformarEscena<N extends NodoMin>(nodes: Record<string, N>, o
   return out;
 }
 
+// Invierte la caída de un techo de UNA agua sin moverlo en planta: el lado alto
+// pasa a ser el bajo y viceversa. Columnas, tijerales y correas quedan en su
+// sitio; solo cambia la altura de cada nudo del techo (las columnas se alargan o
+// acortan). El suelo, los tanques y lo que está bajo el techo (más de 1.2 m por
+// debajo del alero, p. ej. un entrepiso) no se tocan. null si no es de una agua.
+export function invertirCaida<N extends NodoMin>(nodes: Record<string, N>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }> = {}): Record<string, N> | null {
+  const pl = panoUnaAgua(nodes as any, segments as any);
+  if (!pl || Math.hypot(pl.a, pl.b) < 0.005) return null;
+  // Pendiente exacta: la del plano de la cobertura (sus esquinas están sobre el techo).
+  let { a, b } = pl;
+  const polis = poligonosPropios(nodes, segments, zones).filter(p => p.length >= 3);
+  if (polis.length === 1) {
+    const p = polis[0], n = p.length;
+    const mx = p.reduce((s, q) => s + q.x, 0) / n, mz = p.reduce((s, q) => s + q.z, 0) / n, my = p.reduce((s, q) => s + q.y, 0) / n;
+    const sxx = p.reduce((s, q) => s + (q.x - mx) ** 2, 0), szz = p.reduce((s, q) => s + (q.z - mz) ** 2, 0), sxz = p.reduce((s, q) => s + (q.x - mx) * (q.z - mz), 0);
+    const sxy = p.reduce((s, q) => s + (q.x - mx) * (q.y - my), 0), szy = p.reduce((s, q) => s + (q.z - mz) * (q.y - my), 0);
+    const det = sxx * szz - sxz * sxz;
+    if (Math.abs(det) > 1e-9) { a = (sxy * szz - szy * sxz) / det; b = (szy * sxx - sxy * sxz) / det; }
+  }
+  const xc = pl.pts.reduce((s, p) => s + p.x, 0) / pl.pts.length, zc = pl.pts.reduce((s, p) => s + p.z, 0) / pl.pts.length;
+  const yMin = Math.min(...pl.pts.map(p => p.y)) - 1.2;
+  const out: Record<string, N> = {};
+  Object.values(nodes).forEach(n => {
+    const mover = n.y > 0.05 && n.y >= yMin && !/^TQ/.test(n.nodeLabel || '');
+    out[n.id] = mover ? { ...n, y: Math.round((n.y - 2 * (a * (n.x - xc) + b * ((n.z || 0) - zc))) * 1000) / 1000 } : n;
+  });
+  return out;
+}
+
 // Operación que lleva la caída actual a la dirección pedida.
 export function opParaCaida(actual: DireccionCaida, deseada: DireccionCaida): 'girar90' | 'girar180' | 'girar270' | null {
   const orden: DireccionCaida[] = ['derecha', 'adelante', 'izquierda', 'atras']; // +90° en planta (x→z)
