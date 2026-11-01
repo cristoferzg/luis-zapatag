@@ -1662,7 +1662,8 @@ export default function App() {
   // usuario y mostraría su logo). Seleccionamos SIEMPRE el documento del
   // usuario actual por su id/userId; si no existe, usamos el predeterminado.
   const mySettingsId = 'settings_' + (activeUid || 'default');
-  const myOwnSettings = settings.find(s => s.id === mySettingsId || s.userId === activeUid);
+  // Primero el documento principal (por id); si no, uno con su userId.
+  const myOwnSettings = settings.find(s => s.id === mySettingsId) || settings.find(s => s.userId === activeUid);
   const currentSettings = myOwnSettings || {
     id: mySettingsId,
     appName: (!isAdmin && user?.name) ? user.name : (isAdmin ? 'Innova Contratistas' : 'Mi Empresa'),
@@ -1675,7 +1676,7 @@ export default function App() {
   const empresaCtx = useMemo(() => ({
     datos: datosDesdeSettings(currentSettings),
     guardar: (p: Partial<DatosEmpresa>) => setSettings(prev => {
-      const actual = prev.find(s => s.id === mySettingsId || s.userId === activeUid) || currentSettings;
+      const actual = prev.find(s => s.id === mySettingsId) || prev.find(s => s.userId === activeUid) || currentSettings;
       const nuevo = { ...actual, ...settingsDesdeDatos(p), id: (actual as any).id || mySettingsId, userId: activeUid || 'guest' } as SystemConfig;
       return prev.some(s => s.id === nuevo.id) ? prev.map(s => s.id === nuevo.id ? nuevo : s) : [...prev, nuevo];
     }),
@@ -1688,14 +1689,17 @@ export default function App() {
   const catalogoRemoto = (currentSettings as any).catalogoPrecios as EstadoCatalogo | undefined;
   useEffect(() => { hidratarCatalogo(catalogoRemoto); }, [catalogoRemoto?.actualizado]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!activeUid || !catalogoPrecios.actualizado || catalogoRemoto?.actualizado === catalogoPrecios.actualizado) return;
+    // No guardar hasta que la configuración del usuario haya llegado: si aún no está, se
+    // escribiría la de por defecto ENCIMA de sus datos (logo, RUC, cuentas…).
+    if (!activeUid || !myOwnSettings || !catalogoPrecios.actualizado || catalogoRemoto?.actualizado === catalogoPrecios.actualizado) return;
     const t = setTimeout(() => setSettings(prev => {
-      const actual = prev.find(s => s.id === mySettingsId || s.userId === activeUid) || currentSettings;
+      const actual = prev.find(s => s.id === mySettingsId) || prev.find(s => s.userId === activeUid);
+      if (!actual) return prev;
       const nuevo = { ...actual, catalogoPrecios: catalogoPrecios, id: (actual as any).id || mySettingsId, userId: activeUid } as SystemConfig;
       return prev.some(s => s.id === nuevo.id) ? prev.map(s => s.id === nuevo.id ? nuevo : s) : [...prev, nuevo];
     }), 1500);
     return () => clearTimeout(t);
-  }, [catalogoPrecios, activeUid]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [catalogoPrecios, activeUid, !!myOwnSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Automated Daily Backup for Admin
   useEffect(() => {

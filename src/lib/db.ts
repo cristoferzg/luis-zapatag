@@ -222,7 +222,9 @@ export const addRecord = async (collectionName: string, id: string, data: any, u
     // caller-provided userId when the record itself doesn't specify one, so a
     // restore never reassigns users to the wrong (or a generic) workspace.
     const { id: _, userId: dataUserId, ...rest } = data;
-    await setDoc(doc(db, collectionName, id), removeUndefined({ ...rest, userId: dataUserId || userId }));
+    // La configuración se COMPLETA (merge): si se crea mientras aún no llegaba la de la
+    // nube, no debe borrar el logo, RUC, cuentas ni datos ya guardados.
+    await setDoc(doc(db, collectionName, id), removeUndefined({ ...rest, userId: dataUserId || userId }), collectionName === 'settings' ? { merge: true } : {});
     triggerBackgroundDriveBackup();
   } catch (error: any) {
     handleFirestoreError(error, 'create', collectionName);

@@ -108,7 +108,7 @@ export default function SettingsView({
   // Seleccionar SIEMPRE el documento del usuario actual (no settings[0], que en
   // el admin sería el de cualquier usuario → mostraría/guardaría su logo).
   const mySettingsId = activeUid ? ('settings_' + activeUid) : 'settings_default';
-  const currentSettings = settings.find(s => s.id === mySettingsId || s.userId === activeUid) || {
+  const currentSettings = settings.find(s => s.id === mySettingsId) || settings.find(s => s.userId === activeUid) || {
     id: mySettingsId,
     appName: '',
     logoBase64: ''
@@ -144,6 +144,7 @@ export default function SettingsView({
 
   // Software Version & Cloud Storage
   const [softwareVersion, setSoftwareVersion] = useState(currentSettings.softwareVersion || 'v3.9.5 Pro RNE-2026');
+  const firmaDatos = JSON.stringify(['appName', 'logoBase64', 'officialLetterheadBase64', 'contratistaDni', 'contratistaDir', 'contratistaPhone', 'contratistaEmail', 'bancoNombre', 'cuentaTitular', 'pagoCtaBcp', 'pagoCciBcp', 'pagoCtaCorriente', 'pagoDetracciones', 'pagoCciDetracciones', 'pagoYape', 'softwareVersion'].map(k => (currentSettings as any)[k] ?? ''));
 
   useEffect(() => {
     setAppName(currentSettings.appName || '');
@@ -162,7 +163,9 @@ export default function SettingsView({
     setPagoCciDetracciones(currentSettings.pagoCciDetracciones || '');
     setPagoYape(currentSettings.pagoYape || '');
     setSoftwareVersion(currentSettings.softwareVersion || 'v3.9.5 Pro RNE-2026');
-  }, [currentSettings, isAdmin, activeUid, currentUserName]);
+    // Solo se recarga el formulario cuando cambian los DATOS (no cada vez que llega una
+    // actualización de la nube, p. ej. del catálogo): así no se borra lo que se está escribiendo.
+  }, [firmaDatos, isAdmin, activeUid, currentUserName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [savedSuccess, setSavedSuccess] = useState(false);
 
