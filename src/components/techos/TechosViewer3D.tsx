@@ -1371,7 +1371,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // Cobertura de UN paño plano (zona de 4 puntos): la onda corre en el sentido
   // de la caída, con volado de 30 cm en el alero bajo. Para techos en L, en U y
   // otros donde los paños caen en distintas direcciones.
-  const crearPanoZona = (pts: THREE.Vector3[], arriba: boolean): THREE.BufferGeometry | null => {
+  // `recorte`: contorno real de la zona (techo en L, con vacíos o ductos). Las planchas
+  // se cortan a esa forma en vez de cubrir el rectángulo que la encierra.
+  const crearPanoZona = (pts: THREE.Vector3[], arriba: boolean, recorte?: THREE.Vector3[]): THREE.BufferGeometry | null => {
     if (pts.length < 3) return null;
     const activeModel = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
     const P0 = pts[0];
@@ -1393,16 +1395,44 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const vv = [v0, (v0 + v1) / 2, v1];
     const base = 0.04 + (arriba ? Math.max(0.002, activeModel.espesorMm / 1000) : 0);
     const pos: number[] = [], idx: number[] = [], uvA: number[] = [];
-    vv.forEach(v => uu.forEach(u => {
+    const vertice = (u: number, v: number) => {
       const rib = getRibHeightProfile(u, freq, alto * (arriba ? 1 : 0.95), activeModel.tipo).offset;
       const p = P0.clone().addScaledVector(a, u).addScaledVector(d, v).addScaledVector(nrm, base + rib);
       pos.push(p.x, p.y, p.z);
       uvA.push((u - u0) / Math.max(0.01, u1 - u0), (v - v0) / Math.max(0.01, v1 - v0));
-    }));
-    const W = uu.length;
-    for (let j = 0; j < vv.length - 1; j++) for (let i = 0; i < W - 1; i++) {
-      const q = j * W + i, r = q + 1, s2 = q + W, t = s2 + 1;
-      if (arriba) idx.push(q, s2, r, r, s2, t); else idx.push(q, r, s2, r, t, s2);
+      return pos.length / 3 - 1;
+    };
+    const forma = recorte && recorte.length >= 3 ? recorte : (pts.length > 4 ? pts : null);
+    if (forma) {
+      // Contorno en coordenadas de la plancha (u = a lo ancho de las ondas, v = hacia el alero).
+      const pu = forma.map(p => ({ u: new THREE.Vector3().subVectors(p, P0).dot(a), v: new THREE.Vector3().subVectors(p, P0).dot(d) }));
+      const vMax = Math.max(...pu.map(q => q.v));
+      const tramos = (u: number) => {
+        const cortes: number[] = [];
+        for (let i = 0; i < pu.length; i++) {
+          const A = pu[i], B = pu[(i + 1) % pu.length];
+          if ((A.u > u) !== (B.u > u)) cortes.push(A.v + (B.v - A.v) * (u - A.u) / (B.u - A.u));
+        }
+        cortes.sort((x, y) => x - y);
+        const out: [number, number][] = [];
+        for (let i = 0; i + 1 < cortes.length; i += 2) out.push([cortes[i], cortes[i + 1] >= vMax - 1e-3 ? cortes[i + 1] + 0.30 : cortes[i + 1]]);
+        return out;
+      };
+      for (let i = 0; i < uu.length - 1; i++) {
+        tramos((uu[i] + uu[i + 1]) / 2).forEach(([va, vb]) => {
+          if (vb - va < 0.01) return;
+          const q = vertice(uu[i], va), r = vertice(uu[i + 1], va), s2 = vertice(uu[i], vb), t = vertice(uu[i + 1], vb);
+          if (arriba) idx.push(q, s2, r, r, s2, t); else idx.push(q, r, s2, r, t, s2);
+        });
+      }
+      if (!idx.length) return null;
+    } else {
+      vv.forEach(v => uu.forEach(u => { vertice(u, v); }));
+      const W = uu.length;
+      for (let j = 0; j < vv.length - 1; j++) for (let i = 0; i < W - 1; i++) {
+        const q = j * W + i, r = q + 1, s2 = q + W, t = s2 + 1;
+        if (arriba) idx.push(q, s2, r, r, s2, t); else idx.push(q, r, s2, r, t, s2);
+      }
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uvA, 2));
@@ -2852,7 +2882,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         panosRef.current = []; movilMetaRef.current = null;
         if (!movil) {
           const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
-          const gt = crearPanoZona(panoLargo, true), gb = crearPanoZona(panoLargo, false);
+          // Si la zona no es un rectángulo (vacíos, ductos, forma en L) se recorta a su contorno.
+          const unica = panosZona.length === 1 && panosZona[0].pts.length > 4 ? panosZona[0].pts : undefined;
+          const gt = crearPanoZona(panoLargo, true, unica), gb = crearPanoZona(panoLargo, false, unica);
           if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
           if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
           modeloGroup.add(grupo);
@@ -2900,6 +2932,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           modeloGroup.add(caja);
           aplicarApertura(aperturaRef.current);
         }
+      } else if (!movil && panosZona.length === 1 && panosZona[0].pts.length > 4) {
+        // Una sola agua con forma irregular (en L, con vacíos o ductos): la plancha se
+        // arma sobre el contorno real de la zona, no sobre todo el largo de la estructura.
+        const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
+        const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
+        const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
+        const pz = panosZona[0];
+        const gt = crearPanoZona(pz.pts, true), gb = crearPanoZona(pz.pts, false);
+        if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
+        if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
+        modeloGroup.add(grupo);
+        panosRef.current = []; movilMetaRef.current = null;
       } else if (panosZona.length >= 2 && panosZona.some(pz => pz.cruzado)) {
         // Techo con paños que caen en distintas direcciones (en L, en U…): un paño por zona.
         const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
