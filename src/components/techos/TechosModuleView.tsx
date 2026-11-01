@@ -75,6 +75,7 @@ interface ClientOption {
   id: string;
   name: string;
   company?: string;
+  phone?: string; dni?: string; address?: string; email?: string;
 }
 
 interface TechosModuleViewProps {

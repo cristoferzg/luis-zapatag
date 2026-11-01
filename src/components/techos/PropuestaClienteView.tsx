@@ -5,7 +5,7 @@
 // la obra y las condiciones comerciales de la plantilla de la empresa.
 // También publica un link para que el cliente vea el techo en 3D y acepte.
 // =============================================================================
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Link2, Copy, Check, Send, Star, ImageOff } from 'lucide-react';
 import BotonImprimir from '../common/BotonImprimir';
 import { useEmpresa, CabeceraEmpresa, CondicionesComerciales, colorMarcaDe } from '../../lib/empresa';
@@ -36,11 +36,13 @@ function opcionesPorDefecto(actual?: string): OpcionPropuesta[] {
 }
 
 export default function PropuestaClienteView({
-  nodes, segments, coverageZones, nombreProyecto, cliente, ubicacion, onClose, proyectos = [], proyectoId, onTechosProyecto, disenoId,
+  nodes, segments, coverageZones, nombreProyecto, cliente, ubicacion, onClose, proyectos = [], proyectoId, onTechosProyecto, disenoId, clientes = [],
 }: {
   nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D>;
   nombreProyecto: string; cliente: string; ubicacion: string; onClose: () => void;
   proyectos?: { id: string; name: string; client: string; presupuesto?: number; techos?: TechosDelProyecto }[];
+  /** Clientes registrados (Proyectos & Clientes): llenan su DNI/celular y sus datos van en el link. */
+  clientes?: { id: string; name: string; company?: string; phone?: string; dni?: string; address?: string; email?: string }[];
   proyectoId?: string;
   onTechosProyecto?: (projectId: string, t: TechosDelProyecto) => void;
   disenoId?: string;
@@ -59,6 +61,12 @@ export default function PropuestaClienteView({
   const foto = fotoPropuesta();
   const [link, setLink] = useState<string | null>(null);
   const [claveCliente, setClaveCliente] = useState('');
+  // Cliente registrado: el del proyecto (por nombre) o el que se elija. Llena su DNI o celular.
+  const norm = (t?: string) => (t || '').trim().toLowerCase();
+  const [clienteId, setClienteId] = useState<string>(() => clientes.find(c => norm(c.name) && (norm(c.name) === norm(cliente) || norm(c.company) === norm(cliente)))?.id || '');
+  const cli = clientes.find(c => c.id === clienteId);
+  const claveDe = (c?: typeof cli) => { const d = normalizarClave(c?.dni || ''), t = normalizarClave(c?.phone || '').replace(/^51(?=\d{9}$)/, ''); return claveValida(d) ? d : claveValida(t) ? t : ''; };
+  useEffect(() => { const k = claveDe(cli); if (k) setClaveCliente(k); }, [clienteId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [publicando, setPublicando] = useState(false);
   const [copiado, setCopiado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +132,7 @@ export default function PropuestaClienteView({
         imagen: foto.despues || '', antes: foto.antes || '', carta,
         escena: { nodes, segments, coverageZones },
         incluye,
+        ...(cli ? { datosCliente: { nombre: cli.name, dni: cli.dni || undefined, celular: cli.phone || undefined, direccion: cli.address || undefined, email: cli.email || undefined, empresa: cli.company || undefined } } : {}),
       }, claveCliente);
       setLink(`${window.location.origin}${window.location.pathname}?propuesta=${id}`);
       if (pid && onTechosProyecto) onTechosProyecto(pid, { disenoId, disenoNombre: nombreProyecto, opciones: resumenOpciones(), propuestaId: id, propuestaFecha: new Date().toISOString() });
@@ -135,7 +144,8 @@ export default function PropuestaClienteView({
   const whatsapp = () => {
     if (!link) return;
     const a = document.createElement('a');
-    a.href = `https://wa.me/?text=${encodeURIComponent(`Hola${cliente ? ' ' + cliente : ''}, te comparto la propuesta de tu techo (${nombreProyecto}). Puedes verlo en 3D, elegir una opción y aceptarla aquí: ${link} — Para abrirlo escribe tu ${normalizarClave(claveCliente).length === 9 ? 'número de celular' : 'DNI'}.`)}`;
+    const tel = normalizarClave(cli?.phone || '').replace(/^51(?=\d{9}$)/, '');
+    a.href = `https://wa.me/${tel.length === 9 ? '51' + tel : ''}?text=${encodeURIComponent(`Hola${(cli?.name || cliente) ? ' ' + (cli?.name || cliente) : ''}, te comparto la propuesta de tu techo (${nombreProyecto}). Puedes verlo en 3D, elegir una opción y aceptarla aquí: ${link} — Para abrirlo escribe tu ${normalizarClave(claveCliente).length === 9 ? 'número de celular' : 'DNI'}.`)}`;
     a.target = '_blank'; a.rel = 'noopener noreferrer'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -145,6 +155,13 @@ export default function PropuestaClienteView({
         <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-white sm:rounded-t-3xl border-b border-slate-200">
           <h3 className="text-sm font-black text-slate-900 mr-auto">Propuesta visual para el cliente</h3>
           <BotonImprimir objetivo={() => hoja.current} titulo={`Propuesta - ${nombreProyecto}`} etiqueta="PDF / Imprimir" />
+          {clientes.length > 0 && (
+            <select value={clienteId} onChange={e => setClienteId(e.target.value)} title="Cliente registrado: se llena su DNI o celular y verá sus datos al abrir el link"
+              className="max-w-[170px] px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold" aria-label="Cliente registrado">
+              <option value="">Cliente registrado…</option>
+              {clientes.map(c => <option key={c.id} value={c.id}>{c.name}{c.dni ? ` · DNI ${c.dni}` : c.phone ? ` · ${c.phone}` : ''}</option>)}
+            </select>
+          )}
           <input value={claveCliente} onChange={e => setClaveCliente(e.target.value)} inputMode="numeric" autoComplete="off"
             placeholder="DNI o celular del cliente" title="El cliente lo escribe para abrir el link (privacidad)"
             className={`w-[170px] px-2.5 py-2 rounded-xl border text-xs font-bold ${claveCliente && !claveValida(claveCliente) ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50'}`} aria-label="DNI o celular del cliente" />

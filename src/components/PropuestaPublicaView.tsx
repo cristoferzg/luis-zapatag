@@ -118,6 +118,30 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
       </header>
 
       <main className="max-w-4xl mx-auto p-3 sm:p-4 space-y-4">
+        {/* Sus datos tal como los registró la empresa (para que los confirme) */}
+        {p.datosCliente && (() => {
+          const d = p.datosCliente;
+          const oculto = (t?: string, ver = 3) => { const s = (t || '').replace(/\s/g, ''); return s.length > ver ? '•'.repeat(s.length - ver) + s.slice(-ver) : s; };
+          const tel = (p.empresa.telefono || '').replace(/\D/g, '');
+          const corregir = () => {
+            const a = document.createElement('a');
+            a.href = `https://wa.me/${tel.length === 9 ? '51' + tel : tel}?text=${encodeURIComponent(`Hola ${p.empresa.nombre}, soy ${d.nombre}. Revisé la propuesta "${p.proyecto}" y quiero corregir mis datos: `)}`;
+            a.target = '_blank'; a.rel = 'noopener noreferrer'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          };
+          const filas: [string, string | undefined][] = [['Nombre', d.nombre], ['Empresa', d.empresa], ['DNI', d.dni && oculto(d.dni)], ['Celular', d.celular && oculto(d.celular)], ['Dirección', d.direccion], ['Correo', d.email]];
+          return (
+            <section className="bg-white rounded-2xl shadow-xs p-4 space-y-2">
+              <p className="text-sm font-black text-slate-800">Tus datos registrados</p>
+              <p className="text-[11px] text-slate-500">Así te tenemos en nuestra lista de clientes. Revisa que estén bien antes de aceptar.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+                {filas.filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k} className="flex justify-between gap-3 py-1.5 border-b border-dashed border-slate-100 text-xs"><span className="text-slate-500">{k}</span><span className="font-bold text-slate-800 text-right">{v}</span></div>
+                ))}
+              </div>
+              {tel && <button onClick={corregir} className="text-[11px] font-bold text-indigo-700 underline cursor-pointer">¿Algún dato no es correcto? Avísanos por WhatsApp</button>}
+            </section>
+          );
+        })()}
         <section className="bg-white rounded-2xl shadow-xs overflow-hidden">
           {ver3d && hay3d ? (
             <div className="h-[60vh] min-h-[360px] relative">

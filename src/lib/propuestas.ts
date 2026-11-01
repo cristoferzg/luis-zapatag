@@ -21,6 +21,8 @@ export interface PropuestaPublica {
   carta?: string;
   escena: { nodes: any; segments: any; coverageZones: any };
   incluye: string[];
+  /** Datos del cliente tal como están registrados (van cifrados con su DNI o celular). */
+  datosCliente?: { nombre: string; dni?: string; celular?: string; direccion?: string; email?: string; empresa?: string };
   estado?: 'enviada' | 'aceptada';
   aceptadaOpcion?: number; aceptadaNombre?: string; aceptadaEn?: string;
   creadaEn?: string; autor?: string;

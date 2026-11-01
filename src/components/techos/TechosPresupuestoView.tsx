@@ -22,6 +22,7 @@ interface ProjectOption {
 interface ClientOption {
   id: string;
   name: string;
+  company?: string; phone?: string; dni?: string; address?: string; email?: string;
 }
 
 interface TechosPresupuestoViewProps {
@@ -271,7 +272,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       {verPropuesta && escena && (
         <PropuestaClienteView nodes={escena.nodes} segments={escena.segments} coverageZones={escena.coverageZones}
           nombreProyecto={nombreProyecto} cliente={proyectoSel?.client || clienteNombre} ubicacion={ubicacion} onClose={() => setVerPropuesta(false)}
-          proyectos={projects} proyectoId={proyectoSel?.id} onTechosProyecto={onTechosProyecto} disenoId={disenoId || undefined} />
+          proyectos={projects} proyectoId={proyectoSel?.id} onTechosProyecto={onTechosProyecto} disenoId={disenoId || undefined} clientes={_clients} />
       )}
 
       {/* HOJA IMPRESA DE COTIZACIÓN */}
