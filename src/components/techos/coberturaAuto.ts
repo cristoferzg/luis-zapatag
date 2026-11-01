@@ -264,26 +264,60 @@ export function transformarEscena<N extends NodoMin>(nodes: Record<string, N>, o
 // acortan). El suelo, los tanques y lo que está bajo el techo (más de 1.2 m por
 // debajo del alero, p. ej. un entrepiso) no se tocan. null si no es de una agua.
 export function invertirCaida<N extends NodoMin>(nodes: Record<string, N>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }> = {}): Record<string, N> | null {
+  const pl = planoDelTecho(nodes, segments, zones);
+  if (!pl) return null;
+  return reinclinar(nodes, pl, -pl.a, -pl.b);
+}
+
+// Cambia hacia DÓNDE cae un techo de una agua sin girar nada en planta: el techo
+// se inclina hacia el lado elegido con la misma pendiente y el alero (lo más bajo)
+// a la misma altura; las columnas solo cambian de altura. null si no es de una agua.
+export function cambiarCaidaAqui<N extends NodoMin>(nodes: Record<string, N>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }>, hacia: DireccionCaida, pendientePct?: number): Record<string, N> | null {
+  const pl = planoDelTecho(nodes, segments, zones);
+  if (!pl) return null;
+  const s = pendientePct !== undefined ? pendientePct / 100 : Math.hypot(pl.a, pl.b);
+  const d = hacia === 'adelante' ? [0, 1] : hacia === 'atras' ? [0, -1] : hacia === 'derecha' ? [1, 0] : [-1, 0];
+  return reinclinar(nodes, pl, -s * d[0], -s * d[1]); // baja hacia "hacia"
+}
+
+type PlanoTecho = { a: number; b: number; xc: number; zc: number; yMin: number };
+// Plano de un techo de una agua (pendiente exacta de su cobertura si hay una sola zona).
+function planoDelTecho(nodes: Record<string, NodoMin>, segments: Record<string, SegMin>, zones: Record<string, { nodeIdsBoundary: string[] }>): PlanoTecho | null {
   const pl = panoUnaAgua(nodes as any, segments as any);
   if (!pl || Math.hypot(pl.a, pl.b) < 0.005) return null;
-  // Pendiente exacta: la del plano de la cobertura (sus esquinas están sobre el techo).
   let { a, b } = pl;
   const polis = poligonosPropios(nodes, segments, zones).filter(p => p.length >= 3);
   if (polis.length === 1) {
     const p = polis[0], n = p.length;
-    const mx = p.reduce((s, q) => s + q.x, 0) / n, mz = p.reduce((s, q) => s + q.z, 0) / n, my = p.reduce((s, q) => s + q.y, 0) / n;
-    const sxx = p.reduce((s, q) => s + (q.x - mx) ** 2, 0), szz = p.reduce((s, q) => s + (q.z - mz) ** 2, 0), sxz = p.reduce((s, q) => s + (q.x - mx) * (q.z - mz), 0);
-    const sxy = p.reduce((s, q) => s + (q.x - mx) * (q.y - my), 0), szy = p.reduce((s, q) => s + (q.z - mz) * (q.y - my), 0);
+    const mx = p.reduce((t, q) => t + q.x, 0) / n, mz = p.reduce((t, q) => t + q.z, 0) / n, my = p.reduce((t, q) => t + q.y, 0) / n;
+    const sxx = p.reduce((t, q) => t + (q.x - mx) ** 2, 0), szz = p.reduce((t, q) => t + (q.z - mz) ** 2, 0), sxz = p.reduce((t, q) => t + (q.x - mx) * (q.z - mz), 0);
+    const sxy = p.reduce((t, q) => t + (q.x - mx) * (q.y - my), 0), szy = p.reduce((t, q) => t + (q.z - mz) * (q.y - my), 0);
     const det = sxx * szz - sxz * sxz;
     if (Math.abs(det) > 1e-9) { a = (sxy * szz - szy * sxz) / det; b = (szy * sxx - sxy * sxz) / det; }
   }
-  const xc = pl.pts.reduce((s, p) => s + p.x, 0) / pl.pts.length, zc = pl.pts.reduce((s, p) => s + p.z, 0) / pl.pts.length;
-  const yMin = Math.min(...pl.pts.map(p => p.y)) - 1.2;
-  const out: Record<string, N> = {};
+  return {
+    a, b,
+    xc: pl.pts.reduce((t, p) => t + p.x, 0) / pl.pts.length, zc: pl.pts.reduce((t, p) => t + p.z, 0) / pl.pts.length,
+    yMin: Math.min(...pl.pts.map(p => p.y)) - 1.2,
+  };
+}
+
+// Quita la inclinación actual (a, b) y pone la nueva (ga, gb), dejando el alero a la
+// misma altura. Solo se mueven los nudos del techo: el suelo, los tanques y lo que
+// está más de 1.2 m bajo el alero (p. ej. un entrepiso) quedan igual.
+function reinclinar<N extends NodoMin>(nodes: Record<string, N>, pl: PlanoTecho, ga: number, gb: number): Record<string, N> {
+  const mover = (n: N) => n.y > 0.05 && n.y >= pl.yMin && !/^TQ/.test(n.nodeLabel || '');
+  const ys: Record<string, number> = {};
   Object.values(nodes).forEach(n => {
-    const mover = n.y > 0.05 && n.y >= yMin && !/^TQ/.test(n.nodeLabel || '');
-    out[n.id] = mover ? { ...n, y: Math.round((n.y - 2 * (a * (n.x - xc) + b * ((n.z || 0) - zc))) * 1000) / 1000 } : n;
+    if (!mover(n)) return;
+    const dx = n.x - pl.xc, dz = (n.z || 0) - pl.zc;
+    ys[n.id] = n.y - (pl.a * dx + pl.b * dz) + (ga * dx + gb * dz);
   });
+  const ids = Object.keys(ys);
+  const antes = Math.min(...ids.map(id => nodes[id].y)), despues = Math.min(...ids.map(id => ys[id]));
+  const ajuste = ids.length ? antes - despues : 0;
+  const out: Record<string, N> = {};
+  Object.values(nodes).forEach(n => { out[n.id] = n.id in ys ? { ...n, y: Math.round((ys[n.id] + ajuste) * 1000) / 1000 } : n; });
   return out;
 }
 
