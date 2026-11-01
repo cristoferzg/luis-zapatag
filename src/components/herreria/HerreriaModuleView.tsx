@@ -391,79 +391,79 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             e.currentTarget.scrollLeft += e.deltaY;
           }
         }}
-        className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-3 flex items-center justify-between overflow-x-auto shrink-0 z-10 select-none scrollbar-none"
+        className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-1 sm:px-3 flex items-center justify-between overflow-x-auto shrink-0 z-10 select-none scrollbar-none"
       >
-        <div className="flex items-center gap-1">
+        <div className="grid grid-cols-6 w-full sm:flex sm:w-auto items-stretch sm:items-center gap-0 sm:gap-1">
           <button
             onClick={() => setActiveTab('cad')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap min-w-0 cursor-pointer ${
               activeTab === 'cad'
                 ? 'border-blue-600 text-blue-600 bg-blue-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>1. DISEÑO CAD (2D / 3D)</span>
+            <span className="sm:hidden truncate max-w-full">Diseño</span><span className="hidden sm:inline">1. DISEÑO CAD (2D / 3D)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('plano')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap min-w-0 cursor-pointer ${
               activeTab === 'plano'
                 ? 'border-purple-600 text-purple-600 bg-purple-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Download className="w-4 h-4" />
-            <span>2. PLANO DE FABRICACIÓN (PDF / IMPRIMIR)</span>
+            <span className="sm:hidden truncate max-w-full">Plano</span><span className="hidden sm:inline">2. PLANO DE FABRICACIÓN (PDF / IMPRIMIR)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('despiece')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap min-w-0 cursor-pointer ${
               activeTab === 'despiece'
                 ? 'border-blue-600 text-blue-600 bg-blue-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Scissors className="w-4 h-4" />
-            <span>3. DESPIECE Y CORTES</span>
+            <span className="sm:hidden truncate max-w-full">Despiece</span><span className="hidden sm:inline">3. DESPIECE Y CORTES</span>
           </button>
 
           <button
             onClick={() => setActiveTab('materiales')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap min-w-0 cursor-pointer ${
               activeTab === 'materiales'
                 ? 'border-blue-600 text-blue-600 bg-blue-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Package className="w-4 h-4" />
-            <span>4. MATERIALES AGRUPADOS</span>
+            <span className="sm:hidden truncate max-w-full">Material</span><span className="hidden sm:inline">4. MATERIALES AGRUPADOS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('costos')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap min-w-0 cursor-pointer ${
               activeTab === 'costos'
                 ? 'border-blue-600 text-blue-600 bg-blue-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <DollarSign className="w-4 h-4" />
-            <span>5. ESTRUCTURA DE COSTOS</span>
+            <span className="sm:hidden truncate max-w-full">Costos</span><span className="hidden sm:inline">5. ESTRUCTURA DE COSTOS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('presupuesto')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap min-w-0 cursor-pointer ${
               activeTab === 'presupuesto'
                 ? 'border-emerald-600 text-emerald-600 bg-emerald-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span>6. PRESUPUESTO FORMAL</span>
+            <span className="sm:hidden truncate max-w-full">Presup.</span><span className="hidden sm:inline">6. PRESUPUESTO FORMAL</span>
           </button>
         </div>
       </nav>

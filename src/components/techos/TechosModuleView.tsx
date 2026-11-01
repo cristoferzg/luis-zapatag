@@ -1130,110 +1130,110 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       {/* 2. BARRA DE PESTAÑAS NAVEGACIÓN PRINCIPAL (ESTILO HERRERÍA) */}
       <nav 
         ref={navDeslizable}
-        className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-3 flex items-center justify-between overflow-x-auto shrink-0 z-10 select-none scrollbar-none"
+        className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 flex items-center justify-between overflow-x-auto shrink-0 z-10 select-none scrollbar-none px-1 sm:px-3"
       >
-        <div className="flex items-center gap-1">
+        <div className="grid grid-cols-8 w-full sm:flex sm:w-auto items-stretch sm:items-center gap-0 sm:gap-1">
           <button
             onClick={() => setActiveTab('cad')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'cad'
                 ? 'border-amber-600 text-amber-600 bg-amber-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span className="sm:hidden">1. Diseño</span>
+            <span className="sm:hidden truncate max-w-full">Diseño</span>
             <span className="hidden sm:inline">1. DISEÑO CAD (2D / 3D)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('despiece')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'despiece'
                 ? 'border-amber-600 text-amber-600 bg-amber-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Scissors className="w-4 h-4" />
-            <span className="sm:hidden">2. Despiece</span>
+            <span className="sm:hidden truncate max-w-full">Despiece</span>
             <span className="hidden sm:inline">2. DESPIECE Y CORTES</span>
           </button>
 
           <button
             onClick={() => setActiveTab('materiales')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'materiales'
                 ? 'border-amber-600 text-amber-600 bg-amber-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Package className="w-4 h-4" />
-            <span className="sm:hidden">3. Materiales</span>
+            <span className="sm:hidden truncate max-w-full">Material</span>
             <span className="hidden sm:inline">3. MATERIALES AGRUPADOS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('costos')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'costos'
                 ? 'border-amber-600 text-amber-600 bg-amber-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <DollarSign className="w-4 h-4" />
-            <span className="sm:hidden">4. Costos</span>
+            <span className="sm:hidden truncate max-w-full">Costos</span>
             <span className="hidden sm:inline">4. ESTRUCTURA DE COSTOS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('presupuesto')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'presupuesto'
                 ? 'border-amber-600 text-amber-600 bg-amber-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <FileText className="w-4 h-4" />
-            <span className="sm:hidden">5. Presupuesto</span>
+            <span className="sm:hidden truncate max-w-full">Presup.</span>
             <span className="hidden sm:inline">5. PRESUPUESTO FORMAL</span>
           </button>
 
           <button
             onClick={() => setActiveTab('plano')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'plano'
                 ? 'border-purple-600 text-purple-600 bg-purple-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Compass className="w-4 h-4" />
-            <span className="sm:hidden">6. Plano</span>
+            <span className="sm:hidden truncate max-w-full">Plano</span>
             <span className="hidden sm:inline">6. PLANO CM-02</span>
           </button>
 
           <button
             onClick={() => setActiveTab('estructural')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'estructural'
                 ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Activity className="w-4 h-4 text-indigo-600" />
-            <span className="sm:hidden">7. Análisis</span>
+            <span className="sm:hidden truncate max-w-full">Análisis</span>
             <span className="hidden sm:inline">7. ANÁLISIS ESTRUCTURAL RNE</span>
           </button>
 
           <button
             onClick={() => setActiveTab('resumen')}
-            className={`flex items-center gap-2 py-2.5 px-3.5 border-b-2 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+            className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
               activeTab === 'resumen'
                 ? 'border-amber-600 text-amber-600 bg-amber-50/60'
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <ClipboardList className="w-4 h-4 text-amber-600" />
-            <span className="sm:hidden">📊 Resumen</span>
+            <span className="sm:hidden truncate max-w-full">Resumen</span>
             <span className="hidden sm:inline">📊 RESUMEN COMPONENTES 2D/3D</span>
           </button>
         </div>

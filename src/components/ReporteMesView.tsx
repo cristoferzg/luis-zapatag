@@ -119,7 +119,21 @@ export default function ReporteMesView({ projects, finances }: { projects: Proje
         <div>
           <p className="text-xs font-black text-slate-700 uppercase mb-1.5">Cotizaciones del mes</p>
           {r.cotizados.length === 0 ? <p className="text-xs text-slate-400">No hay obras registradas con fecha de este mes.</p> : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Celular: tarjetas; al imprimir o en PC, la tabla */}
+            <div className="sm:hidden print:hidden space-y-1.5">
+              {r.cotizados.map(p => (
+                <div key={p.id} className="rounded-lg border border-slate-100 p-2.5 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-bold text-slate-800 leading-snug min-w-0">{p.name}</p>
+                    <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${p.status === 'Pendiente' ? 'bg-amber-50 text-amber-700' : p.status === 'Completado' ? 'bg-emerald-50 text-emerald-700' : 'bg-sky-50 text-sky-700'}`}>{p.status}</span>
+                  </div>
+                  <p className="text-slate-500">{p.client}</p>
+                  <div className="flex justify-between mt-1 font-mono"><span>Monto {S(p.presupuesto || 0)}</span><span>Cobrado {S((p.cobros || []).reduce((s, c) => s + c.amount, 0))}</span></div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:block print:block overflow-x-auto">
               <table className="w-full text-xs min-w-[420px]">
                 <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1">Obra</th><th>Cliente</th><th>Estado</th><th className="text-right">Monto</th><th className="text-right">Cobrado</th></tr></thead>
                 <tbody>
@@ -134,6 +148,7 @@ export default function ReporteMesView({ projects, finances }: { projects: Proje
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
         <p className="text-[10px] text-slate-400">Ganado = obras del mes en curso o terminadas. Cobrado = cobros de obras + ingresos de Finanzas del mes. Gastado = gastos de Finanzas y de Materiales y gastos del mes.</p>

@@ -1014,7 +1014,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span>Todos los Cursos ({allCourseItems.length})</span>
+            <span><span className="hidden sm:inline">Todos los </span>Cursos ({allCourseItems.length})</span>
           </button>
           <button
             onClick={() => { setActiveTab('ofertas'); setSelectedCourseFolder(null); setSelectedCategoryFilter('all'); }}
@@ -1023,7 +1023,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>Destacadas / Ofertas</span>
+            <span className="sm:hidden">Ofertas</span><span className="hidden sm:inline">Destacadas / Ofertas</span>
           </button>
           {isAdmin && (
             <button
@@ -1033,7 +1033,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Gestión Admin</span>
+              <span className="sm:hidden">Admin</span><span className="hidden sm:inline">Gestión Admin</span>
             </button>
           )}
         </div>

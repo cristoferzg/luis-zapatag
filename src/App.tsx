@@ -610,7 +610,22 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
               Ver todos <ArrowRight className="w-4 h-4 ml-1" />
             </button>
           </div>
-          <div className="overflow-x-auto">
+          {/* Celular: tarjetas (la tabla obligaba a deslizar hacia el costado) */}
+          <div className="sm:hidden space-y-2">
+            {activeProjects.slice(0, 5).map(p => {
+              const cobrado = p.cobros?.reduce((sum, c) => sum + c.amount, 0) || 0;
+              const percent = p.presupuesto > 0 ? (cobrado / p.presupuesto) * 100 : 0;
+              return (
+                <div key={p.id} className="rounded-xl border border-slate-100 p-3 space-y-1.5">
+                  <p className="text-sm font-bold text-slate-800 leading-snug">{p.name}</p>
+                  <div className="w-full bg-slate-200 rounded-full h-1.5"><div className="bg-slate-700 h-1.5 rounded-full" style={{ width: `${Math.min(percent, 100)}%` }}></div></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500">Presupuesto <b className="text-slate-700">{formatCurrency(p.presupuesto)}</b></span><span className="text-slate-500">Cobrado <b className="text-slate-800">{formatCurrency(cobrado)}</b></span></div>
+                </div>
+              );
+            })}
+            {activeProjects.length === 0 && <p className="py-6 text-center text-sm text-slate-500">No hay proyectos activos.</p>}
+          </div>
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider text-xs font-semibold">
                 <tr>

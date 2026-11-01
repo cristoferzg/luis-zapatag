@@ -3891,7 +3891,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       <div className="absolute top-2 sm:top-3 inset-x-2 sm:inset-x-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-20 max-w-[calc(100vw-16px)]">
         
         {/* Lado Izquierdo: Selector de Aluzinc, Opacidad y Colores Rápidos */}
-        <div className="flex items-center gap-2 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full overflow-x-auto touch-pan-x scrollbar-none shrink-0">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full sm:overflow-x-auto sm:touch-pan-x scrollbar-none shrink-0">
           
           {/* Selector Directo de Modelo Aluzinc */}
           <div className="flex items-center gap-1.5 px-1 shrink-0">
@@ -3958,7 +3958,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         </div>
 
         {/* Lado Derecho: Simulación (Lluvia, Sismo), Iluminación, Cámara y Zoom */}
-        <div className="flex items-center gap-1 sm:gap-1.5 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full overflow-x-auto touch-pan-x scrollbar-none select-none">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-1.5 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full sm:overflow-x-auto sm:touch-pan-x scrollbar-none select-none">
 
           {/* Badge de estado 3D (estilo Herrería, limpio y consistente) */}
           <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shrink-0">

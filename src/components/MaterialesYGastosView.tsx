@@ -445,13 +445,13 @@ export default function MaterialesYGastosView({
 
           {project && (
             <>
-              <div className="flex border-b border-slate-200 mb-6 space-x-6 overflow-x-auto">
+              <div className="flex border-b border-slate-200 mb-6 gap-4 sm:gap-6 overflow-x-auto">
                 <button 
                   onClick={() => setActiveMaterialTab('lista')}
                   className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2 ${activeMaterialTab === 'lista' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   <Package className="w-4 h-4" />
-                  <span>Lista de Materiales e Insumos</span>
+                  <span className="sm:hidden">Materiales</span><span className="hidden sm:inline">Lista de Materiales e Insumos</span>
                   <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-black border border-slate-200">
                     {(project.materiales || []).length}
                   </span>
@@ -461,7 +461,7 @@ export default function MaterialesYGastosView({
                   className={`pb-3 font-bold text-sm transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2 ${activeMaterialTab === 'techo' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                   <FileText className="w-4 h-4" />
-                  <span>Calculadora Estructural y Presupuesto</span>
+                  <span className="sm:hidden">Calculadora</span><span className="hidden sm:inline">Calculadora Estructural y Presupuesto</span>
                 </button>
               </div>
 

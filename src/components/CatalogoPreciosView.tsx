@@ -115,7 +115,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
               <Users className="w-4 h-4" /> Jornales desde Personal
             </button>
           </div>
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <div className="flex flex-wrap gap-1.5 pb-1">
             {(['Todos', ...grupos] as (GrupoCatalogo | 'Todos')[]).map(g => (
               <button key={g} onClick={() => setGrupo(g)} className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer ${grupo === g ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>{g}</button>
             ))}

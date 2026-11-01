@@ -490,54 +490,54 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
         </div>
 
         {/* PESTAÑAS DE NAVEGACIÓN ESTILO PROYECTOS & CLIENTES */}
-        <div className="flex border-b border-slate-200 mt-6 space-x-2 sm:space-x-4 overflow-x-auto">
+        <div className="flex border-b border-slate-200 mt-6 gap-0.5 sm:gap-4 overflow-x-auto scrollbar-none">
           <button
             onClick={() => { setActiveTab('todos'); setSelectedCategory('all'); }}
-            className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1 sm:gap-2 py-3 px-1.5 sm:px-4 font-bold text-xs sm:text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
               activeTab === 'todos'
                 ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span>Todos los Recursos ({items.length})</span>
+            <span><span className="hidden sm:inline">Todos los </span>Recursos ({items.length})</span>
           </button>
 
           <button
             onClick={() => { setActiveTab('ofertas'); setSelectedCategory('all'); }}
-            className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1 sm:gap-2 py-3 px-1.5 sm:px-4 font-bold text-xs sm:text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
               activeTab === 'ofertas'
                 ? 'border-amber-600 text-amber-600 bg-amber-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Sparkles className="w-4 h-4 text-amber-500" />
-            <span>Destacados</span>
+            <span className="sm:hidden">Destac.</span><span className="hidden sm:inline">Destacados</span>
           </button>
 
           <button
             onClick={() => { setActiveTab('plantillas'); setSelectedCategory('all'); }}
-            className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
+            className={`flex items-center gap-1 sm:gap-2 py-3 px-1.5 sm:px-4 font-bold text-xs sm:text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
               activeTab === 'plantillas'
                 ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <LayoutTemplate className="w-4 h-4 text-emerald-600" />
-            <span>Plantillas ({items.filter(i => i.plantilla).length})</span>
+            <span><span className="hidden sm:inline">Plantillas </span><span className="sm:hidden">Plant. </span>({items.filter(i => i.plantilla).length})</span>
           </button>
 
           {isAdmin && (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-1 sm:gap-2 py-3 px-1.5 sm:px-4 font-bold text-xs sm:text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
                 activeTab === 'admin'
                   ? 'border-slate-800 text-slate-900 bg-slate-100/80 rounded-t-xl'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Gestión Admin</span>
+              <span className="sm:hidden">Admin</span><span className="hidden sm:inline">Gestión Admin</span>
             </button>
           )}
         </div>
