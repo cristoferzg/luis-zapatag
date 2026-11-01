@@ -289,17 +289,20 @@ function armarTijeral(
     bottom.push(id);
   }
   bottom.push(endNodeId);
+  // Peralte negativo = tijeral colgado POR DEBAJO de la línea tocada (esa línea
+  // queda como cordón superior, donde apoyan las correas).
+  const abajo = heightM < 0;
   const top: string[] = [];
   for (let i = 0; i <= numPanels; i++) {
     const bN = nodes[bottom[i]];
     const id = `node_truss_t_${i}_${sfx}`;
-    nodes[id] = { id, x: bN.x, y: bN.y + heightM, z: bN.z, nodeLabel: `N-TT${i}` };
+    nodes[id] = { id, x: bN.x, y: bN.y + heightM, z: bN.z, nodeLabel: abajo ? `N-TI${i}` : `N-TT${i}` };
     top.push(id);
   }
   const seg = (id: string, a: string, b: string, rol: RolEstructuralSegmento) => { segs[id] = { id, nodeAId: a, nodeBId: b, profileId, rolEstructural: rol, tijeral: meta }; };
   for (let i = 0; i < numPanels; i++) {
-    seg(`seg_tb_${i}_${sfx}`, bottom[i], bottom[i + 1], 'cordon_inferior');
-    seg(`seg_tt_${i}_${sfx}`, top[i], top[i + 1], 'cordon_superior');
+    seg(`seg_tb_${i}_${sfx}`, bottom[i], bottom[i + 1], abajo ? 'cordon_superior' : 'cordon_inferior');
+    seg(`seg_tt_${i}_${sfx}`, top[i], top[i + 1], abajo ? 'cordon_inferior' : 'cordon_superior');
   }
   const conMontantes = ['escalera_vierendeel', 'pratt', 'howe', 'fink', 'plano_viga', 'parabolico_pratt'].includes(type);
   if (conMontantes) for (let i = 0; i <= numPanels; i++) seg(`seg_mon_${i}_${sfx}`, bottom[i], top[i], 'montante');

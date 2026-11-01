@@ -407,6 +407,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Selector y Tipología de Tijeral Activa (Escalera/Vierendeel, Warren, Pratt, Howe, Fink, Curvo, Plano)
   const [selectedTrussType, setSelectedTrussType] = useState<TipoTijeral>('escalera_vierendeel');
   const [trussHeightSetting, setTrussHeightSetting] = useState<number>(0.50);
+  // Tijeral hacia abajo: cuelga por debajo de la línea tocada (se recuerda la última elección).
+  const [trussAbajo, setTrussAbajoState] = useState<boolean>(() => { try { return localStorage.getItem('techos_tijeral_abajo') === '1'; } catch { return false; } });
+  const setTrussAbajo = (v: boolean) => { setTrussAbajoState(v); try { localStorage.setItem('techos_tijeral_abajo', v ? '1' : '0'); } catch { /* sin almacenamiento */ } };
+  const hFirmada = (h: number, abajo = trussAbajo) => abajo ? -Math.abs(h) : Math.abs(h);
   const [trussDivisionsSetting, setTrussDivisionsSetting] = useState<number>(6);
   // Último tijeral dibujado: la barra del tijeral lo ajusta en vivo (peralte, espacios, tipo).
   const [ultimoTijeralId, setUltimoTijeralId] = useState<string | null>(null);
@@ -452,7 +456,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     if (!tijeralSel || !engineState) return;
     const meta = Object.values(engineState.segments).find(sg => sg.tijeral?.id === tijeralSel)?.tijeral;
     if (!meta) return;
-    setTrussHeightSetting(meta.h); setTrussDivisionsSetting(meta.n); setSelectedTrussType(meta.tipo as TipoTijeral); setTrussSpacingMode('divisiones');
+    setTrussHeightSetting(Math.abs(meta.h)); setTrussAbajoState(meta.h < 0); setTrussDivisionsSetting(meta.n); setSelectedTrussType(meta.tipo as TipoTijeral); setTrussSpacingMode('divisiones');
   }, [tijeralSel]); // eslint-disable-line react-hooks/exhaustive-deps
   const activeTool: ToolModoCad = engineState?.activeTool || 'select';
 
@@ -1113,7 +1117,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         setChainFirstNodeId(targetNodeId);
         engineState.setSelectedElementIds([targetNodeId]);
       } else if (drawingStartNodeId !== targetNodeId) {
-        const tid = engineState.generateTrussFreehand(drawingStartNodeId, targetNodeId, trussHeightSetting, selectedTrussType, trussSpacingMode === 'divisiones' ? trussDivisionsSetting : undefined, trussSpacingMode === 'espaciado' ? trussSpacingSettingM : undefined);
+        const tid = engineState.generateTrussFreehand(drawingStartNodeId, targetNodeId, hFirmada(trussHeightSetting), selectedTrussType, trussSpacingMode === 'divisiones' ? trussDivisionsSetting : undefined, trussSpacingMode === 'espaciado' ? trussSpacingSettingM : undefined);
         if (tid) setUltimoTijeralId(tid);
         setDrawingStartNodeId(null);
         setChainFirstNodeId(null);
@@ -1262,7 +1266,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         const tid = engineState.generateTrussFreehand(
           drawingStartNodeId, 
           nodeId, 
-          trussHeightSetting, 
+          hFirmada(trussHeightSetting), 
           selectedTrussType,
           trussSpacingMode === 'divisiones' ? trussDivisionsSetting : undefined,
           trussSpacingMode === 'espaciado' ? trussSpacingSettingM : undefined
@@ -2492,10 +2496,15 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <input
                 type="number" step="0.05" min="0.20" max="2.50"
                 value={trussHeightSetting}
-                onChange={(e) => { const h = Math.max(0.20, parseFloat(e.target.value) || 0.5); setTrussHeightSetting(h); ajustarTijeral({ h }); }}
+                onChange={(e) => { const h = Math.max(0.20, parseFloat(e.target.value) || 0.5); setTrussHeightSetting(h); ajustarTijeral({ h: hFirmada(h) }); }}
                 className="w-11 bg-slate-900 border border-slate-700 rounded px-1 py-0.5 text-emerald-300 font-bold text-center"
               />
               <span className="text-slate-500">m</span>
+              <button
+                onClick={() => { const v = !trussAbajo; setTrussAbajo(v); ajustarTijeral({ h: hFirmada(trussHeightSetting, v) }); }}
+                className={`px-1.5 py-0.5 rounded font-black text-[9px] shrink-0 cursor-pointer ${trussAbajo ? 'bg-sky-500 text-slate-950' : 'bg-slate-700 text-slate-200'}`}
+                title={trussAbajo ? 'El tijeral cuelga POR DEBAJO de la línea que tocas (toca para ponerlo encima)' : 'El tijeral sale POR ENCIMA de la línea que tocas (toca para colgarlo por debajo)'}
+              >{trussAbajo ? '↓ Abajo' : '↑ Arriba'}</button>
               <span className="w-px h-4 bg-slate-700 mx-0.5" />
               {/* Toggle de modo (letra) + botones rápidos */}
               <button
