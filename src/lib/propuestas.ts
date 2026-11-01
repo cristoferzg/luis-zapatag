@@ -9,6 +9,7 @@
 // (PBKDF2). En la base solo queda el texto cifrado, el nombre de la empresa y
 // el estado; sin ese dato nadie puede ver la propuesta, aunque tenga el link.
 // =============================================================================
+import type { ContratoPropuesta } from './contratoPropuesta';
 import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth, authReady } from './firebase';
 import { safeStorage } from './storageManager';
@@ -23,6 +24,8 @@ export interface PropuestaPublica {
   incluye: string[];
   /** Datos del cliente tal como están registrados (van cifrados con su DNI o celular). */
   datosCliente?: { nombre: string; dni?: string; celular?: string; direccion?: string; email?: string; empresa?: string };
+  /** Contrato para revisar (cláusulas del módulo Contratos; el monto sale de la opción elegida). */
+  contrato?: ContratoPropuesta;
   estado?: 'enviada' | 'aceptada';
   aceptadaOpcion?: number; aceptadaNombre?: string; aceptadaEn?: string;
   creadaEn?: string; autor?: string;

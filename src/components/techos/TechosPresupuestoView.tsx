@@ -272,7 +272,9 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       {verPropuesta && escena && (
         <PropuestaClienteView nodes={escena.nodes} segments={escena.segments} coverageZones={escena.coverageZones}
           nombreProyecto={nombreProyecto} cliente={proyectoSel?.client || clienteNombre} ubicacion={ubicacion} onClose={() => setVerPropuesta(false)}
-          proyectos={projects} proyectoId={proyectoSel?.id} onTechosProyecto={onTechosProyecto} disenoId={disenoId || undefined} clientes={_clients} />
+          proyectos={projects} proyectoId={proyectoSel?.id} onTechosProyecto={onTechosProyecto} disenoId={disenoId || undefined} clientes={_clients}
+          pagos={{ banco: currentSettings?.bancoNombre, titular: currentSettings?.cuentaTitular, cuenta: currentSettings?.pagoCtaBcp, cci: currentSettings?.pagoCciBcp, yape: currentSettings?.pagoYape }}
+          contratista={currentSettings ? { nombre: currentSettings.appName || '', ruc: currentSettings.contratistaDni, direccion: currentSettings.contratistaDir, telefono: currentSettings.contratistaPhone } : undefined} />
       )}
 
       {/* HOJA IMPRESA DE COTIZACIÓN */}

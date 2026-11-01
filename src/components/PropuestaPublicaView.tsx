@@ -4,8 +4,9 @@
 // Para verla escribe su DNI o celular (la propuesta va cifrada con ese dato).
 // =============================================================================
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { CheckCircle2, Send, Loader2, Lock } from 'lucide-react';
+import { CheckCircle2, Send, Loader2, Lock, FileSignature, ShieldCheck } from 'lucide-react';
 import { leerPropuesta, aceptarPropuesta, abrirPropuesta, claveValida, PropuestaPublica, PropuestaBloqueada } from '../lib/propuestas';
+import { clausulasContrato } from '../lib/contratoPropuesta';
 
 const TechosViewer3D = lazy(() => import('./techos/TechosViewer3D').then(m => ({ default: m.TechosViewer3D })));
 const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -21,6 +22,40 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
   const [nombre, setNombre] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [ver3d, setVer3d] = useState(false);
+  const [verContrato, setVerContrato] = useState(false);
+  const [leyoContrato, setLeyoContrato] = useState(false);
+  // Protección contra capturas: se tapa la propuesta al salir de la página (cambiar de
+  // app, recortes de pantalla que roban el foco) o al pulsar Impr Pant. No se puede
+  // copiar, guardar imágenes ni imprimir. Ninguna web puede impedir del todo una
+  // captura del celular: por eso todo lleva una marca de agua con el nombre y DNI del cliente.
+  const [tapado, setTapado] = useState(false);
+  useEffect(() => {
+    if (estado !== 'ok') return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const tapar = (ms = 0) => { setTapado(true); if (t) clearTimeout(t); if (ms) t = setTimeout(() => setTapado(false), ms); };
+    const destapar = () => { if (t) clearTimeout(t); t = setTimeout(() => setTapado(false), 250); };
+    const vis = () => (document.hidden ? tapar() : destapar());
+    const no = (e: Event) => e.preventDefault();
+    const teclas = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      if (k === 'printscreen') { tapar(2500); try { navigator.clipboard?.writeText(''); } catch { /* sin permiso */ } }
+      if ((e.ctrlKey || e.metaKey) && (k === 'p' || k === 's' || k === 'c' || (e.shiftKey && (k === 's' || k === '3' || k === '4' || k === '5')))) { e.preventDefault(); tapar(1500); }
+    };
+    document.addEventListener('visibilitychange', vis);
+    const alSalir = () => tapar();
+    window.addEventListener('blur', alSalir);
+    window.addEventListener('focus', destapar);
+    document.addEventListener('contextmenu', no);
+    document.addEventListener('copy', no);
+    document.addEventListener('dragstart', no);
+    window.addEventListener('keydown', teclas);
+    window.addEventListener('keyup', teclas);
+    return () => {
+      document.removeEventListener('visibilitychange', vis); window.removeEventListener('blur', alSalir); window.removeEventListener('focus', destapar);
+      document.removeEventListener('contextmenu', no); document.removeEventListener('copy', no); document.removeEventListener('dragstart', no);
+      window.removeEventListener('keydown', teclas); window.removeEventListener('keyup', teclas);
+    };
+  }, [estado]);
 
   useEffect(() => {
     leerPropuesta(id).then(async d => {
@@ -39,6 +74,7 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
 
   const mostrar = (d: PropuestaPublica) => {
     setP(d); setEstado('ok');
+    setVer3d(!d.imagen && Object.keys(d.escena?.nodes || {}).length > 0); // sin foto: el 3D se ve directo
     setElegida(d.aceptadaOpcion ?? Math.max(0, d.opciones.findIndex(o => o.recomendada)));
     document.title = `Propuesta · ${d.proyecto}`;
   };
@@ -104,8 +140,27 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
     a.target = '_blank'; a.rel = 'noopener noreferrer'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
+  // Marca de agua con el nombre y DNI del cliente (encima de todo, incluido el 3D).
+  const quien = p.datosCliente?.nombre || p.cliente || 'Cliente';
+  const dniMarca = p.datosCliente?.dni ? ` · DNI ••••${p.datosCliente.dni.slice(-3)}` : '';
+  const textoMarca = `${quien}${dniMarca} · ${new Date().toLocaleDateString('es-PE')} · CONFIDENCIAL`.replace(/[<>&"]/g, '');
+  const marcaSvg = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='340' height='200'><text x='10' y='120' transform='rotate(-28 170 100)' fill='%23334155' fill-opacity='0.13' font-family='Arial' font-size='15' font-weight='700'>${textoMarca}</text></svg>`).replace(/%2523/g, '%23')}")`;
+  const contrato = p.contrato ? clausulasContrato(p.contrato, {
+    cliente: p.datosCliente?.nombre || p.cliente, dni: p.datosCliente?.dni, direccion: p.datosCliente?.direccion, proyecto: p.proyecto, ubicacion: p.ubicacion,
+    total: p.opciones[elegida]?.total || 0, opcion: p.opciones[elegida]?.nombre || '', cobertura: p.opciones[elegida]?.cobertura || '', incluye: p.incluye || [],
+  }) : null;
+
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="min-h-screen bg-slate-100 text-slate-900 select-none" style={{ WebkitTouchCallout: 'none', WebkitUserSelect: 'none' } as any}>
+      <style>{`@media print { body * { display: none !important; } body::after { content: 'Documento protegido: pide una copia a tu proveedor.'; display: block; padding: 40px; font: 700 18px Arial; } } img { -webkit-user-drag: none; pointer-events: none; }`}</style>
+      <div className="fixed inset-0 z-[60] pointer-events-none" style={{ backgroundImage: marcaSvg }} aria-hidden />
+      {tapado && (
+        <div className="fixed inset-0 z-[70] bg-slate-900/95 backdrop-blur-xl flex flex-col items-center justify-center text-center p-6 text-white" onClick={() => setTapado(false)}>
+          <ShieldCheck className="w-12 h-12 text-emerald-300 mb-2" />
+          <p className="text-lg font-black">Contenido protegido</p>
+          <p className="text-sm text-slate-300 max-w-xs">Esta propuesta es solo para {quien}. Toca para seguir viéndola.</p>
+        </div>
+      )}
       <header className="text-white" style={{ background: color }}>
         <div className="max-w-4xl mx-auto px-4 py-5 flex items-center gap-3">
           {p.empresa.logo && <img src={p.empresa.logo} alt="" className="h-12 w-12 object-contain bg-white rounded-xl p-1" />}
@@ -189,6 +244,36 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
           </section>
         )}
 
+        {contrato && (
+          <section className="bg-white rounded-2xl shadow-xs overflow-hidden">
+            <button onClick={() => setVerContrato(v => !v)} className="w-full flex items-center gap-3 p-4 text-left cursor-pointer">
+              <FileSignature className="w-6 h-6 shrink-0" style={{ color }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-black">Contrato de la obra</p>
+                <p className="text-[11px] text-slate-500">Para revisar antes de aceptar · opción {p.opciones[elegida]?.nombre} · {S(p.opciones[elegida]?.total || 0)}</p>
+              </div>
+              <span className="text-xs font-black" style={{ color }}>{verContrato ? 'Ocultar' : 'Leer'}</span>
+            </button>
+            {verContrato && (
+              <div className="px-4 pb-4 space-y-3 text-[12px] leading-relaxed text-slate-800 border-t border-slate-100 pt-3">
+                <p className="text-center font-black underline text-[13px]">{contrato.titulo}</p>
+                <p className="text-justify">{contrato.intro}</p>
+                {contrato.clausulas.map(c => (
+                  <div key={c.titulo}>
+                    <p className="font-black text-[11.5px] uppercase">{c.titulo}</p>
+                    {c.texto.map((t, i) => <p key={i} className="text-justify">{t}</p>)}
+                  </div>
+                ))}
+                <div className="grid grid-cols-2 gap-6 pt-6 text-center text-[10px] text-slate-600">
+                  <div className="border-t border-slate-400 pt-1"><b className="block text-slate-800">{p.contrato!.contratista.nombre || p.empresa.nombre}</b>EL CONTRATISTA</div>
+                  <div className="border-t border-slate-400 pt-1"><b className="block text-slate-800">{quien}</b>EL CLIENTE</div>
+                </div>
+                <p className="text-[10px] text-slate-500 bg-slate-50 rounded-lg p-2">Borrador para revisar. La firma del contrato se coordina con {p.empresa.nombre || 'la empresa'} al pagar el adelanto.</p>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="bg-white rounded-2xl p-4 shadow-xs space-y-3">
           {aceptada ? (
             <div className="text-center space-y-2">
@@ -200,8 +285,14 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
           ) : (
             <>
               <p className="text-sm font-black">¿Te gusta? Acepta la opción {p.opciones[elegida]?.nombre} ({S(p.opciones[elegida]?.total || 0)})</p>
-              <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre completo" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-bold" />
-              <button onClick={aceptar} disabled={!nombre.trim() || enviando} className="w-full py-3 rounded-xl text-white text-sm font-black cursor-pointer disabled:opacity-40" style={{ background: color }}>
+              <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Tu nombre completo" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-bold select-text" style={{ WebkitUserSelect: 'text' } as any} />
+              {contrato && (
+                <label className="flex items-start gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                  <input type="checkbox" checked={leyoContrato} onChange={e => setLeyoContrato(e.target.checked)} className="mt-0.5" />
+                  <span>Revisé el contrato de la obra (<button type="button" onClick={() => setVerContrato(true)} className="underline" style={{ color }}>leerlo</button>).</span>
+                </label>
+              )}
+              <button onClick={aceptar} disabled={!nombre.trim() || enviando || (!!contrato && !leyoContrato)} className="w-full py-3 rounded-xl text-white text-sm font-black cursor-pointer disabled:opacity-40" style={{ background: color }}>
                 {enviando ? 'Enviando…' : 'Aceptar propuesta'}
               </button>
               <p className="text-[10px] text-slate-400 text-center">Al aceptar, {p.empresa.nombre || 'la empresa'} recibe tu elección y se comunica contigo para coordinar el adelanto.</p>

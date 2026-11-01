@@ -11,6 +11,7 @@ import BotonImprimir from '../common/BotonImprimir';
 import { useEmpresa, CabeceraEmpresa, CondicionesComerciales, colorMarcaDe } from '../../lib/empresa';
 import { INVENTARIO_COBERTURAS } from './techosCadCatalog';
 import { generarReportePresupuestoBom } from './techosCadCalculations';
+import type { ContratoPropuesta } from '../../lib/contratoPropuesta';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import { fotoPropuesta } from './fotoPropuesta';
 import { safeStorage } from '../../lib/storageManager';
@@ -36,13 +37,16 @@ function opcionesPorDefecto(actual?: string): OpcionPropuesta[] {
 }
 
 export default function PropuestaClienteView({
-  nodes, segments, coverageZones, nombreProyecto, cliente, ubicacion, onClose, proyectos = [], proyectoId, onTechosProyecto, disenoId, clientes = [],
+  nodes, segments, coverageZones, nombreProyecto, cliente, ubicacion, onClose, proyectos = [], proyectoId, onTechosProyecto, disenoId, clientes = [], pagos, contratista,
 }: {
   nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; coverageZones: Record<string, CoverageZone3D>;
   nombreProyecto: string; cliente: string; ubicacion: string; onClose: () => void;
   proyectos?: { id: string; name: string; client: string; presupuesto?: number; techos?: TechosDelProyecto }[];
   /** Clientes registrados (Proyectos & Clientes): llenan su DNI/celular y sus datos van en el link. */
   clientes?: { id: string; name: string; company?: string; phone?: string; dni?: string; address?: string; email?: string }[];
+  /** Cuentas para el pago (Configuración): van en la cláusula de pago del contrato del link. */
+  pagos?: ContratoPropuesta['pagos'];
+  contratista?: ContratoPropuesta['contratista'];
   proyectoId?: string;
   onTechosProyecto?: (projectId: string, t: TechosDelProyecto) => void;
   disenoId?: string;
@@ -61,6 +65,10 @@ export default function PropuestaClienteView({
   const foto = fotoPropuesta();
   const [link, setLink] = useState<string | null>(null);
   const [claveCliente, setClaveCliente] = useState('');
+  // Contrato para revisar dentro del link (cláusulas del módulo Contratos).
+  const [conContrato, setConContrato] = useState(true);
+  const [adelantoPct, setAdelantoPct] = useState<string>(() => String(parseFloat(datos.adelantoPct) || 50));
+  const [plazo, setPlazo] = useState('');
   // Cliente registrado: el del proyecto (por nombre) o el que se elija. Llena su DNI o celular.
   const norm = (t?: string) => (t || '').trim().toLowerCase();
   const [clienteId, setClienteId] = useState<string>(() => clientes.find(c => norm(c.name) && (norm(c.name) === norm(cliente) || norm(c.company) === norm(cliente)))?.id || '');
@@ -94,6 +102,14 @@ export default function PropuestaClienteView({
     return Math.max(0, Math.round((precioProyecto + t - (precios[recomendada]?.total || 0)) * 100) / 100);
   };
   const area = precios[0]?.area || 0;
+  // Materiales del diseño (opción recomendada) para la cláusula de materiales del contrato.
+  const materialesResumen = useMemo(() => {
+    const r = generarReportePresupuestoBom(nodes, segments, coverageZones);
+    const l = r.despiecePerfiles.map(p => `${p.nombrePerfil}: ${p.totalBarrasComerciales6m} barras de 6 m`);
+    if (r.placasBaseTotalesUnids) l.push(`Placas base: ${r.placasBaseTotalesUnids} und · pernos de anclaje: ${r.pernosAnclajeJTotalesUnids} und`);
+    if (r.kgSoldaduraAwsEstimados) l.push(`Soldadura y pintura anticorrosiva`);
+    return l.slice(0, 14);
+  }, [nodes, segments, coverageZones]);
   const nombreCob = (id: string) => INVENTARIO_COBERTURAS.find(c => c.id === id)?.nombre || id;
   const incluye = [
     `Estructura metálica completa: ${Object.values(segments).filter(s => s.rolEstructural === 'columna').length} columnas, vigas, tijerales y correas.`,
@@ -132,6 +148,11 @@ export default function PropuestaClienteView({
         imagen: foto.despues || '', antes: foto.antes || '', carta,
         escena: { nodes, segments, coverageZones },
         incluye,
+        ...(conContrato ? { contrato: {
+          contratista: contratista || { nombre: datos.nombre, ruc: datos.ruc, direccion: datos.direccion, telefono: datos.telefono },
+          servicio: 'Techo metálico', adelantoPct: Math.min(100, Math.max(0, parseFloat(adelantoPct) || 0)), plazo: plazo.trim() || undefined,
+          materiales: materialesResumen, pagos,
+        } } : {}),
         ...(cli ? { datosCliente: { nombre: cli.name, dni: cli.dni || undefined, celular: cli.phone || undefined, direccion: cli.address || undefined, email: cli.email || undefined, empresa: cli.company || undefined } } : {}),
       }, claveCliente);
       setLink(`${window.location.origin}${window.location.pathname}?propuesta=${id}`);
@@ -201,6 +222,20 @@ export default function PropuestaClienteView({
               )}
             </div>
           )}
+
+          {/* Contrato dentro del link (no se imprime) */}
+          <div className="no-imprimir mb-3 bg-white rounded-xl border border-slate-200 p-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <label className="inline-flex items-center gap-1.5 font-black text-slate-700 cursor-pointer">
+              <input type="checkbox" checked={conContrato} onChange={e => setConContrato(e.target.checked)} /> Incluir el contrato para que lo revise
+            </label>
+            {conContrato && (<>
+              <label className="inline-flex items-center gap-1 font-bold text-slate-600">Adelanto
+                <input type="number" min={0} max={100} value={adelantoPct} onChange={e => setAdelantoPct(e.target.value)} className="w-14 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> %
+              </label>
+              <input value={plazo} onChange={e => setPlazo(e.target.value)} placeholder="Plazo (ej. 15 días hábiles)" className="w-[190px] px-2 py-1 rounded-lg border border-slate-200 font-bold" />
+              <span className="text-slate-500">Mismas cláusulas que en Contratos; el monto cambia con la opción que elija. Las cuentas salen de Configuración.</span>
+            </>)}
+          </div>
 
           {/* Ajustes de las opciones (no se imprimen) */}
           <div className="no-imprimir mb-3 grid sm:grid-cols-3 gap-2">
