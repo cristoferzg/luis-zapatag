@@ -75,6 +75,8 @@ export interface UseTechosCadEngineReturn {
 
   // Carga de Proyecto Guardado y Carga de Escena Completa
   loadScene: (loadedNodes: Record<string, Node3D>, loadedSegments: Record<string, Segment3D>, loadedZones?: Record<string, CoverageZone3D>) => void;
+  /** Aplica nodos y barras nuevos en un solo paso (se puede deshacer). */
+  aplicarEdicion: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>) => void;
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
   setLedVigas: (on: boolean) => void;
@@ -554,6 +556,13 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setNodes(newNodes);
     pushHistory(newNodes, segments, coverageZones);
   }, [nodes, segments, coverageZones, pushHistory]);
+
+  const aplicarEdicion = useCallback((n: Record<string, Node3D>, sg: Record<string, Segment3D>) => {
+    nodesRef.current = n;
+    setNodes(n);
+    setSegments(sg);
+    pushHistory(n, sg, coverageZones);
+  }, [coverageZones, pushHistory]);
 
   // Carga de Proyecto y Restauración de Escena Completa
   const loadScene = useCallback((loadedNodes: Record<string, Node3D>, loadedSegments: Record<string, Segment3D>, loadedZones?: Record<string, CoverageZone3D>) => {
@@ -4354,6 +4363,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     selectedElementIds,
     setSelectedElementIds,
     activeProfileId,
+    aplicarEdicion,
     setActiveProfileId,
     activeCoverageId,
     setActiveCoverageId,

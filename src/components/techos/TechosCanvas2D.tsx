@@ -315,10 +315,21 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [closedPerimeterNotice, setClosedPerimeterNotice] = useState<string | null>(null);
 
   // Medición puntual (herramienta 'measure')
-  const [measureStartPoint, setMeasureStartPoint] = useState<{ x: number; y: number } | null>(null);
+  // Punto de medida: coordenadas de la vista y, si se tocó, el nodo o la barra exacta (p3 = punto 3D).
+  type PuntoMedida = { x: number; y: number; nodo?: string; seg?: string; p3?: [number, number, number] };
+  const [measureStartPoint, setMeasureStartPoint] = useState<PuntoMedida | null>(null);
   const [measureDistanceM, setMeasureDistanceM] = useState<number | null>(null);
   // Regla: la última medida queda dibujada; se puede ajustar el largo y trazar una viga exacta.
-  const [ultimaMedida, setUltimaMedida] = useState<{ a: { x: number; y: number }; b: { x: number; y: number }; d: number } | null>(null);
+  const [ultimaMedida, setUltimaMedida] = useState<{ a: PuntoMedida; b: PuntoMedida; d: number; d0?: number } | null>(null);
+  // Segundo clic de la regla: cierra la medida entre los dos puntos.
+  const ponerPuntoMedida = (pt: PuntoMedida) => {
+    if (!measureStartPoint) { setMeasureStartPoint(pt); setUltimaMedida(null); return; }
+    const d = Number(Math.hypot(pt.x - measureStartPoint.x, pt.y - measureStartPoint.y).toFixed(3));
+    if (d < 0.005) return;
+    setMeasureDistanceM(Number(d.toFixed(2)));
+    setUltimaMedida({ a: measureStartPoint, b: pt, d: Number(d.toFixed(2)), d0: Number(d.toFixed(2)) });
+    setMeasureStartPoint(null);
+  };
 
   // Asistente 1-Clic de Techos para Principiantes
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
@@ -1064,13 +1075,31 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
     // HERRAMIENTA MEDICIÓN DE DISTANCIAS (measure)
     if (activeTool === 'measure') {
-      if (!measureStartPoint) {
-        setMeasureStartPoint({ x: clickCoords.x, y: clickCoords.y });
-      } else {
-        const dist = Math.hypot(clickCoords.x - measureStartPoint.x, clickCoords.y - measureStartPoint.y);
-        setMeasureDistanceM(Number(dist.toFixed(2)));
-        setUltimaMedida({ a: measureStartPoint, b: { x: clickCoords.x, y: clickCoords.y }, d: Number(dist.toFixed(2)) });
-        setMeasureStartPoint(null);
+      // Si el imán cayó en un nodo o sobre una barra, se recuerda para unir ahí la viga trazada.
+      const sn = activeSnap;
+      if (sn?.nodeId && nodes[sn.nodeId]) { const n = nodes[sn.nodeId]; ponerPuntoMedida({ x: clickCoords.x, y: clickCoords.y, nodo: n.id, p3: [n.x, n.y, n.z || 0] }); }
+      else if (sn?.segmentId && !sn.segmentIdB && segments[sn.segmentId]) ponerPuntoMedida({ x: clickCoords.x, y: clickCoords.y, seg: sn.segmentId, p3: [sn.x, sn.y, sn.z] });
+      else {
+        // Imán de rejilla: si el punto queda sobre un nodo o una barra (≤ 3 cm), se une a ese elemento.
+        const P = { x: clickCoords.x, y: clickCoords.y };
+        const vy = (n: Node3D) => vista === 'planta' ? (n.z || 0) : n.y;
+        const nodoCerca = Object.values(nodes).find(n => Math.hypot(n.x - P.x, vy(n) - P.y) <= 0.03);
+        if (nodoCerca) ponerPuntoMedida({ ...P, nodo: nodoCerca.id, p3: [nodoCerca.x, nodoCerca.y, nodoCerca.z || 0] });
+        else {
+          let mejor: { id: string; t: number; d: number } | null = null;
+          Object.values(segments).forEach(sg => {
+            const A = nodes[sg.nodeAId], B = nodes[sg.nodeBId]; if (!A || !B) return;
+            const vx = B.x - A.x, vyy = vy(B) - vy(A), L2 = vx * vx + vyy * vyy; if (L2 < 1e-9) return;
+            const t = ((P.x - A.x) * vx + (P.y - vy(A)) * vyy) / L2; if (t <= 0.001 || t >= 0.999) return;
+            const d = Math.hypot(A.x + vx * t - P.x, vy(A) + vyy * t - P.y);
+            if (d <= 0.03 && (!mejor || d < mejor.d)) mejor = { id: sg.id, t, d };
+          });
+          const m = mejor as { id: string; t: number; d: number } | null;
+          if (m) {
+            const sg = segments[m.id], A = nodes[sg.nodeAId], B = nodes[sg.nodeBId];
+            ponerPuntoMedida({ ...P, seg: m.id, p3: [A.x + (B.x - A.x) * m.t, A.y + (B.y - A.y) * m.t, (A.z || 0) + ((B.z || 0) - (A.z || 0)) * m.t] });
+          } else ponerPuntoMedida(P);
+        }
       }
       return;
     }
@@ -1226,14 +1255,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       const n = nodes[nodeId];
       if (n) {
         const nY = vista === 'planta' ? (n.z || 0) : n.y;
-        if (!measureStartPoint) {
-          setMeasureStartPoint({ x: n.x, y: nY });
-        } else {
-          const dist = Math.hypot(n.x - measureStartPoint.x, nY - measureStartPoint.y);
-          setMeasureDistanceM(Number(dist.toFixed(2)));
-          setUltimaMedida({ a: measureStartPoint, b: { x: n.x, y: nY }, d: Number(dist.toFixed(2)) });
-          setMeasureStartPoint(null);
-        }
+        ponerPuntoMedida({ x: n.x, y: nY, nodo: n.id, p3: [n.x, n.y, n.z || 0] });
       }
       return;
     }
@@ -1319,6 +1341,22 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const handleSegmentClick = (segmentId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!engineState) return;
+
+    // Regla sobre una barra: el punto cae EXACTO sobre la barra (proyección del clic).
+    if (activeTool === 'measure') {
+      const sg = segments[segmentId];
+      const A = sg && nodes[sg.nodeAId], B = sg && nodes[sg.nodeBId];
+      if (!A || !B) return;
+      const c = screenToWorld(e.clientX, e.clientY);
+      const ay = vista === 'planta' ? (A.z || 0) : A.y, by = vista === 'planta' ? (B.z || 0) : B.y;
+      const vx = B.x - A.x, vy = by - ay, L2 = vx * vx + vy * vy;
+      const t = L2 > 1e-9 ? Math.max(0, Math.min(1, ((c.x - A.x) * vx + (c.y - ay) * vy) / L2)) : 0;
+      const p3: [number, number, number] = [A.x + (B.x - A.x) * t, A.y + (B.y - A.y) * t, (A.z || 0) + ((B.z || 0) - (A.z || 0)) * t];
+      if (t < 0.02) ponerPuntoMedida({ x: A.x, y: ay, nodo: A.id, p3: [A.x, A.y, A.z || 0] });
+      else if (t > 0.98) ponerPuntoMedida({ x: B.x, y: by, nodo: B.id, p3: [B.x, B.y, B.z || 0] });
+      else ponerPuntoMedida({ x: A.x + vx * t, y: ay + vy * t, seg: segmentId, p3 });
+      return;
+    }
 
     const isDrawingSegment = 
       activeTool === 'draw_line' || 
@@ -1453,7 +1491,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   };
 
   return (
-    <div ref={containerRef} className={`w-full h-full flex flex-col bg-slate-50 text-slate-800 relative overflow-hidden select-none font-sans`}>
+    <div className={`w-full h-full flex flex-col bg-slate-50 text-slate-800 relative overflow-hidden select-none font-sans`}>
       
       {/* 1. SUB-BARRA DE VISTA: PLANTA / SECCIÓN / 3D WEBGL (CON SOPORTE DE SCROLL POR RUEDA DE RATÓN) */}
       <div 
@@ -2137,7 +2175,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 {/* REGLA: ÚLTIMA MEDIDA (queda dibujada como una cota) */}
                 {activeTool === 'measure' && ultimaMedida && !measureStartPoint && (() => {
                   const Y = (v: number) => (vista === 'planta' ? v : -v) * scale;
-                  const x1 = ultimaMedida.a.x * scale, y1 = Y(ultimaMedida.a.y), x2 = ultimaMedida.b.x * scale, y2 = Y(ultimaMedida.b.y);
+                  const L0 = Math.hypot(ultimaMedida.b.x - ultimaMedida.a.x, ultimaMedida.b.y - ultimaMedida.a.y) || 1, f = ultimaMedida.d / L0; // largo escrito
+                  const x1 = ultimaMedida.a.x * scale, y1 = Y(ultimaMedida.a.y), x2 = (ultimaMedida.a.x + (ultimaMedida.b.x - ultimaMedida.a.x) * f) * scale, y2 = Y(ultimaMedida.a.y + (ultimaMedida.b.y - ultimaMedida.a.y) * f);
                   return (
                     <g className="pointer-events-none">
                       <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#0284c7" strokeWidth="2.5" />
@@ -2906,12 +2945,42 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {activeTool === 'measure' && ultimaMedida && engineState && (() => {
           const m = ultimaMedida;
           const trazar = () => {
-            const ux = (m.b.x - m.a.x) / (m.d || 1), uy = (m.b.y - m.a.y) / (m.d || 1);
+            // Dirección según lo medido; el largo es el que se escribió.
+            const L0 = Math.hypot(m.b.x - m.a.x, m.b.y - m.a.y) || 1;
+            const ux = (m.b.x - m.a.x) / L0, uy = (m.b.y - m.a.y) / L0;
             const bx = m.a.x + ux * m.d, by = m.a.y + uy * m.d;
-            const P = (x: number, y: number): [number, number, number] => vista === 'planta' ? [x, beamElevationSetting, y] : [x, Math.max(0, y), profundidadZSetting];
-            const na = engineState.addNode(...P(m.a.x, m.a.y), false, true);
-            const nb = engineState.addNode(...P(bx, by), false, true);
-            engineState.addSegment(na, nb, 'viga_principal');
+            const mismoLargo = Math.abs(m.d - (m.d0 ?? m.d)) < 0.005;
+            const P = (x: number, y: number): [number, number, number] => vista === 'planta' ? [x, m.a.p3 ? m.a.p3[1] : beamElevationSetting, y] : [x, Math.max(0, y), m.a.p3 ? m.a.p3[2] : profundidadZSetting];
+            // Todo en un solo paso (se puede deshacer): cada extremo se une a lo que se tocó.
+            const N: Record<string, Node3D> = { ...engineState.nodes }, S: Record<string, Segment3D> = { ...engineState.segments };
+            let k = 0;
+            const nuevoId = (pre: string) => `${pre}_${Date.now().toString(36)}_${++k}`;
+            const nodoEn = (p3: [number, number, number]): string => {
+              const r = p3.map(v => Number(v.toFixed(3))) as [number, number, number];
+              const ya = Object.values(N).find(n => Math.hypot(n.x - r[0], n.y - r[1], (n.z || 0) - r[2]) < 0.02);
+              if (ya) return ya.id;
+              const id = nuevoId('node_med');
+              N[id] = { id, x: r[0], y: r[1], z: r[2], nodeLabel: `N-${Object.keys(N).length + 1}` };
+              return id;
+            };
+            const anclar = (pt: PuntoMedida, p3: [number, number, number]): string => {
+              if (pt.nodo && N[pt.nodo]) return pt.nodo;
+              const sg = pt.seg ? S[pt.seg] : undefined;
+              const id = nodoEn(pt.p3 || p3);
+              if (sg && id !== sg.nodeAId && id !== sg.nodeBId) {
+                delete S[sg.id];
+                const { tijeral: _t, ...base } = sg;
+                const a1 = nuevoId('seg_med'), a2 = nuevoId('seg_med');
+                S[a1] = { ...base, id: a1, nodeAId: sg.nodeAId, nodeBId: id };
+                S[a2] = { ...base, id: a2, nodeAId: id, nodeBId: sg.nodeBId };
+              }
+              return id;
+            };
+            const na = anclar(m.a, P(m.a.x, m.a.y));
+            const nb = mismoLargo ? anclar(m.b, P(bx, by)) : nodoEn(P(bx, by));
+            const dup = Object.values(S).some(s => (s.nodeAId === na && s.nodeBId === nb) || (s.nodeAId === nb && s.nodeBId === na));
+            if (na !== nb && !dup) { const id = nuevoId('seg_med'); S[id] = { id, nodeAId: na, nodeBId: nb, profileId: engineState.activeProfileId, rolEstructural: 'viga_principal' }; }
+            engineState.aplicarEdicion(N, S);
             setUltimaMedida(null);
           };
           return (
