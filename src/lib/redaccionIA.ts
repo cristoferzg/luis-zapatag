@@ -3,6 +3,7 @@
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from './firebase';
 import { motivoErrorIA, COSTO_CREDITOS, pedirPinSiLimitada, AVISO_CONFIRMA_PIN } from './aiAccess';
+import { avisarSaldoIA } from './saldoIA';
 
 export async function redactarConIA(tipo: 'propuesta' | 'contrato', datos: Record<string, unknown>): Promise<string> {
   const sim = import.meta.env.DEV ? (window as any).__redaccionSimulada as string | undefined : undefined;
@@ -11,6 +12,7 @@ export async function redactarConIA(tipo: 'propuesta' | 'contrato', datos: Recor
   try {
     const fn = httpsCallable<{ tipo: string; datos: Record<string, unknown> }, { texto: string }>(getFunctions(app, 'us-central1'), 'redactarDocumento', { timeout: 120000 });
     const { data } = await fn({ tipo, datos });
+    avisarSaldoIA();
     return data?.texto || '';
   } catch (e: any) {
     if (pedirPinSiLimitada(e)) throw new Error(AVISO_CONFIRMA_PIN);

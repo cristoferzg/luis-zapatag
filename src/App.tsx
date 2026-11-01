@@ -18,9 +18,10 @@ import { auth, authReady } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { useFirestoreArraySync } from './lib/db';
 import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
+import { useSaldoIA } from './lib/saldoIA';
 import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins } from 'lucide-react';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import type { BibliotecaItem } from './components/BibliotecaPremiumView';
 import { Capacitor } from '@capacitor/core';
@@ -39,6 +40,7 @@ const UsuariosView = lazy(() => import('./components/UsuariosView'));
 const SoporteYAsesoriasView = lazy(() => import('./components/SoporteYAsesoriasView'));
 const MaterialesYGastosView = lazy(() => import('./components/MaterialesYGastosView'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
+const MembresiaView = lazy(() => import('./components/MembresiaView'));
 const DiseñadorView = lazy(() => import('./components/DiseñadorView'));
 const HerreriaModuleView = lazy(() => import('./components/herreria/HerreriaModuleView'));
 const TechosModuleView = lazy(() => import('./components/techos/TechosModuleView'));
@@ -1618,7 +1620,10 @@ export default function App() {
   const vistasAbiertas = useRef(new Set<string>());
   vistasAbiertas.current.add(currentView);
   // Interruptor de la IA para usuarios (lo enciende el admin en Configuración).
-  const [, setIaUsuarios] = useState(false);
+  const [iaUsuarios, setIaUsuarios] = useState(false);
+  // Membresía y contador de créditos: solo si la IA está abierta a usuarios (el admin siempre).
+  const conMembresia = !!user && (isAdmin || iaUsuarios);
+  const { saldo: saldoIA } = useSaldoIA(conMembresia);
   useEffect(() => { if (user) cargarEstadoIA().then(setIaUsuarios); }, [user?.id]);
 
   // Strict isolation fallback: Filter arrays to strictly prevent cross-account leakage.
@@ -2213,6 +2218,7 @@ export default function App() {
             currentUser={user}
           />
         );
+      case 'membresia': return <MembresiaView isAdmin={isAdmin} />;
       case 'settings': 
         return (
           <SettingsView 
@@ -2265,6 +2271,7 @@ export default function App() {
 
   const allNavItems = [
     { id: 'dashboard', label: 'Panel Principal', icon: Activity },
+    ...(conMembresia ? [{ id: 'membresia', label: 'Membresía Premium', icon: Crown }] : []),
     { id: 'calculator', label: 'Calculadora Estructural', icon: Calculator },
     { id: 'techos', label: 'Techos Metálicos', icon: PenTool },
     { id: 'concreto', label: 'Obra Civil', icon: Box },
@@ -2459,6 +2466,12 @@ export default function App() {
                     <p className="text-[9px] text-slate-500 mt-0.5 truncate" title="Fecha de esta versión de la app">
                       Versión {new Date(__BUILD__).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </p>
+                    {conMembresia && saldoIA && !saldoIA.ilimitado && (
+                      <button onClick={() => { setCurrentView('membresia'); setIsMobileMenuOpen(false); }} title="Tus créditos Premium"
+                        className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[10px] font-black cursor-pointer hover:bg-amber-400/25">
+                        <Coins className="w-3 h-3" />{saldoIA.total.toLocaleString('es-PE')} créditos · {saldoIA.planId === 'gratis' ? 'Gratis' : saldoIA.planNombre}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <button 
@@ -2519,6 +2532,12 @@ export default function App() {
                  </p>
                </div>
              </div>
+             {conMembresia && saldoIA && !saldoIA.ilimitado && (
+               <button onClick={() => setCurrentView('membresia')} title="Tus créditos Premium"
+                 className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-black cursor-pointer">
+                 <Coins className="w-3.5 h-3.5 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')}
+               </button>
+             )}
           </header>
         )}
         

@@ -12,6 +12,7 @@
 // confirma antes de guardar.
 // ============================================================================
 import { motivoErrorIA, pedirPinSiLimitada, AVISO_CONFIRMA_PIN } from './aiAccess';
+import { avisarSaldoIA } from './saldoIA';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from './firebase';
 import jsQR from 'jsqr';
@@ -186,6 +187,7 @@ export async function scanReceiptWithAI(base64: string, mimeType: string, region
   const functions = getFunctions(app, region);
   const callable = httpsCallable<{ imageBase64: string; mimeType: string }, ReceiptData>(functions, 'scanReceipt', { timeout: 120000 });
   const { data } = await callable({ imageBase64: base64, mimeType });
+  avisarSaldoIA();
   return data || {};
 }
 

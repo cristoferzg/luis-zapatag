@@ -11,6 +11,7 @@
 // Mientras no esté desplegada, la llamada falla con 'failed-precondition' y el
 // cliente muestra un aviso (nada se rompe; el usuario dibuja a mano).
 // ============================================================================
+import { avisarSaldoIA } from './saldoIA';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from './firebase';
 import type { Node3D, Segment3D, RolEstructuralSegmento, CoverageZone3D } from '../components/techos/techosCadEngineTypes';
@@ -94,6 +95,7 @@ export async function analyzeRoofPlanWithAI(
   const functions = getFunctions(app, region);
   const callable = httpsCallable<{ imageBase64: string; mimeType: string }, RoofPlanData>(functions, 'analyzeRoofPlan', { timeout: 300000 });
   const res = await callable({ imageBase64: base64, mimeType });
+  avisarSaldoIA(); // se descontaron créditos: el contador de la cabecera se actualiza
   return res.data;
 }
 

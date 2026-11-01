@@ -122,6 +122,8 @@ export async function setConfigIA(planes: AIPlan[], packs: PackCreditos[]): Prom
 
 /** Estado de créditos de un usuario (null = nunca usó: plan Gratis). */
 export async function getAIAccess(userId: string): Promise<AIAccess | null> {
+  // Solo en el servidor local de pruebas (capturas): un saldo simulado.
+  if (import.meta.env.DEV && (window as any).__aiAccessSimulado) return (window as any).__aiAccessSimulado as AIAccess;
   try {
     const s = await getDoc(doc(db, 'ai_access', userId));
     return s.exists() ? (s.data() as AIAccess) : null;

@@ -24,7 +24,8 @@ const abrirWhatsApp = (msg: string) => {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
 };
 
-export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void; motivo?: 'sin_plan' | 'agotado' }) {
+/** Saldo, planes, recargas y condiciones (se usa en la ventana y en la página Membresía). */
+export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 sm:p-6 space-y-4 overflow-y-auto' }: { motivo?: 'sin_plan' | 'agotado'; sinSaldo?: boolean; className?: string }) {
   const [planes, setPlanes] = useState<AIPlan[]>([]);
   const [packs, setPacks] = useState<PackCreditos[]>([]);
   const [saldo, setSaldo] = useState<{ planId: string; mes: number; extra: number } | null>(null);
@@ -63,22 +64,9 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
   const actual = planes.find(p => p.id === saldo?.planId);
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-slate-900/70 backdrop-blur-sm sm:p-3" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-4xl max-h-[94vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-3 px-4 sm:px-6 py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950">
-          <div className="flex items-start gap-2.5 min-w-0">
-            <Sparkles className="w-6 h-6 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <h3 className="text-base sm:text-lg font-black leading-tight">Trabaja más rápido con las funciones inteligentes</h3>
-              <p className="text-xs font-semibold text-slate-900/80">Fotografía una boleta y se registra sola · Fotografía tu croquis y se dibuja el techo</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/10 cursor-pointer shrink-0" aria-label="Cerrar"><X className="w-5 h-5" /></button>
-        </div>
-
-        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto">
+        <div className={className}>
           {/* Saldo actual */}
-          {saldo && (
+          {saldo && !sinSaldo && (
             <div className={`rounded-2xl border p-3 flex flex-wrap items-center justify-between gap-3 ${motivo === 'agotado' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'}`}>
               <div className="flex items-center gap-2.5">
                 <Coins className="w-6 h-6 text-amber-500" />
@@ -177,6 +165,25 @@ export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void
             Al elegir se envía tu pedido al administrador por WhatsApp. Cuando valide tu pago, los créditos se cargan solos. Los créditos del plan se renuevan cada mes mientras esté vigente.
           </p>}
         </div>
+  );
+}
+
+export default function PlanesIAModal({ onClose, motivo }: { onClose: () => void; motivo?: 'sin_plan' | 'agotado' }) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-slate-900/70 backdrop-blur-sm sm:p-3" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-4xl max-h-[94vh] rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 px-4 sm:px-6 py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <Sparkles className="w-6 h-6 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-black leading-tight">Trabaja más rápido con las funciones inteligentes</h3>
+              <p className="text-xs font-semibold text-slate-900/80">Fotografía una boleta y se registra sola · Fotografía tu croquis y se dibuja el techo</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-black/10 cursor-pointer shrink-0" aria-label="Cerrar"><X className="w-5 h-5" /></button>
+        </div>
+
+        <PlanesIAContenido motivo={motivo} />
       </div>
     </div>
   );
