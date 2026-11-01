@@ -225,6 +225,23 @@ function getMallaTexture(): THREE.CanvasTexture {
 
 // Gota redonda pequeña y suave (cabeza de cada hilo de lluvia).
 let cachedGotaTexture: THREE.CanvasTexture | null = null;
+// Rótulo plano sobre el suelo (ADELANTE · CALLE, ATRÁS…), legible desde arriba.
+const cacheRotulos = new Map<string, THREE.CanvasTexture>();
+function rotuloSuelo(texto: string, color: string, alto = 0.55): THREE.Mesh {
+  let tex = cacheRotulos.get(texto + color);
+  if (!tex) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+    const g = c.getContext('2d')!;
+    g.fillStyle = 'rgba(255,255,255,0.85)'; g.beginPath(); (g as any).roundRect ? (g as any).roundRect(4, 8, 504, 80, 30) : g.rect(4, 8, 504, 80); g.fill();
+    g.fillStyle = color; g.font = '900 46px Inter, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(texto, 256, 50);
+    tex = new THREE.CanvasTexture(c); cacheRotulos.set(texto + color, tex);
+  }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(alto * 512 / 96, alto), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.renderOrder = 2; m.name = 'rotulo_lado';
+  return m;
+}
+
 function getGotaTexture(): THREE.CanvasTexture {
   if (cachedGotaTexture) return cachedGotaTexture;
   const canvas = document.createElement('canvas');
@@ -3107,6 +3124,24 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             modeloGroup.add(tubo);
           }
         });
+      });
+    }
+
+    // Lados de la obra en el suelo: así se sabe qué es "adelante (calle)", "atrás",
+    // "izquierda" y "derecha" al elegir la caída (es lo mismo que la planta).
+    if (!modoCliente && allNodeArray.length > 1) {
+      const xs = allNodeArray.map(n => n.x), zs = allNodeArray.map(n => n.z || 0);
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, sep = 1.6, h = Math.max(0.45, Math.min(1.1, Math.max(x1 - x0, z1 - z0) / 22));
+      const lados: [string, string, number, number, number][] = [
+        ['ADELANTE · CALLE', '#0f172a', cx, z1 + sep, 0], ['ATRÁS', '#475569', cx, z0 - sep, Math.PI],
+        ['IZQUIERDA', '#475569', x0 - sep, cz, Math.PI / 2], ['DERECHA', '#475569', x1 + sep, cz, -Math.PI / 2],
+      ];
+      lados.forEach(([t, col, x, z, rot], i) => {
+        const r = rotuloSuelo(t, col, h);
+        r.position.set(i < 2 ? x : x, 0.02, i < 2 ? z : z);
+        r.rotation.z = rot;
+        modeloGroup.add(r);
       });
     }
 
