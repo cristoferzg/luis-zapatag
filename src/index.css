@@ -17,3 +17,71 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
 /* Celular y tablet: el título del apartado va en la barra superior (estilo Android);
    el título grande de la página solo se muestra en PC. */
 @media (max-width: 1279.98px) { .titulo-pagina { display: none !important; } }
+
+/* ============================================================================
+   ESTILO "MARCA INNOVA" — solo en la app InnovApp (html.app-marca, ver index.html).
+   La web en el navegador no cambia.
+   ============================================================================ */
+.app-marca { --marca-azul: #0f2a4a; --marca-azul2: #123e6b; --marca-naranja: #f97316; --marca-fondo: #f4f6fa; }
+.app-marca main { background-color: var(--marca-fondo) !important; }
+.app-marca .flex-1.flex.flex-col.min-w-0.overflow-hidden.h-screen { background-color: var(--marca-fondo) !important; }
+
+/* Cabecera azul con el logo y esquinas redondas */
+.app-marca .barra-app {
+  height: auto !important; min-height: 64px; padding: 10px 16px 18px !important; gap: 12px !important;
+  background: linear-gradient(135deg, var(--marca-azul), var(--marca-azul2)) !important;
+  border-radius: 0 0 24px 24px; box-shadow: 0 10px 24px rgba(15, 42, 74, .22) !important; position: relative; z-index: 20;
+}
+.app-marca .barra-app img { width: 42px !important; height: 42px !important; border: none !important; border-radius: 13px !important; padding: 3px !important; }
+.app-marca .barra-app h1 { color: #fff !important; font-size: 19px !important; font-weight: 800 !important; letter-spacing: -.2px; }
+.app-marca .barra-app p { color: #fdba74 !important; }
+.app-marca .barra-app > button:last-child { color: #fff !important; background: rgba(255, 255, 255, .12); }
+.app-marca .barra-app > button:last-child:active { background: rgba(255, 255, 255, .25) !important; }
+
+/* Tarjetas: blancas, esquinas amplias y sombra suave (pantallas normales, no los lienzos de dibujo) */
+.app-marca main.overflow-y-auto .rounded-2xl.border,
+.app-marca main.overflow-y-auto .rounded-3xl.border { border-color: transparent !important; box-shadow: 0 6px 18px rgba(15, 42, 74, .07) !important; border-radius: 20px !important; }
+
+/* Barra de abajo: blanca, redondeada, ícono activo naranja y botón + al centro */
+.app-marca .nav-app { background: #fff !important; border-radius: 24px 24px 0 0; box-shadow: 0 -6px 20px rgba(15, 42, 74, .08); align-items: center !important; padding-top: 0 !important; }
+.app-marca .nav-app > button { width: auto !important; flex: 1 1 0; min-width: 0; }
+.app-marca .nav-app > button > span:first-child { background: transparent !important; width: 48px !important; height: 30px !important; color: #94a3b8 !important; transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), color .2s; }
+.app-marca .nav-app > button > span:first-child.bg-\[\#e8def8\] { color: var(--marca-naranja) !important; transform: translateY(-2px) scale(1.08); }
+.app-marca .nav-app > button > span:last-child { font-size: 11px !important; color: #94a3b8 !important; }
+.app-marca .nav-app > button > span.font-bold:last-child { color: var(--marca-azul) !important; }
+.app-marca .mas-centro {
+  flex: 0 0 auto; width: 58px; height: 58px; margin: -30px 2px 0; border-radius: 20px; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(145deg, #fb923c, var(--marca-naranja)); border: 4px solid var(--marca-fondo);
+  box-shadow: 0 10px 22px rgba(249, 115, 22, .45); transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
+}
+.app-marca .mas-centro:active { transform: scale(.9) rotate(90deg); }
+
+/* Menú lateral de marca: degradado azul, botones redondeados con el ícono en una cajita
+   y el apartado activo en naranja. */
+.app-marca .menu-lateral { background: linear-gradient(180deg, var(--marca-azul), #0b1f38) !important; }
+.app-marca .menu-lateral .border-slate-800, .app-marca .menu-lateral .border-slate-800\/80 { border-color: rgba(255, 255, 255, .08) !important; }
+.app-marca .menu-lateral .bg-slate-950\/70 { background: rgba(0, 0, 0, .18) !important; }
+.app-marca .menu-lateral .space-y-0\.5 > * + * { margin-top: 4px !important; }
+.app-marca .item-menu { border-radius: 14px !important; padding-top: 7px !important; padding-bottom: 7px !important; color: #cbd5e1 !important; transition: background .2s, transform .15s; }
+.app-marca .item-menu:active { transform: scale(.97); }
+.app-marca .item-menu > svg { width: 34px !important; height: 34px !important; padding: 8px; border-radius: 11px; background: rgba(255, 255, 255, .07); color: #93c5fd !important; }
+.app-marca .item-menu > span.absolute { display: none; }
+.app-marca .item-menu:hover { background: rgba(255, 255, 255, .06) !important; }
+.app-marca .item-menu.activo { background: linear-gradient(90deg, var(--marca-naranja), #fb923c) !important; color: #fff !important; box-shadow: 0 8px 18px rgba(249, 115, 22, .35); }
+.app-marca .item-menu.activo > svg { background: rgba(255, 255, 255, .22); color: #fff !important; }
+.app-marca .item-menu > span.truncate { font-size: 14px !important; }
+
+/* Entrada suave de cada pantalla */
+@keyframes marca-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.app-marca main > * { animation: marca-entra .25s ease-out; }
+@media (prefers-reduced-motion: reduce) { .app-marca main > *, .app-marca .mas-centro, .app-marca .nav-app span { animation: none !important; transition: none !important; } }
+
+/* Celular apaisado y tablet: barra de abajo flotante y centrada, cabecera alineada */
+@media (min-width: 640px) {
+  .app-marca .nav-app { width: min(560px, calc(100% - 32px)); margin: 0 auto 12px; border-radius: 26px; box-shadow: 0 10px 30px rgba(15, 42, 74, .16); }
+  .app-marca .barra-app { padding-left: 24px !important; padding-right: 24px !important; }
+}
+@media (min-width: 640px) and (max-width: 1279.98px) { .app-marca .menu-lateral { width: 300px !important; } }
+@media (max-width: 1279.98px) { .app-marca .menu-lateral { border-radius: 0 26px 26px 0; } }
+@media (max-width: 359.98px) { .app-marca .nav-app > button > span:last-child { font-size: 10px !important; } .app-marca .mas-centro { width: 52px; height: 52px; } }

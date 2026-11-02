@@ -31,6 +31,9 @@ import type { TutorialVideo, CourseCategory } from './components/UsabilidadVideo
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
+// Estilo "Marca Innova" (cabecera azul, botón + al centro, menú de marca): solo en la
+// app InnovApp. index.html pone la clase en <html>; la web no cambia.
+const ESTILO_MARCA = typeof document !== 'undefined' && document.documentElement.classList.contains('app-marca');
 
 import { formatCurrencyWithSymbol } from './lib/currency';
 
@@ -2412,7 +2415,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <div className={`fixed xl:static inset-y-0 left-0 z-50 ${isSidebarCollapsed ? 'xl:w-20 w-72' : 'w-72'} bg-slate-900 text-slate-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} xl:translate-x-0 transition-transform duration-200 ease-out flex flex-col`}>
+      <div className={`menu-lateral fixed xl:static inset-y-0 left-0 z-50 ${isSidebarCollapsed ? 'xl:w-20 w-72' : 'w-72'} bg-slate-900 text-slate-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} xl:translate-x-0 transition-transform duration-200 ease-out flex flex-col`}>
         <div className={`p-4 flex items-center ${isSidebarCollapsed ? 'justify-center xl:px-2' : 'justify-between'} border-b border-slate-800`}>
           <div className="flex items-center space-x-2.5 min-w-0 flex-1 mr-2">
             <img 
@@ -2460,7 +2463,7 @@ export default function App() {
                 <button
                   key={item.id}
                   onClick={() => { setCurrentView(item.id as ViewType); setIsMobileMenuOpen(false); }}
-                  className={`group w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'pl-3 pr-2.5 py-2'} rounded-lg transition-colors relative ${
+                  className={`item-menu ${isActive ? 'activo' : ''} group w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'pl-3 pr-2.5 py-2'} rounded-lg transition-colors relative ${
                     isActive
                       ? 'bg-slate-800 text-white font-semibold'
                       : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
@@ -2570,7 +2573,7 @@ export default function App() {
         {/* CELULAR / APP: barra superior estilo Android (Material 3). En los lienzos de dibujo
             (Techos, Carpintería) no va: el módulo ya tiene su propio encabezado y gana espacio. */}
         {!['designer', 'techos', 'herreria', 'carpinteria'].includes(currentView) && (
-          <header className="xl:hidden h-14 bg-white flex items-center gap-3 px-3 shrink-0 z-10 shadow-[0_1px_0_#e7e0ec]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <header className="barra-app xl:hidden h-14 bg-white flex items-center gap-3 px-3 shrink-0 z-10 shadow-[0_1px_0_#e7e0ec]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
             <img src={activeLogo} alt="" className="w-9 h-9 rounded-xl object-cover bg-white border border-slate-200 p-0.5 shrink-0"
               onError={(e) => { (e.target as HTMLImageElement).src = defaultAdminLogo; }} />
             <div className="min-w-0 flex-1">
@@ -2669,15 +2672,20 @@ export default function App() {
           </main>
         )}
         {/* CELULAR / APP: barra de navegación inferior estilo Android (Material 3) */}
-        <nav className="xl:hidden shrink-0 bg-[#f3edf7] flex justify-around items-start pt-2 z-30" style={{ height: 'calc(72px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {barraInferior.map(it => {
+        <nav className="nav-app xl:hidden shrink-0 bg-[#f3edf7] flex justify-around items-start pt-2 z-30" style={{ height: 'calc(72px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {barraInferior.map((it, i) => {
+            const centro = ESTILO_MARCA && fabActual && !isMobileMenuOpen && i === 2 ? (
+              <button key="mas-centro" onClick={() => { tocar(); ejecutarFab(); }} title={fabActual.label} aria-label={fabActual.label} className="mas-centro cursor-pointer">
+                <Plus className="w-7 h-7" />
+              </button>
+            ) : null;
             const activo = it.id === 'mas' ? isMobileMenuOpen : (currentView === it.id && !isMobileMenuOpen);
-            return (
-              <button key={it.id} onClick={() => { tocar(); if (it.id === 'mas') setIsMobileMenuOpen(true); else { setIsMobileMenuOpen(false); setCurrentView(it.id as ViewType); } }}
+            return (<React.Fragment key={it.id}>{centro}
+              <button onClick={() => { tocar(); if (it.id === 'mas') setIsMobileMenuOpen(true); else { setIsMobileMenuOpen(false); setCurrentView(it.id as ViewType); } }}
                 className="flex flex-col items-center gap-1 w-16 cursor-pointer">
                 <span className={`w-16 h-8 rounded-full flex items-center justify-center transition-colors ${activo ? 'bg-[#e8def8] text-slate-900' : 'text-slate-600'}`}><it.icon className="w-6 h-6" /></span>
                 <span className={`text-[12px] ${activo ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{it.label}</span>
-              </button>
+              </button></React.Fragment>
             );
           })}
         </nav>
@@ -2685,7 +2693,7 @@ export default function App() {
       
       {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/50 z-40 xl:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
       {/* CELULAR / TABLET: botón con texto de la pantalla (crear lo que corresponde ahí) */}
-      {!isMobileMenuOpen && fabActual && (
+      {!isMobileMenuOpen && fabActual && !ESTILO_MARCA && (
         <button onClick={() => { tocar(); ejecutarFab(); }}
           className="xl:hidden fixed right-4 z-[46] h-14 pl-4 pr-5 rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex items-center gap-2.5 text-[15px] font-semibold cursor-pointer active:scale-95 transition-transform"
           style={{ bottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
