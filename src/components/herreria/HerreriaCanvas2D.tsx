@@ -1896,7 +1896,8 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       {/* ========================================================
           DOCK FLOTANTE INFERIOR DERECHO: ZOOM Y AJUSTES SNAP (TOUCH FRIENDLY)
       ======================================================== */}
-      <div className="absolute bottom-4 right-3 z-30 flex flex-col gap-1.5 pointer-events-auto select-none items-end">
+      {/* Nunca más alto que el lienzo: en celular ya no se monta sobre las pestañas de arriba. */}
+      <div className="absolute bottom-4 right-3 z-30 flex flex-col gap-1.5 pointer-events-auto select-none items-end max-h-[calc(100%-1.5rem)] overflow-y-auto overscroll-contain [scrollbar-width:none]">
         {/* SNAP Magnético y Ortho */}
         <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-2xl shadow-md border border-slate-200 flex flex-col gap-1">
           <button

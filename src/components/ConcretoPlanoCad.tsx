@@ -998,6 +998,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   // Celular: paneles (Elementos, Metrado, Ambientes…) en una hoja que sube desde abajo.
   const [hoja, setHoja] = useState(false);
   const [masHerr, setMasHerr] = useState(false);
+  const [hojaHerr, setHojaHerr] = useState(false); // celular: panel 'Herramientas' desde abajo
   useEffect(() => { if (!esPC && (selUid || selAb || selBloque || selInst)) setHoja(true); }, [selUid, selAb, selBloque, selInst]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const f = () => setEsPC(window.innerWidth >= 1024);
@@ -1155,7 +1156,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   return (
     <div className="lg:w-full h-full flex flex-col bg-slate-50 max-lg:-mx-4 max-lg:pb-12">
       {/* Estructura de Techos vinculada */}
-      <div className="flex items-center gap-2 px-2 py-1.5 lg:py-2 bg-white border-b border-slate-100 max-lg:flex-nowrap max-lg:overflow-x-auto max-lg:whitespace-nowrap lg:flex-wrap [&>*]:shrink-0">
+      <div className="max-sm:hidden flex items-center gap-2 px-2 py-1.5 lg:py-2 bg-white border-b border-slate-100 max-lg:flex-nowrap max-lg:overflow-x-auto max-lg:whitespace-nowrap lg:flex-wrap [&>*]:shrink-0">
         <span className="text-[11px] font-bold text-slate-500"><span className="lg:hidden">Techo</span><span className="hidden lg:inline">Estructura (Techos Metálicos)</span></span>
         <select value={techosId} onChange={e => setTechosId(e.target.value)}
           className="px-2.5 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none max-w-[260px]">
@@ -1198,7 +1199,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {!estructura && disenos.length === 0 && <span className="hidden sm:inline text-[11px] text-slate-400">Guarda un diseño en Techos Metálicos para verlo aquí.</span>}
       </div>
       {/* Barra de herramientas */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0">
+      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0 max-sm:flex-wrap max-sm:overflow-visible">
         {/* Piso activo para muros + material del próximo muro */}
         <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
           Piso
@@ -1229,9 +1230,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
           </select>
         )}
-        <div className="h-5 w-px bg-slate-200 mx-1" />
+        <div className="max-sm:hidden h-5 w-px bg-slate-200 mx-1" />
         <button onClick={encuadrar} disabled={elems.length === 0 && !plantaTechos.lineas.length} title="Encuadrar (ver todo)"
-          className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
+          className="max-sm:hidden inline-flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
           <Maximize className="w-3.5 h-3.5" />
         </button>
         {/* Atrás / Adelante siempre a la vista en PC (en 2D y en 3D) */}
@@ -1244,29 +1245,33 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           <Redo2 className="w-3.5 h-3.5" /> Adelante
         </button>
         <AtajosTeclado grupos={gruposAtajos} alinear="izquierda" />
-        <div className="h-5 w-px bg-slate-200 mx-1" />
+        <div className="max-sm:hidden h-5 w-px bg-slate-200 mx-1" />
         {(selUid || selAb || selBloque || selInst) && (
           <button onClick={() => selInst ? (setInstalaciones(prev => prev.filter(q => q.uid !== selInst)), setSelInst(null)) : selBloque ? (setBloques(prev => prev.filter(x => x.uid !== selBloque)), setSelBloque(null)) : selAb ? removeAbertura(selAb.uid, selAb.id) : removeSel()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100">
             <Trash2 className="w-3.5 h-3.5" /> Eliminar
           </button>
         )}
         <button onClick={() => { if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Vaciar el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-500 border border-slate-200 cursor-pointer hover:bg-slate-100">
+          className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-500 border border-slate-200 cursor-pointer hover:bg-slate-100">
           <Trash2 className="w-3.5 h-3.5" /> Vaciar
         </button>
         <button onClick={exportar} disabled={elems.length === 0}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-stone-700 text-white cursor-pointer hover:bg-stone-800 disabled:opacity-40">
+          className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-stone-700 text-white cursor-pointer hover:bg-stone-800 disabled:opacity-40">
           <Download className="w-3.5 h-3.5" /> Exportar
         </button>
         <button onClick={exportarDxf} disabled={elems.length === 0} title="Plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 text-white cursor-pointer hover:bg-blue-700 disabled:opacity-40">
+          className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 text-white cursor-pointer hover:bg-blue-700 disabled:opacity-40">
           <Download className="w-3.5 h-3.5" /> DXF AutoCAD
         </button>
         {!vista3d && (
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded-lg">
+          <span className="max-sm:hidden inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded-lg">
             <Grid3x3 className="w-3.5 h-3.5" /> {cursor.x.toFixed(2)}, {cursor.y.toFixed(2)} m
           </span>
         )}
+        {/* Celular: todo lo demás en un panel con nombres (como en Techos) */}
+        <button onClick={() => setHojaHerr(true)} className="sm:hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 cursor-pointer">
+          <span className="text-base leading-none">⋯</span> Herramientas
+        </button>
         {/* Toggle 2D / 3D */}
         <div className="ml-auto inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
           <button onClick={() => setVista3d(false)}
@@ -1279,6 +1284,36 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           </button>
         </div>
       </div>
+
+      {hojaHerr && (
+        <div className="sm:hidden fixed inset-0 z-[95]" onClick={() => setHojaHerr(false)}>
+          <div className="absolute inset-0 bg-slate-900/40" />
+          <div className="absolute left-0 right-0 bottom-0 max-h-[80vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl p-3 pb-[calc(16px+env(safe-area-inset-bottom))] space-y-2" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-1">
+              <span className="text-base font-black text-slate-900">Herramientas</span>
+              <button onClick={() => setHojaHerr(false)} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Cerrar</button>
+            </div>
+            <label className="block rounded-2xl bg-slate-50 p-2.5 text-[11px] font-bold text-slate-500">Estructura de Techos Metálicos
+              <select value={techosId} onChange={e => setTechosId(e.target.value)} className="mt-1 w-full px-2.5 py-2 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-700">
+                <option value="">— Sin estructura —</option>
+                {disenos.filter(d => d.id === techosId || esPlanoMio(d)).map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+              </select>
+            </label>
+            <div className="grid grid-cols-2 gap-1.5 [&>button]:min-h-[52px] [&>button]:rounded-2xl [&>button]:bg-slate-50 [&>button]:px-3 [&>button]:text-left [&>button]:text-[13px] [&>button]:font-semibold [&>button]:text-slate-700 [&>button]:flex [&>button]:items-center [&>button]:gap-2 [&>button]:cursor-pointer [&>button:disabled]:opacity-40">
+              {estructura && onEditarEnTechos && (
+                <button onClick={() => { setHojaHerr(false); if (disenoVinculado) onEditarEnTechos(disenoVinculado); }}><Layers className="w-4 h-4 text-blue-600 shrink-0" /> Editar en Techos</button>
+              )}
+              {estructura && !esDrywall && (
+                <button onClick={() => { setHojaHerr(false); cimentacionAutomatica(); }}><Square className="w-4 h-4 text-amber-600 shrink-0" /> Cimentación bajo columnas</button>
+              )}
+              <button onClick={() => { setHojaHerr(false); encuadrar(); }} disabled={elems.length === 0 && !plantaTechos.lineas.length}><Maximize className="w-4 h-4 text-slate-600 shrink-0" /> Ver todo</button>
+              <button onClick={() => { setHojaHerr(false); exportar(); }} disabled={elems.length === 0}><Download className="w-4 h-4 text-stone-700 shrink-0" /> Exportar</button>
+              <button onClick={() => { setHojaHerr(false); exportarDxf(); }} disabled={elems.length === 0}><Download className="w-4 h-4 text-blue-600 shrink-0" /> DXF AutoCAD</button>
+              <button onClick={() => { setHojaHerr(false); if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Vaciar el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}><Trash2 className="w-4 h-4 text-rose-600 shrink-0" /> Vaciar plano</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* VISTA 3D */}
@@ -1651,16 +1686,16 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               return (
                 <button key={t.id} type="button" title={t.label}
                   onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }}
-                  className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'w-10 h-10'} rounded-xl text-[10px] font-bold cursor-pointer transition-all ${act ? 'text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}
+                  className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'w-12 py-1'} rounded-xl text-[10px] font-bold cursor-pointer transition-all ${act ? 'text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}
                   style={act ? { backgroundColor: col } : undefined}>
-                  <Ic className={esPC ? 'w-4 h-4' : 'w-[18px] h-[18px]'} />{esPC && <span className="text-center leading-tight">{t.label.replace('/', '/\u200b')}</span>}
+                  <Ic className={esPC ? 'w-4 h-4' : 'w-[18px] h-[18px]'} />{esPC ? <span className="text-center leading-tight">{t.label.replace('/', '/\u200b')}</span> : <span className="text-[8.5px] text-center leading-none">{t.id === 'select' ? 'Selec.' : t.id === 'pan' ? 'Mover' : t.label.split(/[ /]/)[0]}</span>}
                 </button>
               );
             };
             const histBtn = (fn: () => void, ok: boolean, Ic: any, txt: string, tip: string) => (
               <button type="button" onClick={fn} disabled={!ok} title={tip}
-                className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'w-10 h-10'} rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:cursor-default`}>
-                <Ic className={esPC ? 'w-4 h-4' : 'w-[18px] h-[18px]'} />{esPC && txt}
+                className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'w-12 py-1'} rounded-xl text-[10px] font-bold text-slate-600 hover:bg-slate-100 cursor-pointer disabled:opacity-30 disabled:cursor-default`}>
+                <Ic className={esPC ? 'w-4 h-4' : 'w-[18px] h-[18px]'} />{esPC ? txt : <span className="text-[8.5px] leading-none">{txt}</span>}
               </button>
             );
             if (!esPC) {
@@ -1759,7 +1794,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           </button>
         )}
         <div className={esPC ? 'lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto'
-          : `fixed left-0 right-0 bottom-[calc(120px+env(safe-area-inset-bottom))] z-[44] bg-white border-t border-slate-200 shadow-2xl p-3 space-y-3 overflow-y-auto transition-transform duration-200 max-h-[62dvh] ${hoja ? 'translate-y-0' : 'translate-y-[120%]'}`}>
+          : `fixed left-0 right-0 bottom-[calc(120px+env(safe-area-inset-bottom))] z-[44] bg-white border-t border-slate-200 shadow-2xl p-3 space-y-3 overflow-y-auto transition-transform duration-200 max-h-[62dvh] ${hoja ? 'translate-y-0' : 'translate-y-[calc(100%+160px)] invisible pointer-events-none'}`}>
           {/* PUNTO DE INSTALACIÓN SELECCIONADO */}
           {(() => { const q = instalaciones.find(x => x.uid === selInst); if (!q) return null; const d = INSTALACIONES[q.tipo]; return (
             <div className="rounded-2xl border-2 border-sky-300 bg-sky-50/60 p-3 space-y-2">
