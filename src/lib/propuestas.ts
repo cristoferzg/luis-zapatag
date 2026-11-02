@@ -21,6 +21,8 @@ export interface PropuestaPublica {
   imagen: string; antes: string;
   carta?: string;
   escena: { nodes: any; segments: any; coverageZones: any };
+  /** Obra Civil / Drywall ligada a este techo (muros, columnas, losas, drywall): se ve en el 3D. */
+  obra?: { elems: any[]; niveles: string[]; bloques?: any[]; cielos?: any; sobrepechos?: any; acabados?: any };
   incluye: string[];
   /** Datos del cliente tal como están registrados (van cifrados con su DNI o celular). */
   datosCliente?: { nombre: string; dni?: string; celular?: string; direccion?: string; email?: string; empresa?: string };
@@ -90,6 +92,7 @@ export async function publicarPropuesta(p: PropuestaPublica, clave: string): Pro
   if (pesa(datos) > 950_000) {
     // Firestore admite ~1 MB por documento: se quita la foto "antes" y, si aún no entra, la escena.
     contenido.antes = ''; datos = await armar();
+    if (pesa(datos) > 950_000 && contenido.obra) { delete contenido.obra; datos = await armar(); }
     if (pesa(datos) > 950_000) { contenido.escena = { nodes: {}, segments: {}, coverageZones: {} }; datos = await armar(); }
     if (pesa(datos) > 950_000) { datos.empresa.logo = ''; }
     if (pesa(datos) > 950_000) throw new Error('La propuesta es demasiado grande para el link (quita la foto real o usa una imagen más pequeña).');

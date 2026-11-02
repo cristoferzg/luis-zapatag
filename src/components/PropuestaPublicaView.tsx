@@ -3,12 +3,15 @@
 // techo en 3D, compara las opciones, elige una y la acepta con su nombre.
 // Para verla escribe su DNI o celular (la propuesta va cifrada con ese dato).
 // =============================================================================
-import { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { CheckCircle2, Send, Loader2, Lock, FileSignature, ShieldCheck } from 'lucide-react';
 import { leerPropuesta, aceptarPropuesta, abrirPropuesta, claveValida, PropuestaPublica, PropuestaBloqueada } from '../lib/propuestas';
 import { clausulasContrato } from '../lib/contratoPropuesta';
+import { sinOcultos } from './concreto/obraPisos';
 
 const TechosViewer3D = lazy(() => import('./techos/TechosViewer3D').then(m => ({ default: m.TechosViewer3D })));
+const ConcretoViewer3D = lazy(() => import('./ConcretoViewer3D'));
+const sinLogoRoto = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none'; };
 const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function PropuestaPublicaView({ id }: { id: string }) {
@@ -74,7 +77,7 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
 
   const mostrar = (d: PropuestaPublica) => {
     setP(d); setEstado('ok');
-    setVer3d(!d.imagen && Object.keys(d.escena?.nodes || {}).length > 0); // sin foto: el 3D se ve directo
+    setVer3d(!d.imagen && (Object.keys(d.escena?.nodes || {}).length > 0 || !!d.obra?.elems?.length)); // sin foto: el 3D se ve directo
     setElegida(d.aceptadaOpcion ?? Math.max(0, d.opciones.findIndex(o => o.recomendada)));
     document.title = `Propuesta · ${d.proyecto}`;
   };
@@ -96,7 +99,7 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
         <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden">
           <div className="p-5 text-white flex items-center gap-3" style={{ background: c }}>
-            {bloq.empresa.logo && <img src={bloq.empresa.logo} alt="" className="h-12 w-12 object-contain bg-white rounded-xl p-1" />}
+            {bloq.empresa.logo && <img src={bloq.empresa.logo} alt="" className="h-12 w-12 object-contain bg-white rounded-xl p-1" onError={sinLogoRoto} />}
             <div className="min-w-0">
               <p className="text-xs font-bold opacity-90">{bloq.empresa.nombre || 'Tu proveedor'}</p>
               <h1 className="text-lg font-black leading-tight">Tu propuesta de techo</h1>
@@ -124,7 +127,7 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
 
   const color = p.empresa.color || '#f59e0b';
   const aceptada = p.estado === 'aceptada';
-  const hay3d = Object.keys(p.escena?.nodes || {}).length > 0;
+  const hay3d = Object.keys(p.escena?.nodes || {}).length > 0 || !!p.obra?.elems?.length;
   const aceptar = async () => {
     if (!nombre.trim()) return;
     setEnviando(true);
@@ -144,7 +147,7 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
   const quien = p.datosCliente?.nombre || p.cliente || 'Cliente';
   const dniMarca = p.datosCliente?.dni ? ` · DNI ••••${p.datosCliente.dni.slice(-3)}` : '';
   const textoMarca = `${quien}${dniMarca} · ${new Date().toLocaleDateString('es-PE')} · CONFIDENCIAL`.replace(/[<>&"]/g, '');
-  const marcaSvg = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='340' height='200'><text x='10' y='120' transform='rotate(-28 170 100)' fill='%23334155' fill-opacity='0.13' font-family='Arial' font-size='15' font-weight='700'>${textoMarca}</text></svg>`).replace(/%2523/g, '%23')}")`;
+  const marcaSvg = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='340' height='200'><text x='10' y='120' transform='rotate(-28 170 100)' fill='%23334155' fill-opacity='0.2' font-family='Arial' font-size='15' font-weight='700'>${textoMarca}</text></svg>`).replace(/%2523/g, '%23')}")`;
   const contrato = p.contrato ? clausulasContrato(p.contrato, {
     cliente: p.datosCliente?.nombre || p.cliente, dni: p.datosCliente?.dni, direccion: p.datosCliente?.direccion, proyecto: p.proyecto, ubicacion: p.ubicacion,
     total: p.opciones[elegida]?.total || 0, opcion: p.opciones[elegida]?.nombre || '', cobertura: p.opciones[elegida]?.cobertura || '', incluye: p.incluye || [],
@@ -163,7 +166,7 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
       )}
       <header className="text-white" style={{ background: color }}>
         <div className="max-w-4xl mx-auto px-4 py-5 flex items-center gap-3">
-          {p.empresa.logo && <img src={p.empresa.logo} alt="" className="h-12 w-12 object-contain bg-white rounded-xl p-1" />}
+          {p.empresa.logo && <img src={p.empresa.logo} alt="" className="h-12 w-12 object-contain bg-white rounded-xl p-1" onError={sinLogoRoto} />}
           <div className="min-w-0">
             <p className="text-xs font-bold opacity-90">{p.empresa.nombre}{p.empresa.telefono ? ` · Cel. ${p.empresa.telefono}` : ''}</p>
             <h1 className="text-xl sm:text-2xl font-black leading-tight">{p.proyecto}</h1>
@@ -201,7 +204,14 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
           {ver3d && hay3d ? (
             <div className="h-[60vh] min-h-[360px] relative">
               <Suspense fallback={<div className="h-full flex items-center justify-center text-slate-400">Cargando 3D…</div>}>
-                <TechosViewer3D nodes={p.escena.nodes} segments={p.escena.segments} coverageZones={p.escena.coverageZones} modoCliente />
+                {p.obra?.elems?.length ? (
+                  // Obra completa: muros, columnas, losas y drywall con el techo encima.
+                  <ConcretoViewer3D elems={p.obra.elems} niveles={p.obra.niveles} bloques={p.obra.bloques || []} cielos={p.obra.cielos || {}}
+                    sobrepechos={p.obra.sobrepechos || {}} acabados={p.obra.acabados || {}} claveCamara={`propuesta_${id}`}
+                    estructura={sinOcultos({ nodes: p.escena.nodes || {}, segments: p.escena.segments || {}, coverageZones: p.escena.coverageZones || {} }) as any} />
+                ) : (
+                  <TechosViewer3D nodes={p.escena.nodes} segments={p.escena.segments} coverageZones={p.escena.coverageZones} modoCliente />
+                )}
               </Suspense>
             </div>
           ) : p.antes && p.imagen ? (
@@ -212,7 +222,7 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
           ) : p.imagen ? <img src={p.imagen} alt="Tu techo" className="w-full" /> : null}
           {hay3d && (
             <button onClick={() => setVer3d(v => !v)} className="w-full py-3 text-sm font-black text-white cursor-pointer" style={{ background: color }}>
-              {ver3d ? 'Ver la imagen' : 'Ver mi techo en 3D (gíralo con el dedo)'}
+              {ver3d ? 'Ver la imagen' : p.obra?.elems?.length ? 'Ver mi obra en 3D (gírala con el dedo)' : 'Ver mi techo en 3D (gíralo con el dedo)'}
             </button>
           )}
         </section>

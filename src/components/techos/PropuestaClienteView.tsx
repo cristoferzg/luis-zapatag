@@ -15,6 +15,35 @@ import type { ContratoPropuesta } from '../../lib/contratoPropuesta';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import { fotoPropuesta } from './fotoPropuesta';
 import { safeStorage } from '../../lib/storageManager';
+import { KEY_OBRA_TECHOS_ID } from '../concreto/obraPisos';
+import { KEY_BLOQUES } from '../concreto/bloques';
+import { KEY_ACABADOS } from '../concreto/extrasObra';
+import { KEY_CIELOS, KEY_SOBREPECHOS } from '../concreto/geometriaObra';
+
+/** El logo va dentro del link como una imagen chica (PNG ~160 px). Así no se rompe si
+ *  era una ruta del sistema que cambia al actualizar, ni pesa demasiado. */
+async function logoParaLink(src: string): Promise<string> {
+  if (!src) return '';
+  try {
+    const img = await new Promise<HTMLImageElement>((ok, mal) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => ok(i); i.onerror = mal; i.src = src; });
+    const L = 160, k = Math.min(1, L / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/png');
+  } catch { return src.startsWith('data:') && src.length < 250000 ? src : ''; }
+}
+
+/** La obra (Obra Civil / Drywall) ligada a este diseño de Techos, para verla en el 3D del link. */
+function obraDelDiseno(disenoId?: string) {
+  if (!disenoId || safeStorage.getItem<string>(KEY_OBRA_TECHOS_ID, '') !== disenoId) return undefined;
+  const elems = safeStorage.getItem<any[]>('concreto_plano_elems', []) || [];
+  if (!elems.length) return undefined;
+  return {
+    elems, niveles: safeStorage.getItem<string[]>('concreto_metrados_niveles', ['Cimentación', 'Piso 1']) || ['Cimentación', 'Piso 1'],
+    bloques: safeStorage.getItem<any[]>(KEY_BLOQUES, []) || [], cielos: safeStorage.getItem<any>(KEY_CIELOS, {}) || {},
+    sobrepechos: safeStorage.getItem<any>(KEY_SOBREPECHOS, {}) || {}, acabados: safeStorage.getItem<any>(KEY_ACABADOS, {}) || {},
+  };
+}
 import { publicarPropuesta, claveValida, normalizarClave } from '../../lib/propuestas';
 import { redactarConIA } from '../../lib/redaccionIA';
 import { iaVisibleParaUI } from '../../lib/aiAccess';
@@ -141,12 +170,14 @@ export default function PropuestaClienteView({
   const publicar = async () => {
     setPublicando(true); setError(null);
     try {
+      const obra = obraDelDiseno(disenoId);
       const id = await publicarPropuesta({
-        empresa: { nombre: datos.nombre, telefono: datos.telefono, ruc: datos.ruc, logo: datos.logo && datos.logo.length < 250000 ? datos.logo : '', color },
+        empresa: { nombre: datos.nombre, telefono: datos.telefono, ruc: datos.ruc, logo: await logoParaLink(datos.logo), color },
         proyecto: nombreProyecto, cliente, ubicacion,
         opciones: opciones.map((o, i) => ({ nombre: o.nombre, cobertura: nombreCob(o.coberturaId), nota: o.nota, total: totalDe(i), recomendada: i === recomendada })),
         imagen: foto.despues || '', antes: foto.antes || '', carta,
         escena: { nodes, segments, coverageZones },
+        ...(obra ? { obra } : {}),
         incluye,
         ...(conContrato ? { contrato: {
           contratista: contratista || { nombre: datos.nombre, ruc: datos.ruc, direccion: datos.direccion, telefono: datos.telefono },
@@ -274,7 +305,7 @@ export default function PropuestaClienteView({
             {/* PORTADA */}
             <div className="rounded-2xl p-5 text-white mb-5" style={{ background: color }}>
               <div className="flex items-center gap-3">
-                {datos.logo && <img src={datos.logo} alt="" className="h-12 w-12 object-contain bg-white rounded-xl p-1" />}
+                {datos.logo && <img src={datos.logo} alt="" className="h-12 w-12 object-contain bg-white rounded-xl p-1" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
                 <div className="min-w-0">
                   <p className="text-xs font-bold opacity-90">{datos.nombre || 'Tu empresa'}{datos.telefono ? ` · Cel. ${datos.telefono}` : ''}</p>
                   <h1 className="text-2xl sm:text-3xl font-black leading-tight">Propuesta de techo metálico</h1>
