@@ -30,6 +30,7 @@ import { App as CapApp } from '@capacitor/app';
 import type { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
+import { forzarActualizacion } from './lib/versionNueva';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol } from './lib/currency';
@@ -2497,9 +2498,11 @@ export default function App() {
               <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
               <span className="font-mono font-bold text-slate-300 truncate" title="Versión del sistema · fecha de esta compilación">{currentSettings.softwareVersion || 'v3.9.5 Pro'} <span className="font-semibold text-slate-500">· {fechaCompilacion}</span></span>
             </div>
-            <span className="shrink-0 whitespace-nowrap text-[10px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-              Al Día
-            </span>
+            <button type="button" onClick={() => { if (window.confirm('¿Buscar la versión más nueva y recargar?\n\nSe borra solo la copia guardada del programa; tus proyectos, diseños y sesión no se tocan.')) forzarActualizacion(); }}
+              title="Trae la versión más nueva del sistema (borra la copia guardada del programa, no tus datos)"
+              className="shrink-0 whitespace-nowrap text-[10px] font-extrabold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md cursor-pointer hover:bg-emerald-500/20">
+              ↻ Actualizar
+            </button>
           </div>
         )}
 

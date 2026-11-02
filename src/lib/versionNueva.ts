@@ -17,3 +17,14 @@ export function recargarPorVersionNueva(): boolean {
   window.location.reload();
   return true;
 }
+
+/** Botón "Actualizar ahora": borra la caché de la app y el service worker y recarga
+ *  desde el servidor (no toca los datos guardados: proyectos, diseños, sesión). */
+export async function forzarActualizacion(): Promise<void> {
+  try {
+    if ('caches' in window) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); }
+    if ('serviceWorker' in navigator) { const rs = await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r => r.unregister())); }
+  } catch { /* se recarga igual */ }
+  const u = new URL(window.location.href); u.searchParams.set('v', String(Date.now()));
+  window.location.replace(u.toString());
+}

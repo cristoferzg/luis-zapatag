@@ -270,7 +270,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [showControlsSumilla, setShowControlsSumilla] = useState<boolean>(false);
   const [showCadMore, setShowCadMore] = useState<boolean>(false); // menú "⋯ Más" (acciones secundarias)
   // La barra superior tiene scroll horizontal y recortaría un menú absoluto.
-  const [cadMorePos, setCadMorePos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const [cadMorePos, setCadMorePos] = useState<{ top: number; left: number }>({ top: 0, left: 8 });
+  const [cadMoreMovil, setCadMoreMovil] = useState(false); // en celular el menú sale como panel desde abajo
 
   // Cota Numérica Exacta Modal
   const [showDimensionModal, setShowDimensionModal] = useState<boolean>(false);
@@ -1579,7 +1580,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           <button
             onClick={() => { if (vista !== 'planta') handleSetVista('planta'); handleIaButtonClick(); }}
             disabled={iaReading}
-            className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0 disabled:opacity-60"
+            className="hidden sm:flex p-1 sm:px-2.5 sm:py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0 disabled:opacity-60"
             title="Sube la foto de tu plano dibujado a mano y la IA arma el techo"
           >
             <Camera className="w-3.5 h-3.5 shrink-0" />
@@ -1590,7 +1591,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {vista !== '3d' && (
           <button
             onClick={() => setOrthoMode(prev => !prev)}
-            className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-black border transition-all cursor-pointer shadow-2xs shrink-0 ${
+            className={`hidden sm:flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-black border transition-all cursor-pointer shadow-2xs shrink-0 ${
               orthoMode
                 ? 'bg-emerald-600 text-white border-emerald-600'
                 : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'
@@ -1611,21 +1612,62 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <button
               onClick={e => {
                 const r = e.currentTarget.getBoundingClientRect();
-                setCadMorePos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+                // Se ancla al botón sin salirse de la pantalla (antes se iba por la izquierda).
+                setCadMorePos({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left, window.innerWidth - 216)) });
+                setCadMoreMovil(window.innerWidth < 640);
                 setShowCadMore(v => !v);
               }}
               className={`p-1 sm:px-2 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${
                 showCadMore ? 'bg-slate-900 text-white border-slate-900' : 'bg-white hover:bg-slate-50 text-slate-600 border-slate-200'
               }`}
-              title="Más acciones"
+              title="Herramientas y más acciones"
             >
               <MoreHorizontal className="w-4 h-4 shrink-0" />
+              <span className="sm:hidden">Herramientas</span>
               <span className="hidden md:inline">Más</span>
             </button>
             {showCadMore && createPortal(
               <>
-                <div className="fixed inset-0 z-[90]" onClick={() => setShowCadMore(false)} />
-                <div style={cadMorePos} className="fixed z-[100] w-52 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5">
+                <div className={`fixed inset-0 z-[90] ${cadMoreMovil ? 'bg-slate-900/40' : ''}`} onClick={() => setShowCadMore(false)} />
+                <div style={cadMoreMovil ? undefined : cadMorePos}
+                  className={cadMoreMovil
+                    ? 'fixed z-[100] left-0 right-0 bottom-0 max-h-[78vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl p-3 pb-[calc(16px+env(safe-area-inset-bottom))] grid grid-cols-2 gap-1.5 [&>button]:min-h-[52px] [&>button]:bg-slate-50 [&>button]:rounded-2xl'
+                    : 'fixed z-[100] w-52 bg-white rounded-xl shadow-2xl border border-slate-200 p-1.5 flex flex-col gap-0.5'}>
+                  {cadMoreMovil && (
+                    <div className="col-span-2 flex items-center justify-between px-1 pb-1">
+                      <span className="text-base font-black text-slate-900">Herramientas</span>
+                      <button onClick={() => setShowCadMore(false)} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Cerrar</button>
+                    </div>
+                  )}
+                  {/* En celular, lo que en la PC está en la barra se ofrece aquí con nombre. */}
+                  {cadMoreMovil && vista !== '3d' && (
+                    <button onClick={() => { setShowCadMore(false); setOrthoMode(v => !v); }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                      <span className="w-4 text-center text-emerald-600 font-black shrink-0">⊾</span>
+                      <span>Recto 90° {orthoMode ? '(activo)' : ''}</span>
+                    </button>
+                  )}
+                  {cadMoreMovil && Object.keys(engineState?.segments || {}).length > 0 && (
+                    <button onClick={() => { setShowCadMore(false); setShowRevision(true); }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                      <ShieldCheck className={`w-4 h-4 shrink-0 ${nProblemas ? 'text-rose-600' : 'text-emerald-600'}`} />
+                      <span>Revisar diseño{nProblemas ? ` (${nProblemas})` : ''}</span>
+                    </button>
+                  )}
+                  {cadMoreMovil && onOpenMobileProperties && (
+                    <button onClick={() => { setShowCadMore(false); onOpenMobileProperties(); }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                      <Sliders className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Propiedades del elemento</span>
+                    </button>
+                  )}
+                  {cadMoreMovil && (
+                    <button onClick={() => { setShowCadMore(false); setShowFloatingToolsPanel(v => !v); }}
+                      className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
+                      <PenTool className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>{showFloatingToolsPanel ? 'Ocultar' : 'Mostrar'} panel de dibujo</span>
+                    </button>
+                  )}
                   {vista === 'planta' && (
                     <button onClick={() => { setShowCadMore(false); if (refImg) { setShowRefControls(s => !s); } else { refImgInputRef.current?.click(); } }}
                       className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-100 text-slate-700 text-[13px] font-semibold text-left cursor-pointer">
@@ -1705,7 +1747,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           {Object.keys(engineState?.segments || {}).length > 0 && (
             <button
               onClick={() => setShowRevision(v => !v)}
-              className={`relative p-1 sm:px-2.5 sm:py-1 rounded-lg font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0 border ${nProblemas ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'}`}
+              className={`hidden sm:flex relative p-1 sm:px-2.5 sm:py-1 rounded-lg font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0 border ${nProblemas ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-300' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300'}`}
               title="Revisar diseño: elementos que no conectan o están duplicados"
             >
               <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
@@ -1729,7 +1771,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           {onOpenMobileProperties && (
             <button
               onClick={onOpenMobileProperties}
-              className="lg:hidden p-1 sm:px-2 sm:py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs border border-amber-300 flex items-center gap-1 cursor-pointer shadow-2xs shrink-0 active:scale-95"
+              className="hidden sm:flex lg:hidden p-1 sm:px-2 sm:py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs border border-amber-300 flex items-center gap-1 cursor-pointer shadow-2xs shrink-0 active:scale-95"
               title="Abrir Propiedades de Elemento (Sección, Espesor, Cargas)"
             >
               <Sliders className="w-3.5 h-3.5 text-amber-700 shrink-0" />
@@ -1740,7 +1782,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           {/* BOTÓN GENERAL MOSTRAR/OCULTAR PANEL CAD FLOTANTE */}
           <button
             onClick={() => setShowFloatingToolsPanel(prev => !prev)}
-            className={`p-1 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${
+            className={`hidden sm:flex p-1 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${
               showFloatingToolsPanel 
                 ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm font-black' 
                 : 'bg-white hover:bg-slate-50 text-slate-600 hover:text-amber-700 border-slate-200'

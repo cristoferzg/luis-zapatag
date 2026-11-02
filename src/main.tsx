@@ -27,6 +27,13 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta
     onRegistered(r) {
       if (r) {
         auditLogger.info('PWA', `Service Worker activo en ámbito: ${r.scope}`);
+        // La app del celular o el programa de PC pueden quedar abiertos días: se busca
+        // una versión nueva cada 20 min y cada vez que se vuelve a la app. Si hay una,
+        // se instala y la página se recarga sola (registerType: autoUpdate).
+        const buscar = () => { if (navigator.onLine) r.update().catch(() => { /* sin red */ }); };
+        setInterval(buscar, 20 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') buscar(); });
+        window.addEventListener('focus', buscar);
       }
     },
     onRegisterError(error) {
