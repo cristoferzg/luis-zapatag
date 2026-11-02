@@ -30,6 +30,8 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { getMessaging } from 'firebase-admin/messaging';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -646,3 +648,87 @@ export const redactarDocumento = onCall(
     return { texto };
   }
 );
+
+// =============================================================================
+// AVISOS PUSH (Firebase Cloud Messaging): llegan al celular aunque la app esté
+// cerrada. Cada celular guarda su token en `push_tokens/<token>` ({ ws, role }).
+// Los mismos avisos que la app muestra cuando está abierta:
+//   · comunicados, clases y recursos nuevos → a los usuarios
+//   · ticket o asesoría nueva → al administrador
+//   · cambio de estado de un ticket o asesoría → a su autor
+// =============================================================================
+const sinPrefijo = (id) => String(id || '').replace(/^user_/, '');
+const recortar = (t, n = 140) => { const s = String(t || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+
+async function enviarPush({ aAdmin = false, aUsuarios = false, aWs = [] }, titulo, cuerpo, vista) {
+  const wsSet = new Set(aWs.map(sinPrefijo).filter((w) => w && w !== 'admin'));
+  const snap = await db.collection('push_tokens').get();
+  const tokens = snap.docs.filter((d) => {
+    const t = d.data() || {};
+    if (t.role === 'admin') return aAdmin;
+    return aUsuarios || wsSet.has(sinPrefijo(t.ws));
+  }).map((d) => d.id);
+  if (!tokens.length) return;
+  const mensaje = {
+    notification: { title: recortar(titulo, 80), body: recortar(cuerpo) },
+    data: { vista: vista || 'dashboard' },
+    android: { priority: 'high', notification: { channelId: 'avisos', icon: 'ic_stat_innova', color: '#f97316' } },
+  };
+  for (let i = 0; i < tokens.length; i += 500) {
+    const lote = tokens.slice(i, i + 500);
+    const r = await getMessaging().sendEachForMulticast({ ...mensaje, tokens: lote });
+    // Borrar los tokens de celulares que desinstalaron la app.
+    await Promise.all(r.responses.map((x, j) => {
+      const code = x.error?.code || '';
+      return /registration-token-not-registered|invalid-registration-token|invalid-argument/.test(code)
+        ? db.collection('push_tokens').doc(lote[j]).delete().catch(() => {}) : null;
+    }));
+  }
+}
+
+const opcionesAviso = { region: 'us-central1', retry: false };
+
+export const avisoComunicado = onDocumentCreated({ ...opcionesAviso, document: 'notificaciones/{id}' }, async (e) => {
+  const n = e.data?.data() || {};
+  if (n.expiresAtTimestamp && n.expiresAtTimestamp < Date.now()) return;
+  await enviarPush({ aUsuarios: true }, '📢 ' + (n.title || 'Comunicado'), n.message || '', 'dashboard');
+});
+
+export const avisoClaseNueva = onDocumentCreated({ ...opcionesAviso, document: 'tutoriales/{id}' }, async (e) => {
+  const v = e.data?.data() || {};
+  await enviarPush({ aUsuarios: true }, '🎓 Nueva clase en Academia', v.title || '', 'usabilidad');
+});
+
+export const avisoRecursoNuevo = onDocumentCreated({ ...opcionesAviso, document: 'biblioteca/{id}' }, async (e) => {
+  const b = e.data?.data() || {};
+  await enviarPush({ aUsuarios: true }, '📘 Nuevo en Recursos Técnicos', b.titulo || '', 'biblioteca');
+});
+
+export const avisoTicketNuevo = onDocumentCreated({ ...opcionesAviso, document: 'tickets/{id}' }, async (e) => {
+  const t = e.data?.data() || {};
+  if (sinPrefijo(t.author) === 'admin') return;
+  await enviarPush({ aAdmin: true }, '🎫 Ticket nuevo', `${t.authorName || 'Un usuario'}: ${t.title || ''}`, 'tickets');
+});
+
+export const avisoTicketEstado = onDocumentUpdated({ ...opcionesAviso, document: 'tickets/{id}' }, async (e) => {
+  const antes = e.data?.before?.data() || {}; const t = e.data?.after?.data() || {};
+  if (!t.status || antes.status === t.status) return;
+  await enviarPush({ aWs: [t.author] }, '🎫 Tu ticket: ' + t.status, t.title || '', 'tickets');
+});
+
+export const avisoAsesoriaNueva = onDocumentCreated({ ...opcionesAviso, document: 'asesorias/{id}' }, async (e) => {
+  const a = e.data?.data() || {};
+  if (sinPrefijo(a.authorUserId) === 'admin') {
+    // La agendó el admin para un usuario: avisarle a él.
+    await enviarPush({ aWs: [a.assignedUserId] }, '📅 Asesoría: ' + (a.status || 'programada'), a.subject || '', 'asesorias');
+    return;
+  }
+  await enviarPush({ aAdmin: true }, '📅 Asesoría solicitada', `${a.authorName || 'Un usuario'}: ${a.subject || ''}`, 'asesorias');
+});
+
+export const avisoAsesoriaEstado = onDocumentUpdated({ ...opcionesAviso, document: 'asesorias/{id}' }, async (e) => {
+  const antes = e.data?.before?.data() || {}; const a = e.data?.after?.data() || {};
+  if (!a.status || antes.status === a.status) return;
+  const cuando = a.scheduledDate ? ` · ${a.scheduledDate} ${a.scheduledTime || ''}` : '';
+  await enviarPush({ aWs: [a.authorUserId, a.assignedUserId] }, '📅 Asesoría: ' + a.status, (a.subject || '') + cuando, 'asesorias');
+});

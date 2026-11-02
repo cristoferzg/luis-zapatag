@@ -45,6 +45,11 @@ service cloud.firestore {
     match /purchases/{id}      { allow read, write: if authed(); }
     match /planos_techos/{id}  { allow read, write: if authed(); }
     // Estadísticas de Academia y Recursos: cualquier usuario suma sus visitas; solo el admin las lee.
+    // Token del celular para avisos push: cada uno guarda el suyo; solo el servidor los lee.
+    match /push_tokens/{token} {
+      allow create, update: if authed() && request.resource.data.ws == workspace();
+      allow delete: if isAdmin() || (authed() && resource.data.ws == workspace());
+    }
     match /estadisticas_contenido/{id} { allow read: if isAdmin(); allow create, update: if authed(); allow delete: if isAdmin(); }
     match /config_flags/{id}   { allow read, write: if authed(); }
     match /config_academia/{id} { allow read, write: if authed(); }

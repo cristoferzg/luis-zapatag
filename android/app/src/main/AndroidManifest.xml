@@ -24,6 +24,11 @@
 
         </activity>
 
+        <!-- Avisos push (Firebase Cloud Messaging): ícono blanco de Innova, color naranja y canal "avisos" -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_innova" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/innova_naranja" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="avisos" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

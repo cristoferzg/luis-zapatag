@@ -36,3 +36,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 ## Regla del dueño
 - Antes de empaquetar el `dist_ACTUALIZADO.zip`, mostrar imágenes del **antes y después**
   de los cambios y esperar su aprobación.
+
+## Avisos push (FCM)
+- App Android con `@capacitor/push-notifications` + `android/app/google-services.json`.
+  Token por celular en `push_tokens/<token>` `{ws, role}` (`src/lib/pushNativo.ts`).
+- Envío desde Cloud Functions (`aviso*` en `functions/index.js`, triggers de Firestore):
+  comunicados/clases/recursos → usuarios; ticket/asesoría nueva → admin; cambio de estado → autor.
+- Con la app abierta el sistema no muestra el push; la app avisa con notificaciones locales
+  (`notificar` evita repetir lo que ya llegó por push al volver a abrirla).

@@ -4,6 +4,7 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { safeStorage } from './storageManager';
+import { pushActivo } from './pushNativo';
 
 const esNativo = () => { try { return Capacitor.isNativePlatform(); } catch { return false; } };
 const K_ACTIVAS = 'innova_notif_activas';
@@ -27,16 +28,25 @@ export async function activarNotificaciones(): Promise<boolean> {
     if (esNativo()) ok = (await LocalNotifications.requestPermissions()).display === 'granted';
     else if (typeof Notification !== 'undefined') ok = (await Notification.requestPermission()) === 'granted';
     safeStorage.setItem(K_ACTIVAS, ok);
+    if (ok) { try { window.dispatchEvent(new CustomEvent('innova_notif_activadas')); } catch { /* nada */ } }
     return ok;
   } catch { return false; }
 }
 
 let siguienteId = Math.floor(Date.now() / 1000) % 100000;
 
+// Con avisos push activos, lo que llegó mientras la app estaba cerrada o en segundo plano
+// ya lo mostró el sistema: al volver a abrirla no se repite (se espera a que lleve un rato
+// visible antes de avisar por cuenta propia).
+let visibleDesde = Date.now();
+try { document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') visibleDesde = Date.now(); }); } catch { /* sin documento */ }
+const repetiriaPush = () => esNativo() && pushActivo() && (document.visibilityState !== 'visible' || Date.now() - visibleDesde < 15000);
+
 /** Muestra una notificación del sistema (si hay permiso). No hace nada si no lo hay. */
 export async function notificar(titulo: string, cuerpo: string): Promise<void> {
   try {
     if (!(await notificacionesPermitidas())) return;
+    if (repetiriaPush()) return;
     if (esNativo()) {
       await LocalNotifications.schedule({ notifications: [{ id: ++siguienteId, title: titulo, body: cuerpo, smallIcon: 'ic_stat_innova', largeIcon: 'ic_innova_grande', iconColor: '#f97316' }] });
       return;

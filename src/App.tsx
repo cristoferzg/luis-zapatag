@@ -32,6 +32,7 @@ import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import { forzarActualizacion } from './lib/versionNueva';
 import { notificar, debeInvitar, marcarInvitado, activarNotificaciones } from './lib/notificaciones';
+import { registrarPush, quitarPush } from './lib/pushNativo';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol } from './lib/currency';
@@ -1801,6 +1802,17 @@ export default function App() {
     return () => clearTimeout(t);
   }, [activeUid, biblioteca.length, novVistas.ini]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // AVISOS PUSH (app Android): registrar este celular con la cuenta que entró, ahora y
+  // cuando el usuario da permiso de notificaciones.
+  useEffect(() => {
+    if (!user?.id) return;
+    const ws = isAdmin ? 'admin' : String(user.id).replace(/^user_/, '');
+    const reg = () => { registrarPush(ws, isAdmin ? 'admin' : 'usuario'); };
+    const t = setTimeout(reg, 3000); // tras confirmar la sesión con el PIN
+    window.addEventListener('innova_notif_activadas', reg);
+    return () => { clearTimeout(t); window.removeEventListener('innova_notif_activadas', reg); };
+  }, [user?.id, isAdmin]);
+
   // NOTIFICACIONES DEL SISTEMA (Android, Windows, navegador): avisa de comunicados
   // nuevos, tickets y asesorías. La primera vez solo memoriza lo que ya existe (no
   // avisa de lo viejo); después avisa lo nuevo o lo que cambió de estado.
@@ -2097,6 +2109,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    await quitarPush();
     safeStorage.removeItem('savedUser');
     safeStorage.removeItem('innova_last_authorized_admin_email');
     setUser(null);
