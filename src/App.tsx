@@ -1537,6 +1537,9 @@ export default function App() {
   });
   useEffect(() => { try { sessionStorage.setItem('innova_vista_actual', currentView); } catch { /* nada */ } }, [currentView]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [fabAbierto, setFabAbierto] = useState(false);
+  // Vibración corta al tocar (como las apps de Android); en PC no hace nada.
+  const tocar = () => { try { (navigator as any).vibrate?.(8); } catch { /* sin vibración */ } };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [authInitialized, setAuthInitialized] = useState(() => !!safeStorage.getItem<SystemUser | null>('savedUser', null));
   const [loading, setLoading] = useState(() => {
@@ -2325,6 +2328,21 @@ export default function App() {
     // muestran con la etiqueta "Mantenimiento" (al entrar ven una pantalla bonita).
     : allNavItems.filter(item => !item.adminOnly).map(item => ({ ...item, enMantenimiento: vistaBloqueada(item.id) }));
 
+  // Celular / app: barra inferior (solo lo que el usuario tiene disponible) y accesos rápidos del "+".
+  const disponible = (id: string) => navItems.some(n => n.id === id);
+  const barraInferior = [
+    { id: 'dashboard', label: 'Inicio', icon: Home },
+    { id: 'projects', label: 'Proyectos', icon: Briefcase },
+    { id: 'techos', label: 'Techos', icon: PenTool },
+    { id: 'materials', label: 'Gastos', icon: Package },
+  ].filter(it => disponible(it.id)).concat([{ id: 'mas', label: 'Más', icon: Menu }]);
+  const accionesRapidas = [
+    { label: 'Nuevo proyecto', view: 'projects', icon: Briefcase },
+    { label: 'Nuevo techo', view: 'techos', icon: PenTool },
+    { label: 'Registrar gasto', view: 'materials', icon: Package },
+    { label: 'Nueva cotización rápida', view: 'calculator', icon: Calculator },
+  ].filter(a => disponible(a.view));
+
   const rawDisplayName = isAdmin ? (user?.name || user?.email || 'Administrador') : user?.name;
   const cleanUserName = (rawDisplayName && rawDisplayName.toLowerCase().includes('newton')) ? 'Innova Contratistas' : (rawDisplayName || 'Administrador');
   const activeLogo = currentSettings?.logoBase64 || safeStorage.getItem('innova_logo_' + (activeUid || 'guest'), '') || defaultAdminLogo;
@@ -2524,8 +2542,27 @@ export default function App() {
         </div>
       </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden h-screen bg-slate-50 text-slate-800">
+        {/* CELULAR / APP: barra superior estilo Android (Material 3). En los lienzos de dibujo
+            (Techos, Carpintería) no va: el módulo ya tiene su propio encabezado y gana espacio. */}
+        {!['designer', 'techos', 'herreria', 'carpinteria'].includes(currentView) && (
+          <header className="md:hidden h-14 bg-white flex items-center gap-3 px-3 shrink-0 z-10 shadow-[0_1px_0_#e7e0ec]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+            <img src={activeLogo} alt="" className="w-9 h-9 rounded-xl object-cover bg-white border border-slate-200 p-0.5 shrink-0"
+              onError={(e) => { (e.target as HTMLImageElement).src = defaultAdminLogo; }} />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[17px] leading-tight font-semibold text-slate-900 truncate">{navItems.find(n => n.id === currentView)?.label || currentSettings.appName}</h1>
+              <p className="text-[11px] leading-tight text-slate-500 truncate">{currentSettings.appName}{isAdmin ? ' · Admin' : user?.name ? ` · ${user.name}` : ''}</p>
+            </div>
+            {conMembresia && saldoIA && !saldoIA.ilimitado && (
+              <button onClick={() => { tocar(); setCurrentView('membresia'); }} title="Tus créditos Premium"
+                className="shrink-0 inline-flex items-center gap-1 px-3 h-9 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-black cursor-pointer">
+                <Coins className="w-4 h-4 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')}
+              </button>
+            )}
+            <button onClick={() => { tocar(); setCurrentView('settings'); }} title="Configuración" className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"><Settings className="w-5 h-5" /></button>
+          </header>
+        )}
         {currentView !== 'designer' && (
-          <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 flex justify-between items-center z-10 xl:hidden shrink-0 shadow-2xs">
+          <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 hidden md:flex justify-between items-center z-10 xl:hidden shrink-0 shadow-2xs">
              <div className="flex items-center space-x-2.5 min-w-0">
                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"><Menu className="w-6 h-6"/></button>
                <img 
@@ -2606,9 +2643,40 @@ export default function App() {
             </div>
           </main>
         )}
+        {/* CELULAR / APP: barra de navegación inferior estilo Android (Material 3) */}
+        <nav className="md:hidden shrink-0 bg-[#f3edf7] flex justify-around items-start pt-2 z-30" style={{ height: 'calc(72px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {barraInferior.map(it => {
+            const activo = it.id === 'mas' ? isMobileMenuOpen : (currentView === it.id && !isMobileMenuOpen);
+            return (
+              <button key={it.id} onClick={() => { tocar(); if (it.id === 'mas') setIsMobileMenuOpen(true); else { setIsMobileMenuOpen(false); setCurrentView(it.id as ViewType); } }}
+                className="flex flex-col items-center gap-1 w-16 cursor-pointer">
+                <span className={`w-16 h-8 rounded-full flex items-center justify-center transition-colors ${activo ? 'bg-[#e8def8] text-slate-900' : 'text-slate-600'}`}><it.icon className="w-6 h-6" /></span>
+                <span className={`text-[12px] ${activo ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{it.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
       
       {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/50 z-40 xl:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
+      {/* CELULAR / APP: botón flotante "+" con accesos rápidos (no en los lienzos de dibujo) */}
+      {!isMobileMenuOpen && !['techos', 'concreto', 'drywall', 'herreria', 'carpinteria', 'designer', 'calculator'].includes(currentView) && (
+        <>
+          {fabAbierto && <div className="md:hidden fixed inset-0 z-[45] bg-slate-900/30" onClick={() => setFabAbierto(false)} />}
+          <div className="md:hidden fixed right-4 z-[46] flex flex-col items-end gap-2" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
+            {fabAbierto && accionesRapidas.map(a => (
+              <button key={a.label} onClick={() => { tocar(); setFabAbierto(false); setCurrentView(a.view as ViewType); }}
+                className="flex items-center gap-2 pl-3 pr-4 h-11 rounded-2xl bg-white shadow-lg text-sm font-semibold text-slate-800 cursor-pointer active:scale-95 transition-transform">
+                <a.icon className="w-5 h-5 text-amber-600" />{a.label}
+              </button>
+            ))}
+            <button onClick={() => { tocar(); setFabAbierto(v => !v); }} aria-label="Crear"
+              className={`w-14 h-14 rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex items-center justify-center cursor-pointer active:scale-95 transition-transform ${fabAbierto ? 'rotate-45' : ''}`}>
+              <Plus className="w-7 h-7" />
+            </button>
+          </div>
+        </>
+      )}
       <OfflineIndicator />
     </div>
   );
