@@ -1,5 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import EstadisticasContenido from './EstadisticasContenido';
+import ConfirmarCanjeCreditos from './ConfirmarCanjeCreditos';
+import { creditosDeRecurso, canjearRecursoConCreditos } from '../lib/cursosCreditos';
+import { iaHabilitadaUsuarios } from '../lib/aiAccess';
 import { registrarContenido } from '../lib/estadisticas';
 import { 
   BookOpen, 
@@ -134,6 +137,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
 
   // Buy / Request item state
   const [purchasingItem, setPurchasingItem] = useState<BibliotecaItem | null>(null);
+  const [canjeRecurso, setCanjeRecurso] = useState<BibliotecaItem | null>(null);
   const [viewingItem, setViewingItem] = useState<BibliotecaItem | null>(null); // NEW
   const [verEstadisticas, setVerEstadisticas] = useState(false);
   // Estadísticas (admin): cada vez que un usuario abre un recurso.
@@ -760,6 +764,12 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                             </span>
                           </button>
                         )}
+                        {!isAdmin && !hasAccess(item) && iaHabilitadaUsuarios() && (
+                          <button onClick={() => setCanjeRecurso(item)}
+                            className="w-full mt-1.5 py-2.5 px-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer active:scale-95">
+                            🪙 <span className="truncate">Desbloquear con {creditosDeRecurso(item)} créditos</span>
+                          </button>
+                        )}
                       </div>
 
                       {/* Herramientas de Administración Inline */}
@@ -1008,6 +1018,9 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
           </div>
         </div>
       )}
+
+      {canjeRecurso && <ConfirmarCanjeCreditos tipo="recurso" nombre={canjeRecurso.titulo} creditos={creditosDeRecurso(canjeRecurso)}
+        onCanjear={() => canjearRecursoConCreditos(canjeRecurso.id)} onCerrar={() => setCanjeRecurso(null)} />}
 
       {/* MODAL DE SOLICITUD DE RECURSO / WHATSAPP */}
       {purchasingItem && (

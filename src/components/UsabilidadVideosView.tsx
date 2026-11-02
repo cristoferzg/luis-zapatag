@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import EstadisticasContenido from './EstadisticasContenido';
 import { creditosDeCurso, canjearCursoConCreditos } from '../lib/cursosCreditos';
+import ConfirmarCanjeCreditos from './ConfirmarCanjeCreditos';
+import { iaHabilitadaUsuarios } from '../lib/aiAccess';
 import { registrarContenido } from '../lib/estadisticas';
 import { 
   Video, Play, Plus, Trash2, Edit2, Search, FolderPlus,
@@ -121,7 +123,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
   // State for search and filtering
   const [searchTerm, setSearchTerm] = useState('');
-  const [canjeando, setCanjeando] = useState(false);
+  const [canjeCurso, setCanjeCurso] = useState<CourseCategory | null>(null);
   const [verEstadisticas, setVerEstadisticas] = useState(false);
 
 
@@ -970,6 +972,8 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             </p>
           </div>
 
+          {canjeCurso && <ConfirmarCanjeCreditos tipo="curso" nombre={canjeCurso.name} creditos={creditosDeCurso(canjeCurso)}
+            onCanjear={() => canjearCursoConCreditos(canjeCurso.id)} onCerrar={() => setCanjeCurso(null)} />}
           {isAdmin && (
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => setVerEstadisticas(true)}
@@ -1129,23 +1133,15 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                           {getFormattedPrice(currentCourseObj.priceSoles || 49.90)}
                         </span>
                       )}
-                      {!currentCourseObj.isFree && currentCourseObj.rawCourse && (
+                      {!currentCourseObj.isFree && currentCourseObj.rawCourse && (isAdmin || iaHabilitadaUsuarios()) && (
                         <span className="text-[11px] font-black text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200">
                           o {creditosDeCurso(currentCourseObj.rawCourse)} créditos
                         </span>
                       )}
-                      {!isAdmin && !currentCourseObj.isFree && currentCourseObj.rawCourse && !(currentUser?.id && currentCourseObj.rawCourse.allowedUserIds?.includes(currentUser.id)) && (
-                        <button type="button" disabled={canjeando}
-                          onClick={async () => {
-                            const c = currentCourseObj.rawCourse!; const n = creditosDeCurso(c);
-                            if (!window.confirm(`¿Desbloquear "${c.name}" con ${n} créditos?\n\nSe descuentan de tus créditos del mes y, si no alcanzan, de tus recargas.`)) return;
-                            setCanjeando(true);
-                            const r = await canjearCursoConCreditos(c.id);
-                            setCanjeando(false);
-                            alert(r.ok ? '✓ Curso desbloqueado. ¡Ya puedes ver todas sus clases!' : (r.error || 'No se pudo canjear.'));
-                          }}
-                          className="text-[11px] font-black text-white bg-orange-500 hover:bg-orange-600 px-3 py-1 rounded-full cursor-pointer disabled:opacity-50">
-                          {canjeando ? 'Canjeando…' : `Desbloquear con ${creditosDeCurso(currentCourseObj.rawCourse)} créditos`}
+                      {!isAdmin && iaHabilitadaUsuarios() && !currentCourseObj.isFree && currentCourseObj.rawCourse && !(currentUser?.id && currentCourseObj.rawCourse.allowedUserIds?.includes(currentUser.id)) && (
+                        <button type="button" onClick={() => setCanjeCurso(currentCourseObj.rawCourse!)}
+                          className="text-[11px] font-black text-white bg-orange-500 hover:bg-orange-600 px-3 py-1 rounded-full cursor-pointer">
+                          {`Desbloquear con ${creditosDeCurso(currentCourseObj.rawCourse)} créditos`}
                         </button>
                       )}
                     </div>

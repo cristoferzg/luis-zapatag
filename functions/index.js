@@ -233,32 +233,34 @@ async function cobrarUsoIA(request, accion, costoFijo) {
  */
 const RECEIPT_MODEL = 'claude-haiku-5-5';
 
-/**
- * Canjear un curso de Academia con créditos (los del plan mensual o los de recarga).
- * Precio: course.precioCreditos o, si no lo tiene, 10 créditos por cada sol.
- * Descuenta en una transacción y da acceso al curso; si algo falla, devuelve los créditos.
- */
+// Canjear con créditos (del plan mensual o de recarga) un curso de Academia o un
+// recurso técnico de pago. data: { cursoId } (curso) o { tipo: 'recurso', itemId }.
 export const canjearCurso = onCall({ region: 'us-central1', cors: true }, async (request) => {
   const token = request.auth?.token || {};
-  if (token.role === 'admin') throw new HttpsError('failed-precondition', 'El administrador ya tiene acceso a todos los cursos.');
+  if (token.role === 'admin') throw new HttpsError('failed-precondition', 'El administrador ya tiene acceso a todo el contenido.');
   const ws = String(token.workspace || '').replace(/^user_/, '');
   if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
-  const cursoId = String(request.data?.cursoId || '');
-  if (!cursoId) throw new HttpsError('invalid-argument', 'Falta el curso.');
-  const ref = db.collection('cursos').doc(cursoId);
+  const esRecurso = request.data?.tipo === 'recurso';
+  const itemId = String((esRecurso ? request.data?.itemId : request.data?.cursoId) || '');
+  if (!itemId) throw new HttpsError('invalid-argument', esRecurso ? 'Falta el recurso.' : 'Falta el curso.');
+  const ref = db.collection(esRecurso ? 'biblioteca' : 'cursos').doc(itemId);
   const snap = await ref.get();
-  if (!snap.exists) throw new HttpsError('not-found', 'El curso no existe.');
+  if (!snap.exists) throw new HttpsError('not-found', esRecurso ? 'El recurso no existe.' : 'El curso no existe.');
   const c = snap.data() || {};
   const ids = Array.isArray(c.allowedUserIds) ? c.allowedUserIds.map(String) : [];
-  if (c.isFree !== false || ids.includes(ws) || ids.includes('user_' + ws)) return { ok: true, yaTenia: true, creditos: 0 };
-  const creditos = Number(c.precioCreditos) > 0 ? Math.round(Number(c.precioCreditos)) : Math.max(1, Math.round((Number(c.priceSoles) || 0) * 10));
-  const devolver = await cobrarUsoIA(request, 'curso', creditos);
+  const soles = Number(esRecurso ? c.precioSoles : c.priceSoles) || 0;
+  const gratis = esRecurso ? (c.isFree === true || (c.isFree !== false && soles <= 0)) : c.isFree !== false;
+  if (gratis || ids.includes(ws) || ids.includes('user_' + ws)) return { ok: true, yaTenia: true, creditos: 0 };
+  const descuento = esRecurso ? Math.min(100, Math.max(0, Number(c.discountPercentage) || 0)) : 0;
+  const creditos = Number(c.precioCreditos) > 0 ? Math.round(Number(c.precioCreditos)) : Math.max(1, Math.round(soles * (1 - descuento / 100) * 10));
+  const devolver = await cobrarUsoIA(request, esRecurso ? 'recurso' : 'curso', creditos);
   try {
     await ref.set({ allowedUserIds: FieldValue.arrayUnion(ws) }, { merge: true });
-    await db.collection('ai_access').doc(ws).set({ cursosCanjeados: FieldValue.arrayUnion({ cursoId, creditos, fecha: new Date().toISOString() }) }, { merge: true });
+    const registro = { [esRecurso ? 'recursoId' : 'cursoId']: itemId, creditos, fecha: new Date().toISOString() };
+    await db.collection('ai_access').doc(ws).set({ [esRecurso ? 'recursosCanjeados' : 'cursosCanjeados']: FieldValue.arrayUnion(registro) }, { merge: true });
   } catch (e) {
     await devolver();
-    throw new HttpsError('internal', 'No se pudo abrir el curso; tus créditos se devolvieron.');
+    throw new HttpsError('internal', 'No se pudo desbloquear; tus créditos se devolvieron.');
   }
   return { ok: true, creditos };
 });
