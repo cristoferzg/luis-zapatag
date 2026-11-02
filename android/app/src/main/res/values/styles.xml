@@ -13,6 +13,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Color detrás de la barra de estado y de gestos (también en modo oscuro). -->
+        <item name="android:windowBackground">@android:color/white</item>
     </style>
 
 

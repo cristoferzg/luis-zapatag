@@ -18,9 +18,14 @@ const config: CapacitorConfig = {
     // Sin zoom ni gestos del navegador: se comporta como app nativa.
     allowMixedContent: false,
     captureInput: true,
+    // La web reconoce que corre dentro de la app (ver index.html) y no se mete
+    // debajo de la barra de estado.
+    appendUserAgent: 'InnovApp',
   },
   plugins: {
-    StatusBar: { overlaysWebView: false, style: 'DARK', backgroundColor: '#0f172a' },
+    // Barra de estado blanca con íconos oscuros, igual que la barra superior de la app.
+    SystemBars: { insetsHandling: 'css', style: 'LIGHT' },
+    StatusBar: { overlaysWebView: false, style: 'LIGHT', backgroundColor: '#ffffff' },
   },
 };
 
