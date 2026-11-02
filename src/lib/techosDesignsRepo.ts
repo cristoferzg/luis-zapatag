@@ -77,6 +77,9 @@ export async function fetchAllTechosDesigns(): Promise<SavedTechosDesign[]> {
       const map = new Map<string, SavedTechosDesign>();
       localList.forEach(item => map.set(item.id, item));
       remoteList.forEach(item => { const loc = map.get(item.id); if (!loc || msDe(item) >= msDe(loc)) map.set(item.id, item); });
+      // Cada uno ve y guarda en su equipo SOLO sus planos (el admin no ve los de sus
+      // usuarios ni los usuarios los del admin).
+      for (const [id, d] of map) if (!esPlanoMio(d)) map.delete(id);
 
       const ordenada = Array.from(map.values()).sort((a, b) => msDe(b) - msDe(a));
       const { lista: merged, quitados } = sinCopias(ordenada);
@@ -89,22 +92,28 @@ export async function fetchAllTechosDesigns(): Promise<SavedTechosDesign[]> {
     console.warn('Notice fetching cloud techos plans (using local cache):', err);
   }
 
-  return localList;
+  return localList.filter(d => esPlanoMio(d));
 }
 
 /**
  * Returns currently cached designs synchronously
  */
 /** ¿Es un plano de este usuario? (los antiguos sin dueño se reconocen por el nombre del autor). */
+/** Usuario actual: el de la sesión (admin = 'admin'; usuario = su id) o, mientras la
+ *  sesión arranca, el guardado en el equipo (es el mismo id en todos los dispositivos). */
+function uidActual(): string | undefined {
+  return auth.currentUser?.uid || safeStorage.getItem<{ id?: string } | null>('savedUser', null)?.id || undefined;
+}
+
 export function esPlanoMio(d: SavedTechosDesign, nombreUsuario?: string): boolean {
-  const uid = auth.currentUser?.uid;
+  const uid = uidActual();
   if (d.authorUid) return !!uid && d.authorUid === uid;
   const nombre = nombreUsuario || (safeStorage.getItem<{ name?: string } | null>('savedUser', null)?.name ?? '');
   return !d.authorName || !nombre || normNombre(d.authorName) === normNombre(nombre);
 }
 
 export function getCachedTechosDesigns(): SavedTechosDesign[] {
-  return safeStorage.getItem<SavedTechosDesign[]>(STORAGE_KEY, []) || [];
+  return (safeStorage.getItem<SavedTechosDesign[]>(STORAGE_KEY, []) || []).filter(d => esPlanoMio(d));
 }
 
 /**
@@ -137,7 +146,7 @@ export async function saveOrUpdateTechosDesign(
   const finalDesign: SavedTechosDesign = {
     ...designData,
     // El dueño no cambia al actualizar; un plano nuevo queda a nombre de quien lo guarda.
-    authorUid: previo?.authorUid || designData.authorUid || auth.currentUser?.uid || undefined,
+    authorUid: previo?.authorUid || designData.authorUid || uidActual() || undefined,
     id: targetId,
     savedAt: isUpdating ? existingList[existingIndex].savedAt : nowStr,
     updatedAt: nowStr,

@@ -128,6 +128,13 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   const [showToolDropdown, setShowToolDropdown] = useState(false);
   const [showConfigDropdown, setShowConfigDropdown] = useState(false);
   const [isSnapCollapsed, setIsSnapCollapsed] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+  // Celular, tablet o ventana mediana (< 1280 px, donde está la barra de abajo de la app):
+  // los controles del lienzo van en una barra FIJA abajo, como botones de la app.
+  const [barraAbajo, setBarraAbajo] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1280);
+  useEffect(() => {
+    const f = () => setBarraAbajo(window.innerWidth < 1280);
+    window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
+  }, []);
 
   // Helper para scroll horizontal con rueda del mouse en barras de herramientas
   const handleHorizontalWheel = (e: React.WheelEvent<HTMLElement>) => {
@@ -1896,8 +1903,42 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       {/* ========================================================
           DOCK FLOTANTE INFERIOR DERECHO: ZOOM Y AJUSTES SNAP (TOUCH FRIENDLY)
       ======================================================== */}
+      {barraAbajo && (() => {
+        const it = 'shrink-0 min-w-[46px] flex-1 h-[52px] flex flex-col items-center justify-center gap-0.5 cursor-pointer';
+        const ic = (A: boolean) => `h-7 w-10 rounded-full flex items-center justify-center transition-colors ${A ? 'bg-blue-100 text-blue-700' : 'text-slate-600'}`;
+        const tx = (A: boolean) => `text-[10px] leading-none ${A ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`;
+        const b = (A: boolean, Icon: any, label: string, onClick: () => void, title: string) => (
+          <button key={label} type="button" onClick={onClick} title={title} className={it}>
+            <span className={ic(A)}><Icon className="w-[17px] h-[17px]" /></span><span className={tx(A)}>{label}</span>
+          </button>
+        );
+        return (
+          <div onWheel={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}
+            className="absolute left-0 right-0 bottom-0 z-30 flex items-stretch overflow-x-auto bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(15,42,74,0.06)] px-0.5 scrollbar-none select-none">
+            {b(snapEndpoints, Square, 'Vértices', () => setSnapEndpoints(!snapEndpoints), 'Imán a vértices / extremos')}
+            {b(snapMidpoints, Circle, 'Medios', () => setSnapMidpoints(!snapMidpoints), 'Imán a puntos medios')}
+            {b(snapSegments, Magnet, 'Ejes', () => setSnapSegments(!snapSegments), 'Imán a ejes y uniones')}
+            {b(snapGrid, Grid, 'Rejilla', () => setSnapGrid(!snapGrid), 'Imán a la rejilla')}
+            {b(orthoLock, MoveRight, '90°', () => setOrthoLock(!orthoLock), 'Recto 90° (horizontal / vertical)')}
+            {b(false, Compass, 'Enderezar', handleStraightenCrookedTubes, 'Enderezar tubos inclinados')}
+            <div className="shrink-0 flex flex-col items-center justify-center px-1.5 h-[52px]" title="Profundidad del plano de trabajo (eje Z)">
+              <div className="flex items-center gap-0.5">
+                <button type="button" onClick={() => setPlanoProfundidadM(v => roundToPrecision(v - 0.05, 3))} className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-sm cursor-pointer">−</button>
+                <input type="number" step={5} value={Math.round(planoProfundidadM * 100)}
+                  onChange={(e) => { const cm = parseFloat(e.target.value); setPlanoProfundidadM(Number.isFinite(cm) ? roundToPrecision(cm / 100, 3) : 0); }}
+                  className="w-9 text-center text-[11px] font-bold rounded-md border border-slate-200 py-0.5" />
+                <button type="button" onClick={() => setPlanoProfundidadM(v => roundToPrecision(v + 0.05, 3))} className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-sm cursor-pointer">+</button>
+              </div>
+              <span className="text-[10px] font-medium text-slate-600 leading-none mt-1">Prof. Z (cm)</span>
+            </div>
+            {b(false, Plus, 'Acercar', () => handleZoom(1.25), 'Acercar')}
+            {b(false, Minus, 'Alejar', () => handleZoom(0.8), 'Alejar')}
+            {b(false, Maximize2, 'Ver todo', centerView, 'Centrar y ver todo')}
+          </div>
+        );
+      })()}
       {/* Nunca más alto que el lienzo: en celular ya no se monta sobre las pestañas de arriba. */}
-      <div className="absolute bottom-4 right-3 z-30 flex flex-col gap-1.5 pointer-events-auto select-none items-end max-h-[calc(100%-1.5rem)] overflow-y-auto overscroll-contain [scrollbar-width:none]">
+      {!barraAbajo && <div className="absolute bottom-4 right-3 z-30 flex flex-col gap-1.5 pointer-events-auto select-none items-end max-h-[calc(100%-1.5rem)] overflow-y-auto overscroll-contain [scrollbar-width:none]">
         {/* SNAP Magnético y Ortho */}
         <div className="bg-white/95 backdrop-blur-md p-1.5 rounded-2xl shadow-md border border-slate-200 flex flex-col gap-1">
           <button
@@ -2016,7 +2057,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
             <Maximize2 className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* ========================================================
           BARRA DE ACCIONES DE PIEZA / ELEMENTO SELECCIONADO (FLOTANTE DESTACADA)
@@ -2024,7 +2065,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       {selectedElementId && (
         <div 
           onWheel={handleHorizontalWheel}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 bg-slate-900/95 text-white backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-2xl border border-slate-700 pointer-events-auto max-w-[94vw] overflow-x-auto touch-pan-x scrollbar-none select-none"
+          className={`absolute ${barraAbajo ? 'bottom-[64px]' : 'bottom-4'} left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 bg-slate-900/95 text-white backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-2xl border border-slate-700 pointer-events-auto max-w-[94vw] overflow-x-auto touch-pan-x scrollbar-none select-none`}
         >
           {piezaSeleccionada && (() => {
             const dx = piezaSeleccionada.x2 - piezaSeleccionada.x1;
@@ -2165,7 +2206,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       {/* ========================================================
           INDICADOR FLOTANTE DE COORDENADAS Y SNAP
       ======================================================== */}
-      <div className="absolute bottom-4 left-3 z-20 flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-600 shadow-xs">
+      <div className={`absolute ${barraAbajo ? "bottom-[62px]" : "bottom-4"} left-3 z-20 flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-600 shadow-xs`}>
         <div className="flex items-center gap-1.5 font-mono">
           <span>X: <strong className="text-slate-900">{currentWorldPointer.x.toFixed(2)}m</strong></span>
           <span className="text-slate-300">|</span>

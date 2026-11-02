@@ -3210,7 +3210,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {/* PANEL FLOTANTE DE HERRAMIENTAS CAD COMPLETO / COLAPSADO */}
         {/* CHIP DE RETÍCULA / SNAP (dock derecho, estilo Herrería): mantiene el
             ajuste de snap más usado accesible sin abrir el panel central. */}
-        {engineState && vista !== '3d' && (
+        {/* Solo con la barra lateral de PC: con la barra de abajo (celular, tablet o ventana
+            mediana) la rejilla ya está en esa barra y este recuadro se le montaba encima. */}
+        {engineState && vista !== '3d' && isDesktop && (
           <div className="hidden sm:flex absolute bottom-3 right-3 z-30 items-center gap-1.5 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-2xl shadow-xl border border-slate-200 pointer-events-auto">
             <Grid className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="text-[10px] font-bold text-slate-500 hidden sm:inline">Rejilla</span>

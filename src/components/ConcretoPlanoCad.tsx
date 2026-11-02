@@ -1217,7 +1217,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {!estructura && disenos.length === 0 && <span className="hidden sm:inline text-[11px] text-slate-400">Guarda un diseño en Techos Metálicos para verlo aquí.</span>}
       </div>
       {/* Barra de herramientas */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0 max-sm:flex-wrap max-sm:overflow-visible">
+      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0 max-lg:flex-wrap max-lg:overflow-visible">
         {/* Piso activo para muros + material del próximo muro */}
         <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
           Piso
@@ -1797,7 +1797,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           )}
 
           {/* zoom */}
-          <div className="absolute bottom-3 right-3 flex flex-col gap-1">
+          <div className={`absolute ${esPC ? 'bottom-3' : 'bottom-[64px]'} right-3 z-20 flex flex-col gap-1`}>
             <button onClick={() => setZoom(z => Math.min(4, z * 1.15))} className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-xs text-slate-700 cursor-pointer hover:bg-slate-100 flex items-center justify-center"><Plus className="w-4 h-4" /></button>
             <button onClick={() => setZoom(z => Math.max(0.3, z * 0.87))} className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-xs text-slate-700 cursor-pointer hover:bg-slate-100 flex items-center justify-center"><Minus className="w-4 h-4" /></button>
           </div>

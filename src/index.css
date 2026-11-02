@@ -102,3 +102,8 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
   main.overflow-y-auto:not(.lg\:p-0) button { max-width: 100%; }
   main.overflow-y-auto:not(.lg\:p-0) button.whitespace-nowrap { white-space: normal; }
 }
+
+/* Tiras deslizables sin la barra gris (se usaba la clase pero no existía:
+   en la PC con ventana mediana aparecía una barra de desplazamiento). */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
