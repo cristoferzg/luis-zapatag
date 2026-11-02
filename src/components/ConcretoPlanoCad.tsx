@@ -17,6 +17,7 @@
 // Autónomo: no depende del motor de Techos. Persiste en localStorage en el mismo
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
+import CampoNumero from './CampoNumero';
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon, ChevronsUp, Zap, ChevronDown, ChevronRight, PanelLeft } from 'lucide-react';
 import AtajosTeclado from './common/AtajosTeclado';
@@ -1117,9 +1118,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 {elemsGrupo.some(e => e.tipo === 'viga') && (<>
                   <button className="px-2.5 py-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer font-bold" title="Pega los extremos a las columnas cercanas y la pone a su altura" onClick={vigaAlRas}>Al ras de la columna</button>
                   <label className="inline-flex items-center gap-1 font-bold text-slate-600">Altura
-                    <input type="number" step="0.05" min="0.2" key={`ev-${selMov.join()}`} defaultValue={elemsGrupo.find(e => e.tipo === 'viga')?.elevM ?? ''} placeholder="auto"
-                      onBlur={e => { const v = parseFloat(e.target.value); commit(prev => prev.map(x => selMov.includes(x.uid) && x.tipo === 'viga' ? { ...x, elevM: v > 0 ? v : undefined } : x), 'viga-elev'); }}
-                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    <CampoNumero value={elemsGrupo.find(e => e.tipo === 'viga')?.elevM} min={0.2} permitirVacio placeholder="auto"
+                      onCommit={v => commit(prev => prev.map(x => selMov.includes(x.uid) && x.tipo === 'viga' ? { ...x, elevM: v } : x), 'viga-elev')}
                       className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
                   </label>
                   {!hayVigasAereas && (
@@ -1143,13 +1143,13 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                         const igual = vals.length === 1 && vals[0] !== undefined;
                         return (
                           <label key={String(c.key)} className="inline-flex items-center gap-1 font-bold text-slate-600">{c.label.replace(' (m)', '')}
-                            <input type="number" step="0.05" min="0.01" key={`${t}-${String(c.key)}-${selMov.join()}-${vals.join()}`} defaultValue={igual ? vals[0] : ''} placeholder={igual ? '' : 'varios'}
-                              onBlur={e => {
-                                const v = parseFloat(e.target.value); if (!(v > 0) || (igual && v === vals[0])) return;
+                            <CampoNumero key={`${t}-${String(c.key)}-${selMov.join()}`} value={igual ? vals[0] : (vals.every(v => v === undefined) && c.key === 'baseM' ? 0 : undefined)}
+                              min={c.key === 'baseM' ? 0 : 0.01} placeholder={igual ? '' : 'varios'}
+                              onCommit={v => {
+                                if (v === undefined) return;
                                 const extra = (t === 'muro' || t === 'placa') && c.key === 'H' ? { hastaTecho: false } : {};
                                 commit(prev => prev.map(x => selMov.includes(x.uid) && x.tipo === t ? { ...x, [c.key]: v, ...extra } : x), `grupo-${t}-${String(c.key)}`);
                               }}
-                              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                               className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
                           </label>
                         );
@@ -1384,9 +1384,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             <div className="grid grid-cols-3 gap-1.5">
               {CAMPOS[e.tipo].map(c => (
                 <label key={String(c.key)} className="text-[10px] font-bold text-slate-500">{c.label.replace(' (m)', '')}
-                  <input type="number" inputMode="decimal" step="0.05" key={`${e.uid}-${String(c.key)}-${(e as any)[c.key]}`} defaultValue={(e[c.key] as number) ?? ''}
-                    onBlur={ev => { const v = Math.max(0, parseFloat(ev.target.value) || 0); if (v !== (e[c.key] ?? 0)) updateElem(e.uid, { [c.key]: v, ...((e.tipo === 'muro' || e.tipo === 'placa') && c.key === 'H' ? { hastaTecho: false } : {}) } as Partial<PlanoElem>, String(c.key)); }}
-                    onKeyDown={ev => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
+                  <CampoNumero key={`${e.uid}-${String(c.key)}`} value={(e[c.key] as number | undefined) ?? (c.key === 'baseM' ? 0 : undefined)} min={0}
+                    onCommit={v => { if (v !== undefined) updateElem(e.uid, { [c.key]: v, ...((e.tipo === 'muro' || e.tipo === 'placa') && c.key === 'H' ? { hastaTecho: false } : {}) } as Partial<PlanoElem>, String(c.key)); }}
                     className="mt-0.5 w-full px-2 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono text-slate-900" />
                 </label>
               ))}
@@ -2041,16 +2040,15 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 {CAMPOS[selElem.tipo].map(c => (
                   <label key={String(c.key)} className="text-[10px] font-bold text-slate-600">
                     {c.label}{selElem.tipo === 'muro' && c.key === 'H' && selElem.hastaTecho ? ' · sigue el techo' : ''}
-                    <input type="number" step="0.05" value={(selElem[c.key] as number) ?? 0}
-                      onChange={e => {
-                        const v = Math.max(0, parseFloat(e.target.value) || 0);
+                    <CampoNumero key={`${selElem.uid}-${String(c.key)}`} value={(selElem[c.key] as number) ?? 0} min={0}
+                      onCommit={v0 => {
+                        const v = v0 ?? 0;
                         // Escribir el alto de un muro fija esa altura (deja de seguir el techo).
                         const extra = selElem.tipo === 'muro' && c.key === 'H' ? { hastaTecho: false } : {};
                         if (selElem.tipo === 'muro' && c.key === 'H' && v > 0) setAltoMuroNuevo(v);
                         updateElem(selElem.uid, { [c.key]: v, ...extra } as Partial<PlanoElem>, String(c.key));
                       }}
-                      className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2"
-                      style={{ boxShadow: 'none' }} />
+                      className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2" />
                   </label>
                 ))}
               </div>
@@ -2113,10 +2111,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                   </label>
                   <label className="col-span-2 text-[10px] font-bold text-slate-600">Altura de la losa (cara de arriba, m)
                     <div className="mt-0.5 flex gap-1.5">
-                      <input type="number" inputMode="decimal" step="0.05" min="0.1" key={`elev-${selElem.uid}-${selElem.elevM ?? 'auto'}`}
-                        defaultValue={selElem.elevM ?? ''} placeholder={`auto: ${cotaLosa({ ...selElem, elevM: undefined }, niveles, estructura).toFixed(2)}`}
-                        onBlur={e => { const v = parseFloat(e.target.value); updateElem(selElem.uid, { elevM: v > 0 ? v : undefined }, 'losa-elev'); }}
-                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      <CampoNumero key={`elev-${selElem.uid}`} value={selElem.elevM} min={0.1} permitirVacio
+                        placeholder={`auto: ${cotaLosa({ ...selElem, elevM: undefined }, niveles, estructura).toFixed(2)}`}
+                        onCommit={v => updateElem(selElem.uid, { elevM: v }, 'losa-elev')}
                         className="min-w-0 flex-1 px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none" />
                       <button type="button" title="Sube o baja 5 cm" onClick={() => updateElem(selElem.uid, { elevM: Math.round((cotaLosa(selElem, niveles, estructura) - 0.05) * 100) / 100 }, 'losa-elev')} className="px-2 rounded-lg bg-white border border-slate-300 font-black cursor-pointer">−</button>
                       <button type="button" title="Sube o baja 5 cm" onClick={() => updateElem(selElem.uid, { elevM: Math.round((cotaLosa(selElem, niveles, estructura) + 0.05) * 100) / 100 }, 'losa-elev')} className="px-2 rounded-lg bg-white border border-slate-300 font-black cursor-pointer">+</button>
@@ -2185,8 +2182,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             const L = largoMuro(muro);
             const num = (label: string, val: number, on: (v: number) => void, campo: string, dis = false) => (
               <label className="text-[10px] font-bold text-slate-600">{label}
-                <input type="number" step="0.05" value={Math.round(val * 100) / 100} disabled={dis}
-                  onChange={e => on(Math.max(0, parseFloat(e.target.value) || 0))} data-campo={campo}
+                <CampoNumero key={`${selAb.uid}-${selAb.id}-${campo}`} value={Math.round(val * 100) / 100} disabled={dis} min={0}
+                  onCommit={v => on(v ?? 0)}
                   className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs font-mono focus:outline-none disabled:opacity-50" />
               </label>
             );
@@ -2301,8 +2298,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                   </select>
                 </label>
                 <label className="text-[10px] font-bold text-slate-600">Altura (m)
-                  <input type="number" step="0.05" value={cieloPiso.cfg.altura} disabled={cieloPiso.cfg.modo === 'inclinado'}
-                    onChange={e => setCielo(nivelMuro, { altura: Math.max(1.8, parseFloat(e.target.value) || 0) })}
+                  <CampoNumero value={cieloPiso.cfg.altura} disabled={cieloPiso.cfg.modo === 'inclinado'} min={1.8}
+                    onCommit={v => { if (v !== undefined) setCielo(nivelMuro, { altura: v }); }}
                     className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs font-mono focus:outline-none disabled:opacity-50" />
                 </label>
                 <label className="col-span-2 text-[10px] font-bold text-slate-600">Placa
@@ -2343,10 +2340,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                           {catLadrillo.map(l => <option key={l.id} value={l.id}>{l.tipo}</option>)}
                         </select>
                         <label className="text-[10px] font-bold text-slate-600">Alto (m)
-                          <input type="number" step="0.1" value={sp.alto} onChange={e => setSobrepecho(t.id, { alto: Math.max(0.2, parseFloat(e.target.value) || 0) })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs font-mono focus:outline-none" />
+                          <CampoNumero value={sp.alto} step={0.1} min={0.2} onCommit={v => { if (v !== undefined) setSobrepecho(t.id, { alto: v }); }} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs font-mono focus:outline-none" />
                         </label>
                         <label className="text-[10px] font-bold text-slate-600">Separación (m)
-                          <input type="number" step="0.05" value={sp.holgura} onChange={e => setSobrepecho(t.id, { holgura: Math.max(0, parseFloat(e.target.value) || 0) })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs font-mono focus:outline-none" />
+                          <CampoNumero value={sp.holgura} min={0} onCommit={v => { if (v !== undefined) setSobrepecho(t.id, { holgura: v }); }} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 text-xs font-mono focus:outline-none" />
                         </label>
                         <p className="col-span-2 text-[10px] font-bold text-slate-500">{areaSp.toFixed(2)} m² · {Math.ceil(areaSp * (lad?.unidadesM2 || 0))} ladrillos</p>
                       </div>
