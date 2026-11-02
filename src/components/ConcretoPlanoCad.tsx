@@ -1109,24 +1109,41 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 </>)}
                 <button className={`${btn} inline-flex items-center gap-1 font-bold`} title="Duplicar" onClick={duplicarGrupo}><Copy className="w-4 h-4" /> Duplicar</button>
                 <button className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer inline-flex items-center gap-1 font-bold" title="Borrar" onClick={borrarGrupo}><Trash2 className="w-4 h-4" /> Borrar</button>
-                {muros.length > 0 && (
-                  <>
-                    <label className="inline-flex items-center gap-1 font-bold text-slate-600 ml-1">Alto
-                      <input type="number" step="0.05" min="0.3" defaultValue={muros[0].H || 2.6} key={`h-${grupo.join()}`}
-                        onBlur={e => { const v = parseFloat(e.target.value); if (v > 0) cambiarGrupo({ H: v, hastaTecho: false }, 'alto-grupo'); }}
-                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                        className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
-                    </label>
-                    <select value={`${muros[0].material || 'ladrillo'}:${muros[0].materialId || ''}`}
-                      onChange={e => { const [material, materialId] = e.target.value.split(':') as [MaterialMuro, string]; cambiarGrupo({ material, materialId }, 'material-grupo'); }}
-                      className="px-2 py-1 rounded-lg bg-orange-50 font-bold text-orange-800 cursor-pointer max-w-[170px]">
-                      {!esDrywall && <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>}
-                      <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
-                      <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
-                    </select>
-                  </>
-                )}
-                <button className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer ml-auto" title="Quitar selección" onClick={() => setGrupo([])}><XIcon className="w-4 h-4" /></button>
+                <button className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer ml-auto" title="Quitar selección" onClick={() => { setGrupo([]); setSelUid(null); }}><XIcon className="w-4 h-4" /></button>
+                {/* Medidas por tipo: lo que se escribe se aplica a todos los de ese tipo del grupo. */}
+                {(Object.keys(META) as PlanoTipo[]).filter(t => elemsGrupo.some(e => e.tipo === t)).map(t => {
+                  const lista = elemsGrupo.filter(e => e.tipo === t);
+                  return (
+                    <div key={t} className="basis-full flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
+                      <span className="font-black" style={{ color: META[t].color }}>{META[t].nombre}{lista.length > 1 ? ` (${lista.length})` : ''}</span>
+                      {CAMPOS[t].map(c => {
+                        const vals = [...new Set(lista.map(e => (e[c.key] as number | undefined) ?? (DEFAULTS[t] as any)[c.key]))];
+                        const igual = vals.length === 1 && vals[0] !== undefined;
+                        return (
+                          <label key={String(c.key)} className="inline-flex items-center gap-1 font-bold text-slate-600">{c.label.replace(' (m)', '')}
+                            <input type="number" step="0.05" min="0.01" key={`${t}-${String(c.key)}-${selMov.join()}-${vals.join()}`} defaultValue={igual ? vals[0] : ''} placeholder={igual ? '' : 'varios'}
+                              onBlur={e => {
+                                const v = parseFloat(e.target.value); if (!(v > 0) || (igual && v === vals[0])) return;
+                                const extra = (t === 'muro' || t === 'placa') && c.key === 'H' ? { hastaTecho: false } : {};
+                                commit(prev => prev.map(x => selMov.includes(x.uid) && x.tipo === t ? { ...x, [c.key]: v, ...extra } : x), `grupo-${t}-${String(c.key)}`);
+                              }}
+                              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                              className="w-16 px-1.5 py-1 rounded-lg border border-slate-200 font-mono" /> m
+                          </label>
+                        );
+                      })}
+                      {t === 'muro' && (
+                        <select value={`${muros[0].material || 'ladrillo'}:${muros[0].materialId || ''}`}
+                          onChange={e => { const [material, materialId] = e.target.value.split(':') as [MaterialMuro, string]; cambiarGrupo({ material, materialId }, 'material-grupo'); }}
+                          className="px-2 py-1 rounded-lg bg-orange-50 font-bold text-orange-800 cursor-pointer max-w-[170px]">
+                          {!esDrywall && <optgroup label="Ladrillo">{catLadrillo.map(l => <option key={l.id} value={`ladrillo:${l.id}`}>{l.tipo}</option>)}</optgroup>}
+                          <optgroup label="Drywall">{catDrywall.map(d => <option key={d.id} value={`drywall:${d.id}`}>{d.tipo}</option>)}</optgroup>
+                          <optgroup label="OSB">{catOsb.map(d => <option key={d.id} value={`osb:${d.id}`}>{d.tipo}</option>)}</optgroup>
+                        </select>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             );
   })() : null;

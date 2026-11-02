@@ -109,9 +109,16 @@ export interface EstructuraTechos {
 
 /** Lo que se ocultó en Techos ("ocultar sin borrar") tampoco se dibuja ni se cuenta
  *  en Obra Civil ni en Drywall. Devuelve el mismo objeto si no hay nada oculto. */
-export function sinOcultos<T extends { segments?: Record<string, any> } | null | undefined>(est: T): T {
+export function sinOcultos<T extends { segments?: Record<string, any>; nodes?: Record<string, any> } | null | undefined>(est: T): T {
   if (!est || !est.segments || !Object.values(est.segments).some((s: any) => s?.oculto)) return est;
-  return { ...est, segments: Object.fromEntries(Object.entries(est.segments).filter(([, s]: [string, any]) => !s?.oculto)) } as T;
+  const todos = Object.values(est.segments) as any[];
+  const segments = Object.fromEntries(Object.entries(est.segments).filter(([, s]: [string, any]) => !s?.oculto));
+  // Igual que en Techos: los nodos que solo tocan perfiles ocultos (la base de una
+  // columna oculta, las esquinas de un paño oculto) tampoco se dibujan ni cuentan.
+  const usados = new Set<string>(), visibles = new Set<string>();
+  todos.forEach(s => { usados.add(s.nodeAId); usados.add(s.nodeBId); if (!s.oculto) { visibles.add(s.nodeAId); visibles.add(s.nodeBId); } });
+  const nodes = est.nodes ? Object.fromEntries(Object.entries(est.nodes).filter(([id]) => !usados.has(id) || visibles.has(id))) : est.nodes;
+  return { ...est, segments, nodes } as T;
 }
 
 // Alturas de los entrepisos: vigas horizontales que no son el techo (la cota
