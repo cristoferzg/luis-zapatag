@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 // Módulo Principal e Independiente de HERRERÍA para Innova Contratistas Manager
 // Cumple estrictamente todos los lineamientos solicitados para el módulo de Herrería
 import { importarDisenoJson } from './importarDisenoJson';
@@ -165,6 +166,8 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
     setSavedDesignsList(Array.isArray(savedArr) ? savedArr : []);
   };
 
+  const [hojaHerr, setHojaHerr] = useState(false); // celular: panel 'Herramientas'
+
   // Botón [ GUARDAR ]
   const handleGuardar = () => {
     const savedArr = safeStorage.getItem<HerreriaDesign[]>('innova_herreria_saved_designs', []);
@@ -266,9 +269,9 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-wide">
-                CARPINTERÍA METÁLICA · PUERTAS, REJAS Y PORTONES
+                CARPINTERÍA METÁLICA<span className="hidden sm:inline"> · PUERTAS, REJAS Y PORTONES</span>
               </h1>
-              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-mono font-bold border border-blue-200">
+              <span className="hidden sm:inline px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-mono font-bold border border-blue-200">
                 CAD 2D / 3D
               </span>
             </div>
@@ -310,7 +313,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ SUBIR CAD / AUTOCAD ] */}
           <button
             onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
             title="Subir archivo .DXF (AutoCAD) o .JSON de proyecto"
           >
             <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
@@ -320,7 +323,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ + NUEVO ] */}
           <button
             onClick={handleNuevo}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all cursor-pointer"
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all cursor-pointer"
             title="Crear nuevo diseño de herrería"
           >
             <Plus className="w-3.5 h-3.5 text-blue-600" />
@@ -343,7 +346,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
               loadSavedList();
               setShowLoadModal(true);
             }}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
             title="Cargar diseño guardado"
           >
             <FolderOpen className="w-3.5 h-3.5 text-amber-500" />
@@ -353,7 +356,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ EXPORTAR ] */}
           <button
             onClick={handleExportar}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
             title="Exportar archivo JSON"
           >
             <Download className="w-3.5 h-3.5 text-emerald-600" />
@@ -363,17 +366,43 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           {/* [ DXF AUTOCAD ] */}
           <button
             onClick={handleExportDxf}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
             title="Descargar el plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
           >
             <Download className="w-3.5 h-3.5 text-blue-600" />
             <span className="hidden md:inline">DXF</span>
           </button>
 
+          {/* Celular: lo demás en un panel con nombres (igual que Techos y Obra Civil) */}
+          <button onClick={() => setHojaHerr(true)}
+            className="sm:hidden flex items-center gap-1 px-2.5 py-2 rounded-lg bg-white text-slate-700 text-xs font-bold border border-slate-200 shadow-xs cursor-pointer">
+            <span className="text-base leading-none">⋯</span> Herramientas
+          </button>
+          {hojaHerr && createPortal(
+            <div className="sm:hidden fixed inset-0 z-[95]" onClick={() => setHojaHerr(false)}>
+              <div className="absolute inset-0 bg-slate-900/40" />
+              <div className="absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-2xl p-3 pb-[calc(16px+env(safe-area-inset-bottom))]" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-1 pb-2">
+                  <span className="text-base font-black text-slate-900">Herramientas</span>
+                  <button onClick={() => setHojaHerr(false)} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Cerrar</button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5 [&>button]:min-h-[52px] [&>button]:rounded-2xl [&>button]:bg-slate-50 [&>button]:px-3 [&>button]:text-left [&>button]:text-[13px] [&>button]:font-semibold [&>button]:text-slate-700 [&>button]:flex [&>button]:items-center [&>button]:gap-2 [&>button]:cursor-pointer">
+                  <button onClick={() => { setHojaHerr(false); handleNuevo(); }}><Plus className="w-4 h-4 text-blue-600 shrink-0" /> Nuevo diseño</button>
+                  <button onClick={() => { setHojaHerr(false); loadSavedList(); setShowLoadModal(true); }}><FolderOpen className="w-4 h-4 text-amber-500 shrink-0" /> Abrir guardado</button>
+                  <button onClick={() => { setHojaHerr(false); setShowUploadModal(true); }}><UploadCloud className="w-4 h-4 text-blue-600 shrink-0" /> Subir CAD / JSON</button>
+                  <button onClick={() => { setHojaHerr(false); handleExportar(); }}><Download className="w-4 h-4 text-emerald-600 shrink-0" /> Exportar</button>
+                  <button onClick={() => { setHojaHerr(false); handleExportDxf(); }}><Download className="w-4 h-4 text-blue-600 shrink-0" /> DXF AutoCAD</button>
+                  <button onClick={() => { setHojaHerr(false); setShowHelpModal(true); }}><HelpCircle className="w-4 h-4 text-purple-600 shrink-0" /> Ayuda y atajos</button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
           {/* [ AYUDA ] */}
           <button
             onClick={() => setShowHelpModal(true)}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
             title="Guía de uso y atajos"
           >
             <HelpCircle className="w-3.5 h-3.5 text-purple-600" />
