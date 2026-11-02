@@ -17,7 +17,7 @@
 // Autónomo: no depende del motor de Techos. Persiste en localStorage en el mismo
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
-import { useRef, useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon, ChevronsUp, Zap, ChevronDown, ChevronRight, PanelLeft } from 'lucide-react';
 import AtajosTeclado from './common/AtajosTeclado';
 import { escalera, datosAligerada, PuntoInstalacion, TipoInstalacion, INSTALACIONES, KEY_INSTALACIONES, leerInstalaciones, metradoInstalaciones, AcabadoAmbiente, ACABADO_VACIO, KEY_ACABADOS, leerAcabados, PISOS, metradoAcabado, LineaExtra, COLORES_PINTURA } from './concreto/extrasObra';
@@ -186,7 +186,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   const [vista3d, setVista3d] = useState(false);
   const [verTecho, setVerTecho] = useState(true);
   const [hastaPiso, setHastaPiso] = useState('');
-  const [resaltar, setResaltar] = useState(false);
+  const [resaltar] = useState(false); // «Perfiles ×3» se quitó (no aportaba); se deja en tamaño real
   const [verCimentacion, setVerCimentacion] = useState(false);
 
   const [elems, setElems] = useState<PlanoElem[]>(() => safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || []);
@@ -995,6 +995,23 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     : true) as { id: Herramienta; label: string; icon: any }[];
   // Riel de herramientas como en Techos: vertical en PC, dock abajo en el celular.
   const [esPC, setEsPC] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1024);
+  // Celular: el plano (2D o 3D) ocupa justo hasta el panel "Elementos · Metrado" (48 px)
+  // y la barra de abajo; antes era un alto fijo y en algunos teléfonos los controles de
+  // abajo (corte, grabar video, zoom) quedaban escondidos detrás del panel.
+  const lienzoMovilRef = useRef<HTMLDivElement | null>(null);
+  const [altoMovil, setAltoMovil] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (esPC) { setAltoMovil(undefined); return; }
+    const medir = () => {
+      const el = lienzoMovilRef.current; if (!el) return;
+      const nav = document.querySelector('nav.nav-app') as HTMLElement | null;
+      const abajo = (nav?.offsetHeight || 80) + 48 + 6;
+      setAltoMovil(Math.max(300, Math.round(window.innerHeight - el.getBoundingClientRect().top - abajo)));
+    };
+    const t = setTimeout(medir, 60);
+    window.addEventListener('resize', medir);
+    return () => { clearTimeout(t); window.removeEventListener('resize', medir); };
+  });
   // Celular: paneles (Elementos, Metrado, Ambientes…) en una hoja que sube desde abajo.
   const [hoja, setHoja] = useState(false);
   const [masHerr, setMasHerr] = useState(false);
@@ -1318,7 +1335,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* VISTA 3D */}
         {vista3d ? (
-          <div className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-272px)] max-lg:min-h-[300px] overflow-hidden bg-slate-100">
+          <div ref={lienzoMovilRef} style={altoMovil ? { height: altoMovil } : undefined} className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-272px)] max-lg:min-h-[300px] overflow-hidden bg-slate-100">
             <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}|${JSON.stringify(acabados)}`} acabados={acabados} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos}  seleccion={grupo.length ? grupo : selUid ? [selUid] : []} onPick={elegir3d} />
             {barraGrupoEn('top-14')}
             <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 overflow-x-auto px-3 py-2.5 [&>*]:shrink-0 [&>*]:whitespace-nowrap [&>*]:shadow [&>*]:border [&>*]:border-slate-200">
@@ -1333,12 +1350,6 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verCimentacion ? 'bg-stone-700 text-white' : 'bg-slate-100 text-slate-700'}`}>
                 {verCimentacion ? 'Ocultar cimentación' : 'Ver cimentación'}
               </button>
-              {estructura && (
-                <button onClick={() => setResaltar(v => !v)} title="Las secciones se dibujan a su medida real; resaltado las multiplica ×3 solo para verlas mejor"
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${resaltar ? 'bg-stone-700 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                  Perfiles: {resaltar ? 'resaltado ×3' : 'tamaño real'}
-                </button>
-              )}
             </div>
             {elems.length === 0 && !estructura && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm font-bold">Dibuja en 2D para ver el 3D</div>
@@ -1351,7 +1362,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         ) : (
         /* LIENZO 2D */
         <div
-          ref={containerRef}
+          ref={el => { (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el; lienzoMovilRef.current = el; }}
           className={`relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-272px)] max-lg:min-h-[300px] overflow-hidden bg-slate-50 select-none ${tool === 'pan' || isPanning ? 'cursor-grab' : (dragNode.current ? 'cursor-grabbing' : 'cursor-crosshair')}`}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
@@ -1363,7 +1374,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
-          style={{ touchAction: 'none' }}
+          style={{ touchAction: 'none', ...(altoMovil ? { height: altoMovil } : {}) }}
         >
           <svg className="absolute inset-0 w-full h-full">
             {/* Tramas de muros según material (como en un plano de arquitectura) */}

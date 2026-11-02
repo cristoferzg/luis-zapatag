@@ -767,7 +767,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     <div className="relative w-full h-full">
       <div ref={mountRef} className="w-full h-full" />
       <button type="button" onClick={() => setCalidad3d(calidad === 'alta' ? 'ahorro' : 'alta')} title="Alta: nítido como en la PC · Ahorro: más fluido y menos batería"
-        className="lg:hidden absolute top-2 right-2 z-10 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-black shadow border cursor-pointer bg-white text-slate-700 border-slate-200">
+        className="lg:hidden absolute top-14 right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-black shadow border cursor-pointer bg-white text-slate-700 border-slate-200">
         Calidad: <span className={calidad === 'alta' ? 'text-emerald-600' : 'text-amber-600'}>{calidad === 'alta' ? 'Alta' : 'Ahorro'}</span>
       </button>
       <button onClick={grabar} title={grabando ? 'Detener y descargar el video' : 'Grabar un video MP4 girando el modelo'}

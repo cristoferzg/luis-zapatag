@@ -1523,6 +1523,33 @@ export const isAuthorizedAdminEmail = async (authUser: User): Promise<boolean> =
   return false;
 };
 
+/** Botón + del celular: solo se muestra si lo que abre NO está a la vista (si el
+ *  formulario ya se ve en pantalla, el botón sobra y tapa contenido). */
+function BotonMasFlotante({ label, objetivo, revisar, onClick }: { label: string; objetivo: () => HTMLElement | null; revisar: boolean; onClick: () => void }) {
+  const [sobra, setSobra] = useState(false);
+  useEffect(() => {
+    if (!revisar) { setSobra(false); return; }
+    const ver = () => {
+      const el = objetivo();
+      if (!el) { setSobra(false); return; }
+      const r = el.getBoundingClientRect();
+      setSobra(r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight - 90);
+    };
+    const t = setTimeout(ver, 400);
+    document.addEventListener('scroll', ver, true);
+    window.addEventListener('resize', ver);
+    return () => { clearTimeout(t); document.removeEventListener('scroll', ver, true); window.removeEventListener('resize', ver); };
+  }, [revisar]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (sobra) return null;
+  return (
+    <button onClick={onClick} aria-label={label}
+      className="fab-app xl:hidden fixed right-4 z-[46] h-14 pl-4 pr-5 rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex items-center gap-2.5 text-[15px] font-semibold cursor-pointer active:scale-95 transition-transform"
+      style={{ bottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
+      <Plus className="w-6 h-6" />{label}
+    </button>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState<SystemUser | null>(() => {
     return safeStorage.getItem<SystemUser | null>('savedUser', null);
@@ -2367,6 +2394,14 @@ export default function App() {
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (f.boton) setTimeout(() => el!.click(), 300); else setTimeout(() => el!.focus({ preventScroll: true }), 350);
   };
+  // El botón + solo aparece cuando lo que abre NO está a la vista: si el formulario ya
+  // se ve en pantalla (p. ej. Proyectos al entrar), el botón sobra y tapa contenido.
+  const objetivoFab = (f: NonNullable<typeof fabActual>): HTMLElement | null => {
+    const main = document.querySelector('main');
+    if (f.boton) return Array.from(main?.querySelectorAll('button') || []).find(b => (b.textContent || '').includes(f.boton!)) as HTMLElement || null;
+    if (f.campo) for (const sel of f.campo.split('||')) { const el = main?.querySelector(sel.trim().replace(/^main /, '')) as HTMLElement | null; if (el) return el; }
+    return null;
+  };
   const ejecutarFab = () => {
     if (!fabActual) return;
     if (fabActual.ir && fabActual.ir !== currentView) { setCurrentView(fabActual.ir as ViewType); setTimeout(() => enfocarFab(fabActual), 400); }
@@ -2693,11 +2728,8 @@ export default function App() {
       {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/50 z-40 xl:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
       {/* CELULAR / TABLET: botón con texto de la pantalla (crear lo que corresponde ahí) */}
       {!isMobileMenuOpen && fabActual && (
-        <button onClick={() => { tocar(); ejecutarFab(); }} aria-label={fabActual.label}
-          className="fab-app xl:hidden fixed right-4 z-[46] h-14 pl-4 pr-5 rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex items-center gap-2.5 text-[15px] font-semibold cursor-pointer active:scale-95 transition-transform"
-          style={{ bottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
-          <Plus className="w-6 h-6" />{fabActual.label}
-        </button>
+        <BotonMasFlotante key={currentView} label={fabActual.label} revisar={!(fabActual.ir && fabActual.ir !== currentView)}
+          objetivo={() => objetivoFab(fabActual)} onClick={() => { tocar(); ejecutarFab(); }} />
       )}
       <OfflineIndicator />
     </div>
