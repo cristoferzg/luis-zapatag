@@ -1,5 +1,5 @@
 import { safeStorage } from './storageManager';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { collection, doc, setDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
 
 export interface SavedTechosDesign {
@@ -9,6 +9,8 @@ export interface SavedTechosDesign {
   updatedAt?: string;
   authorName?: string;
   authorRole?: string;
+  /** Usuario que lo creó (para mostrar a cada uno solo sus planos). */
+  authorUid?: string;
   clientId?: string;
   clientName?: string;
   projectId?: string;
@@ -93,6 +95,14 @@ export async function fetchAllTechosDesigns(): Promise<SavedTechosDesign[]> {
 /**
  * Returns currently cached designs synchronously
  */
+/** ¿Es un plano de este usuario? (los antiguos sin dueño se reconocen por el nombre del autor). */
+export function esPlanoMio(d: SavedTechosDesign, nombreUsuario?: string): boolean {
+  const uid = auth.currentUser?.uid;
+  if (d.authorUid) return !!uid && d.authorUid === uid;
+  const nombre = nombreUsuario || (safeStorage.getItem<{ name?: string } | null>('savedUser', null)?.name ?? '');
+  return !d.authorName || !nombre || normNombre(d.authorName) === normNombre(nombre);
+}
+
 export function getCachedTechosDesigns(): SavedTechosDesign[] {
   return safeStorage.getItem<SavedTechosDesign[]>(STORAGE_KEY, []) || [];
 }
@@ -121,8 +131,11 @@ export async function saveOrUpdateTechosDesign(
   const targetId = isUpdating ? existingList[existingIndex].id : `techos_${Date.now()}`;
   const nowStr = new Date().toLocaleDateString('es-PE') + ' ' + new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
+  const previo = isUpdating ? existingList[existingIndex] : undefined;
   const finalDesign: SavedTechosDesign = {
     ...designData,
+    // El dueño no cambia al actualizar; un plano nuevo queda a nombre de quien lo guarda.
+    authorUid: previo?.authorUid || designData.authorUid || auth.currentUser?.uid || undefined,
     id: targetId,
     savedAt: isUpdating ? existingList[existingIndex].savedAt : nowStr,
     updatedAt: nowStr,
@@ -139,13 +152,10 @@ export async function saveOrUpdateTechosDesign(
   }
   safeStorage.setItem(STORAGE_KEY, nextList);
 
-  // Sync to Firestore in background
-  try {
-    const docRef = doc(db, 'planos_techos', targetId);
-    await setDoc(docRef, finalDesign, { merge: true });
-  } catch (dbErr) {
-    console.warn('Notice saving plan to Firestore:', dbErr);
-  }
+  // Se sube a la nube en segundo plano: no se espera a internet (sin red o con la red
+  // lenta, esperar dejaba el plano sin id y el siguiente cambio creaba otra copia).
+  setDoc(doc(db, 'planos_techos', targetId), JSON.parse(JSON.stringify(finalDesign)), { merge: true })
+    .catch(dbErr => console.warn('Notice saving plan to Firestore:', dbErr));
 
   return { design: finalDesign, isNew: !isUpdating };
 }

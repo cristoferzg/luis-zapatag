@@ -40,7 +40,7 @@ import {
 } from './concreto/geometriaObra';
 import { perfilTechos } from './techos/tensores';
 import { caidaDePoligono, nombreDireccion, NOMBRE_CAIDA } from './techos/coberturaAuto';
-import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns } from '../lib/techosDesignsRepo';
+import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns, esPlanoMio } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
 
@@ -1160,7 +1160,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         <select value={techosId} onChange={e => setTechosId(e.target.value)}
           className="px-2.5 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none max-w-[260px]">
           <option value="">— Sin estructura —</option>
-          {disenos.map(d => <option key={d.id} value={d.id}>{d.nombre}{d.updatedAt ? ` · ${d.updatedAt}` : ''}</option>)}
+          {disenos.filter(d => d.id === techosId || esPlanoMio(d)).map(d => <option key={d.id} value={d.id}>{d.nombre}{d.updatedAt ? ` · ${d.updatedAt}` : ''}</option>)}
         </select>
         {estructura && onEditarEnTechos && (
           <button onClick={() => disenoVinculado && onEditarEnTechos(disenoVinculado)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 cursor-pointer hover:bg-blue-100">

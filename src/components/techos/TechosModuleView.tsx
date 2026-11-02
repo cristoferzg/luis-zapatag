@@ -59,7 +59,8 @@ import {
   getCachedTechosDesigns, 
   saveOrUpdateTechosDesign, 
   deleteTechosDesign, 
-  popActiveTechosDesignToLoad 
+  popActiveTechosDesignToLoad,
+  esPlanoMio
 } from '../../lib/techosDesignsRepo';
 import type { TechosDelProyecto } from '../../types';
 
@@ -530,6 +531,13 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const [repoSearchTerm, setRepoSearchTerm] = useState<string>('');
   const [repoFilterClient, setRepoFilterClient] = useState<string>('todos');
 
+  // GUARDADO AUTOMÁTICO: cada cambio del dibujo se guarda solo (2.5 s después de dejar
+  // de editar) en el MISMO plano, sin crear copias. Un lienzo nuevo se guarda la primera
+  // vez que se edita y desde ahí se va actualizando. Abrir una plantilla, un archivo o un
+  // plano guardado no cuenta como cambio (no se guarda hasta que se edite).
+  const baseAuto = React.useRef<{ firma: string; hasta: number }>({ firma: '', hasta: Date.now() + 3000 });
+  const marcarBaseAuto = () => { baseAuto.current.hasta = Date.now() + 2500; };
+
   // Cargar lista de guardados al abrir modal y al montar
   const loadSavedList = async () => {
     try {
@@ -544,6 +552,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     // Check if an external action requested loading a specific design (e.g. from Client Portfolio)
     const pending = popActiveTechosDesignToLoad();
     if (pending && pending.nodes && pending.segments) {
+      marcarBaseAuto();
       engineState.loadScene(pending.nodes, pending.segments, pending.coverageZones || {});
       setNombreProyecto(pending.nombre || 'Techo Estructural');
       setCurrentEditingDesignId(pending.id);
@@ -556,8 +565,45 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     loadSavedList();
   }, []);
 
+  useEffect(() => {
+    // Cambios que llegan justo después de abrir algo (la plantilla termina de armarse,
+    // se pone su cobertura…) son parte de lo abierto, no una edición: alargan la ventana.
+    const enVentana = Date.now() < baseAuto.current.hasta;
+    if (enVentana) baseAuto.current.hasta = Math.max(baseAuto.current.hasta, Date.now() + 1500);
+    const t = setTimeout(() => {
+      const b = baseAuto.current;
+      const firma = JSON.stringify([engineState.nodes, engineState.segments, engineState.coverageZones, nombreProyecto.trim()]);
+      if (!b.firma || enVentana || Date.now() < b.hasta) { b.firma = firma; return; }
+      if (firma === b.firma || isSavingInProgress) return;
+      if (!Object.keys(engineState.segments || {}).length) { b.firma = firma; return; }
+      const lista = getCachedTechosDesigns();
+      const actual = currentEditingDesignId ? lista.find(d => d.id === currentEditingDesignId) : undefined;
+      if (actual && !esPlanoMio(actual, currentUserName)) return; // plano de otro usuario: no se toca
+      b.firma = firma;
+      let nombre = nombreProyecto.trim() || 'Techo metálico';
+      if (!actual) { // plano nuevo: nombre que no choque con uno ya guardado
+        const usados = new Set(lista.map(d => (d.nombre || '').trim().toLowerCase()));
+        if (usados.has(nombre.toLowerCase())) { let k = 2; while (usados.has(`${nombre} (${k})`.toLowerCase())) k++; nombre = `${nombre} (${k})`; setNombreProyecto(nombre); }
+      }
+      const cli = clients.find(c => c.id === saveModalClientId), pro = projects.find(p => p.id === saveModalProjectId);
+      saveOrUpdateTechosDesign({
+        id: actual?.id, nombre,
+        authorName: actual?.authorName || currentUserName, authorRole: actual?.authorRole || (isAdmin ? 'Administrador' : 'Colaborador'),
+        clientId: cli?.id ?? actual?.clientId, clientName: cli?.name ?? actual?.clientName,
+        projectId: pro?.id ?? actual?.projectId, projectName: pro?.name ?? actual?.projectName,
+        nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones,
+      }, !!actual).then(res => {
+        if (res.design.id !== currentEditingDesignId) setCurrentEditingDesignId(res.design.id);
+        setJustSaved(true); setTimeout(() => setJustSaved(false), 1500);
+        setSavedDesignsList(getCachedTechosDesigns());
+      }).catch(err => console.warn('Guardado automático pendiente:', err));
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [engineState.nodes, engineState.segments, engineState.coverageZones, nombreProyecto]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Botón [ + NUEVO DISEÑO ] -> Vacía el lienzo por completo
   const handleNuevo = () => {
+    marcarBaseAuto();
     engineState.clearScene();
     setNombreProyecto('Nuevo Techo Estructural');
     setCurrentEditingDesignId(null);
@@ -568,6 +614,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // Importar archivo AutoCAD DXF
   const handleImportDxf = (result: CadImportResult) => {
     if (result.dxfModel) {
+      marcarBaseAuto();
       engineState.importDxfModel(result.dxfModel, result.customScale);
       setNombreProyecto(result.fileName.replace(/\.dxf$/i, ''));
       setCurrentEditingDesignId(null);
@@ -580,6 +627,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // Importar archivo JSON
   const handleImportJson = (jsonData: any, fileName: string) => {
     if (jsonData && jsonData.nodes && jsonData.segments) {
+      marcarBaseAuto();
       engineState.loadScene(jsonData.nodes, jsonData.segments, jsonData.coverageZones || {});
       setNombreProyecto(jsonData.nombre || fileName.replace(/\.json$/i, ''));
       setCurrentEditingDesignId(null);
@@ -882,6 +930,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
 
   // Cargar Plantilla Prediseñada
   const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina' | 'multinivel' | 'tijeral_curvo') => {
+    // Una plantilla es un plano NUEVO: no debe pisar el plano que estaba abierto.
+    marcarBaseAuto();
+    setCurrentEditingDesignId(null);
     engineState.clearScene();
     coberturaAutoPendiente.current = true;
     perfilesAutoPendiente.current = ['dos_aguas', 'parabolico', 'un_agua', 'tijeral_curvo', 'marquesina'].includes(tipo);
@@ -912,6 +963,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
 
   // Cargar Diseño Guardado
   const handleCargarDisenoGuardado = (saved: SavedTechosDesign) => {
+    marcarBaseAuto();
     if (saved.nodes && saved.segments) {
       engineState.loadScene(saved.nodes, saved.segments, saved.coverageZones || {});
     } else {
@@ -1460,7 +1512,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                   <div>
                     <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider flex items-center gap-1.5">
                       <HardDrive className="w-4 h-4 text-indigo-600" />
-                      <span>Repositorio de Planos ({savedDesignsList.length})</span>
+                      <span>Repositorio de Planos ({savedDesignsList.filter(d => esPlanoMio(d, currentUserName)).length})</span>
                     </h4>
                     <p className="text-[11px] text-slate-500">
                       Planos guardados en la nube y organizados por cliente.
@@ -1495,7 +1547,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                 </div>
 
                 {(() => {
-                  const filtered = savedDesignsList.filter(item => {
+                  // Cada uno ve solo SUS planos (el admin no ve los de sus usuarios: no los borra sin querer).
+                  const filtered = savedDesignsList.filter(item => esPlanoMio(item, currentUserName)).filter(item => {
                     const matchClient = repoFilterClient === 'todos' || item.clientId === repoFilterClient;
                     const searchLower = repoSearchTerm.toLowerCase();
                     const matchSearch = !repoSearchTerm.trim() || 
