@@ -107,6 +107,13 @@ export interface EstructuraTechos {
   coverageZones: Record<string, { id: string; nombre: string; nodeIdsBoundary: string[]; coberturaMaterialId: string }>;
 }
 
+/** Lo que se ocultó en Techos ("ocultar sin borrar") tampoco se dibuja ni se cuenta
+ *  en Obra Civil ni en Drywall. Devuelve el mismo objeto si no hay nada oculto. */
+export function sinOcultos<T extends { segments?: Record<string, any> } | null | undefined>(est: T): T {
+  if (!est || !est.segments || !Object.values(est.segments).some((s: any) => s?.oculto)) return est;
+  return { ...est, segments: Object.fromEntries(Object.entries(est.segments).filter(([, s]: [string, any]) => !s?.oculto)) } as T;
+}
+
 // Alturas de los entrepisos: vigas horizontales que no son el techo (la cota
 // más alta, donde van las correas). Piso 2 arranca en la primera, etc.
 export function entrepisosDesdeTechos(t: EstructuraTechos | null | undefined): number[] {

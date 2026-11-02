@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { PanelsTopLeft, PenTool, ClipboardList, Tag, Calculator, Ruler, Plus, Trash2, Copy, ChevronDown, ChevronUp, FilePlus2, FolderOpen, Save, Send, DoorOpen, AppWindow } from 'lucide-react';
 import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
 import { metradoDrywall } from './concreto/metradoDrywall';
-import { KEY_OBRA_TECHOS_ID, EstructuraTechos } from './concreto/obraPisos';
+import { KEY_OBRA_TECHOS_ID, EstructuraTechos, sinOcultos } from './concreto/obraPisos';
 import { KEY_CIELOS, CieloRaso } from './concreto/geometriaObra';
 import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns, setActiveTechosDesignToLoad } from '../lib/techosDesignsRepo';
 import { useCatalogo } from '../lib/catalogoPrecios';
@@ -37,7 +37,7 @@ function usePlanoDrywall() {
     const niveles = safeStorage.getItem<string[]>('concreto_metrados_niveles', ['Cimentación', 'Piso 1']) || ['Cimentación', 'Piso 1'];
     const elems = safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || [];
     const cielos = safeStorage.getItem<Record<string, CieloRaso>>(KEY_CIELOS, {}) || {};
-    return metradoDrywall(niveles, diseno as unknown as EstructuraTechos | null, elems, cielos).filter(p => p.lineas.length > 0);
+    return metradoDrywall(niveles, sinOcultos(diseno as unknown as EstructuraTechos | null), elems, cielos).filter(p => p.lineas.length > 0);
   }, [diseno, catalogo]); // eslint-disable-line react-hooks/exhaustive-deps
   return { plano, diseno };
 }

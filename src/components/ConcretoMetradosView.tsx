@@ -28,7 +28,7 @@ import {
   SistemaNivel, TechoSnapshot, MuroCapa, calcSistema, sistemaVacio, muroDesdePlano,
   KEY_SISTEMAS_NIVEL, KEY_TECHOS_DISPONIBLES, KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_CAT_OSB, leerCatalogoOsb,
   KEY_OBRA_TECHOS_ID, EstructuraTechos, contextosObra, obraPorPiso, ObraPiso,
-  drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo,
+  drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo, sinOcultos,
 } from './concreto/obraPisos';
 import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
 import { AdminCatalogosMateriales } from './concreto/AdminCatalogosMateriales';
@@ -235,7 +235,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
     const elems = safeStorage.getItem<PlanoElem[]>('concreto_plano_elems', []) || [];
     const techosId = safeStorage.getItem<string>(KEY_OBRA_TECHOS_ID, '') || '';
     const diseno = techosId ? getCachedTechosDesigns().find(d => d.id === techosId) : undefined;
-    const est = (diseno as unknown as EstructuraTechos) || null;
+    const est = sinOcultos((diseno as unknown as EstructuraTechos) || null);
     nombreEst = diseno?.nombre || '';
     const { ctx, pisos } = contextosObra(niveles, est);
     elems.filter(e => e.tipo === 'muro').forEach(e => {

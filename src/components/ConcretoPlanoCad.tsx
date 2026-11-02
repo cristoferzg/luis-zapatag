@@ -26,7 +26,7 @@ import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { generateDxfContent } from '../lib/dxfParser';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
-import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo } from './concreto/obraPisos';
+import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo, sinOcultos } from './concreto/obraPisos';
 import { useCatalogo } from '../lib/catalogoPrecios';
 import { leerDisenosCarpi, costoDisenoCarpi, tipoAberturaDe } from './concreto/carpiObra';
 import { metradoDrywall } from './concreto/metradoDrywall';
@@ -238,7 +238,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   useEffect(() => { fetchAllTechosDesigns().then(setDisenos).catch(() => {}); }, []);
   useEffect(() => { safeStorage.setItem(KEY_OBRA_TECHOS_ID, techosId); }, [techosId]);
   const disenoVinculado = disenos.find(d => d.id === techosId) || null;
-  const estructura = disenoVinculado as unknown as (EstructuraTechos & { updatedAt?: string }) | null;
+  // Las barras ocultas en Techos no se muestran aquí (si no, aparecen "fantasmas" que en Techos no se ven).
+  const estructura = useMemo(() => sinOcultos(disenoVinculado as unknown as (EstructuraTechos & { updatedAt?: string }) | null), [disenoVinculado]);
   // Planta de la estructura: tramos proyectados (x, z) con el ancho real del
   // perfil y su capa (columnas, tijerales, correas…), y nodos para imantar.
   type LineaPlanta = { x1: number; z1: number; x2: number; z2: number; col: boolean; capa: CapaEstructura; ancho: number; alto: number };
