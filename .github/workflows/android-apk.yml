@@ -1,0 +1,40 @@
+name: APK Android
+
+# Genera el APK instalable (debug, firmado con la clave de depuración).
+# Se ejecuta al subir cambios en android/ o capacitor.config.ts, o a mano desde la pestaña Actions.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'android/**'
+      - 'capacitor.config.ts'
+      - 'public/offline.html'
+      - '.github/workflows/android-apk.yml'
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Web + sync Capacitor
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          npx cap sync android
+      - name: Compilar APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: InnovaContratistas-apk
+          path: android/app/build/outputs/apk/debug/*.apk

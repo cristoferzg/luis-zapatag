@@ -1,0 +1,59 @@
+rules_version = '2';
+
+// Reglas de Innova Contratistas.
+//
+// Despliegue (no subir el ZIP a mano, así no se aplican):
+//   firebase deploy --only hosting,functions,firestore:rules
+//
+// IMPORTANTE: en Firestore "si alguna regla permite, se concede". Por eso NO
+// hay regla comodín abierta: cada colección se lista aquí. Si agregas una
+// colección NUEVA a la app, añádele su línea o esa sección no podrá leer/escribir.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function authed() { return request.auth != null; }
+    function isAdmin() { return authed() && request.auth.token.role == 'admin'; }
+    function workspace() { return request.auth.token.workspace; }
+
+    // ---- IA: planes y saldo de créditos --------------------------------------
+    // Precios y créditos de cada plan: los lee cualquiera, solo el admin los cambia.
+    match /config_ia/{doc} {
+      allow read: if authed();
+      allow write: if isAdmin();
+    }
+    // Saldo de créditos de cada usuario: lo lee su dueño o el admin. Nadie más
+    // lo escribe: el descuento lo hace la Cloud Function (Admin SDK) y el admin
+    // lo recarga al validar la compra.
+    match /ai_access/{uid} {
+      allow read: if isAdmin() || (authed() && uid == workspace());
+      allow write: if isAdmin();
+    }
+
+    // ---- Resto de colecciones de la app -------------------------------------
+    match /projects/{id}       { allow read, write: if authed(); }
+    match /clients/{id}        { allow read, write: if authed(); }
+    match /finances/{id}       { allow read, write: if authed(); }
+    match /settings/{id}       { allow read, write: if authed(); }
+    match /usuarios/{id}       { allow read, write: if authed(); }
+    match /cursos/{id}         { allow read, write: if authed(); }
+    match /tutoriales/{id}     { allow read, write: if authed(); }
+    match /biblioteca/{id}     { allow read, write: if authed(); }
+    match /tickets/{id}        { allow read, write: if authed(); }
+    match /asesorias/{id}      { allow read, write: if authed(); }
+    match /notificaciones/{id} { allow read, write: if authed(); }
+    match /purchases/{id}      { allow read, write: if authed(); }
+    match /planos_techos/{id}  { allow read, write: if authed(); }
+    match /config_flags/{id}   { allow read, write: if authed(); }
+    match /config_academia/{id} { allow read, write: if authed(); }
+    // Propuestas para el cliente: cualquiera con el link la lee; la crea/borra un
+    // usuario de la app; el cliente solo puede marcarla como aceptada.
+    match /propuestas/{id} {
+      allow read: if true;
+      allow create, delete: if authed() && request.auth.token.get('role', '') != '';
+      allow update: if (authed() && request.auth.token.get('role', '') != '')
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'aceptadaOpcion', 'aceptadaNombre', 'aceptadaEn'])
+            && request.resource.data.estado == 'aceptada');
+    }
+  }
+}

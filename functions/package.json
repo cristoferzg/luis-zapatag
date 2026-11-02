@@ -1,0 +1,17 @@
+{
+  "name": "innova-functions",
+  "description": "Cloud Functions for Innova Contratistas - server-side PIN auth",
+  "engines": { "node": "22" },
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.1.0"
+  },
+  "private": true
+}
