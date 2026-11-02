@@ -31,7 +31,7 @@ import type { TutorialVideo, CourseCategory } from './components/UsabilidadVideo
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import { forzarActualizacion } from './lib/versionNueva';
-import { notificar } from './lib/notificaciones';
+import { notificar, debeInvitar, marcarInvitado, activarNotificaciones } from './lib/notificaciones';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol } from './lib/currency';
@@ -1524,6 +1524,28 @@ export const isAuthorizedAdminEmail = async (authUser: User): Promise<boolean> =
   return false;
 };
 
+/** Primera vez que se entra en este equipo: invita a activar los avisos (una sola vez). */
+function InvitacionAvisos({ pausado }: { pausado: boolean }) {
+  const [ver, setVer] = useState(false);
+  // Espera a que no haya otra ventana abierta (p. ej. confirmar el PIN): nunca dos a la vez.
+  useEffect(() => { if (pausado) { setVer(false); return; } const t = setTimeout(() => { debeInvitar().then(setVer); }, 2500); return () => clearTimeout(t); }, [pausado]);
+  if (!ver) return null;
+  const cerrar = () => { marcarInvitado(); setVer(false); };
+  return (
+    <div className="fixed inset-0 z-[160] flex items-end sm:items-center justify-center bg-slate-900/40 p-0 sm:p-4" onClick={cerrar}>
+      <div className="w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 pb-[calc(20px+env(safe-area-inset-bottom))] space-y-3 text-center" onClick={e => e.stopPropagation()}>
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-orange-100 text-3xl flex items-center justify-center">🔔</div>
+        <p className="text-lg font-black text-slate-900">¿Quieres recibir avisos?</p>
+        <p className="text-sm text-slate-600">Te avisamos de comunicados nuevos y de tus tickets y asesorías, aunque no estés mirando la app.</p>
+        <button onClick={async () => { const ok = await activarNotificaciones(); marcarInvitado(); setVer(false); if (ok) notificar('Notificaciones activadas', 'Te avisaremos aquí de comunicados, tickets y asesorías.'); }}
+          className="w-full py-3 rounded-2xl bg-orange-500 text-white font-black cursor-pointer">Sí, activar</button>
+        <button onClick={cerrar} className="w-full py-2.5 rounded-2xl bg-slate-100 text-slate-700 font-bold cursor-pointer">Ahora no</button>
+        <p className="text-[11px] text-slate-400">Puedes cambiarlo cuando quieras en Configuración → Notificaciones.</p>
+      </div>
+    </div>
+  );
+}
+
 /** Botón + del celular: solo se muestra si lo que abre NO está a la vista (si el
  *  formulario ya se ve en pantalla, el botón sobra y tapa contenido). */
 function BotonMasFlotante({ label, objetivo, revisar, onClick }: { label: string; objetivo: () => HTMLElement | null; revisar: boolean; onClick: () => void }) {
@@ -2789,6 +2811,7 @@ export default function App() {
           objetivo={() => objetivoFab(fabActual)} onClick={() => { tocar(); ejecutarFab(); }} />
       )}
       <OfflineIndicator />
+      {activeUid && <InvitacionAvisos pausado={!!(sesionLimitada && !renovar.oculto)} />}
     </div>
   );
 }

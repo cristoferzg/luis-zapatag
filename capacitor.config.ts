@@ -25,6 +25,8 @@ const config: CapacitorConfig = {
   plugins: {
     // Barra de estado blanca con íconos oscuros, igual que la barra superior de la app.
     SystemBars: { insetsHandling: 'css', style: 'LIGHT' },
+    // Ícono de los avisos en la barra del teléfono (emblema en blanco, res/drawable-*/ic_stat_innova.png).
+    LocalNotifications: { smallIcon: 'ic_stat_innova', iconColor: '#f97316' },
     StatusBar: { overlaysWebView: false, style: 'LIGHT', backgroundColor: '#ffffff' },
   },
 };

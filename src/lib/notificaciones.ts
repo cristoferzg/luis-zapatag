@@ -38,10 +38,19 @@ export async function notificar(titulo: string, cuerpo: string): Promise<void> {
   try {
     if (!(await notificacionesPermitidas())) return;
     if (esNativo()) {
-      await LocalNotifications.schedule({ notifications: [{ id: ++siguienteId, title: titulo, body: cuerpo, iconColor: '#f97316' }] });
+      await LocalNotifications.schedule({ notifications: [{ id: ++siguienteId, title: titulo, body: cuerpo, smallIcon: 'ic_stat_innova', iconColor: '#f97316' }] });
       return;
     }
     const n = new Notification(titulo, { body: cuerpo, icon: '/pwa-192x192.png', badge: '/favicon-64.png', tag: `innova_${siguienteId++}` });
     n.onclick = () => { try { window.focus(); n.close(); } catch { /* nada */ } };
   } catch { /* sin soporte: se ignora */ }
 }
+
+const K_PREGUNTADO = 'innova_notif_preguntado';
+/** ¿Hay que mostrar la invitación de la primera vez? (una sola vez por equipo) */
+export async function debeInvitar(): Promise<boolean> {
+  if (!notificacionesDisponibles() || safeStorage.getItem<boolean>(K_PREGUNTADO, false)) return false;
+  if (await notificacionesPermitidas()) { safeStorage.setItem(K_PREGUNTADO, true); return false; }
+  return true;
+}
+export function marcarInvitado(): void { safeStorage.setItem(K_PREGUNTADO, true); }
