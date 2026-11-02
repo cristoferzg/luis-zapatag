@@ -1716,31 +1716,50 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               const principales = HERRAMIENTAS.filter(t => PRINCIPALES.includes(t.id));
               const resto = HERRAMIENTAS.filter(t => !PRINCIPALES.includes(t.id));
               const activaEnMas = resto.find(t => t.id === tool);
+              // Barra FIJA abajo, de borde a borde, como los botones de la app (no flota sobre el plano).
+              const item = 'shrink-0 min-w-[42px] flex-1 h-[52px] flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:opacity-30';
+              const icono = (A: boolean, col?: string) => ({ className: `h-7 w-10 rounded-full flex items-center justify-center transition-colors ${A ? '' : 'text-slate-600'}`, style: A ? { backgroundColor: (col || '#f97316') + '22', color: col || '#c2410c' } : undefined });
+              const etiqueta = (t: { id: Herramienta; label: string }) => t.id === 'select' ? 'Selec.' : t.id === 'pan' ? 'Mover' : t.label.split(/[ /]/)[0];
               return (
-                <div onMouseDown={parar} onClick={parar} onTouchStart={parar} onTouchMove={parar} onTouchEnd={parar} onWheel={parar}
-                  className="absolute left-1.5 top-1.5 z-20 flex flex-col items-center gap-0.5 bg-white/95 backdrop-blur border border-slate-200 rounded-2xl p-1 shadow-xl w-12 max-h-[calc(100%-12px)]">
-                  <div className="flex flex-col items-center shrink-0">
-                    {histBtn(undo, canUndo, Undo2, 'Atrás', 'Atrás (deshacer)')}
-                    {histBtn(redo, canRedo, Redo2, 'Adelante', 'Adelante (rehacer)')}
+                <>
+                  <div onMouseDown={parar} onClick={parar} onTouchStart={parar} onTouchMove={parar} onTouchEnd={parar} onWheel={parar}
+                    className="absolute left-0 right-0 bottom-0 z-20 flex items-stretch overflow-x-auto bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(15,42,74,0.06)] px-0.5 [scrollbar-width:none]">
+                    {[...principales, ...(activaEnMas ? [activaEnMas] : [])].map(t => { const Ic = t.icon; const A = tool === t.id; const ic = icono(A, (t.id in META) ? META[t.id as PlanoTipo].color : t.id === 'abertura' ? '#0284c7' : t.id === 'bloque' ? '#7c3aed' : '#0f172a'); return (
+                      <button key={t.id} type="button" onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }} className={item} title={t.label}>
+                        <span {...ic}><Ic className="w-[18px] h-[18px]" /></span>
+                        <span className={`text-[10px] leading-none ${A ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{etiqueta(t)}</span>
+                      </button>
+                    ); })}
+                    <button type="button" onClick={undo} disabled={!canUndo} className={item} title="Atrás (deshacer)">
+                      <span {...icono(false)}><Undo2 className="w-[17px] h-[17px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Atrás</span>
+                    </button>
+                    <button type="button" onClick={redo} disabled={!canRedo} className={item} title="Adelante (rehacer)">
+                      <span {...icono(false)}><Redo2 className="w-[17px] h-[17px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Adelante</span>
+                    </button>
+                    <button type="button" onClick={() => setMasHerr(true)} className={item} title="Más herramientas">
+                      <span {...icono(masHerr)}><span className="text-base font-black leading-none">⋯</span></span><span className="text-[10px] font-medium leading-none text-slate-600">Más</span>
+                    </button>
                   </div>
-                  <div className="h-px w-8 bg-slate-200 my-0.5 shrink-0" />
-                  <div className="flex flex-col items-center gap-0.5 overflow-y-auto min-h-0">
-                    {principales.map(boton)}
-                    {activaEnMas && boton(activaEnMas)}
-                  </div>
-                  <button type="button" onClick={() => setMasHerr(v => !v)} title="Más herramientas"
-                    className={`w-10 h-10 shrink-0 rounded-xl text-[11px] font-black cursor-pointer ${masHerr ? 'bg-slate-800 text-white' : 'text-slate-600 bg-slate-100'}`}>{masHerr ? '✕' : 'Más'}</button>
                   {masHerr && (
-                    <div className="absolute left-[54px] bottom-0 w-48 max-h-[70vh] overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-2xl p-1.5 space-y-0.5">
-                      {resto.map(t => { const Ic = t.icon; const act = tool === t.id; return (
-                        <button key={t.id} type="button" onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); setMasHerr(false); }}
-                          className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-bold cursor-pointer ${act ? 'bg-slate-800 text-white' : 'text-slate-700 hover:bg-slate-100'}`}>
-                          <Ic className="w-4 h-4 shrink-0" /> {t.id === 'grupo' ? 'Seleccionar en grupo' : t.id === 'pan' ? 'Mover el plano' : t.label}
-                        </button>
-                      ); })}
+                    <div className="fixed inset-0 z-[95]" onClick={() => setMasHerr(false)}>
+                      <div className="absolute inset-0 bg-slate-900/40" />
+                      <div className="absolute left-0 right-0 bottom-0 max-h-[75vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl p-3 pb-[calc(16px+env(safe-area-inset-bottom))]" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between px-1 pb-2">
+                          <span className="text-base font-black text-slate-900">Más herramientas de dibujo</span>
+                          <button onClick={() => setMasHerr(false)} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Cerrar</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {resto.map(t => { const Ic = t.icon; const act = tool === t.id; return (
+                            <button key={t.id} type="button" onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); setMasHerr(false); }}
+                              className={`min-h-[52px] flex items-center gap-2 px-3 rounded-2xl text-[13px] font-semibold text-left cursor-pointer ${act ? 'bg-slate-800 text-white' : 'bg-slate-50 text-slate-700'}`}>
+                              <Ic className="w-4 h-4 shrink-0" /> {t.id === 'grupo' ? 'Seleccionar en grupo' : t.id === 'pan' ? 'Mover el plano' : t.label}
+                            </button>
+                          ); })}
+                        </div>
+                      </div>
                     </div>
                   )}
-                </div>
+                </>
               );
             }
             return (

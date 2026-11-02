@@ -3156,50 +3156,47 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               </div>
             );
           }
-          // Móvil: columna vertical fija (estilo Herrería). Los toques sobre la
-          // barra no llegan al lienzo, así no se mueve el área de trabajo.
+          // Móvil: barra de herramientas FIJA abajo, de borde a borde, como los botones de
+          // la app (no flota encima del dibujo). Los toques sobre la barra no mueven el lienzo.
           const frenar = (e: React.SyntheticEvent) => e.stopPropagation();
+          const item = 'shrink-0 min-w-[38px] flex-1 h-[52px] flex flex-col items-center justify-center gap-0.5 cursor-pointer';
+          const icono = (A: boolean) => `h-7 w-9 rounded-full flex items-center justify-center transition-colors ${A ? 'bg-orange-100 text-orange-700' : 'text-slate-600'}`;
           return (
             <div
               onTouchStart={frenar} onTouchMove={frenar} onTouchEnd={frenar} onMouseDown={frenar}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-0.5 bg-white/95 backdrop-blur-md rounded-2xl p-1 shadow-lg"
+              className="absolute left-0 right-0 bottom-0 z-30 flex items-stretch overflow-x-auto bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(15,42,74,0.06)] px-0.5 [scrollbar-width:none]"
             >
               {railTools.map(t => {
                 const A = activeTool === t.id;
                 const Icon = t.Icon;
                 return (
-                  <button key={t.id} onClick={() => toggleTool(t.id)} title={t.label} aria-label={t.label}
-                    className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 cursor-pointer ${A ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>
-                    <Icon className="w-[17px] h-[17px]" />
-                    <span className="text-[7.5px] font-bold leading-none">{t.label === 'Seleccionar' ? 'Selec.' : t.label}</span>
+                  <button key={t.id} onClick={() => toggleTool(t.id)} title={t.label} aria-label={t.label} className={item}>
+                    <span className={icono(A)}><Icon className="w-[18px] h-[18px]" /></span>
+                    <span className={`text-[10px] leading-none ${A ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{t.label === 'Seleccionar' ? 'Selec.' : t.label}</span>
                   </button>
                 );
               })}
-              <div className="h-px w-7 bg-slate-200 my-0.5" />
-              <button onClick={() => engineState.undo()} disabled={!engineState.canUndo} aria-label="Deshacer"
-                className="w-11 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-600 cursor-pointer disabled:opacity-30">
-                <Undo2 className="w-[16px] h-[16px]" /><span className="text-[7.5px] font-bold leading-none">Atrás</span>
+              <button onClick={() => engineState.undo()} disabled={!engineState.canUndo} aria-label="Deshacer" className={`${item} disabled:opacity-30`}>
+                <span className={icono(false)}><Undo2 className="w-[17px] h-[17px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Atrás</span>
               </button>
-              <button onClick={() => engineState.redo()} disabled={!engineState.canRedo} aria-label="Rehacer"
-                className="w-11 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-600 cursor-pointer disabled:opacity-30">
-                <Redo2 className="w-[16px] h-[16px]" /><span className="text-[7.5px] font-bold leading-none">Adelante</span>
+              <button onClick={() => engineState.redo()} disabled={!engineState.canRedo} aria-label="Rehacer" className={`${item} disabled:opacity-30`}>
+                <span className={icono(false)}><Redo2 className="w-[17px] h-[17px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Adelante</span>
               </button>
-              <label className="w-11 flex flex-col items-center gap-0.5 py-1" title="Paso de rejilla (snap)">
-                <Grid className="w-[15px] h-[15px] text-blue-600" />
+              <label className={item} title="Paso de rejilla (snap)">
+                <span className={icono(false)}><Grid className="w-[16px] h-[16px] text-blue-600" /></span>
                 <select
                   value={engineState.snapGridSizeM}
                   onChange={(e) => engineState.setSnapGridSizeM(parseFloat(e.target.value) || 0.25)}
-                  className="text-[9px] font-bold bg-transparent outline-none text-slate-600 w-10 text-center cursor-pointer"
+                  className="text-[9px] font-medium bg-transparent outline-none text-slate-600 w-10 text-center cursor-pointer leading-none"
                 >
-                  <option value={0.1}>0.10</option>
-                  <option value={0.25}>0.25</option>
-                  <option value={0.5}>0.50</option>
-                  <option value={1.0}>1.00</option>
+                  <option value={0.1}>0.10 m</option>
+                  <option value={0.25}>0.25 m</option>
+                  <option value={0.5}>0.50 m</option>
+                  <option value={1.0}>1.00 m</option>
                 </select>
               </label>
-              <button onClick={openMas} title="Más herramientas" aria-label="Más herramientas"
-                className="w-11 h-11 rounded-xl flex flex-col items-center justify-center gap-0.5 text-slate-500 cursor-pointer">
-                <MoreHorizontal className="w-[17px] h-[17px]" /><span className="text-[7.5px] font-bold leading-none">Más</span>
+              <button onClick={openMas} title="Más herramientas" aria-label="Más herramientas" className={item}>
+                <span className={icono(false)}><MoreHorizontal className="w-[18px] h-[18px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Más</span>
               </button>
             </div>
           );

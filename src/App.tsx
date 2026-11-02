@@ -1748,6 +1748,28 @@ export default function App() {
     return () => clearTimeout(t);
   }, [catalogoPrecios, activeUid, !!myOwnSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // RESCATE: la pantalla Configuración no recibía el usuario y guardaba en
+  // "settings_default". Si ese documento es de ESTE usuario (su userId) y el suyo propio
+  // no tiene los datos de empresa, se copian los campos que falten (no se pisa nada).
+  useEffect(() => {
+    if (!activeUid || !settings.length) return;
+    const viejo = settings.find(s => s.id === 'settings_default' && (s as any).userId === activeUid) as any;
+    if (!viejo) return;
+    const mio = (settings.find(s => s.id === mySettingsId) || {}) as any;
+    const CAMPOS = ['appName', 'logoBase64', 'officialLetterheadBase64', 'contratistaDni', 'contratistaDir', 'contratistaPhone', 'contratistaEmail',
+      'bancoNombre', 'cuentaTitular', 'pagoCtaBcp', 'pagoCciBcp', 'pagoCtaCorriente', 'pagoDetracciones', 'pagoCciDetracciones', 'pagoYape',
+      'docColor', 'docAdelantoPct', 'docValidezDias', 'docGarantia', 'docCondiciones', 'currency'];
+    const vacio = (v: any) => v === undefined || v === null || v === '' || v === 'Mi Empresa';
+    const faltan = CAMPOS.filter(k => vacio(mio[k]) && !vacio(viejo[k]));
+    if (!faltan.length) return;
+    setSettings(prev => {
+      const base = (prev.find(s => s.id === mySettingsId) || { id: mySettingsId }) as any;
+      const nuevo = { ...base, id: mySettingsId, userId: activeUid } as any;
+      faltan.forEach(k => { nuevo[k] = viejo[k]; });
+      return prev.some(s => s.id === mySettingsId) ? prev.map(s => s.id === mySettingsId ? nuevo : s) : [...prev, nuevo];
+    });
+  }, [activeUid, settings.length, !!settings.find(s => s.id === 'settings_default')]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Automated Daily Backup for Admin
   useEffect(() => {
     if (isAdmin) {
@@ -2287,6 +2309,7 @@ export default function App() {
             settings={settings} 
             setSettings={setSettings} 
             isAdmin={isAdmin} 
+            activeUid={activeUid}
             currentUserName={user?.name || 'Administrador Principal'}
             usuarios={usuarios}
             setUsuarios={setUsuarios}
