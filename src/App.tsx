@@ -30,7 +30,7 @@ import { App as CapApp } from '@capacitor/app';
 import type { TutorialVideo, CourseCategory } from './components/UsabilidadVideosView';
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
-import defaultAdminLogo from './assets/images/logo_innova_oficial_1791000137990.jpg';
+import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol } from './lib/currency';
 
@@ -1973,7 +1973,7 @@ export default function App() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800 p-4 select-none">
         <div className="flex flex-col items-center gap-3 text-center max-w-xs">
           <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-2.5 flex items-center justify-center shadow-md shadow-slate-200/60">
-            <img src="/icon.svg" alt="Innova Logo" className="w-full h-full object-contain" />
+            <img src="/pwa-192x192.png" alt="Innova Logo" className="w-full h-full object-contain" />
           </div>
           <div className="space-y-0.5">
             <h2 className="text-sm font-black text-slate-900 tracking-tight">Innova Contratistas</h2>
@@ -1991,7 +1991,7 @@ export default function App() {
         <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-lg shadow-slate-200/50 max-w-[310px] w-full text-center">
           <div className="flex flex-col items-center mb-4">
             <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 p-2 flex items-center justify-center mb-2 shadow-2xs">
-              <img src="/icon.svg" alt="Innova Logo Estructuras Metálicas" className="w-full h-full object-contain" />
+              <img src="/pwa-192x192.png" alt="Innova Logo Estructuras Metálicas" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-base font-black text-slate-900 tracking-tight">Innova Contratistas</h1>
             <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest mt-0.5">Estructuras Metálicas & Obras</p>

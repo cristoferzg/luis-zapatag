@@ -13,7 +13,7 @@ import {
 import html2pdf from 'html2pdf.js';
 import HojaA4Ajustable from './common/HojaA4Ajustable';
 import { Project, Client, SystemConfig } from '../types';
-import defaultAdminLogo from '../assets/images/logo_innova_oficial_1791000137990.jpg';
+import defaultAdminLogo from '../assets/images/logo_innova_2026.png';
 import { safeStorage } from '../lib/storageManager';
 import { prepararArchivoCarpeta } from '../lib/carpetaArchivos';
 import { getCachedTechosDesigns, fetchAllTechosDesigns, SavedTechosDesign } from '../lib/techosDesignsRepo';

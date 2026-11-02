@@ -75,7 +75,7 @@ export const PWAInstallModal: React.FC<PWAInstallModalProps> = ({ isOpen, onClos
         <div className="p-5 sm:p-6 bg-gradient-to-r from-slate-900 via-slate-850 to-blue-950/40 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 p-0.5 shadow-lg shadow-blue-500/20 flex items-center justify-center">
-              <img src="/icon.svg" alt="Innova Logo" className="w-full h-full rounded-[10px]" />
+              <img src="/pwa-192x192.png" alt="Innova Logo" className="w-full h-full rounded-[10px]" />
             </div>
             <div>
               <div className="flex items-center gap-2">

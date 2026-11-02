@@ -4,7 +4,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 // Flujo: npm run build && npx cap sync android && npx cap open android
 const config: CapacitorConfig = {
   appId: 'pe.innovacontratistas.app',
-  appName: 'Innova Contratistas',
+  appName: 'InnovApp',
   webDir: 'dist',
   // Se actualiza sola: la app carga la web publicada en Firebase Hosting, así cada
   // "firebase deploy" llega a los teléfonos sin generar otro APK. Sin internet se

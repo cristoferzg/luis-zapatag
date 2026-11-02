@@ -19,11 +19,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['apple-touch-icon.png', 'icon.svg', 'pwa-192x192.png', 'pwa-512x512.png'],
+      includeAssets: ['apple-touch-icon.png', 'favicon-32.png', 'favicon-64.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         id: '/',
-        name: 'Innova Contratistas Manager',
-        short_name: 'InnovaApp',
+        name: 'Innova Contratistas',
+        short_name: 'InnovApp', // nombre bajo el ícono de la app instalada
         description: 'Gestor integral de estructuras metálicas, herrería CAD, presupuestos y control de proyectos',
         theme_color: '#0f172a',
         background_color: '#0f172a',
