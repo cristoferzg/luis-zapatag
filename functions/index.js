@@ -32,7 +32,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -151,14 +151,14 @@ const PLANES_DEFAULT = [
 ];
 const mesActual = () => new Date().toISOString().slice(0, 7);
 
-async function cobrarUsoIA(request, accion) {
+async function cobrarUsoIA(request, accion, costoFijo) {
   const token = request.auth?.token || {};
   if (token.role === 'admin') return async () => {};
   const ws = String(token.workspace || '').replace(/^user_/, '');
   // Sin rol ni workspace = sesión limitada (se pulsó "Ahora no" al confirmar el PIN):
   // no se sabe de quién cobrar. Se pide confirmar el PIN (también al admin).
   if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
-  const costo = COSTO_CREDITOS[accion] || 1;
+  const costo = Number.isFinite(costoFijo) && costoFijo > 0 ? Math.round(costoFijo) : (COSTO_CREDITOS[accion] || 1);
   const ref = db.collection('ai_access').doc(ws);
   const cfgSnap = await db.collection('config_ia').doc('planes').get();
   const cfg = cfgSnap.exists ? cfgSnap.data() : {};
@@ -232,6 +232,36 @@ async function cobrarUsoIA(request, accion) {
  * el usuario registra el gasto a mano (nada se rompe).
  */
 const RECEIPT_MODEL = 'claude-haiku-5-5';
+
+/**
+ * Canjear un curso de Academia con créditos (los del plan mensual o los de recarga).
+ * Precio: course.precioCreditos o, si no lo tiene, 10 créditos por cada sol.
+ * Descuenta en una transacción y da acceso al curso; si algo falla, devuelve los créditos.
+ */
+export const canjearCurso = onCall({ region: 'us-central1', cors: true }, async (request) => {
+  const token = request.auth?.token || {};
+  if (token.role === 'admin') throw new HttpsError('failed-precondition', 'El administrador ya tiene acceso a todos los cursos.');
+  const ws = String(token.workspace || '').replace(/^user_/, '');
+  if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
+  const cursoId = String(request.data?.cursoId || '');
+  if (!cursoId) throw new HttpsError('invalid-argument', 'Falta el curso.');
+  const ref = db.collection('cursos').doc(cursoId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'El curso no existe.');
+  const c = snap.data() || {};
+  const ids = Array.isArray(c.allowedUserIds) ? c.allowedUserIds.map(String) : [];
+  if (c.isFree !== false || ids.includes(ws) || ids.includes('user_' + ws)) return { ok: true, yaTenia: true, creditos: 0 };
+  const creditos = Number(c.precioCreditos) > 0 ? Math.round(Number(c.precioCreditos)) : Math.max(1, Math.round((Number(c.priceSoles) || 0) * 10));
+  const devolver = await cobrarUsoIA(request, 'curso', creditos);
+  try {
+    await ref.set({ allowedUserIds: FieldValue.arrayUnion(ws) }, { merge: true });
+    await db.collection('ai_access').doc(ws).set({ cursosCanjeados: FieldValue.arrayUnion({ cursoId, creditos, fecha: new Date().toISOString() }) }, { merge: true });
+  } catch (e) {
+    await devolver();
+    throw new HttpsError('internal', 'No se pudo abrir el curso; tus créditos se devolvieron.');
+  }
+  return { ok: true, creditos };
+});
 
 export const scanReceipt = onCall(
   { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 120 },

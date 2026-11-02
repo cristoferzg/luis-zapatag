@@ -422,7 +422,31 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
         }}
         className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 px-1 sm:px-3 flex items-center justify-between overflow-x-auto shrink-0 z-10 select-none scrollbar-none"
       >
-        <div className="grid grid-cols-6 w-full sm:flex sm:w-auto items-stretch sm:items-center gap-0 sm:gap-1">
+        {(() => {
+          const SECC: { id: string; label: string; tabs: { id: HerreriaTab; label: string }[] }[] = [
+            { id: 'disenar', label: 'Diseñar', tabs: [{ id: 'cad', label: 'Diseño 2D / 3D' }, { id: 'plano', label: 'Plano de fabricación' }] },
+            { id: 'materiales', label: 'Materiales', tabs: [{ id: 'despiece', label: 'Despiece y cortes' }, { id: 'materiales', label: 'Agrupados' }] },
+            { id: 'presupuesto', label: 'Presupuesto', tabs: [{ id: 'costos', label: 'Costos' }, { id: 'presupuesto', label: 'Presupuesto formal' }] },
+          ];
+          const actual = SECC.find(x => x.tabs.some(t => t.id === activeTab)) || SECC[0];
+          return (
+            <div className="sm:hidden w-full py-1.5 space-y-1.5">
+              <div className="flex bg-slate-100 rounded-xl p-0.5">
+                {SECC.map(x => (
+                  <button key={x.id} onClick={() => setActiveTab(x.tabs[0].id)}
+                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-black cursor-pointer ${actual.id === x.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>{x.label}</button>
+                ))}
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+                {actual.tabs.map(t => (
+                  <button key={t.id} onClick={() => setActiveTab(t.id)}
+                    className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold cursor-pointer ${activeTab === t.id ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}>{t.label}</button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+        <div className="hidden sm:flex sm:w-auto items-stretch sm:items-center gap-0 sm:gap-1">
           <button
             onClick={() => setActiveTab('cad')}
             className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap min-w-0 cursor-pointer ${

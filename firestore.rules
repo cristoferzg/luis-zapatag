@@ -44,6 +44,8 @@ service cloud.firestore {
     match /notificaciones/{id} { allow read, write: if authed(); }
     match /purchases/{id}      { allow read, write: if authed(); }
     match /planos_techos/{id}  { allow read, write: if authed(); }
+    // Estadísticas de Academia y Recursos: cualquier usuario suma sus visitas; solo el admin las lee.
+    match /estadisticas_contenido/{id} { allow read: if isAdmin(); allow create, update: if authed(); allow delete: if isAdmin(); }
     match /config_flags/{id}   { allow read, write: if authed(); }
     match /config_academia/{id} { allow read, write: if authed(); }
     // Propuestas para el cliente: cualquiera con el link la lee; la crea/borra un

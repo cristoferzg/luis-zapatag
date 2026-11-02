@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import EstadisticasContenido from './EstadisticasContenido';
+import { registrarContenido } from '../lib/estadisticas';
 import { 
   BookOpen, 
   Lock, 
@@ -133,6 +135,11 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
   // Buy / Request item state
   const [purchasingItem, setPurchasingItem] = useState<BibliotecaItem | null>(null);
   const [viewingItem, setViewingItem] = useState<BibliotecaItem | null>(null); // NEW
+  const [verEstadisticas, setVerEstadisticas] = useState(false);
+  // Estadísticas (admin): cada vez que un usuario abre un recurso.
+  useEffect(() => {
+    if (viewingItem && !isAdmin) registrarContenido('recurso', viewingItem.id, 'apertura', currentUser, viewingItem.titulo || viewingItem.fileName || 'Recurso', viewingItem.categoria);
+  }, [viewingItem?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConvertedPriceStr = (precioSoles: number, discountPercentage?: number) => {
     const currency = getCompanyCurrency();
@@ -347,6 +354,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
     }
   };
   const descargarRecurso = async (item: BibliotecaItem) => {
+    if (!isAdmin) registrarContenido('recurso', item.id, 'descarga', currentUser, item.titulo || item.fileName || 'Recurso', item.categoria);
     const url = await resolveMediaUrl(item);
     const a = document.createElement('a');
     a.href = url; a.download = item.fileName || 'recurso'; a.target = '_blank'; a.rel = 'noopener noreferrer';
@@ -477,6 +485,11 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
 
           {isAdmin && (
             <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => setVerEstadisticas(true)}
+                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer">
+                📊 <span>Estadísticas</span>
+              </button>
+              {verEstadisticas && <EstadisticasContenido tipoInicial="recurso" onClose={() => setVerEstadisticas(false)} />}
               <button
                 onClick={() => setShowCategoryManager(true)}
                 className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"

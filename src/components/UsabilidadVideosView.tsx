@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import EstadisticasContenido from './EstadisticasContenido';
+import { creditosDeCurso, canjearCursoConCreditos } from '../lib/cursosCreditos';
+import { registrarContenido } from '../lib/estadisticas';
 import { 
   Video, Play, Plus, Trash2, Edit2, Search, FolderPlus,
   Lock, X, FileVideo,
@@ -57,6 +60,7 @@ export interface CourseCategory {
   precioAntesSoles?: number; // precio tachado
   discountPercentage?: number;
   discountExpiryDate?: string; // ISO
+  precioCreditos?: number; // precio en créditos (si no, 10 créditos por sol)
   adjuntos?: { nombre: string; url: string; tipo: string; tamano?: number }[]; // material del curso
 }
 
@@ -117,9 +121,16 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
   // State for search and filtering
   const [searchTerm, setSearchTerm] = useState('');
+  const [canjeando, setCanjeando] = useState(false);
+  const [verEstadisticas, setVerEstadisticas] = useState(false);
+
 
   // Active playing video modal (Floating Popup Player instead of permanent screen clutter)
   const [playingVideo, setPlayingVideo] = useState<TutorialVideo | null>(null);
+  // Estadísticas (admin): cada vez que un usuario abre una clase.
+  useEffect(() => {
+    if (playingVideo && !isAdmin) registrarContenido('video', playingVideo.id, 'vista', currentUser, playingVideo.title, playingVideo.category);
+  }, [playingVideo?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [playingLocalBlobUrl] = useState<string | null>(null);
 
   // In-App Confirmation Modal for Deletion (No window.confirm!)
@@ -961,6 +972,11 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
           {isAdmin && (
             <div className="flex items-center gap-2 flex-wrap">
+              <button onClick={() => setVerEstadisticas(true)}
+                className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer">
+                📊 <span>Estadísticas</span>
+              </button>
+              {verEstadisticas && <EstadisticasContenido tipoInicial="video" onClose={() => setVerEstadisticas(false)} />}
               <button
                 onClick={handleOpenAddCourseModal}
                 className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
@@ -1112,6 +1128,25 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                         <span className="text-[11px] font-black text-slate-700 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-200">
                           {getFormattedPrice(currentCourseObj.priceSoles || 49.90)}
                         </span>
+                      )}
+                      {!currentCourseObj.isFree && currentCourseObj.rawCourse && (
+                        <span className="text-[11px] font-black text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-200">
+                          o {creditosDeCurso(currentCourseObj.rawCourse)} créditos
+                        </span>
+                      )}
+                      {!isAdmin && !currentCourseObj.isFree && currentCourseObj.rawCourse && !(currentUser?.id && currentCourseObj.rawCourse.allowedUserIds?.includes(currentUser.id)) && (
+                        <button type="button" disabled={canjeando}
+                          onClick={async () => {
+                            const c = currentCourseObj.rawCourse!; const n = creditosDeCurso(c);
+                            if (!window.confirm(`¿Desbloquear "${c.name}" con ${n} créditos?\n\nSe descuentan de tus créditos del mes y, si no alcanzan, de tus recargas.`)) return;
+                            setCanjeando(true);
+                            const r = await canjearCursoConCreditos(c.id);
+                            setCanjeando(false);
+                            alert(r.ok ? '✓ Curso desbloqueado. ¡Ya puedes ver todas sus clases!' : (r.error || 'No se pudo canjear.'));
+                          }}
+                          className="text-[11px] font-black text-white bg-orange-500 hover:bg-orange-600 px-3 py-1 rounded-full cursor-pointer disabled:opacity-50">
+                          {canjeando ? 'Canjeando…' : `Desbloquear con ${creditosDeCurso(currentCourseObj.rawCourse)} créditos`}
+                        </button>
                       )}
                     </div>
                     <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">

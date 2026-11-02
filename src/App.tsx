@@ -1771,6 +1771,36 @@ export default function App() {
     return () => clearTimeout(t);
   }, [catalogoPrecios, activeUid, !!myOwnSettings]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // NOVEDADES PARA TI: clases de Academia y Recursos que el usuario aún no abrió. La primera
+  // vez cuentan como nuevas las clases de los últimos 14 días; después, todo lo que se suba.
+  const claveNov = 'innova_novedades_' + (activeUid || 'anon');
+  const [novVistas, setNovVistas] = useState<{ ini: boolean; ids: Record<string, 1> }>(() => safeStorage.getItem(claveNov, { ini: false, ids: {} }) || { ini: false, ids: {} });
+  useEffect(() => { setNovVistas(safeStorage.getItem(claveNov, { ini: false, ids: {} }) || { ini: false, ids: {} }); }, [claveNov]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hace14 = Date.now() - 14 * 864e5;
+  const clasesNuevas = (tutoriales as any[]).filter(v => !novVistas.ids['v_' + v.id] && (novVistas.ini || (v.createdAt && new Date(v.createdAt).getTime() >= hace14)));
+  const recursosNuevos = (biblioteca as any[]).filter(b => !novVistas.ids['b_' + b.id] && novVistas.ini);
+  const marcarVistos = (pref: 'v_' | 'b_', lista: { id: string }[]) => {
+    setNovVistas(prev => {
+      const ids = { ...prev.ids }; lista.forEach(x => { ids[pref + x.id] = 1; });
+      const n = { ini: prev.ini, ids }; safeStorage.setItem(claveNov, n); return n;
+    });
+  };
+  // Al entrar a Academia o Recursos, lo de ese apartado queda visto.
+  useEffect(() => {
+    if (!activeUid) return;
+    if (currentView === 'usabilidad' && tutoriales.length) marcarVistos('v_', tutoriales as any);
+    if (currentView === 'biblioteca' && biblioteca.length) marcarVistos('b_', biblioteca as any);
+  }, [currentView, tutoriales.length, biblioteca.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Desde la primera carga completa, lo existente de Recursos cuenta como ya conocido.
+  useEffect(() => {
+    if (!activeUid || novVistas.ini || !biblioteca.length) return;
+    const t = setTimeout(() => setNovVistas(prev => {
+      const ids = { ...prev.ids }; (biblioteca as any[]).forEach(b => { ids['b_' + b.id] = 1; });
+      const n = { ini: true, ids }; safeStorage.setItem(claveNov, n); return n;
+    }), 4000);
+    return () => clearTimeout(t);
+  }, [activeUid, biblioteca.length, novVistas.ini]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // NOTIFICACIONES DEL SISTEMA (Android, Windows, navegador): avisa de comunicados
   // nuevos, tickets y asesorías. La primera vez solo memoriza lo que ya existe (no
   // avisa de lo viejo); después avisa lo nuevo o lo que cambió de estado.
@@ -1800,9 +1830,11 @@ export default function App() {
       if (isAdmin && !vistos[k]) avisos.push(['📅 Asesoría solicitada', `${a.authorName || 'Un usuario'}: ${a.subject}`]);
       else if (!isAdmin && (!vistos[k] || vistos[k] !== a.status)) avisos.push(['📅 Asesoría: ' + a.status, a.subject + (a.scheduledDate ? ` · ${a.scheduledDate} ${a.scheduledTime || ''}` : '')]);
     });
+    (tutoriales as any[]).forEach(v => { const k = 'v_' + v.id; ahora[k] = '1'; if (vistos && !vistos[k] && !isAdmin) avisos.push(['🎓 Nueva clase en Academia', v.title || '']); });
+    (biblioteca as any[]).forEach(b => { const k = 'b_' + b.id; ahora[k] = '1'; if (vistos && !vistos[k] && !isAdmin) avisos.push(['📘 Nuevo en Recursos Técnicos', b.titulo || '']); });
     safeStorage.setItem(clave, { ...(vistos || {}), ...ahora });
     avisos.slice(0, 3).forEach(([t, c]) => { notificar(t, c); });
-  }, [activeUid, globalNotifs, tickets, asesorias]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeUid, globalNotifs, tickets, asesorias, tutoriales, biblioteca]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // RESCATE: la pantalla Configuración no recibía el usuario y guardaba en
   // "settings_default". Si ese documento es de ESTE usuario (su userId) y el suyo propio
@@ -2224,7 +2256,30 @@ export default function App() {
     // pantalla de mantenimiento en vez del módulo real.
     if (vistaBloqueada(currentView)) return renderMantenimiento();
     switch (currentView) {
-      case 'dashboard': return <DashboardView projects={proyectosBalance} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} />;
+      case 'dashboard': return <>{(clasesNuevas.length > 0 || recursosNuevos.length > 0) && (
+        <div className="mb-4 bg-white rounded-2xl border border-orange-200 shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">✨</span><h3 className="flex-1 text-sm font-black text-slate-900">Novedades para ti</h3>
+            <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-orange-500 text-white text-[11px] font-black flex items-center justify-center">{clasesNuevas.length + recursosNuevos.length}</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {clasesNuevas.length > 0 && (
+              <button onClick={() => setCurrentView('usabilidad' as ViewType)} className="flex items-center gap-3 p-3 rounded-xl bg-violet-50 hover:bg-violet-100 text-left cursor-pointer">
+                <span className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-lg">🎓</span>
+                <span className="flex-1 min-w-0"><span className="block text-xs font-black text-slate-800">Academia Técnica</span><span className="block text-[11px] text-slate-500 truncate">{clasesNuevas.length} clase{clasesNuevas.length > 1 ? 's' : ''} nueva{clasesNuevas.length > 1 ? 's' : ''}: {clasesNuevas[0]?.title}</span></span>
+                <span className="text-violet-600 font-black">›</span>
+              </button>
+            )}
+            {recursosNuevos.length > 0 && (
+              <button onClick={() => setCurrentView('biblioteca' as ViewType)} className="flex items-center gap-3 p-3 rounded-xl bg-sky-50 hover:bg-sky-100 text-left cursor-pointer">
+                <span className="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-lg">📘</span>
+                <span className="flex-1 min-w-0"><span className="block text-xs font-black text-slate-800">Recursos Técnicos</span><span className="block text-[11px] text-slate-500 truncate">{recursosNuevos.length} nuevo{recursosNuevos.length > 1 ? 's' : ''}: {recursosNuevos[0]?.titulo}</span></span>
+                <span className="text-sky-600 font-black">›</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}<DashboardView projects={proyectosBalance} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} /></>;
       case 'admin_purchases': return <AdminPurchasesView />;
       case 'reporte': return <ReporteMesView projects={proyectosBalance} finances={filteredFinances} />;
       case 'supervision': return isAdmin ? (
@@ -2422,10 +2477,10 @@ export default function App() {
     { id: 'inversion', label: 'Inversiones', icon: TrendingUp },
     { id: 'deuda', label: 'Deudas', icon: CreditCard, badge: pendingDebtsCount },
     { id: 'precios', label: 'Precios', icon: DollarSign },
-    { id: 'usabilidad', label: 'Academia Técnica', icon: Video },
+    { id: 'usabilidad', label: 'Academia Técnica', icon: Video, badge: clasesNuevas.length || undefined },
     { id: 'admin_purchases', label: 'Validar Compras', icon: ShieldCheck, adminOnly: true },
     { id: 'supervision', label: 'Supervisión', icon: Eye, adminOnly: true },
-    { id: 'biblioteca', label: 'Recursos Técnicos', icon: BookOpen },
+    { id: 'biblioteca', label: 'Recursos Técnicos', icon: BookOpen, badge: recursosNuevos.length || undefined },
     { id: 'contracts', label: 'Contratos & EPP', icon: FileSignature },
     { id: 'soporte', label: 'Atención & Asesorías', icon: Headset },
     { id: 'settings', label: 'Configuración', icon: Settings },
