@@ -19,69 +19,128 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
 @media (max-width: 1279.98px) { .titulo-pagina { display: none !important; } }
 
 /* ============================================================================
-   ESTILO "MARCA INNOVA" — solo en la app InnovApp (html.app-marca, ver index.html).
-   La web en el navegador no cambia.
+   ESTILO "MARCA INNOVA · VIDRIO" — solo en la app InnovApp (html.app-marca, ver
+   index.html). La web en el navegador no cambia.
+   Vidrio translúcido sobre un fondo de marca; el contenido pasa por debajo de la
+   cabecera y de la barra de abajo (por eso se ve el desenfoque). Toques estilo
+   iPhone: al presionar se atenúa (no se hunde como Android).
    ============================================================================ */
-.app-marca { --marca-azul: #0f2a4a; --marca-azul2: #123e6b; --marca-naranja: #f97316; --marca-fondo: #f4f6fa; }
-.app-marca main { background-color: var(--marca-fondo) !important; }
-.app-marca .flex-1.flex.flex-col.min-w-0.overflow-hidden.h-screen { background-color: var(--marca-fondo) !important; }
-
-/* Cabecera azul con el logo y esquinas redondas */
-.app-marca .barra-app {
-  height: auto !important; min-height: 64px; padding: 10px 16px 18px !important; gap: 12px !important;
-  background: linear-gradient(135deg, var(--marca-azul), var(--marca-azul2)) !important;
-  border-radius: 0 0 24px 24px; box-shadow: 0 10px 24px rgba(15, 42, 74, .22) !important; position: relative; z-index: 20;
+.app-marca { --marca-azul: 15, 42, 74; --marca-naranja: 249, 115, 22; }
+.app-marca .columna-app {
+  position: relative;
+  background:
+    radial-gradient(70% 45% at 100% 0%, rgba(var(--marca-naranja), .16), transparent 65%),
+    radial-gradient(70% 45% at 0% 55%, rgba(59, 130, 246, .14), transparent 65%),
+    radial-gradient(60% 40% at 100% 100%, rgba(var(--marca-naranja), .10), transparent 65%),
+    #eef2f7 !important;
 }
-.app-marca .barra-app img { width: 42px !important; height: 42px !important; border: none !important; border-radius: 13px !important; padding: 3px !important; }
+.app-marca .columna-app > main.overflow-y-auto, .app-marca .columna-app > div.overflow-y-auto { background: transparent !important; }
+
+/* Cabecera de vidrio azul que flota sobre el contenido */
+.app-marca .barra-app {
+  position: absolute !important; top: 0; left: 0; right: 0;
+  height: auto !important; min-height: 66px; padding: 10px 16px 14px !important; gap: 12px !important;
+  background: rgba(var(--marca-azul), .84) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%);
+  border-radius: 0 0 24px 24px; border-bottom: 1px solid rgba(255, 255, 255, .18);
+  box-shadow: 0 10px 30px rgba(var(--marca-azul), .25), inset 0 -1px 0 rgba(255, 255, 255, .08) !important; z-index: 30;
+}
+.app-marca .barra-app img { width: 42px !important; height: 42px !important; border: 1px solid rgba(255, 255, 255, .5) !important; border-radius: 13px !important; padding: 3px !important; background: rgba(255, 255, 255, .92) !important; }
 .app-marca .barra-app h1 { color: #fff !important; font-size: 19px !important; font-weight: 800 !important; letter-spacing: -.2px; }
 .app-marca .barra-app p { color: #fdba74 !important; }
-.app-marca .barra-app > button:last-child { color: #fff !important; background: rgba(255, 255, 255, .12); }
-.app-marca .barra-app > button:last-child:active { background: rgba(255, 255, 255, .25) !important; }
+.app-marca .barra-app > button:last-child { color: #fff !important; background: rgba(255, 255, 255, .16) !important; border: 1px solid rgba(255, 255, 255, .25); }
+.app-marca .columna-app:has(> .barra-app) > main.overflow-y-auto,
+.app-marca .columna-app:has(> .barra-app) > div.overflow-y-auto { padding-top: 86px !important; }
 
-/* Tarjetas: blancas, esquinas amplias y sombra suave (pantallas normales, no los lienzos de dibujo) */
+/* Tarjetas de vidrio claro */
 .app-marca main.overflow-y-auto .rounded-2xl.border,
-.app-marca main.overflow-y-auto .rounded-3xl.border { border-color: transparent !important; box-shadow: 0 6px 18px rgba(15, 42, 74, .07) !important; border-radius: 20px !important; }
-
-/* Barra de abajo: blanca, redondeada, ícono activo naranja y botón + al centro */
-.app-marca .nav-app { background: #fff !important; border-radius: 24px 24px 0 0; box-shadow: 0 -6px 20px rgba(15, 42, 74, .08); align-items: center !important; padding-top: 0 !important; }
-.app-marca .nav-app > button { width: auto !important; flex: 1 1 0; min-width: 0; }
-.app-marca .nav-app > button > span:first-child { background: transparent !important; width: 48px !important; height: 30px !important; color: #94a3b8 !important; transition: transform .2s cubic-bezier(.34, 1.56, .64, 1), color .2s; }
-.app-marca .nav-app > button > span:first-child.bg-\[\#e8def8\] { color: var(--marca-naranja) !important; transform: translateY(-2px) scale(1.08); }
-.app-marca .nav-app > button > span:last-child { font-size: 11px !important; color: #94a3b8 !important; }
-.app-marca .nav-app > button > span.font-bold:last-child { color: var(--marca-azul) !important; }
-.app-marca .mas-centro {
-  flex: 0 0 auto; width: 58px; height: 58px; margin: -30px 2px 0; border-radius: 20px; color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(145deg, #fb923c, var(--marca-naranja)); border: 4px solid var(--marca-fondo);
-  box-shadow: 0 10px 22px rgba(249, 115, 22, .45); transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
+.app-marca main.overflow-y-auto .rounded-3xl.border {
+  background-color: rgba(255, 255, 255, .62) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%);
+  border-color: rgba(255, 255, 255, .8) !important; border-radius: 20px !important;
+  box-shadow: 0 8px 24px rgba(var(--marca-azul), .07), inset 0 1px 0 rgba(255, 255, 255, .9) !important;
 }
-.app-marca .mas-centro:active { transform: scale(.9) rotate(90deg); }
 
-/* Menú lateral de marca: degradado azul, botones redondeados con el ícono en una cajita
-   y el apartado activo en naranja. */
-.app-marca .menu-lateral { background: linear-gradient(180deg, var(--marca-azul), #0b1f38) !important; }
-.app-marca .menu-lateral .border-slate-800, .app-marca .menu-lateral .border-slate-800\/80 { border-color: rgba(255, 255, 255, .08) !important; }
-.app-marca .menu-lateral .bg-slate-950\/70 { background: rgba(0, 0, 0, .18) !important; }
-.app-marca .menu-lateral .space-y-0\.5 > * + * { margin-top: 4px !important; }
-.app-marca .item-menu { border-radius: 14px !important; padding-top: 7px !important; padding-bottom: 7px !important; color: #cbd5e1 !important; transition: background .2s, transform .15s; }
-.app-marca .item-menu:active { transform: scale(.97); }
-.app-marca .item-menu > svg { width: 34px !important; height: 34px !important; padding: 8px; border-radius: 11px; background: rgba(255, 255, 255, .07); color: #93c5fd !important; }
+/* Barra de abajo: píldora de vidrio flotante (solo en las pantallas con cabecera;
+   en los lienzos de dibujo queda fija para no tapar el plano) */
+.app-marca .nav-app {
+  background: rgba(255, 255, 255, .58) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(190%); backdrop-filter: blur(26px) saturate(190%);
+  border-top: 1px solid rgba(255, 255, 255, .7); align-items: center !important; padding-top: 0 !important;
+}
+.app-marca .columna-app:has(> .barra-app) > .nav-app {
+  position: absolute !important; left: 14px; right: 14px; bottom: calc(10px + env(safe-area-inset-bottom));
+  height: 66px !important; padding-bottom: 0 !important; border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, .75);
+  box-shadow: 0 12px 32px rgba(var(--marca-azul), .18), inset 0 1px 0 rgba(255, 255, 255, .9);
+}
+.app-marca .columna-app:has(> .barra-app) > main.overflow-y-auto,
+.app-marca .columna-app:has(> .barra-app) > div.overflow-y-auto { padding-bottom: 170px !important; }
+.app-marca .nav-app > button { width: auto !important; flex: 1 1 0; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.app-marca .nav-app > button > span:first-child { width: 54px !important; height: 32px !important; background: transparent !important; color: #64748b !important; transition: background .25s ease, color .25s ease; }
+.app-marca .nav-app > button > span:first-child.bg-\[\#e8def8\] { background: rgba(var(--marca-naranja), .14) !important; color: rgb(var(--marca-naranja)) !important; box-shadow: inset 0 0 0 1px rgba(var(--marca-naranja), .18); }
+.app-marca .nav-app > button > span:last-child { font-size: 11px !important; color: #64748b !important; }
+.app-marca .nav-app > button > span.font-bold:last-child { color: rgb(var(--marca-azul)) !important; }
+
+/* Botón + : flota por fuera de la barra, círculo de vidrio naranja */
+.app-marca .fab-app {
+  width: 60px !important; height: 60px !important; padding: 0 !important; justify-content: center; border-radius: 999px !important;
+  font-size: 0 !important; gap: 0 !important; color: #fff !important; right: 18px !important;
+  bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+  background: rgba(var(--marca-naranja), .82) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, .55);
+  box-shadow: 0 12px 28px rgba(var(--marca-naranja), .42), inset 0 1px 0 rgba(255, 255, 255, .55) !important;
+}
+.app-marca .fab-app svg { width: 30px !important; height: 30px !important; }
+
+/* Menú lateral: panel de vidrio azul; cada apartado con su ícono en un cuadrito de
+   color (como los Ajustes del iPhone) y el activo resaltado con vidrio claro. */
+.app-marca .menu-lateral {
+  background: rgba(var(--marca-azul), .8) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(170%); backdrop-filter: blur(30px) saturate(170%);
+  border-right: 1px solid rgba(255, 255, 255, .14);
+}
+.app-marca .menu-lateral .border-slate-800, .app-marca .menu-lateral .border-slate-800\/80 { border-color: rgba(255, 255, 255, .1) !important; }
+.app-marca .menu-lateral .bg-slate-950\/70 { background: rgba(0, 0, 0, .15) !important; }
+.app-marca .menu-lateral .space-y-0\.5 { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .1); border-radius: 18px; padding: 6px; }
+.app-marca .menu-lateral .space-y-0\.5 > * + * { margin-top: 2px !important; }
+.app-marca .item-menu { border-radius: 12px !important; padding-top: 6px !important; padding-bottom: 6px !important; color: #e2e8f0 !important; background: transparent !important; transition: opacity .12s ease, background .2s ease !important; -webkit-tap-highlight-color: transparent; }
+.app-marca .item-menu:hover { background: transparent !important; }
+.app-marca .item-menu:active { opacity: .55; }
 .app-marca .item-menu > span.absolute { display: none; }
-.app-marca .item-menu:hover { background: rgba(255, 255, 255, .06) !important; }
-.app-marca .item-menu.activo { background: linear-gradient(90deg, var(--marca-naranja), #fb923c) !important; color: #fff !important; box-shadow: 0 8px 18px rgba(249, 115, 22, .35); }
-.app-marca .item-menu.activo > svg { background: rgba(255, 255, 255, .22); color: #fff !important; }
-.app-marca .item-menu > span.truncate { font-size: 14px !important; }
+.app-marca .item-menu > svg { width: 30px !important; height: 30px !important; padding: 6px; border-radius: 9px; color: #fff !important; background: #64748b; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3); }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+1) > svg { background: #f97316; }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+2) > svg { background: #eab308; }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+3) > svg { background: #3b82f6; }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+4) > svg { background: #0ea5e9; }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+5) > svg { background: #8b5cf6; }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+6) > svg { background: #14b8a6; }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+7) > svg { background: #ec4899; }
+.app-marca .space-y-0\.5 > .item-menu:nth-child(8n+8) > svg { background: #22c55e; }
+.app-marca .item-menu > span.truncate { font-size: 14.5px !important; font-weight: 500; }
+.app-marca .item-menu.activo { background: rgba(255, 255, 255, .18) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 4px 14px rgba(0, 0, 0, .12); }
+.app-marca .item-menu.activo > span.truncate { font-weight: 700; color: #fff; }
+.app-marca .item-menu.activo::after { content: ''; position: absolute; right: 12px; width: 7px; height: 7px; border-radius: 9px; background: rgb(var(--marca-naranja)); box-shadow: 0 0 0 3px rgba(var(--marca-naranja), .25); }
+
+/* Toque estilo iPhone en toda la app: se atenúa en vez de achicarse */
+@media (hover: none) and (pointer: coarse) {
+  .app-marca button:active, .app-marca a:active { transform: none !important; opacity: .6; transition: opacity .1s ease; }
+}
 
 /* Entrada suave de cada pantalla */
 @keyframes marca-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .app-marca main > * { animation: marca-entra .25s ease-out; }
-@media (prefers-reduced-motion: reduce) { .app-marca main > *, .app-marca .mas-centro, .app-marca .nav-app span { animation: none !important; transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { .app-marca main > * { animation: none !important; } }
 
-/* Celular apaisado y tablet: barra de abajo flotante y centrada, cabecera alineada */
+/* Celular apaisado y tablet */
 @media (min-width: 640px) {
-  .app-marca .nav-app { width: min(560px, calc(100% - 32px)); margin: 0 auto 12px; border-radius: 26px; box-shadow: 0 10px 30px rgba(15, 42, 74, .16); }
+  .app-marca .columna-app:has(> .barra-app) > .nav-app { left: 50%; right: auto; width: min(560px, calc(100% - 32px)); transform: translateX(-50%); }
   .app-marca .barra-app { padding-left: 24px !important; padding-right: 24px !important; }
+  .app-marca .fab-app { right: max(24px, calc(50% - 340px)) !important; }
 }
 @media (min-width: 640px) and (max-width: 1279.98px) { .app-marca .menu-lateral { width: 300px !important; } }
 @media (max-width: 1279.98px) { .app-marca .menu-lateral { border-radius: 0 26px 26px 0; } }
-@media (max-width: 359.98px) { .app-marca .nav-app > button > span:last-child { font-size: 10px !important; } .app-marca .mas-centro { width: 52px; height: 52px; } }
+@media (max-width: 359.98px) { .app-marca .nav-app > button > span:last-child { font-size: 10px !important; } }
+/* Obra Civil / Drywall: el plano ocupa la pantalla, solo se deja el espacio de la barra */
+.app-marca .columna-app:has(> .barra-app) > main.lg\:p-0 { padding-bottom: 90px !important; }
