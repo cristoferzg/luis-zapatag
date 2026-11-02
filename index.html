@@ -13,10 +13,13 @@
             var m = document.querySelector('meta[name=viewport]');
             if (m) m.setAttribute('content', m.getAttribute('content').replace(/,\s*viewport-fit=cover/, ''));
           }
-          // Estilo de la app (Marca Innova). Para verlo en el navegador: localStorage innova_estilo_marca = '1'.
-          if (/InnovApp/.test(navigator.userAgent) || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) || localStorage.getItem('innova_estilo_marca') === '1') {
-            document.documentElement.classList.add('app-marca');
-          }
+          // Estilo Marca Innova: en la app y en la web desde celular o tablet (menos de
+          // 1280 px). En la computadora la web sigue con su diseño de siempre.
+          var esApp = /InnovApp/.test(navigator.userAgent) || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+          var mq = window.matchMedia('(max-width: 1279.98px)');
+          var aplicar = function () { document.documentElement.classList.toggle('app-marca', !!(esApp || mq.matches)); };
+          aplicar();
+          if (mq.addEventListener) mq.addEventListener('change', aplicar); else if (mq.addListener) mq.addListener(aplicar);
         } catch (e) {}
       })();
     </script>
@@ -24,7 +27,7 @@
     <meta name="description" content="Plataforma integral para controlar proyectos de estructuras metálicas, módulo CAD de herrería y cerrajería, clientes y finanzas personales (gastos, familia, inversiones, deudas)." />
     <meta property="og:title" content="Innova Contratistas" />
     <meta property="og:description" content="Plataforma integral para controlar proyectos de estructuras metálicas, módulo CAD de herrería y cerrajería, clientes y finanzas personales (gastos, familia, inversiones, deudas)." />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#0f2a4a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
