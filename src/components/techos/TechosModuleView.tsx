@@ -581,18 +581,19 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       if (actual && !esPlanoMio(actual, currentUserName)) return; // plano de otro usuario: no se toca
       b.firma = firma;
       let nombre = nombreProyecto.trim() || 'Techo metálico';
-      if (!actual) { // plano nuevo: nombre que no choque con uno ya guardado
+      const sigueAbierto = !actual && !!currentEditingDesignId; // abierto pero aún no está en la copia del equipo
+      if (!actual && !sigueAbierto) { // plano nuevo: nombre que no choque con uno ya guardado
         const usados = new Set(lista.map(d => (d.nombre || '').trim().toLowerCase()));
         if (usados.has(nombre.toLowerCase())) { let k = 2; while (usados.has(`${nombre} (${k})`.toLowerCase())) k++; nombre = `${nombre} (${k})`; setNombreProyecto(nombre); }
       }
       const cli = clients.find(c => c.id === saveModalClientId), pro = projects.find(p => p.id === saveModalProjectId);
       saveOrUpdateTechosDesign({
-        id: actual?.id, nombre,
+        id: actual?.id || (sigueAbierto ? currentEditingDesignId! : undefined), nombre,
         authorName: actual?.authorName || currentUserName, authorRole: actual?.authorRole || (isAdmin ? 'Administrador' : 'Colaborador'),
         clientId: cli?.id ?? actual?.clientId, clientName: cli?.name ?? actual?.clientName,
         projectId: pro?.id ?? actual?.projectId, projectName: pro?.name ?? actual?.projectName,
         nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones,
-      }, !!actual).then(res => {
+      }, !!actual || sigueAbierto).then(res => {
         if (res.design.id !== currentEditingDesignId) setCurrentEditingDesignId(res.design.id);
         setJustSaved(true); setTimeout(() => setJustSaved(false), 1500);
         setSavedDesignsList(getCachedTechosDesigns());

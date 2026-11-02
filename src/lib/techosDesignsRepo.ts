@@ -128,7 +128,9 @@ export async function saveOrUpdateTechosDesign(
   }
 
   const isUpdating = overwriteExisting && existingIndex >= 0;
-  const targetId = isUpdating ? existingList[existingIndex].id : `techos_${Date.now()}`;
+  // Si se pide actualizar un plano con id que aún no está en la copia de este equipo
+  // (otro dispositivo, la nube aún no respondió), se actualiza ESE id: no se crea otro.
+  const targetId = isUpdating ? existingList[existingIndex].id : (overwriteExisting && designData.id ? designData.id : `techos_${Date.now()}`);
   const nowStr = new Date().toLocaleDateString('es-PE') + ' ' + new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 
   const previo = isUpdating ? existingList[existingIndex] : undefined;
