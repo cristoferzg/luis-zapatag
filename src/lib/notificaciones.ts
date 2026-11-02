@@ -38,7 +38,7 @@ export async function notificar(titulo: string, cuerpo: string): Promise<void> {
   try {
     if (!(await notificacionesPermitidas())) return;
     if (esNativo()) {
-      await LocalNotifications.schedule({ notifications: [{ id: ++siguienteId, title: titulo, body: cuerpo, smallIcon: 'ic_stat_innova', iconColor: '#f97316' }] });
+      await LocalNotifications.schedule({ notifications: [{ id: ++siguienteId, title: titulo, body: cuerpo, smallIcon: 'ic_stat_innova', largeIcon: 'ic_innova_grande', iconColor: '#f97316' }] });
       return;
     }
     const n = new Notification(titulo, { body: cuerpo, icon: '/pwa-192x192.png', badge: '/favicon-64.png', tag: `innova_${siguienteId++}` });
