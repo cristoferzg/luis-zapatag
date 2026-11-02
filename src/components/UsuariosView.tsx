@@ -505,7 +505,7 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
 
       {/* Encabezado con Botones de Base de Datos y Resguardo */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-5">
-        <div className="flex items-center space-x-3.5">
+        <div className="flex items-center space-x-3.5 titulo-pagina">
           <div className="p-3 rounded-2xl bg-white shadow-sm border border-slate-200 text-emerald-600">
             <Key className="w-6 h-6" />
           </div>

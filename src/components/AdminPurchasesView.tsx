@@ -106,8 +106,8 @@ export default function AdminPurchasesView() {
   return (
     <div className="space-y-4 min-w-0">
       <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs">
-        <h2 className="text-lg sm:text-xl font-black text-slate-900">Validar compras</h2>
-        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">Lee el comprobante, revisa el código y el monto, y valida: el plan, los créditos o el curso se habilitan solos.</p>
+        <h2 className="text-lg sm:text-xl font-black text-slate-900 titulo-pagina">Validar compras</h2>
+        <p className="text-xs sm:text-sm text-slate-500 mt-0.5 titulo-pagina">Lee el comprobante, revisa el código y el monto, y valida: el plan, los créditos o el curso se habilitan solos.</p>
         <div className="mt-3 grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
           {ESTADOS.map(e => {
             const n = purchases.filter(p => p.status === e.k).length;

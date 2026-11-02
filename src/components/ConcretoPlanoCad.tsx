@@ -1735,13 +1735,13 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {/* PANEL DE METRADO + PROPIEDADES */}
         {!esPC && (
           <button type="button" onClick={() => setHoja(h => !h)}
-            className="fixed left-0 right-0 bottom-[calc(72px+env(safe-area-inset-bottom))] md:bottom-0 z-[45] h-12 bg-white border-t border-slate-200 rounded-t-2xl shadow-[0_-6px_18px_rgba(0,0,0,0.12)] flex flex-col items-center justify-center gap-1 cursor-pointer">
+            className="fixed left-0 right-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-[45] h-12 bg-white border-t border-slate-200 rounded-t-2xl shadow-[0_-6px_18px_rgba(0,0,0,0.12)] flex flex-col items-center justify-center gap-1 cursor-pointer">
             <span className="w-10 h-1 rounded-full bg-slate-300" />
             <span className="text-[11px] font-black text-slate-700">{hoja ? 'Cerrar paneles ▼' : 'Elementos · Metrado · Ambientes ▲'}</span>
           </button>
         )}
         <div className={esPC ? 'lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-200 bg-white p-3 space-y-3 overflow-y-auto'
-          : `fixed left-0 right-0 bottom-[calc(120px+env(safe-area-inset-bottom))] md:bottom-12 z-[44] bg-white border-t border-slate-200 shadow-2xl p-3 space-y-3 overflow-y-auto transition-transform duration-200 max-h-[62dvh] ${hoja ? 'translate-y-0' : 'translate-y-[120%]'}`}>
+          : `fixed left-0 right-0 bottom-[calc(120px+env(safe-area-inset-bottom))] z-[44] bg-white border-t border-slate-200 shadow-2xl p-3 space-y-3 overflow-y-auto transition-transform duration-200 max-h-[62dvh] ${hoja ? 'translate-y-0' : 'translate-y-[120%]'}`}>
           {/* PUNTO DE INSTALACIÓN SELECCIONADO */}
           {(() => { const q = instalaciones.find(x => x.uid === selInst); if (!q) return null; const d = INSTALACIONES[q.tipo]; return (
             <div className="rounded-2xl border-2 border-sky-300 bg-sky-50/60 p-3 space-y-2">

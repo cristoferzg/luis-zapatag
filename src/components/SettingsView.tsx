@@ -740,7 +740,7 @@ export default function SettingsView({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 titulo-pagina">
             <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs">
               <Building2 className="w-6 h-6" />
             </div>

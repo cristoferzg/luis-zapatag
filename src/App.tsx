@@ -1084,7 +1084,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
 
     return (
       <div className="space-y-6">
-        <header className="mb-8">
+        <header className="titulo-pagina mb-8">
           <div className="flex items-center space-x-3 mb-2">
             <div className={`p-3 rounded-xl bg-white shadow-sm border border-slate-100 ${colorMap[colorClass]}`}>
               <Icon className="w-6 h-6" />
@@ -1537,7 +1537,6 @@ export default function App() {
   });
   useEffect(() => { try { sessionStorage.setItem('innova_vista_actual', currentView); } catch { /* nada */ } }, [currentView]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [fabAbierto, setFabAbierto] = useState(false);
   // Vibración corta al tocar (como las apps de Android); en PC no hace nada.
   const tocar = () => { try { (navigator as any).vibrate?.(8); } catch { /* sin vibración */ } };
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
@@ -2336,12 +2335,38 @@ export default function App() {
     { id: 'techos', label: 'Techos', icon: PenTool },
     { id: 'materials', label: 'Gastos', icon: Package },
   ].filter(it => disponible(it.id)).concat([{ id: 'mas', label: 'Más', icon: Menu }]);
-  const accionesRapidas = [
-    { label: 'Nuevo proyecto', view: 'projects', icon: Briefcase },
-    { label: 'Nuevo techo', view: 'techos', icon: PenTool },
-    { label: 'Registrar gasto', view: 'materials', icon: Package },
-    { label: 'Nueva cotización rápida', view: 'calculator', icon: Calculator },
-  ].filter(a => disponible(a.view));
+  // Botón con texto por pantalla: a qué formulario o botón de "crear" lleva.
+  const FAB: Record<string, { label: string; ir?: string; campo?: string; boton?: string; soloAdmin?: boolean }> = {
+    dashboard: { label: 'Nuevo proyecto', ir: 'projects', campo: 'input[placeholder^="Ej. Techo Aluzinc"]' },
+    projects: { label: 'Nuevo proyecto', campo: 'input[placeholder^="Ej. Techo Aluzinc"]' },
+    portafolio: { label: 'Registrar cliente', boton: 'Registrar Cliente' },
+    materials: { label: 'Nuevo material', campo: 'input[placeholder^="Escribe o elige"] || select' },
+    personal: { label: 'Agregar personal', campo: 'main select' },
+    familia: { label: 'Nuevo gasto familiar', campo: 'input[placeholder^="Detalle del registro"]' },
+    inversion: { label: 'Nueva inversión', campo: 'input[placeholder^="Detalle del registro"]' },
+    deuda: { label: 'Nueva deuda', campo: 'input[placeholder^="Detalle del registro"]' },
+    precios: { label: 'Nuevo material', boton: 'Agregar material propio' },
+    usuarios: { label: 'Nuevo acceso', campo: 'input[placeholder^="Ej. Juan Pérez"]' },
+    contracts: { label: 'Nuevo contrato', campo: 'main select' },
+    soporte: { label: 'Nuevo ticket', campo: 'input[placeholder^="Ej. Error al registrar"]' },
+    usabilidad: { label: 'Nuevo curso', boton: 'Nuevo Curso', soloAdmin: true },
+  };
+  const fabActual = FAB[currentView] && (!FAB[currentView].soloAdmin || isAdmin) && (!FAB[currentView].ir || disponible(FAB[currentView].ir!)) ? FAB[currentView] : null;
+  const enfocarFab = (f: NonNullable<typeof fabActual>, intento = 0) => {
+    const main = document.querySelector('main');
+    let el: HTMLElement | null = null;
+    if (f.boton) el = Array.from(main?.querySelectorAll('button') || []).find(b => (b.textContent || '').includes(f.boton!)) as HTMLElement || null;
+    // 'a || b': prueba cada opción en orden (p. ej. el campo del material o, si aún no hay proyecto, el selector de proyecto).
+    else if (f.campo) for (const sel of f.campo.split('||')) { el = (main?.querySelector(sel.trim().replace(/^main /, '')) as HTMLElement) || null; if (el) break; }
+    if (!el) { if (intento < 6) setTimeout(() => enfocarFab(f, intento + 1), 250); else main?.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (f.boton) setTimeout(() => el!.click(), 300); else setTimeout(() => el!.focus({ preventScroll: true }), 350);
+  };
+  const ejecutarFab = () => {
+    if (!fabActual) return;
+    if (fabActual.ir && fabActual.ir !== currentView) { setCurrentView(fabActual.ir as ViewType); setTimeout(() => enfocarFab(fabActual), 400); }
+    else enfocarFab(fabActual);
+  };
 
   const rawDisplayName = isAdmin ? (user?.name || user?.email || 'Administrador') : user?.name;
   const cleanUserName = (rawDisplayName && rawDisplayName.toLowerCase().includes('newton')) ? 'Innova Contratistas' : (rawDisplayName || 'Administrador');
@@ -2545,7 +2570,7 @@ export default function App() {
         {/* CELULAR / APP: barra superior estilo Android (Material 3). En los lienzos de dibujo
             (Techos, Carpintería) no va: el módulo ya tiene su propio encabezado y gana espacio. */}
         {!['designer', 'techos', 'herreria', 'carpinteria'].includes(currentView) && (
-          <header className="md:hidden h-14 bg-white flex items-center gap-3 px-3 shrink-0 z-10 shadow-[0_1px_0_#e7e0ec]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <header className="xl:hidden h-14 bg-white flex items-center gap-3 px-3 shrink-0 z-10 shadow-[0_1px_0_#e7e0ec]" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
             <img src={activeLogo} alt="" className="w-9 h-9 rounded-xl object-cover bg-white border border-slate-200 p-0.5 shrink-0"
               onError={(e) => { (e.target as HTMLImageElement).src = defaultAdminLogo; }} />
             <div className="min-w-0 flex-1">
@@ -2562,7 +2587,7 @@ export default function App() {
           </header>
         )}
         {currentView !== 'designer' && (
-          <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 hidden md:flex justify-between items-center z-10 xl:hidden shrink-0 shadow-2xs">
+          <header className="hidden">
              <div className="flex items-center space-x-2.5 min-w-0">
                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"><Menu className="w-6 h-6"/></button>
                <img 
@@ -2636,7 +2661,7 @@ export default function App() {
           </div>
         )}
         {currentView !== 'designer' && currentView !== 'calculator' && (
-          <main className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : currentView === 'concreto' || currentView === 'drywall' ? "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 lg:p-0 scroll-smooth" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth"}>
+          <main className={(currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : currentView === 'concreto' || currentView === 'drywall' ? "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 lg:p-0 scroll-smooth" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth") + (fabActual ? ' pb-28 xl:pb-8' : '')}>
             {/* Obra Civil y Drywall: lienzo a todo el ancho, como Techos Metálicos */}
             <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' || currentView === 'concreto' || currentView === 'drywall' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
               <EmpresaProvider value={empresaCtx}><Suspense fallback={cargandoModulo}>{renderView()}</Suspense></EmpresaProvider>
@@ -2644,7 +2669,7 @@ export default function App() {
           </main>
         )}
         {/* CELULAR / APP: barra de navegación inferior estilo Android (Material 3) */}
-        <nav className="md:hidden shrink-0 bg-[#f3edf7] flex justify-around items-start pt-2 z-30" style={{ height: 'calc(72px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <nav className="xl:hidden shrink-0 bg-[#f3edf7] flex justify-around items-start pt-2 z-30" style={{ height: 'calc(72px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {barraInferior.map(it => {
             const activo = it.id === 'mas' ? isMobileMenuOpen : (currentView === it.id && !isMobileMenuOpen);
             return (
@@ -2659,23 +2684,13 @@ export default function App() {
       </div>
       
       {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/50 z-40 xl:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
-      {/* CELULAR / APP: botón flotante "+" con accesos rápidos (no en los lienzos de dibujo) */}
-      {!isMobileMenuOpen && !['techos', 'concreto', 'drywall', 'herreria', 'carpinteria', 'designer', 'calculator'].includes(currentView) && (
-        <>
-          {fabAbierto && <div className="md:hidden fixed inset-0 z-[45] bg-slate-900/30" onClick={() => setFabAbierto(false)} />}
-          <div className="md:hidden fixed right-4 z-[46] flex flex-col items-end gap-2" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
-            {fabAbierto && accionesRapidas.map(a => (
-              <button key={a.label} onClick={() => { tocar(); setFabAbierto(false); setCurrentView(a.view as ViewType); }}
-                className="flex items-center gap-2 pl-3 pr-4 h-11 rounded-2xl bg-white shadow-lg text-sm font-semibold text-slate-800 cursor-pointer active:scale-95 transition-transform">
-                <a.icon className="w-5 h-5 text-amber-600" />{a.label}
-              </button>
-            ))}
-            <button onClick={() => { tocar(); setFabAbierto(v => !v); }} aria-label="Crear"
-              className={`w-14 h-14 rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex items-center justify-center cursor-pointer active:scale-95 transition-transform ${fabAbierto ? 'rotate-45' : ''}`}>
-              <Plus className="w-7 h-7" />
-            </button>
-          </div>
-        </>
+      {/* CELULAR / TABLET: botón con texto de la pantalla (crear lo que corresponde ahí) */}
+      {!isMobileMenuOpen && fabActual && (
+        <button onClick={() => { tocar(); ejecutarFab(); }}
+          className="xl:hidden fixed right-4 z-[46] h-14 pl-4 pr-5 rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex items-center gap-2.5 text-[15px] font-semibold cursor-pointer active:scale-95 transition-transform"
+          style={{ bottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
+          <Plus className="w-6 h-6" />{fabActual.label}
+        </button>
       )}
       <OfflineIndicator />
     </div>

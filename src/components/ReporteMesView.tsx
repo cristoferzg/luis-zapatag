@@ -54,8 +54,8 @@ export default function ReporteMesView({ projects, finances }: { projects: Proje
   return (
     <div className="space-y-3 max-w-5xl mx-auto">
       <div className="bg-white rounded-2xl p-4 shadow-xs flex flex-wrap items-center gap-3">
-        <BarChart3 className="w-6 h-6 text-indigo-600" />
-        <div className="mr-auto">
+        <BarChart3 className="w-6 h-6 text-indigo-600 titulo-pagina" />
+        <div className="mr-auto titulo-pagina">
           <h2 className="text-lg font-black text-slate-900">Reporte del mes</h2>
           <p className="text-xs text-slate-500">Cotizado, ganado, cobrado, gastado y tu utilidad real.</p>
         </div>

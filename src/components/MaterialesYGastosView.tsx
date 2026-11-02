@@ -361,7 +361,7 @@ export default function MaterialesYGastosView({
       {/* UNIFIED HEADER & SUB-TABS */}
       <header className="mb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+          <div className="titulo-pagina">
             <h1 className="text-3xl font-bold text-slate-800 flex items-center">
               <Package className="w-8 h-8 mr-3 text-indigo-600" />
               Materiales & Gastos Operativos

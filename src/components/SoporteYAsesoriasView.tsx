@@ -48,7 +48,7 @@ export default function SoporteYAsesoriasView({
     <div className="space-y-6">
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-3xs">
-        <div>
+        <div className="titulo-pagina">
           <div className="flex items-center gap-2 mb-1">
             <span className="p-2 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
               <Headset className="w-5 h-5" />

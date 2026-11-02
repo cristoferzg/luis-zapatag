@@ -113,7 +113,7 @@ export default function SupervisionView({ usuarios, projects, clients, finances,
   return (
     <div className="space-y-5 max-w-6xl mx-auto">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
+        <div className="titulo-pagina">
           <h1 className="text-2xl sm:text-3xl font-black text-slate-800 flex items-center gap-2.5"><Eye className="w-7 h-7 text-indigo-600" />Supervisión</h1>
           <p className="text-slate-500 text-sm mt-1 max-w-2xl">Datos de tus usuarios, separados de tus propios proyectos. Solo lectura, con respaldo y restauración.</p>
         </div>

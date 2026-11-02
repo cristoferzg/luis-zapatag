@@ -223,7 +223,7 @@ export default function PersonalYAsistenciaView({
       {/* Header Unificado */}
       <header className="mb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+          <div className="titulo-pagina">
             <h1 className="text-3xl font-bold text-slate-800 flex items-center">
               <Users className="w-8 h-8 mr-3 text-emerald-600" />
               Gestión de Personal

@@ -269,7 +269,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       <header className="mb-2 flex flex-wrap justify-between items-end gap-3">
-        <div className={embebida ? 'hidden' : ''}>
+        <div className={embebida ? 'hidden' : 'titulo-pagina'}>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
             <Calculator className="w-8 h-8 mr-3 text-indigo-500" />
             Calculadora Estructural y Presupuesto

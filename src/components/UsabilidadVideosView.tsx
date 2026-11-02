@@ -949,7 +949,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       {/* HEADER COMPACTO Y CLARO (mismo estilo limpio de Recursos Técnicos) */}
       <header className="space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="min-w-0">
+          <div className="min-w-0 titulo-pagina">
             <h1 className="flex items-center gap-2.5 text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
               <GraduationCap className="w-7 h-7 text-slate-700 shrink-0" />
               Academia Técnica

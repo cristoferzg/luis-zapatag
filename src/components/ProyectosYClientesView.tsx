@@ -381,7 +381,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
       {activeTab === 'portafolio' ? (
         selectedFolderGroupId !== null ? null : <header className="mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
+            <div className="titulo-pagina">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
                 <FolderKanban className="w-7 h-7 sm:w-8 sm:h-8 mr-3 text-slate-600" />
                 Carpeta Privada de Clientes
@@ -395,7 +395,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
       ) : (
         <header className="mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
+            <div className="titulo-pagina">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
                 <Briefcase className="w-7 h-7 sm:w-8 sm:h-8 mr-3 text-indigo-600" />
                 Proyectos & Clientes

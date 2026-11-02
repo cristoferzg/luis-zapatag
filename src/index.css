@@ -13,3 +13,7 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
   html { -webkit-tap-highlight-color: transparent; }
   button:active, [role="button"]:active { transform: scale(0.97); transition: transform 60ms ease-out; }
 }
+
+/* Celular y tablet: el título del apartado va en la barra superior (estilo Android);
+   el título grande de la página solo se muestra en PC. */
+@media (max-width: 1279.98px) { .titulo-pagina { display: none !important; } }

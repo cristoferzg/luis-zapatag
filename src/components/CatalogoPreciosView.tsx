@@ -82,7 +82,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
   return (
     <div className="space-y-4 pb-24">
       <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 titulo-pagina">
           <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600"><Tag className="w-6 h-6" /></div>
           <div>
             <h2 className="text-lg font-black text-slate-900">Catálogo de precios</h2>
