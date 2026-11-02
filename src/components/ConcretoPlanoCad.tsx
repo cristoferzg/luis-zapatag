@@ -245,6 +245,9 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   // perfil y su capa (columnas, tijerales, correas…), y nodos para imantar.
   type LineaPlanta = { x1: number; z1: number; x2: number; z2: number; col: boolean; capa: CapaEstructura; ancho: number; alto: number };
   const [capasOcultas, setCapasOcultas] = useState<CapaEstructura[]>([]);
+  // Diseño C (Drywall): panel de capas; la Obra Civil de fondo se puede ocultar.
+  const [verCapas, setVerCapas] = useState(false);
+  const [ocultarObra, setOcultarObra] = useState(false);
   const plantaTechos = useMemo(() => {
     if (!estructura) return { lineas: [] as LineaPlanta[], puntos: [] as { x: number; y: number }[], conteo: {} as Partial<Record<CapaEstructura, number>> };
     const N = estructura.nodes || {};
@@ -1017,7 +1020,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   const [hoja, setHoja] = useState(false);
   const [masHerr, setMasHerr] = useState(false);
   const [hojaHerr, setHojaHerr] = useState(false); // celular: panel 'Herramientas' desde abajo
-  useEffect(() => { if (!esPC && (selUid || selAb || selBloque || selInst)) setHoja(true); }, [selUid, selAb, selBloque, selInst]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!esPC && (selAb || selBloque || selInst)) setHoja(true); }, [selUid, selAb, selBloque, selInst]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const f = () => setEsPC(window.innerWidth >= 1024);
     window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
@@ -1098,7 +1101,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   };
 
   // Barra del grupo seleccionado (en 2D y en 3D).
-  const barraGrupoEn = (arriba: string) => selMov.length > 0 ? (() => {
+  const barraGrupoEn = (arriba: string) => selMov.length > 0 && (esPC || grupo.length > 0) ? (() => {
             const muros = elemsGrupo.filter(e => e.tipo === 'muro');
             const btn = 'p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
             return (
@@ -1286,6 +1289,11 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             <Grid3x3 className="w-3.5 h-3.5" /> {cursor.x.toFixed(2)}, {cursor.y.toFixed(2)} m
           </span>
         )}
+        {esDrywall && (
+          <button onClick={() => setVerCapas(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-violet-50 text-violet-700 border border-violet-200 cursor-pointer hover:bg-violet-100">
+            <Layers className="w-3.5 h-3.5" /> Capas
+          </button>
+        )}
         {/* Celular: todo lo demás en un panel con nombres (como en Techos) */}
         <button onClick={() => setHojaHerr(true)} className="sm:hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 cursor-pointer">
           <span className="text-base leading-none">⋯</span> Herramientas
@@ -1303,6 +1311,32 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         </div>
       </div>
 
+      {verCapas && esDrywall && (() => {
+        const tab = elems.filter(e => !bloqueado(e));
+        const mTab = tab.reduce((a, e) => a + (e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0), 0);
+        const obra = elems.filter(e => bloqueado(e)).length;
+        const todasCapas = Object.keys(CAPAS) as CapaEstructura[];
+        const estOculta = !!estructura && todasCapas.every(k => capasOcultas.includes(k) || !plantaTechos.conteo[k]);
+        const sw = (on: boolean) => <span className={`ml-auto shrink-0 w-10 h-6 rounded-full relative transition-colors ${on ? 'bg-violet-600' : 'bg-slate-300'}`}><span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${on ? 'right-1' : 'left-1'}`} /></span>;
+        const fila = 'w-full flex items-center gap-2.5 px-3 py-3 rounded-2xl bg-slate-50 text-[13px] font-bold text-slate-800 text-left cursor-pointer disabled:opacity-50';
+        return (
+          <div className="fixed inset-0 z-[95] flex items-end sm:items-center justify-center" onClick={() => setVerCapas(false)}>
+            <div className="absolute inset-0 bg-slate-900/40" />
+            <div className="relative w-full sm:w-[400px] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-4 pb-[calc(16px+env(safe-area-inset-bottom))] space-y-2" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-base font-black text-slate-900">Capas de la obra</span>
+                <button onClick={() => setVerCapas(false)} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Cerrar</button>
+              </div>
+              <p className="text-[11px] text-slate-500">Muestra u oculta lo que no estás editando. Lo oculto sigue en el presupuesto.</p>
+              <div className={fila}><span className="w-3 h-3 rounded bg-slate-400" /><span className="flex-1">Tabiques de drywall / OSB<span className="block text-[10px] font-semibold text-slate-500">{tab.length} · {mTab.toFixed(1)} m · lo que editas aquí</span></span><span className="text-[10px] font-black text-violet-700 bg-violet-50 rounded-full px-2 py-1">Editando</span></div>
+              <button className={fila} disabled={!obra} onClick={() => setOcultarObra(v => !v)}><span className="w-3 h-3 rounded bg-orange-400" /><span className="flex-1">Obra Civil de fondo<span className="block text-[10px] font-semibold text-slate-500">{obra ? `${obra} elementos (muros, columnas, losas)` : 'sin elementos'}</span></span>{sw(!ocultarObra && !!obra)}</button>
+              <button className={fila} disabled={!estructura} onClick={() => setCapasOcultas(estOculta ? [] : todasCapas)}><span className="w-3 h-3 rounded bg-slate-700" /><span className="flex-1">Estructura de Techos<span className="block text-[10px] font-semibold text-slate-500">{estructura ? `${Object.keys(estructura.segments || {}).length} perfiles` : 'sin estructura ligada'}</span></span>{sw(!!estructura && !estOculta)}</button>
+              <button className={fila} disabled={!estructura} onClick={() => setVerTecho(v => !v)}><span className="w-3 h-3 rounded bg-sky-300" /><span className="flex-1">Techo (cobertura)<span className="block text-[10px] font-semibold text-slate-500">se ve en 3D</span></span>{sw(!!estructura && verTecho)}</button>
+              <button className={fila} onClick={() => { setVerCapas(false); setHoja(true); }}><span className="w-3 h-3 rounded bg-violet-300" /><span className="flex-1">Cielo raso y ambientes<span className="block text-[10px] font-semibold text-slate-500">activar por piso en "Elementos · Metrado"</span></span><span className="text-violet-600 font-black">›</span></button>
+            </div>
+          </div>
+        );
+      })()}
       {hojaHerr && (
         <div className="sm:hidden fixed inset-0 z-[95]" onClick={() => setHojaHerr(false)}>
           <div className="absolute inset-0 bg-slate-900/40" />
@@ -1333,11 +1367,44 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         </div>
       )}
 
+      {/* DISEÑO B · TOCA Y EDITA (celular): una sola tarjeta con lo del elemento tocado */}
+      {!esPC && !hoja && selElem && !grupo.length && (() => {
+        const e = selElem;
+        const iguales = elems.filter(x => x.tipo === e.tipo && !bloqueado(x));
+        const nombre = e.tipo === 'muro' ? (e.material === 'drywall' ? 'Tabique de drywall' : e.material === 'osb' ? 'Muro de OSB' : 'Muro de ladrillo') : META[e.tipo].nombre;
+        return (
+          <div className="fixed left-2 right-2 z-[44] bg-white rounded-3xl shadow-[0_-8px_30px_rgba(15,23,42,0.18)] border border-slate-200 p-3 space-y-2"
+            style={{ bottom: 'calc(180px + env(safe-area-inset-bottom))' }} onClick={ev => ev.stopPropagation()} onTouchStart={ev => ev.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded" style={{ backgroundColor: META[e.tipo].color }} />
+              <span className="text-sm font-black text-slate-900 flex-1">{nombre}</span>
+              {iguales.length > 1 && <span className="text-[11px] font-bold text-slate-400">{iguales.length} en el plano</span>}
+              <button onClick={() => setSelUid(null)} className="w-7 h-7 rounded-full bg-slate-100 text-slate-500 text-sm font-black cursor-pointer" aria-label="Cerrar">✕</button>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {CAMPOS[e.tipo].map(c => (
+                <label key={String(c.key)} className="text-[10px] font-bold text-slate-500">{c.label.replace(' (m)', '')}
+                  <input type="number" inputMode="decimal" step="0.05" key={`${e.uid}-${String(c.key)}-${(e as any)[c.key]}`} defaultValue={(e[c.key] as number) ?? ''}
+                    onBlur={ev => { const v = Math.max(0, parseFloat(ev.target.value) || 0); if (v !== (e[c.key] ?? 0)) updateElem(e.uid, { [c.key]: v, ...((e.tipo === 'muro' || e.tipo === 'placa') && c.key === 'H' ? { hastaTecho: false } : {}) } as Partial<PlanoElem>, String(c.key)); }}
+                    onKeyDown={ev => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }}
+                    className="mt-0.5 w-full px-2 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono text-slate-900" />
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {iguales.length > 1 && <button onClick={() => { setSelUid(null); setGrupo(iguales.map(x => x.uid)); }} className="px-3 py-2 rounded-full bg-orange-500 text-white text-xs font-black cursor-pointer">Editar los {iguales.length} a la vez</button>}
+              <button onClick={() => setHoja(true)} className="px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Más opciones</button>
+              <button onClick={removeSel} className="px-3 py-2 rounded-full bg-rose-50 text-rose-600 text-xs font-bold cursor-pointer">🗑 Borrar</button>
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
         {/* VISTA 3D */}
         {vista3d ? (
           <div ref={lienzoMovilRef} style={altoMovil ? { height: altoMovil } : undefined} className="relative flex-1 min-h-[320px] max-lg:flex-none max-lg:h-[calc(100dvh-272px)] max-lg:min-h-[300px] overflow-hidden bg-slate-100">
-            <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}|${JSON.stringify(acabados)}`} acabados={acabados} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos}  seleccion={grupo.length ? grupo : selUid ? [selUid] : []} onPick={elegir3d} />
+            <ConcretoViewer3D key={`${sig3d}|${JSON.stringify(bloques)}|${techosId}|${estructura?.updatedAt || ''}|${verTecho}|${hastaPiso}|${capasOcultas.join(',')}|${JSON.stringify(sobrepechos)}|${resaltar}|${verCimentacion}|${ocultarObra}|${JSON.stringify(acabados)}`} acabados={acabados} resaltarPerfiles={resaltar} verCimentacion={verCimentacion} claveCamara={techosId || 'obra'} bloques={bloques} elems={ocultarObra ? elems.filter(e => !bloqueado(e)) : elems} niveles={niveles} estructura={estructura} cielos={cielos} verTecho={verTecho} hastaPiso={hastaPiso} capasOcultas={capasOcultas} sobrepechos={sobrepechos}  seleccion={grupo.length ? grupo : selUid ? [selUid] : []} onPick={elegir3d} />
             {barraGrupoEn('top-14')}
             <div className="absolute top-0 inset-x-0 z-10 flex items-center gap-2 overflow-x-auto px-3 py-2.5 [&>*]:shrink-0 [&>*]:whitespace-nowrap [&>*]:shadow [&>*]:border [&>*]:border-slate-200">
               <button onClick={() => setVerTecho(v => !v)} className={`px-2.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer shadow-xs ${verTecho ? 'bg-slate-100 text-slate-700' : 'bg-stone-700 text-white'}`}>
@@ -1465,6 +1532,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
 
             {/* elementos */}
             {elems.map(e => {
+              if (ocultarObra && bloqueado(e)) return null;
               const m = META[e.tipo];
               const p1 = toScreen(e.x1, e.y1);
               const sel = e.uid === selUid;

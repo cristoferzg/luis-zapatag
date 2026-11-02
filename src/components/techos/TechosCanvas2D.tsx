@@ -336,6 +336,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
   // Revisar diseño: nodos repetidos, perfiles duplicados, extremos que no conectan.
   const [showRevision, setShowRevision] = useState(false);
+  const [pasoAPaso, setPasoAPaso] = useState<number | null>(null); // diseño A: Base → Estructura → Techo → Revisar
   const nProblemas = useRevisionDiseno(engineState).length;
   // Llega desde la Calculadora con medidas: se abre el Asistente con ellas.
   useEffect(() => { try { if (localStorage.getItem('innova_cotizador_a_techos')) setShowNovatosWizard(true); } catch { /* nada */ } }, []);
@@ -1755,6 +1756,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               {nProblemas > 0 && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-black flex items-center justify-center">{nProblemas}</span>}
             </button>
           )}
+
+          {/* PASO A PASO (diseño A): lo esencial en 4 decisiones grandes */}
+          <button onClick={() => setPasoAPaso(0)}
+            className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-white hover:bg-orange-50 text-orange-700 border border-orange-300 font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
+            title="Paso a paso: base de columnas, estructura, techo y revisar">
+            <span className="text-sm leading-none">①</span><span className="text-xs font-black">Paso a paso</span>
+          </button>
 
           {/* BOTÓN ASISTENTE 1-CLIC */}
           <button
@@ -3198,6 +3206,67 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
               <button onClick={openMas} title="Más herramientas" aria-label="Más herramientas" className={item}>
                 <span className={icono(false)}><MoreHorizontal className="w-[18px] h-[18px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Más</span>
               </button>
+            </div>
+          );
+        })()}
+
+        {pasoAPaso !== null && engineState && (() => {
+          const segs = Object.values(engineState.segments || {});
+          const nCol = segs.filter(x => x.rolEstructural === 'columna' || x.rolEstructural === 'columna_concreto').length;
+          const conc = engineState.columnasConcretoBaseM || 0;
+          const tipoBase = conc <= 0 ? 'metal' : conc >= 9 ? 'concreto' : 'mixta';
+          const pasos = ['Columnas', 'Estructura', 'Techo', 'Revisar'];
+          const chip = (on: boolean) => `px-3 py-2 rounded-full text-[13px] font-bold cursor-pointer ${on ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-700'}`;
+          const grande = 'w-full flex items-center justify-between gap-2 px-3 py-3 rounded-2xl bg-slate-50 text-[13px] font-bold text-slate-800 cursor-pointer text-left';
+          const ir = (n: number | null) => setPasoAPaso(n);
+          return (
+            <div className="fixed inset-0 z-[96] flex items-end sm:items-center justify-center" onClick={() => ir(null)}>
+              <div className="absolute inset-0 bg-slate-900/40" />
+              <div className="relative w-full sm:w-[420px] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-4 pb-[calc(16px+env(safe-area-inset-bottom))] space-y-3" onClick={e => e.stopPropagation()}>
+                <div className="w-10 h-1 rounded-full bg-slate-300 mx-auto sm:hidden" />
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500">Paso {pasoAPaso + 1} de 4 · {pasos[pasoAPaso]}</span>
+                  <button onClick={() => ir(null)} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Cerrar</button>
+                </div>
+                <div className="flex gap-1.5">{pasos.map((_, i) => <span key={i} className={`flex-1 h-1.5 rounded-full ${i <= pasoAPaso ? 'bg-orange-500' : 'bg-slate-200'}`} />)}</div>
+                {pasoAPaso === 0 && (<>
+                  <p className="text-base font-black text-slate-900">¿De qué son las columnas?</p>
+                  <p className="text-xs text-slate-500">{nCol ? `Se aplica a las ${nCol} columnas.` : 'Aún no hay columnas: se aplicará a las que pongas.'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button className={chip(tipoBase === 'metal')} onClick={() => engineState.setColumnasConcretoBaseM(0)}>Todo metal</button>
+                    <button className={chip(tipoBase === 'mixta')} onClick={() => engineState.setColumnasConcretoBaseM(conc > 0 && conc < 9 ? conc : 2.1)}>Concreto + metal</button>
+                    <button className={chip(tipoBase === 'concreto')} onClick={() => engineState.setColumnasConcretoBaseM(9.99)}>Todo concreto</button>
+                  </div>
+                  {tipoBase === 'mixta' && (<>
+                    <div className="flex items-center justify-between text-[13px] font-bold text-slate-800"><span>Concreto hasta</span><span className="text-orange-600">{conc.toFixed(2)} m</span></div>
+                    <input type="range" min={0.5} max={4} step={0.05} value={conc} onChange={e => engineState.setColumnasConcretoBaseM(parseFloat(e.target.value))} className="w-full accent-orange-500" />
+                  </>)}
+                </>)}
+                {pasoAPaso === 1 && (<>
+                  <p className="text-base font-black text-slate-900">¿Cómo armas la estructura?</p>
+                  <p className="text-xs text-slate-500">{segs.length ? `Ya tienes ${segs.length} piezas dibujadas.` : 'El lienzo está vacío.'}</p>
+                  <button className={grande} onClick={() => { ir(null); setShowNovatosWizard(true); }}><span>✨ Con el Asistente (dos aguas, una agua, arco…)</span><span className="text-orange-600">›</span></button>
+                  <button className={grande} onClick={() => { ir(null); handleSetVista('planta'); toggleTool('draw_line'); }}><span>✏️ Dibujar a mano (vigas, columnas, tijerales)</span><span className="text-orange-600">›</span></button>
+                  {iaVisibleParaUI() && <button className={grande} onClick={() => { ir(null); handleSetVista('planta'); handleIaButtonClick(); }}><span>📷 Desde una foto del plano</span><span className="text-orange-600">›</span></button>}
+                </>)}
+                {pasoAPaso === 2 && (<>
+                  <p className="text-base font-black text-slate-900">El techo</p>
+                  <button className={grande} onClick={() => { ir(null); setShowCobTanque('cobertura'); }}><span>🟦 Cobertura (aluzinc, TR-4, eternit…)</span><span className="text-orange-600">›</span></button>
+                  <button className={grande} onClick={() => { ir(null); setShowCobTanque('caida'); }}><span>↘️ Hacia dónde cae el agua</span><span className="text-orange-600">›</span></button>
+                  <button className={grande} onClick={() => { ir(null); setShowCobTanque('tanque'); }}><span>💧 Tanque elevado (opcional)</span><span className="text-orange-600">›</span></button>
+                </>)}
+                {pasoAPaso === 3 && (<>
+                  <p className="text-base font-black text-slate-900">Revisar y ver</p>
+                  <button className={grande} onClick={() => { ir(null); setShowRevision(true); }}><span>🛡 Revisar el diseño{nProblemas ? ` · ${nProblemas} por corregir` : ' · todo bien'}</span><span className="text-orange-600">›</span></button>
+                  <button className={grande} onClick={() => { ir(null); handleSetVista('3d'); }}><span>👁 Verlo en 3D</span><span className="text-orange-600">›</span></button>
+                </>)}
+                <div className="flex gap-2 pt-1">
+                  {pasoAPaso > 0 && <button onClick={() => ir(pasoAPaso - 1)} className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-700 font-bold text-sm cursor-pointer">← Atrás</button>}
+                  {pasoAPaso < 3
+                    ? <button onClick={() => ir(pasoAPaso + 1)} className="flex-[2] py-3 rounded-2xl bg-orange-500 text-white font-black text-sm cursor-pointer">Siguiente: {pasos[pasoAPaso + 1]} →</button>
+                    : <button onClick={() => ir(null)} className="flex-[2] py-3 rounded-2xl bg-orange-500 text-white font-black text-sm cursor-pointer">Listo ✓</button>}
+                </div>
+              </div>
             </div>
           );
         })()}

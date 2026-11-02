@@ -31,6 +31,7 @@ import type { TutorialVideo, CourseCategory } from './components/UsabilidadVideo
 import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import { forzarActualizacion } from './lib/versionNueva';
+import { notificar } from './lib/notificaciones';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol } from './lib/currency';
@@ -1747,6 +1748,39 @@ export default function App() {
     }), 1500);
     return () => clearTimeout(t);
   }, [catalogoPrecios, activeUid, !!myOwnSettings]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // NOTIFICACIONES DEL SISTEMA (Android, Windows, navegador): avisa de comunicados
+  // nuevos, tickets y asesorías. La primera vez solo memoriza lo que ya existe (no
+  // avisa de lo viejo); después avisa lo nuevo o lo que cambió de estado.
+  useEffect(() => {
+    if (!activeUid) return;
+    const clave = 'innova_avisos_vistos_' + activeUid;
+    const vistos = safeStorage.getItem<Record<string, string> | null>(clave, null);
+    const ahora: Record<string, string> = {};
+    const avisos: [string, string][] = [];
+    const esMio = (id?: string) => !!id && (id === user?.id || id === activeUid);
+    globalNotifs.forEach(n => {
+      if (n.expiresAtTimestamp && n.expiresAtTimestamp < Date.now()) return;
+      const k = 'n_' + n.id; ahora[k] = '1';
+      if (vistos && !vistos[k]) avisos.push(['📢 ' + (n.title || 'Comunicado'), n.message || '']);
+    });
+    tickets.forEach((t: any) => {
+      if (!isAdmin && !esMio(t.author)) return;
+      const k = 't_' + t.id; ahora[k] = t.status;
+      if (!vistos) return;
+      if (isAdmin && !vistos[k]) avisos.push(['🎫 Ticket nuevo', `${t.authorName || 'Un usuario'}: ${t.title}`]);
+      else if (!isAdmin && vistos[k] && vistos[k] !== t.status) avisos.push(['🎫 Tu ticket: ' + t.status, t.title]);
+    });
+    asesorias.forEach((a: any) => {
+      if (!isAdmin && !esMio(a.authorUserId) && !esMio(a.assignedUserId)) return;
+      const k = 'a_' + a.id; ahora[k] = a.status;
+      if (!vistos) return;
+      if (isAdmin && !vistos[k]) avisos.push(['📅 Asesoría solicitada', `${a.authorName || 'Un usuario'}: ${a.subject}`]);
+      else if (!isAdmin && (!vistos[k] || vistos[k] !== a.status)) avisos.push(['📅 Asesoría: ' + a.status, a.subject + (a.scheduledDate ? ` · ${a.scheduledDate} ${a.scheduledTime || ''}` : '')]);
+    });
+    safeStorage.setItem(clave, { ...(vistos || {}), ...ahora });
+    avisos.slice(0, 3).forEach(([t, c]) => { notificar(t, c); });
+  }, [activeUid, globalNotifs, tickets, asesorias]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // RESCATE: la pantalla Configuración no recibía el usuario y guardaba en
   // "settings_default". Si ese documento es de ESTE usuario (su userId) y el suyo propio

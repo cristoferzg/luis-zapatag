@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { activarNotificaciones, notificacionesDisponibles, notificacionesPermitidas, notificar } from '../lib/notificaciones';
 import { fechaCompilacion } from '../lib/version';
 import { 
   Building2, CreditCard, Save, Download, 
@@ -778,6 +779,7 @@ export default function SettingsView({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Columna Izquierda: Logo e Identidad Visual */}
         <div className="lg:col-span-1 space-y-6">
+          <TarjetaNotificaciones />
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h2 className="text-base font-bold text-slate-800 flex items-center">
               <ImageIcon className="w-5 h-5 mr-2 text-slate-600" />
@@ -1755,3 +1757,29 @@ const AdminAnnouncementPanel = ({ notifications, setNotifications, authorName }:
     </div>
   );
 };
+
+
+/** Activar los avisos del sistema (barra del teléfono / esquina de Windows). */
+function TarjetaNotificaciones() {
+  const [estado, setEstado] = React.useState<'si' | 'no' | 'sin'>('no');
+  React.useEffect(() => {
+    if (!notificacionesDisponibles()) { setEstado('sin'); return; }
+    notificacionesPermitidas().then(ok => setEstado(ok ? 'si' : 'no'));
+  }, []);
+  if (estado === 'sin') return null;
+  return (
+    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+      <h2 className="text-base font-bold text-slate-800">🔔 Notificaciones</h2>
+      <p className="text-xs text-slate-500">Avisos en el celular y en Windows cuando llega un comunicado, un ticket o una asesoría.</p>
+      {estado === 'si' ? (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">✓ Activadas en este equipo</span>
+          <button type="button" onClick={() => notificar('Innova Contratistas', 'Así se verán tus avisos.')} className="text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-2.5 py-1.5 cursor-pointer">Probar</button>
+        </div>
+      ) : (
+        <button type="button" onClick={async () => { const ok = await activarNotificaciones(); setEstado(ok ? 'si' : 'no'); if (ok) notificar('Notificaciones activadas', 'Te avisaremos aquí de comunicados, tickets y asesorías.'); else alert('No se dio el permiso. Actívalo en los ajustes del teléfono o del navegador (Notificaciones → Innova).'); }}
+          className="w-full px-3 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold cursor-pointer">Activar notificaciones</button>
+      )}
+    </div>
+  );
+}
