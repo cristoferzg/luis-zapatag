@@ -985,7 +985,7 @@ export default function SettingsView({
                   onChange={e => setContratistaDni(e.target.value)} 
                   type="text" 
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" 
-                  placeholder="Ej. 20601234567" 
+                  inputMode="numeric" placeholder="Ej. 20601234567" 
                 />
               </div>
 
@@ -1002,7 +1002,7 @@ export default function SettingsView({
                     onChange={e => setContratistaPhone(e.target.value)} 
                     type="text" 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all" 
-                    placeholder="Ej. +51 987 654 321" 
+                    inputMode="tel" placeholder="Ej. +51 987 654 321" 
                   />
                 </div>
               </div>
@@ -1113,7 +1113,7 @@ export default function SettingsView({
                     onChange={e => setPagoCtaBcp(e.target.value)} 
                     type="text" 
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-blue-500 transition-all" 
-                    placeholder="Ej. 191-12345678-0-99" 
+                    inputMode="numeric" placeholder="Ej. 191-12345678-0-99" 
                   />
                 </div>
 
@@ -1126,7 +1126,7 @@ export default function SettingsView({
                     onChange={e => setPagoCciBcp(e.target.value)} 
                     type="text" 
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-blue-500 transition-all" 
-                    placeholder="Ej. 002-1910012345678099" 
+                    inputMode="numeric" placeholder="Ej. 002-1910012345678099" 
                   />
                 </div>
 
@@ -1162,7 +1162,7 @@ export default function SettingsView({
                     onChange={e => setPagoDetracciones(e.target.value)} 
                     type="text" 
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-slate-500 transition-all" 
-                    placeholder="Ej. 00-012-345678" 
+                    inputMode="numeric" placeholder="Ej. 00-012-345678" 
                   />
                 </div>
 
@@ -1175,7 +1175,7 @@ export default function SettingsView({
                     onChange={e => setPagoCciDetracciones(e.target.value)} 
                     type="text" 
                     className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-slate-500 transition-all" 
-                    placeholder="Ej. 01801200001234567899" 
+                    inputMode="numeric" placeholder="Ej. 01801200001234567899" 
                   />
                 </div>
               </div>
@@ -1197,7 +1197,7 @@ export default function SettingsView({
                   onChange={e => setPagoYape(e.target.value)} 
                   type="text" 
                   className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono outline-none focus:border-slate-500 transition-all" 
-                  placeholder="Ej. 9XX XXX XXX (a nombre del titular de la cuenta)"
+                  inputMode="tel" placeholder="Ej. 9XX XXX XXX (a nombre del titular de la cuenta)"
                 />
               </div>
 

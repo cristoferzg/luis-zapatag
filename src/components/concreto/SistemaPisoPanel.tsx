@@ -125,7 +125,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5"><BrickWall className="w-4 h-4 text-orange-400" /> Muros y tabiques</h4>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => addMuro('drywall')} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><Plus className="w-3.5 h-3.5" /> Drywall</button>
             <button onClick={() => addMuro('ladrillo')} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><Plus className="w-3.5 h-3.5" /> Ladrillo</button>
             <button onClick={() => addMuro('osb')} className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><Plus className="w-3.5 h-3.5" /> OSB</button>

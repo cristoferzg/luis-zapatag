@@ -607,8 +607,8 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                   </div>
                   
                   {/* Card Actions */}
-                  <div className="p-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex justify-between items-center">
-                    <div className="flex space-x-2">
+                  <div className="p-4 bg-slate-50 border-t border-slate-100 rounded-b-2xl flex flex-wrap gap-2 justify-between items-center">
+                    <div className="flex flex-wrap gap-2">
                       <button 
                         onClick={() => { setAddingCobroId(addingCobroId === p.id ? null : p.id); setEditingSpecsId(null); }} 
                         className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${addingCobroId === p.id ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
@@ -771,8 +771,8 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
             <form onSubmit={handleClientSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div><label className="block text-xs font-semibold text-slate-500 mb-1">Nombre / Razón Social *</label><input required value={cName} onChange={e => setCName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Ej: Juan Pérez o Empresa SAC" /></div>
               <div><label className="block text-xs font-semibold text-slate-500 mb-1">Empresa</label><input value={cCompany} onChange={e => setCCompany(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Opcional" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">DNI / RUC</label><input value={cDni} onChange={e => setCDni(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Opcional" /></div>
-              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Teléfono</label><input value={cPhone} onChange={e => setCPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Ej: 987654321" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">DNI / RUC</label><input inputMode="numeric" value={cDni} onChange={e => setCDni(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Opcional" /></div>
+              <div><label className="block text-xs font-semibold text-slate-500 mb-1">Teléfono</label><input inputMode="tel" value={cPhone} onChange={e => setCPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Ej: 987654321" /></div>
               <div><label className="block text-xs font-semibold text-slate-500 mb-1">Email</label><input type="email" value={cEmail} onChange={e => setCEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="cliente@correo.com" /></div>
               <div><label className="block text-xs font-semibold text-slate-500 mb-1">Dirección</label><input value={cAddress} onChange={e => setCAddress(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 outline-none focus:border-indigo-500" placeholder="Dirección física" /></div>
               <div className="md:col-span-2 lg:col-span-3 flex justify-end space-x-3 mt-2">

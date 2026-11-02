@@ -688,7 +688,7 @@ export const LegacyViewPlaceholder = () => null;
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">DNI</label>
-                    <input value={dni} onChange={e => setDni(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Opcional" />
+                    <input inputMode="numeric" value={dni} onChange={e => setDni(e.target.value)} type="text" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Opcional" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Teléfono</label>
@@ -2010,9 +2010,13 @@ export default function App() {
           <form onSubmit={(e) => handlePinLogin(e)} className="space-y-3">
             <div className="relative">
               <input
-                type={showPinMask ? "password" : "text"}
+                // Siempre "text" con teclado numérico: en Android un campo "password" ignora
+                // inputMode y saca el teclado de letras. Los puntos los pone el estilo.
+                type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
+                autoComplete="off"
+                style={{ WebkitTextSecurity: showPinMask ? 'disc' : 'none' } as React.CSSProperties}
                 maxLength={6}
                 value={pinInput}
                 onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}

@@ -532,7 +532,7 @@ export default function AsesoriasView({
                   value={authorPhone}
                   onChange={e => setAuthorPhone(e.target.value)}
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
-                  placeholder="Ej. 987654321"
+                  inputMode="tel" placeholder="Ej. 987654321"
                 />
               </div>
 
@@ -974,7 +974,7 @@ export default function AsesoriasView({
                                 type="text"
                                 value={editAuthorPhone}
                                 onChange={e => setEditAuthorPhone(e.target.value)}
-                                placeholder="Ej: 987654321"
+                                inputMode="tel" placeholder="Ej: 987654321"
                                 className="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"
                               />
                             </div>
@@ -1047,7 +1047,7 @@ export default function AsesoriasView({
                                       step="0.10"
                                       value={editPrice}
                                       onChange={e => setEditPrice(e.target.value)}
-                                      placeholder="Ej: 150.00"
+                                      inputMode="decimal" placeholder="Ej: 150.00"
                                       className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none"
                                     />
                                   </div>

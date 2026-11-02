@@ -2361,7 +2361,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                   type="number"
                   value={customMontanteSpacing}
                   onChange={(e) => setCustomMontanteSpacing(e.target.value)}
-                  placeholder="Ej: 1.50"
+                  inputMode="decimal" placeholder="Ej: 1.50"
                   className="w-full text-xs p-2 rounded-xl border border-slate-300 bg-white"
                 />
               </div>

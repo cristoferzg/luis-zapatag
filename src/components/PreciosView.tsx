@@ -343,7 +343,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">S/</span>
                   <input type="number" min="0" value={costoEstimado === 0 ? '' : costoEstimado}
                     onChange={e => setCostoEstimado(e.target.value === '' ? 0 : Number(e.target.value))}
-                    placeholder="Ej. 3500.00"
+                    inputMode="decimal" placeholder="Ej. 3500.00"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-2.5 text-[13px] font-bold outline-none focus:border-slate-400 text-slate-800" />
                 </div>
               </div>
