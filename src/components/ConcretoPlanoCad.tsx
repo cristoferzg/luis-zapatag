@@ -65,6 +65,7 @@ export interface PlanoElem {
   visible1Piso?: boolean;          // viga: se ve y se cuenta aunque la obra tenga un solo piso
   losaMaterial?: 'concreto' | 'osb' | 'aligerada'; // losa / entrepiso: maciza, aligerada (ladrillo de techo) u OSB sobre vigas
   hastaTecho?: boolean;            // muro: sube hasta el techo siguiendo la pendiente
+  baseM?: number;                  // muro: arranca a esta altura sobre el piso (otro material encima de otro muro)
   aberturas?: Abertura[];          // muro: puertas, ventanas y vanos
 }
 
@@ -819,13 +820,13 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     viga:     [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Peralte (m)' }],
     cimiento: [{ key: 'a', label: 'Ancho (m)' }, { key: 'h', label: 'Altura (m)' }],
     losa:     [{ key: 'h', label: 'Espesor (m)' }],
-    muro:     [{ key: 'a', label: 'Espesor (m)' }, { key: 'H', label: 'Alto (m)' }],
+    muro:     [{ key: 'a', label: 'Espesor (m)' }, { key: 'H', label: 'Alto (m)' }, { key: 'baseM', label: 'Arranca a (m)' }],
     escalera: [{ key: 'a', label: 'Ancho (m)' }, { key: 'H', label: 'Altura a subir (m)' }],
     placa:    [{ key: 'a', label: 'Espesor (m)' }, { key: 'H', label: 'Alto (m)' }],
   };
 
   // Firma de la escena → se usa como key para remontar el visor 3D al cambiar algo.
-  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2},${e.nivel},${e.material},${e.hastaTecho},${e.elevM},${e.visible1Piso},${JSON.stringify(e.aberturas || [])}`).join('|') + JSON.stringify(cielos), [elems, cielos]);
+  const sig3d = useMemo(() => elems.map(e => `${e.uid}:${e.a},${e.b},${e.h},${e.H},${e.x1},${e.y1},${e.x2},${e.y2},${e.nivel},${e.material},${e.hastaTecho},${e.baseM},${e.elevM},${e.visible1Piso},${JSON.stringify(e.aberturas || [])}`).join('|') + JSON.stringify(cielos), [elems, cielos]);
   const obra = useMemo(() => contextosObra(niveles, estructura), [niveles, estructura]);
 
   // Ambientes del piso activo (recintos cerrados por muros) con su nombre.
@@ -1985,6 +1986,21 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                   </label>
                 ))}
               </div>
+              {selElem.tipo === 'muro' && selElem.x2 !== undefined && (
+                <button type="button" onClick={() => {
+                  // Otro material ENCIMA de este muro: misma línea, arranca donde este termina.
+                  const arranque = Math.round(((selElem.baseM || 0) + (selElem.H || 2.6)) * 100) / 100;
+                  const esLad = (selElem.material || 'ladrillo') === 'ladrillo';
+                  const mat = esLad ? { material: 'drywall' as MaterialMuro, materialId: catDrywall[0]?.id || '' } : { material: 'osb' as MaterialMuro, materialId: catOsb[0]?.id || '' };
+                  const nuevo: PlanoElem = { ...selElem, uid: `${selElem.uid}_sup${Date.now().toString(36)}`, ...mat, caras: mat.material === 'osb' ? 1 : 2,
+                    baseM: arranque, H: 0.5, hastaTecho: !!estructura, aberturas: [] };
+                  commit(prev => [...prev, nuevo], 'muro-encima');
+                  setSelUid(nuevo.uid);
+                }}
+                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-orange-50 text-orange-800 border border-orange-200 text-xs font-black cursor-pointer hover:bg-orange-100">
+                  <Plus className="w-3.5 h-3.5" /> Añadir otro material encima
+                </button>
+              )}
               {selElem.tipo === 'muro' && (
                 <div className="grid grid-cols-2 gap-2">
                   <label className="col-span-2 text-[10px] font-bold text-slate-600">Material

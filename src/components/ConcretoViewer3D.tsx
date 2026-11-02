@@ -474,7 +474,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
             let material: THREE.Material = new THREE.MeshLambertMaterial({ map: texturaDrywall() });
             if (mat === 'ladrillo') material = new THREE.MeshLambertMaterial({ map: texturaLadrillo(tipoLadrillo(e.materialId)) });
             if (mat === 'osb') material = new THREE.MeshLambertMaterial({ map: texturaOsb() });
-            if (L > 0.02) muro3d(e, ctx.base, material, ctx);
+            if (L > 0.02) muro3d(e, ctx.base + (e.baseM || 0), material, ctx);
           } else if (e.tipo === 'escalera') {
             // Escalera de concreto: un bloque por paso, del piso a su altura.
             const r = escalera(L, e.H || 2.6, e.a || 1);

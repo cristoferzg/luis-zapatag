@@ -139,7 +139,8 @@ export function perfilMuro(e: PlanoElem, ctx: ContextoMuro): { t: number; h: num
     const t = (L * i) / (n - 1);
     const x = e.x1 + ((e.x2! - e.x1) * t) / L, z = e.y1 + ((e.y2! - e.y1) * t) / L;
     const h = altoBajoTecho(x, z, ctx);
-    pts.push({ t, h: Math.max(0.3, h ?? Hfijo) });
+    // Un muro que arranca más arriba (otro material encima de otro) sube solo lo que falta.
+    pts.push({ t, h: Math.max(0.1, h !== undefined && h !== null ? h - (e.baseM || 0) : Hfijo) });
   }
   // Simplifica tramos colineales.
   return pts.filter((p, i) => i === 0 || i === pts.length - 1 || Math.abs((pts[i + 1].h - p.h) - (p.h - pts[i - 1].h)) > 0.005);
