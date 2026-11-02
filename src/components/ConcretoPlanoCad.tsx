@@ -26,7 +26,7 @@ import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { generateDxfContent } from '../lib/dxfParser';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
-import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo, sinOcultos } from './concreto/obraPisos';
+import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo, sinOcultos, cotaLosa } from './concreto/obraPisos';
 import { useCatalogo } from '../lib/catalogoPrecios';
 import { leerDisenosCarpi, costoDisenoCarpi, tipoAberturaDe } from './concreto/carpiObra';
 import { metradoDrywall } from './concreto/metradoDrywall';
@@ -1962,6 +1962,18 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                       <option value="concreto">Concreto maciza</option><option value="aligerada">Aligerada (ladrillo de techo)</option><option value="osb">OSB (entrepiso liviano)</option>
                     </select>
                   </label>
+                  <label className="col-span-2 text-[10px] font-bold text-slate-600">Altura de la losa (cara de arriba, m)
+                    <div className="mt-0.5 flex gap-1.5">
+                      <input type="number" inputMode="decimal" step="0.05" min="0.1" key={`elev-${selElem.uid}-${selElem.elevM ?? 'auto'}`}
+                        defaultValue={selElem.elevM ?? ''} placeholder={`auto: ${cotaLosa({ ...selElem, elevM: undefined }, niveles, estructura).toFixed(2)}`}
+                        onBlur={e => { const v = parseFloat(e.target.value); updateElem(selElem.uid, { elevM: v > 0 ? v : undefined }, 'losa-elev'); }}
+                        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                        className="min-w-0 flex-1 px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none" />
+                      <button type="button" title="Sube o baja 5 cm" onClick={() => updateElem(selElem.uid, { elevM: Math.round((cotaLosa(selElem, niveles, estructura) - 0.05) * 100) / 100 }, 'losa-elev')} className="px-2 rounded-lg bg-white border border-slate-300 font-black cursor-pointer">−</button>
+                      <button type="button" title="Sube o baja 5 cm" onClick={() => updateElem(selElem.uid, { elevM: Math.round((cotaLosa(selElem, niveles, estructura) + 0.05) * 100) / 100 }, 'losa-elev')} className="px-2 rounded-lg bg-white border border-slate-300 font-black cursor-pointer">+</button>
+                      {selElem.elevM !== undefined && <button type="button" title="Vuelve a apoyarla sola sobre las vigas" onClick={() => updateElem(selElem.uid, { elevM: undefined }, 'losa-elev')} className="px-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold cursor-pointer">Auto</button>}
+                    </div>
+                  </label>
                   <label className="text-[10px] font-bold text-slate-600">Techo del piso
                     <select value={selElem.nivel || pisos[0]} onChange={e => updateElem(selElem.uid, { nivel: e.target.value })}
                       className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
@@ -1969,7 +1981,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                     </select>
                   </label>
                   {selElem.x2 !== undefined && selElem.y2 !== undefined && (() => { const area = Math.abs(selElem.x2 - selElem.x1) * Math.abs(selElem.y2 - selElem.y1); const o = catOsb.find(x => x.id === 'osb_18') || catOsb[0]; return (
-                    <p className="col-span-2 text-[10px] font-bold text-slate-500">{area.toFixed(2)} m²{selElem.losaMaterial === 'osb' ? ` de ${o?.tipo || 'OSB'}${o?.precioM2 ? ` · S/ ${(area * o.precioM2).toFixed(2)}` : ''}` : ''} · a {((obra.ctx(selElem.nivel).tope ?? (obra.ctx(selElem.nivel).base + (alturaPiso[selElem.nivel || pisos[0]] || 3)))).toFixed(2)} m</p>
+                    <p className="col-span-2 text-[10px] font-bold text-slate-500">{area.toFixed(2)} m²{selElem.losaMaterial === 'osb' ? ` de ${o?.tipo || 'OSB'}${o?.precioM2 ? ` · S/ ${(area * o.precioM2).toFixed(2)}` : ''}` : ''} </p>
                   ); })()}
                 </div>
               )}

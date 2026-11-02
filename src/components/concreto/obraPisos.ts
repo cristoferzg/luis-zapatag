@@ -129,16 +129,19 @@ export function entrepisosDesdeTechos(t: EstructuraTechos | null | undefined): n
   const segs = Object.values(t.segments || {}).filter(s => !esNodoTanque(nodes[s.nodeAId]) && !esNodoTanque(nodes[s.nodeBId]));
   const yTecho = yTechoObra(t);
   const conCorrea = new Set(segs.filter(s => s.rolEstructural === 'correa').map(s => Math.round((nodes[s.nodeAId]?.y ?? 0) * 100)));
-  const niveles = new Set<number>();
+  // Metros de viga por cota: un entrepiso de verdad tiene bastante viga; los peldaños
+  // de una escalera o un descanso suelto no (antes se tomaban como pisos).
+  const largoPorCota = new Map<number, number>();
   segs.forEach(s => {
     if (!['viga_principal', 'viga_secundaria', 'piso_deck'].includes(s.rolEstructural)) return;
     const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
     if (!a || !b || Math.abs(a.y - b.y) > 0.01 || a.y < 1.5) return;
     const k = Math.round(a.y * 100);
     if (conCorrea.has(k) || a.y >= yTecho - 0.05) return;
-    niveles.add(k);
+    largoPorCota.set(k, (largoPorCota.get(k) || 0) + Math.hypot(b.x - a.x, (b.z || 0) - (a.z || 0)));
   });
-  return [...niveles].sort((x, y) => x - y).map(k => k / 100);
+  const mayor = Math.max(0, ...largoPorCota.values());
+  return [...largoPorCota.entries()].filter(([, L]) => L >= Math.max(4, mayor * 0.25)).map(([k]) => k).sort((x, y) => x - y).map(k => k / 100);
 }
 
 // Cota más alta de la estructura sin contar la torre del tanque.
@@ -225,6 +228,27 @@ export function calcSistema(s: SistemaNivel | undefined, dry: DrywallItem[], lad
   const costoTanque = tanque?.costo || 0;
   const pesoKg = muros.reduce((a, x) => a + x.r.pesoKg, 0) + techos.reduce((a, t) => a + t.pesoAceroKg, 0) + (tanque?.cargaTotalKg || 0);
   return { muros, techos, tanque, costoMuros, costoTechos, costoTanque, costo: costoMuros + costoTechos + costoTanque, pesoKg };
+}
+
+// Altura de la cara de arriba de una losa / entrepiso (la usan el 3D y el panel).
+// - Si el usuario la fijó (elevM), esa.
+// - Si no: apoyada en el piso de arriba o, con un solo piso, en las vigas de entrepiso
+//   de Techos (o en el techo si no hay entrepiso). El OSB va ENCIMA de las vigas.
+export function cotaLosa(e: { nivel?: string; elevM?: number; h?: number; losaMaterial?: string }, niveles: string[], est: EstructuraTechos | null, sinEstructura = 3): number {
+  if (e.elevM && e.elevM > 0) return e.elevM;
+  const pisos = niveles.filter(n => !/cimentaci/i.test(n));
+  const lista = pisos.length ? pisos : ['Piso 1'];
+  const n = e.nivel || lista[0];
+  const k = Math.max(0, lista.indexOf(n));
+  const ent = entrepisosDesdeTechos(est);
+  const bases = basesDeNiveles(niveles, ent);
+  const sig = lista[k + 1];
+  const esOsb = e.losaMaterial === 'osb';
+  const esp = e.h || (esOsb ? 0.018 : 0.2);
+  if (sig !== undefined && bases[sig] !== undefined) return bases[sig];
+  if (!est) return (bases[n] || 0) + sinEstructura;
+  const apoyo = ent[k] ?? yTechoObra(est);
+  return esOsb ? apoyo + 0.05 + esp : apoyo;
 }
 
 // Contexto de cada piso para los muros: cota de arranque y tope (el piso de

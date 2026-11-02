@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Video, Square as StopIcon } from 'lucide-react';
 import * as THREE from 'three';
 import type { PlanoElem } from './ConcretoPlanoCad';
-import { EstructuraTechos, contextosObra } from './concreto/obraPisos';
+import { EstructuraTechos, contextosObra, cotaLosa } from './concreto/obraPisos';
 import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, MallaCielo, esNodoTanque,
   CapaEstructura, capaDeRol, CAPAS, Sobrepecho } from './concreto/geometriaObra';
 import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
@@ -405,7 +405,13 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           perfil3d(a, b, p, acero, sg.anguloRotacionGrados);
         });
         // Coberturas guardadas; si el diseño no tiene, se deducen de las correas.
-        const zonas: { ids: string[]; mat: string; pts?: { x: number; y: number; z: number }[] }[] = Object.values(est.coverageZones || {}).map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId }));
+        // Coberturas huérfanas (sus esquinas no tocan ningún perfil visible: restos de un
+        // dibujo borrado u ocultado en Techos) no se dibujan.
+        const tocados = new Set<string>();
+        Object.values(est.segments || {}).forEach(sg => { tocados.add(sg.nodeAId); tocados.add(sg.nodeBId); });
+        const zonas: { ids: string[]; mat: string; pts?: { x: number; y: number; z: number }[] }[] = Object.values(est.coverageZones || {})
+          .filter(z => (z.nodeIdsBoundary || []).some(id => tocados.has(id)))
+          .map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId }));
         // Techo de una agua (un solo plano): un solo paño apoyado encima de vigas y correas,
         // aunque el diseño tenga sus coberturas en franjas entre correas.
         const pl = panoUnaAgua(N, est.segments || {});
@@ -427,7 +433,11 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const pts = nodos.map(n => new THREE.Vector3(n.x, n.y + 0.06 + extra, n.z));
           if (pts.length < 3) return;
           const pos: number[] = [], uv: number[] = [];
-          for (let i = 1; i < pts.length - 1; i++) [pts[0], pts[i], pts[i + 1]].forEach(v => { pos.push(v.x, v.y, v.z); uv.push(v.x / 1.1, v.z / 1.1); });
+          // Triangulación del contorno en planta: sirve también para zonas en L o con
+          // entrantes (el abanico desde una esquina dejaba partes sin plancha).
+          const tri = THREE.ShapeUtils.triangulateShape(pts.map(v => new THREE.Vector2(v.x, v.z)), []);
+          if (tri.length) tri.forEach(t => t.forEach(i => { const v = pts[i]; pos.push(v.x, v.y, v.z); uv.push(v.x / 1.1, v.z / 1.1); }));
+          else for (let i = 1; i < pts.length - 1; i++) [pts[0], pts[i], pts[i + 1]].forEach(v => { pos.push(v.x, v.y, v.z); uv.push(v.x / 1.1, v.z / 1.1); });
           const g = new THREE.BufferGeometry();
           g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
           g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
@@ -452,7 +462,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           // Losa / entrepiso: techo del piso elegido (= piso del de arriba).
           const esOsb = e.losaMaterial === 'osb', esp = e.h || (esOsb ? 0.018 : 0.2);
           const ctx = obra.ctx(e.nivel);
-          const tope = e.nivel ? (ctx.tope ?? ctx.base + 3) : vigaElev + esp;
+          const tope = (e.elevM || e.nivel || estructura) ? cotaLosa(e, niveles, estructura) : vigaElev + esp; void ctx;
           let mat: THREE.Material = M.losa;
           if (esOsb) { const t = texturaOsb(false, Math.abs(e.x2 - e.x1), Math.abs(e.y2 - e.y1)); mat = new THREE.MeshLambertMaterial({ map: t }); }
           if (pisoVisible(e.nivel) || !e.nivel) caja(Math.abs(e.x2 - e.x1), Math.max(esp, 0.03), Math.abs(e.y2 - e.y1), (e.x1 + e.x2) / 2, tope - esp / 2, (e.y1 + e.y2) / 2, mat);
