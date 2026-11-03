@@ -35,7 +35,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 
 ## Regla del dueño
 - Antes de empaquetar el `dist_ACTUALIZADO.zip`, mostrar imágenes del **antes y después**
-  de los cambios y esperar su aprobación.
+  de los cambios. Después de mandarlas, **compilar todo (ZIP y APK) sin esperar** su
+  aprobación (indicación del dueño). No reconstruir ni reenviar si no hubo cambios.
 
 ## Avisos push (FCM)
 - App Android con `@capacitor/push-notifications` + `android/app/google-services.json`.
