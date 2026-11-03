@@ -3015,7 +3015,7 @@ export default function App() {
         )}
 
         {vistasAbiertas.current.has('calculator') && (
-        <div className={currentView === 'calculator' ? 'flex-1 overflow-y-auto bg-slate-50/50 p-4 xl:p-8 scroll-smooth' : 'hidden'}>
+        <div className={currentView === 'calculator' ? 'flex-1 overflow-y-auto bg-slate-50/50 px-2.5 py-3 sm:p-4 xl:p-8 scroll-smooth' : 'hidden'}>
           <div className="max-w-7xl mx-auto h-full">
             {vistaBloqueada('calculator') ? renderMantenimiento() : <Suspense fallback={cargandoModulo}><CotizadorRapidoView /></Suspense>}
           </div>

@@ -60,7 +60,8 @@ import {
   saveOrUpdateTechosDesign, 
   deleteTechosDesign, 
   popActiveTechosDesignToLoad,
-  esPlanoMio
+  esPlanoMio,
+  buscarMismoNombre,
 } from '../../lib/techosDesignsRepo';
 import type { TechosDelProyecto } from '../../types';
 import { simb } from '../../lib/currency';
@@ -538,6 +539,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // plano guardado no cuenta como cambio (no se guarda hasta que se edite).
   const baseAuto = React.useRef<{ firma: string; hasta: number }>({ firma: '', hasta: Date.now() + 3000 });
   const marcarBaseAuto = () => { baseAuto.current.hasta = Date.now() + 2500; };
+  // true: plano empezado de cero (Nuevo / plantilla). false: lo abierto viene de un archivo o
+  // de otro lado: si ya hay uno guardado con ese nombre se enlaza a él en vez de crear "(2)".
+  const nuevoLimpio = React.useRef(false);
 
   // Cargar lista de guardados al abrir modal y al montar
   const loadSavedList = async () => {
@@ -583,18 +587,26 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       b.firma = firma;
       let nombre = nombreProyecto.trim() || 'Techo metálico';
       const sigueAbierto = !actual && !!currentEditingDesignId; // abierto pero aún no está en la copia del equipo
-      if (!actual && !sigueAbierto) { // plano nuevo: nombre que no choque con uno ya guardado
-        const usados = new Set(lista.map(d => (d.nombre || '').trim().toLowerCase()));
-        if (usados.has(nombre.toLowerCase())) { let k = 2; while (usados.has(`${nombre} (${k})`.toLowerCase())) k++; nombre = `${nombre} (${k})`; setNombreProyecto(nombre); }
+      let enlazado: SavedTechosDesign | undefined;
+      if (!actual && !sigueAbierto) {
+        // Abierto desde un archivo u otro lado con el nombre de uno ya guardado: se actualiza
+        // ese mismo (no se crea "Techo (2) (2)"). Solo un plano empezado de cero lleva número.
+        enlazado = nuevoLimpio.current ? undefined : buscarMismoNombre(nombre, saveModalClientId || undefined);
+        if (enlazado) { nombre = enlazado.nombre; setNombreProyecto(nombre); }
+        else {
+          const usados = new Set(lista.map(d => (d.nombre || '').trim().toLowerCase()));
+          if (usados.has(nombre.toLowerCase())) { let k = 2; while (usados.has(`${nombre} (${k})`.toLowerCase())) k++; nombre = `${nombre} (${k})`; setNombreProyecto(nombre); }
+        }
       }
+      nuevoLimpio.current = false;
       const cli = clients.find(c => c.id === saveModalClientId), pro = projects.find(p => p.id === saveModalProjectId);
       saveOrUpdateTechosDesign({
-        id: actual?.id || (sigueAbierto ? currentEditingDesignId! : undefined), nombre,
+        id: actual?.id || enlazado?.id || (sigueAbierto ? currentEditingDesignId! : undefined), nombre,
         authorName: actual?.authorName || currentUserName, authorRole: actual?.authorRole || (isAdmin ? 'Administrador' : 'Colaborador'),
         clientId: cli?.id ?? actual?.clientId, clientName: cli?.name ?? actual?.clientName,
         projectId: pro?.id ?? actual?.projectId, projectName: pro?.name ?? actual?.projectName,
         nodes: engineState.nodes, segments: engineState.segments, coverageZones: engineState.coverageZones,
-      }, !!actual || sigueAbierto).then(res => {
+      }, !!actual || sigueAbierto || !!enlazado).then(res => {
         if (res.design.id !== currentEditingDesignId) setCurrentEditingDesignId(res.design.id);
         setJustSaved(true); setTimeout(() => setJustSaved(false), 1500);
         setSavedDesignsList(getCachedTechosDesigns());
@@ -606,6 +618,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // Botón [ + NUEVO DISEÑO ] -> Vacía el lienzo por completo
   const handleNuevo = () => {
     marcarBaseAuto();
+    nuevoLimpio.current = true;
     engineState.clearScene();
     setNombreProyecto('Nuevo Techo Estructural');
     setCurrentEditingDesignId(null);
@@ -934,6 +947,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const handleCargarPlantilla = (tipo: 'dos_aguas' | 'parabolico' | 'un_agua' | 'mezzanine' | 'marquesina' | 'multinivel' | 'tijeral_curvo') => {
     // Una plantilla es un plano NUEVO: no debe pisar el plano que estaba abierto.
     marcarBaseAuto();
+    nuevoLimpio.current = true;
     setCurrentEditingDesignId(null);
     engineState.clearScene();
     coberturaAutoPendiente.current = true;

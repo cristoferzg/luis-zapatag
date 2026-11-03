@@ -41,6 +41,29 @@ export function msDe(d: Pick<SavedTechosDesign, 'updatedAtMs' | 'updatedAt' | 's
 const normNombre = (s: string) => (s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const firma = (d: SavedTechosDesign) => JSON.stringify([d.nodes, d.segments, d.coverageZones || {}]);
 
+/** Nombre sin las marcas de copia que se agregaban solas: "Techo (2) (3)" → "Techo". */
+export const nombreBase = (n: string) => (n || '').replace(/(\s*\(\d+\))+\s*$/, '').trim();
+const claveCopia = (d: SavedTechosDesign) => `${normNombre(nombreBase(d.nombre))}|${d.clientId || ''}`;
+const recienteMs = (d: SavedTechosDesign) => d.updatedAtMs || 0;
+/** Un diseño por nombre (el más reciente) y la lista de copias viejas de cada uno. */
+export function agruparCopias(lista: SavedTechosDesign[]): { unicos: SavedTechosDesign[]; copias: SavedTechosDesign[] } {
+  const grupos = new Map<string, SavedTechosDesign[]>();
+  for (const d of lista) { const k = claveCopia(d); grupos.set(k, [...(grupos.get(k) || []), d]); }
+  const unicos: SavedTechosDesign[] = [], copias: SavedTechosDesign[] = [];
+  for (const g of grupos.values()) {
+    const orden = [...g].sort((a, b) => recienteMs(b) - recienteMs(a));
+    unicos.push(orden[0]); copias.push(...orden.slice(1));
+  }
+  const pos = new Map(lista.map((d, i) => [d.id, i]));
+  unicos.sort((a, b) => (pos.get(a.id)! - pos.get(b.id)!));
+  return { unicos, copias };
+}
+/** Diseño propio con el mismo nombre base (para enlazar en vez de crear otra copia). */
+export function buscarMismoNombre(nombre: string, clientId?: string): SavedTechosDesign | undefined {
+  const k = `${normNombre(nombreBase(nombre))}|${clientId || ''}`;
+  return getCachedTechosDesigns().filter(d => esPlanoMio(d) && claveCopia(d) === k).sort((a, b) => recienteMs(b) - recienteMs(a))[0];
+}
+
 /** Quita copias idénticas (mismo nombre y mismo diseño): queda la más reciente. */
 function sinCopias(lista: SavedTechosDesign[]): { lista: SavedTechosDesign[]; quitados: string[] } {
   const vistos = new Set<string>(); const quitados: string[] = [];

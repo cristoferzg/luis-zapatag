@@ -268,8 +268,8 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      <header className="mb-2 flex flex-wrap justify-between items-end gap-3">
+    <div className="space-y-4 sm:space-y-6 max-w-6xl mx-auto pb-12">
+      <header className={`mb-2 flex flex-wrap justify-between items-end gap-3 ${!r ? 'max-xl:hidden' : ''}`}>
         <div className={embebida ? 'hidden' : 'titulo-pagina'}>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
             <Calculator className="w-8 h-8 mr-3 text-indigo-500" />
@@ -289,7 +289,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
         )}
       </header>
 
-      <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-4 sm:p-6 space-y-6">
+      <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-3 sm:p-6 space-y-5 sm:space-y-6 max-sm:-mx-1">
         {/* 1. MEDIDAS Y FORMA */}
         <section className="space-y-3">
           <h4 className="font-bold text-slate-800 text-sm border-b border-indigo-200/60 pb-2">1. Medidas y forma del techo</h4>

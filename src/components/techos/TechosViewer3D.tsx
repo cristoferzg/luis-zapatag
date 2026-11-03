@@ -463,7 +463,17 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const isDraggingPanelRef = useRef(false);
   const panelDragStartRef = useRef<{ clientX: number; clientY: number; posX: number; posY: number }>({ clientX: 0, clientY: 0, posX: 0, posY: 0 });
   const panelContainerRef = useRef<HTMLDivElement | null>(null);
-  const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
+  // Minimizado se recuerda: si el usuario lo achicó, la próxima selección también sale chica.
+  const [isPanelCollapsed, setIsPanelCollapsedEstado] = useState<boolean>(() => { try { return localStorage.getItem('innova_inspector3d_min') === '1'; } catch { return false; } });
+  const setIsPanelCollapsed = (v: boolean) => { setIsPanelCollapsedEstado(v); try { localStorage.setItem('innova_inspector3d_min', v ? '1' : '0'); } catch { /* sin almacenamiento */ } };
+  // Pista de uso del 3D: unos segundos y solo las primeras 3 veces (después estorbaba).
+  const [verPista3D, setVerPista3D] = useState<boolean>(() => { try { return Number(localStorage.getItem('innova_pista3d_vista') || '0') < 3; } catch { return true; } });
+  useEffect(() => {
+    if (!verPista3D) return;
+    try { localStorage.setItem('innova_pista3d_vista', String(Number(localStorage.getItem('innova_pista3d_vista') || '0') + 1)); } catch { /* sin almacenamiento */ }
+    const t = setTimeout(() => setVerPista3D(false), 6000);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePanelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -519,7 +529,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
   const handleDockRight = () => {
     if (typeof window !== 'undefined') {
-      setPanelPos({ x: Math.max(20, window.innerWidth - 410), y: 70 });
+      setPanelPos({ x: Math.max(20, window.innerWidth - 350), y: 70 });
     }
   };
 
@@ -4436,7 +4446,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         };
 
         const currentPos = panelPos ?? {
-          x: typeof window !== 'undefined' && window.innerWidth >= 640 ? Math.max(20, window.innerWidth - 410) : 12,
+          x: typeof window !== 'undefined' && window.innerWidth >= 640 ? Math.max(20, window.innerWidth - 350) : 12,
           y: 70
         };
 
@@ -4448,7 +4458,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               top: `${currentPos.y}px`,
               transition: isDraggingPanel ? 'none' : 'box-shadow 0.2s',
             }}
-            className={`fixed z-40 w-[calc(100vw-24px)] sm:w-96 max-w-[420px] max-h-[85vh] bg-slate-900/95 text-white border-2 border-cyan-500/80 rounded-2xl sm:rounded-3xl p-3.5 sm:p-4 shadow-2xl backdrop-blur-md pointer-events-auto flex flex-col ${
+            className={`fixed z-40 w-[calc(100vw-24px)] sm:w-80 max-w-[340px] max-h-[70vh] bg-slate-900/95 text-white border-2 border-cyan-500/80 rounded-2xl p-3 shadow-2xl backdrop-blur-md pointer-events-auto flex flex-col transition-opacity sm:opacity-60 sm:hover:opacity-100 sm:focus-within:opacity-100 ${
               isDraggingPanel ? 'ring-2 ring-cyan-400 select-none cursor-grabbing opacity-95 shadow-cyan-900/50' : ''
             }`}
           >
@@ -4663,7 +4673,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       })()}
 
       {/* Pista de Selección en 3D para el Usuario */}
-      {!activeSelectedSegId && (
+      {!activeSelectedSegId && verPista3D && (
         <div className="absolute bottom-4 left-3 z-20 pointer-events-none hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/80 text-slate-300 border border-slate-700/60 rounded-xl text-[11px] backdrop-blur-xs shadow-md">
           <Wrench className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
           <span>💡 Clic en un tubo para seleccionarlo · Arrastra para girar · <b>Clic derecho o Shift+arrastrar</b> para mover el plano</span>

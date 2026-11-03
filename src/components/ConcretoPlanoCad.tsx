@@ -41,7 +41,7 @@ import {
 } from './concreto/geometriaObra';
 import { perfilTechos } from './techos/tensores';
 import { caidaDePoligono, nombreDireccion, NOMBRE_CAIDA } from './techos/coberturaAuto';
-import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns, esPlanoMio } from '../lib/techosDesignsRepo';
+import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns, esPlanoMio, agruparCopias, deleteTechosDesign, nombreBase } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
 import { simb } from '../lib/currency';
@@ -241,6 +241,22 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   useEffect(() => { fetchAllTechosDesigns().then(setDisenos).catch(() => {}); }, []);
   useEffect(() => { safeStorage.setItem(KEY_OBRA_TECHOS_ID, techosId); }, [techosId]);
   const disenoVinculado = disenos.find(d => d.id === techosId) || null;
+  // Lista sin repetidos: un diseño por nombre (el más reciente). Las copias "(2) (2)" se pueden borrar.
+  const { unicos: disenosUnicos, copias: copiasTechos } = useMemo(() => agruparCopias(disenos.filter(d => esPlanoMio(d))), [disenos]);
+  const techoAbiertoId = safeStorage.getItem<string | null>('innova_techos_diseno_actual', null);
+  const techoAbierto = techoAbiertoId ? disenos.find(d => d.id === techoAbiertoId) : undefined;
+  const quitarRepetidos = async () => {
+    if (!copiasTechos.length) return;
+    if (!window.confirm(`Se borrarán ${copiasTechos.length} copia(s) repetida(s) y queda la versión más reciente de cada techo:\n\n${copiasTechos.slice(0, 12).map(d => '• ' + d.nombre).join('\n')}${copiasTechos.length > 12 ? '\n…' : ''}`)) return;
+    const vinculadaEsCopia = copiasTechos.some(d => d.id === techosId);
+    if (vinculadaEsCopia) {
+      const borrada = disenos.find(d => d.id === techosId)!;
+      const queda = disenosUnicos.find(u => agruparCopias([u, borrada]).unicos.length === 1);
+      if (queda) setTechosId(queda.id);
+    }
+    for (const d of copiasTechos) await deleteTechosDesign(d.id).catch(() => false);
+    setDisenos(getCachedTechosDesigns());
+  };
   // Las barras ocultas en Techos no se muestran aquí (si no, aparecen "fantasmas" que en Techos no se ven).
   const estructura = useMemo(() => sinOcultos(disenoVinculado as unknown as (EstructuraTechos & { updatedAt?: string }) | null), [disenoVinculado]);
   // Planta de la estructura: tramos proyectados (x, z) con el ancho real del
@@ -1236,8 +1252,20 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         <select value={techosId} onChange={e => setTechosId(e.target.value)}
           className="px-2.5 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none max-w-[260px]">
           <option value="">— Sin estructura —</option>
-          {disenos.filter(d => d.id === techosId || esPlanoMio(d)).map(d => <option key={d.id} value={d.id}>{d.nombre}{d.updatedAt ? ` · ${d.updatedAt}` : ''}</option>)}
+          {[...(disenoVinculado && !disenosUnicos.some(d => d.id === techosId) ? [disenoVinculado] : []), ...disenosUnicos].map(d => <option key={d.id} value={d.id}>{nombreBase(d.nombre) || d.nombre}{d.updatedAt ? ` · ${d.updatedAt}` : ''}</option>)}
         </select>
+        {techoAbierto && techoAbierto.id !== techosId && (
+          <button onClick={() => setTechosId(techoAbierto.id)} title={`Usar "${techoAbierto.nombre}" (el que tienes abierto en Techos) como estructura de esta obra`}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 cursor-pointer hover:bg-emerald-100">
+            Enlazar el techo abierto
+          </button>
+        )}
+        {copiasTechos.length > 0 && (
+          <button onClick={quitarRepetidos} title="Borra las copias repetidas (Techo (2), Techo (2) (2)…) y deja la versión más reciente"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 cursor-pointer hover:bg-amber-100">
+            Quitar repetidos ({copiasTechos.length})
+          </button>
+        )}
         {estructura && onEditarEnTechos && (
           <button onClick={() => disenoVinculado && onEditarEnTechos(disenoVinculado)} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 cursor-pointer hover:bg-blue-100">
             Editar en Techos
