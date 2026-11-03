@@ -22,7 +22,7 @@ import { useSaldoIA } from './lib/saldoIA';
 import { fechaCompilacion } from './lib/version';
 import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, SlidersHorizontal } from 'lucide-react';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import type { BibliotecaItem } from './components/BibliotecaPremiumView';
 import { Capacitor } from '@capacitor/core';
@@ -1565,7 +1565,16 @@ function BotonMasFlotante({ label, objetivo, revisar, onClick }: { label: string
     window.addEventListener('resize', ver);
     return () => { clearTimeout(t); document.removeEventListener('scroll', ver, true); window.removeEventListener('resize', ver); };
   }, [revisar]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (sobra) return null;
+  // Mientras escribe (teclado abierto) el + se esconde para no tapar el campo ni su botón.
+  const [escribe, setEscribe] = useState(false);
+  useEffect(() => {
+    const es = (e: Event) => { const t = e.target as HTMLElement; return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); };
+    const on = (e: Event) => { if (es(e)) setEscribe(true); };
+    const off = (e: Event) => { if (es(e)) setEscribe(false); };
+    document.addEventListener('focusin', on); document.addEventListener('focusout', off);
+    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off); };
+  }, []);
+  if (sobra || escribe) return null;
   return (
     <button onClick={onClick} aria-label={label}
       className="fab-app xl:hidden fixed right-4 z-[46] h-14 pl-4 pr-5 rounded-2xl bg-amber-500 text-slate-950 shadow-[0_4px_12px_rgba(0,0,0,.25)] flex items-center gap-2.5 text-[15px] font-semibold cursor-pointer active:scale-95 transition-transform"
@@ -1638,6 +1647,17 @@ export default function App() {
     ]);
   };
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
+  // "Mis apartados": cada usuario apaga del menú lo que no usa (no borra nada; se puede
+  // volver a encender). Finanzas personales viene apagado salvo que ya tenga registros.
+  const [misApartados, setMisApartadosEstado] = useState<Record<string, boolean> | null>(null);
+  const [verMisApartados, setVerMisApartados] = useState(false);
+  useEffect(() => {
+    setMisApartadosEstado(safeStorage.getItem<Record<string, boolean> | null>('innova_mis_apartados_' + (activeUid || 'guest'), null));
+  }, [activeUid]);
+  const setMisApartados = (v: Record<string, boolean>) => {
+    setMisApartadosEstado(v);
+    safeStorage.setItem('innova_mis_apartados_' + (activeUid || 'guest'), v);
+  };
   // Contexto para el control de acceso a la IA (admin ilimitado; usuarios por plan).
   useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
   // Sesiones antiguas (anónimas, de antes del ingreso seguro por PIN) no tienen
@@ -2555,12 +2575,57 @@ export default function App() {
     { id: 'settings', label: 'Configuración', icon: Settings },
   ];
   
-  const navItems = isAdmin
+  const navItemsPlanos = isAdmin
     // El admin ve todo; las secciones ocultas para usuarios se marcan "en desarrollo".
     ? allNavItems.map(item => ({ ...item, enDesarrollo: disabledSections.includes(item.id) }))
     // Los usuarios no ven las secciones solo-admin; las que están en desarrollo se
     // muestran con la etiqueta "Mantenimiento" (al entrar ven una pantalla bonita).
     : allNavItems.filter(item => !item.adminOnly).map(item => ({ ...item, enMantenimiento: vistaBloqueada(item.id) }));
+  const itemPlano = (id: string) => navItemsPlanos.find(n => n.id === id);
+
+  // Menú corto por rubro: varios apartados se juntan en uno y adentro se cambian con
+  // pestañas. Nada se borra: cada vista sigue existiendo con su mismo id.
+  const finanzasConDatos = finances.some(f => f.type === 'familia' || f.type === 'inversion' || f.type === 'deuda');
+  const apartadoEncendido = (clave?: string) => {
+    if (!clave) return true;
+    const v = misApartados?.[clave];
+    return v === undefined ? (clave !== 'finanzas' || finanzasConDatos) : v;
+  };
+  const GRUPOS_MENU: { seccion: string; id: string; label: string; corto?: string; icon: any; miembros: { id: string; label: string }[]; apartado?: string }[] = [
+    { seccion: 'Inicio', id: 'dashboard', label: 'Panel Principal', icon: Activity, miembros: [{ id: 'dashboard', label: 'Panel' }, { id: 'reporte', label: 'Reporte del mes' }] },
+    { seccion: 'Inicio', id: 'membresia', label: 'Membresía Premium', corto: 'Membresía', icon: Crown, miembros: [{ id: 'membresia', label: 'Membresía' }] },
+    { seccion: 'Mis obras', id: 'projects', label: 'Proyectos & Clientes', corto: 'Proyectos', icon: Briefcase, miembros: [{ id: 'projects', label: 'Proyectos' }, { id: 'personal', label: 'Personal' }, { id: 'portafolio', label: 'Carpeta' }] },
+    { seccion: 'Mis obras', id: 'materials', label: 'Materiales & Gastos', corto: 'Gastos', icon: Package, miembros: [{ id: 'materials', label: 'Gastos' }] },
+    { seccion: 'Mis obras', id: 'contracts', label: 'Contratos & EPP', icon: FileSignature, miembros: [{ id: 'contracts', label: 'Contratos' }] },
+    { seccion: 'Diseño y presupuesto', id: 'techos', label: 'Techos Metálicos', corto: 'Techos', icon: PenTool, apartado: 'techos', miembros: [{ id: 'techos', label: 'Diseño' }, { id: 'calculator', label: 'Cotización rápida' }] },
+    { seccion: 'Diseño y presupuesto', id: 'concreto', label: 'Obra Civil', icon: Box, apartado: 'obra', miembros: [{ id: 'concreto', label: 'Obra Civil' }] },
+    { seccion: 'Diseño y presupuesto', id: 'drywall', label: 'Drywall', icon: PanelsTopLeft, apartado: 'drywall', miembros: [{ id: 'drywall', label: 'Drywall' }] },
+    { seccion: 'Diseño y presupuesto', id: 'herreria', label: 'Carpintería Metálica', corto: 'Carpintería', icon: DoorClosed, apartado: 'carpi', miembros: [{ id: 'herreria', label: 'Carpintería' }] },
+    { seccion: 'Aprender', id: 'usabilidad', label: 'Academia y Recursos', corto: 'Academia', icon: Video, miembros: [{ id: 'usabilidad', label: 'Academia' }, { id: 'biblioteca', label: 'Recursos' }] },
+    { seccion: 'Opcional', id: 'familia', label: 'Finanzas personales', corto: 'Finanzas', icon: Wallet, apartado: 'finanzas', miembros: [{ id: 'familia', label: 'Familia' }, { id: 'inversion', label: 'Inversiones' }, { id: 'deuda', label: 'Deudas' }] },
+    { seccion: 'Cuenta', id: 'soporte', label: 'Ayuda y soporte', icon: Headset, miembros: [{ id: 'soporte', label: 'Ayuda' }] },
+    { seccion: 'Cuenta', id: 'settings', label: 'Configuración', icon: Settings, miembros: [{ id: 'settings', label: 'Configuración' }, { id: 'precios', label: 'Precios' }] },
+    { seccion: 'Administración', id: 'usuarios', label: 'Administración', icon: ShieldCheck, miembros: [{ id: 'usuarios', label: 'Accesos' }, { id: 'admin_purchases', label: 'Compras' }, { id: 'supervision', label: 'Supervisión' }] },
+  ];
+  // Cada grupo con solo lo que este usuario puede ver; el grupo entra por su primer miembro visible.
+  const gruposVisibles = GRUPOS_MENU.map(g => {
+    const miembros = g.miembros.filter(m => itemPlano(m.id));
+    if (!miembros.length) return null;
+    const planos = miembros.map(m => itemPlano(m.id)!);
+    const badge = planos.reduce((t, it) => t + ((it as any).badge || 0), 0) || undefined;
+    return {
+      ...g, miembros, badge,
+      entrada: miembros[0].id,
+      enDesarrollo: planos.every(it => (it as any).enDesarrollo),
+      enMantenimiento: planos.every(it => (it as any).enMantenimiento),
+    };
+  }).filter((g): g is NonNullable<typeof g> => !!g);
+  const grupoDeVista = (v: string) => gruposVisibles.find(g => g.miembros.some(m => m.id === v) || g.id === v)
+    || gruposVisibles.find(g => g.miembros.some(m => m.id === seccionDeVista(v)));
+  const grupoActual = grupoDeVista(currentView);
+  const gruposMenu = gruposVisibles.filter(g => apartadoEncendido(g.apartado) || g === grupoActual);
+  // Compatibilidad: lo demás del código usa navItems para saber qué apartados existen.
+  const navItems = navItemsPlanos;
 
   // Celular / app: barra inferior (solo lo que el usuario tiene disponible) y accesos rápidos del "+".
   const disponible = (id: string) => navItems.some(n => n.id === id);
@@ -2569,7 +2634,7 @@ export default function App() {
     { id: 'projects', label: 'Proyectos', icon: Briefcase },
     { id: 'techos', label: 'Techos', icon: PenTool },
     { id: 'materials', label: 'Gastos', icon: Package },
-  ].filter(it => disponible(it.id)).concat([{ id: 'mas', label: 'Más', icon: Menu }]);
+  ].filter(it => disponible(it.id) && (it.id !== 'techos' || apartadoEncendido('techos'))).concat([{ id: 'mas', label: 'Más', icon: Menu }]);
   // Botón con texto por pantalla: a qué formulario o botón de "crear" lleva.
   const FAB: Record<string, { label: string; ir?: string; campo?: string; boton?: string; soloAdmin?: boolean }> = {
     dashboard: { label: 'Nuevo proyecto', ir: 'projects', campo: 'input[placeholder^="Ej. Techo Aluzinc"]' },
@@ -2586,7 +2651,8 @@ export default function App() {
     // soporte: sin botón + (es un chat; el + tapaba el botón de enviar)
     usabilidad: { label: 'Nuevo curso', boton: 'Nuevo Curso', soloAdmin: true },
   };
-  const fabActual = FAB[currentView] && (!FAB[currentView].soloAdmin || isAdmin) && (!FAB[currentView].ir || disponible(FAB[currentView].ir!)) ? FAB[currentView] : null;
+  // En el chat de Ayuda y soporte nunca va el +: tapaba el botón de enviar.
+  const fabActual = !['soporte', 'tickets', 'asesorias'].includes(currentView) && FAB[currentView] && (!FAB[currentView].soloAdmin || isAdmin) && (!FAB[currentView].ir || disponible(FAB[currentView].ir!)) ? FAB[currentView] : null;
   const enfocarFab = (f: NonNullable<typeof fabActual>, intento = 0) => {
     const main = document.querySelector('main');
     let el: HTMLElement | null = null;
@@ -2617,6 +2683,42 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800">
+      {/* MIS APARTADOS: cada usuario elige qué apartados de diseño ve en su menú */}
+      {verMisApartados && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-3" onClick={() => setVerMisApartados(false)}>
+          <div className="bg-white w-full sm:max-w-sm max-h-[85vh] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3 border-b border-slate-100">
+              <div className="min-w-0">
+                <h3 className="text-base font-black text-slate-900">Mis apartados</h3>
+                <p className="text-[12px] text-slate-500 leading-snug">Apaga lo que no usas y tu menú queda más corto. No se borra nada: lo vuelves a encender cuando quieras.</p>
+              </div>
+              <button onClick={() => setVerMisApartados(false)} className="shrink-0 w-10 h-10 -mr-1 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+              {gruposVisibles.filter(g => g.apartado).map(g => {
+                const on = apartadoEncendido(g.apartado);
+                const G = g.icon;
+                return (
+                  <button key={g.id} onClick={() => setMisApartados({ ...(misApartados || {}), [g.apartado!]: !on })}
+                    className="w-full flex items-center gap-3 px-3 min-h-[52px] rounded-xl border border-slate-200 bg-white text-left cursor-pointer active:bg-slate-50">
+                    <G className="w-5 h-5 text-slate-500 shrink-0" />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-bold text-slate-800 truncate">{g.label}</span>
+                      {g.apartado === 'finanzas' && <span className="block text-[11px] text-slate-500 truncate">Caja familiar, inversiones y deudas</span>}
+                    </span>
+                    <span className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${on ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-4 py-3 border-t border-slate-100">
+              <button onClick={() => setVerMisApartados(false)} className="w-full h-11 rounded-xl bg-slate-900 text-white text-sm font-bold cursor-pointer">Listo</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* PANEL DE INTERRUPTORES DE APARTADOS (solo admin) */}
       {isAdmin && showDevPanel && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3" onClick={() => setShowDevPanel(false)}>
@@ -2694,15 +2796,19 @@ export default function App() {
         </div>
         <div className={`flex-1 overflow-y-auto py-4 ${isSidebarCollapsed ? 'px-2' : 'px-3'} custom-scrollbar`}>
           <div className="space-y-0.5">
-            {navItems.map(item => {
+            {gruposMenu.map((item, i) => {
               const Icon = item.icon;
-              const isActive = currentView === item.id;
-              const enDesarrollo = (item as any).enDesarrollo;
-              const enMantenimiento = (item as any).enMantenimiento;
+              const isActive = grupoActual?.id === item.id;
+              const enDesarrollo = item.enDesarrollo;
+              const enMantenimiento = item.enMantenimiento;
+              const nuevaSeccion = i === 0 || gruposMenu[i - 1].seccion !== item.seccion;
               return (
+                <React.Fragment key={item.id}>
+                {nuevaSeccion && (isSidebarCollapsed
+                  ? (i > 0 ? <div className="my-2 mx-2 border-t border-slate-800" /> : null)
+                  : <p className={`px-3 ${i === 0 ? 'pt-0' : 'pt-3'} pb-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-500`}>{item.seccion}</p>)}
                 <button
-                  key={item.id}
-                  onClick={() => { setCurrentView(item.id as ViewType); setIsMobileMenuOpen(false); }}
+                  onClick={() => { setCurrentView(item.entrada as ViewType); setIsMobileMenuOpen(false); }}
                   className={`item-menu ${isActive ? 'activo' : ''} group w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'pl-3 pr-2.5 py-2'} rounded-lg transition-colors relative ${
                     isActive
                       ? 'bg-slate-800 text-white font-semibold'
@@ -2712,20 +2818,27 @@ export default function App() {
                 >
                   {isActive && !isSidebarCollapsed && <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-emerald-400" />}
                   <Icon className={`w-[18px] h-[18px] ${isSidebarCollapsed ? '' : 'mr-3'} shrink-0 ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                  {!isSidebarCollapsed && <span className="truncate text-[13px]">{item.label}</span>}
+                  {!isSidebarCollapsed && <span className="truncate text-[13px] min-w-0">{item.label}</span>}
                   {!isSidebarCollapsed && item.badge ? (
-                    <span className="ml-auto text-[10px] font-black bg-rose-500 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">{item.badge}</span>
+                    <span className="ml-auto shrink-0 text-[10px] font-black bg-rose-500 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">{item.badge}</span>
                   ) : null}
                   {!isSidebarCollapsed && enDesarrollo ? (
-                    <span className="ml-auto text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-0.5">EN DESARROLLO</span>
+                    <span className="ml-auto shrink-0 text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-0.5">EN DESARROLLO</span>
                   ) : null}
                   {!isSidebarCollapsed && enMantenimiento ? (
-                    <span className="ml-auto inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-0.5">
+                    <span className="ml-auto shrink-0 inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded px-1 py-0.5">
                       <Wrench className="w-2.5 h-2.5" /> MANTENIMIENTO
                     </span>
                   ) : null}
                 </button>
-              );            })}
+                </React.Fragment>
+              );
+            })}
+            <button onClick={() => { setVerMisApartados(true); setIsMobileMenuOpen(false); }} title="Mis apartados: elige qué ves en el menú"
+              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'pl-3 pr-2.5 py-2'} rounded-lg text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 cursor-pointer`}>
+              <SlidersHorizontal className={`w-[18px] h-[18px] ${isSidebarCollapsed ? '' : 'mr-3'} shrink-0 text-slate-500`} />
+              {!isSidebarCollapsed && <span className="truncate text-[13px]">Mis apartados</span>}
+            </button>
           </div>
         </div>
         
@@ -2819,8 +2932,8 @@ export default function App() {
             <img src={activeLogo} alt="" className="w-9 h-9 rounded-xl object-cover bg-white border border-slate-200 p-0.5 shrink-0"
               onError={(e) => { (e.target as HTMLImageElement).src = defaultAdminLogo; }} />
             <div className="min-w-0 flex-1">
-              <h1 className="text-[17px] leading-tight font-semibold text-slate-900 truncate">{navItems.find(n => n.id === currentView)?.label || currentSettings.appName}</h1>
-              <p className="text-[11px] leading-tight text-slate-500 truncate">{currentSettings.appName}{isAdmin ? ' · Admin' : user?.name ? ` · ${user.name}` : ''}</p>
+              <h1 className="text-[17px] leading-tight font-semibold text-slate-900 truncate">{grupoActual?.corto || grupoActual?.label || navItems.find(n => n.id === currentView)?.label || currentSettings.appName}</h1>
+              <p className="text-[11px] leading-tight text-slate-500 truncate">{currentSettings.appName}{isAdmin ? ' · Admin' : user?.name && user.name !== currentSettings.appName ? ` · ${user.name}` : ''}</p>
             </div>
             {conMembresia && saldoIA && !saldoIA.ilimitado && (
               <button onClick={() => { tocar(); setCurrentView('membresia'); }} title="Tus créditos Premium"
@@ -2828,7 +2941,7 @@ export default function App() {
                 <Coins className="w-4 h-4 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')}
               </button>
             )}
-            <button onClick={() => { tocar(); setCurrentView('settings'); }} title="Configuración" className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"><Settings className="w-5 h-5" /></button>
+            {grupoActual?.id !== 'settings' && <button onClick={() => { tocar(); setCurrentView('settings'); }} title="Configuración" className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"><Settings className="w-5 h-5" /></button>}
           </header>
         )}
         {currentView !== 'designer' && (
@@ -2867,6 +2980,26 @@ export default function App() {
           </header>
         )}
         
+        {/* Pestañas del apartado (p. ej. Proyectos · Personal · Carpeta). Se desliza de lado
+            si no entra; en modo dibujo se esconde. */}
+        {grupoActual && grupoActual.miembros.length > 1 && currentView !== 'designer' && (
+          <div className="pestanas-grupo oculto-en-dibujo shrink-0 bg-white border-b border-slate-200 z-[5]">
+            <div className="flex gap-1.5 overflow-x-auto px-3 xl:px-8 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
+              {grupoActual.miembros.map(m => {
+                const on = currentView === m.id || seccionDeVista(currentView) === m.id;
+                const badge = (itemPlano(m.id) as any)?.badge;
+                return (
+                  <button key={m.id} role="tab" aria-selected={on} onClick={() => { tocar(); setCurrentView(m.id as ViewType); }}
+                    className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 h-10 px-3 sm:px-4 rounded-full text-[13px] font-bold cursor-pointer transition-colors ${on ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    {m.label}
+                    {badge ? <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center">{badge}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Diseñador y Calculadora se mantienen vivos al cambiar de apartado, pero
             solo se montan la primera vez que se abren (antes cargaban al arrancar). */}
         {vistasAbiertas.current.has('designer') && (
@@ -2916,7 +3049,7 @@ export default function App() {
         {/* CELULAR / APP: barra de navegación inferior estilo Android (Material 3) */}
         <nav className="nav-app xl:hidden shrink-0 bg-[#f3edf7] flex justify-around items-start pt-2 z-30" style={{ height: 'calc(72px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {barraInferior.map(it => {
-            const activo = it.id === 'mas' ? isMobileMenuOpen : (currentView === it.id && !isMobileMenuOpen);
+            const activo = it.id === 'mas' ? isMobileMenuOpen : ((currentView === it.id || grupoActual?.id === it.id) && !isMobileMenuOpen);
             return (
               <button key={it.id} onClick={() => { tocar(); if (it.id === 'mas') setIsMobileMenuOpen(true); else { setIsMobileMenuOpen(false); setCurrentView(it.id as ViewType); } }}
                 className="flex flex-col items-center gap-1 w-16 cursor-pointer">
