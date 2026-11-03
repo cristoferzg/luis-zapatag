@@ -30,7 +30,7 @@
  */
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -731,4 +731,113 @@ export const avisoAsesoriaEstado = onDocumentUpdated({ ...opcionesAviso, documen
   if (!a.status || antes.status === a.status) return;
   const cuando = a.scheduledDate ? ` · ${a.scheduledDate} ${a.scheduledTime || ''}` : '';
   await enviarPush({ aWs: [a.authorUserId, a.assignedUserId] }, '📅 Asesoría: ' + a.status, (a.subject || '') + cuando, 'asesorias');
+});
+
+// =============================================================================
+// AYUDA Y SOPORTE: un chat por usuario en `soporte_chats/<ws>` ({ mensajes[], conPersona,
+// sinLeerAdmin, sinLeerUsuario, ... }). El asistente responde aquí (gratis, con tope
+// diario por usuario guardado en ai_access, que el usuario no puede tocar). Nunca dice
+// qué IA es. Si no sabe, ofrece pasar con una persona de Innova.
+// =============================================================================
+const SOPORTE_MODEL = RECEIPT_MODEL; // el modelo económico
+const SOPORTE_TOPE_DIA = 30;
+const VISTAS_IR = ['dashboard', 'projects', 'techos', 'concreto', 'drywall', 'carpinteria', 'calculator', 'gastos', 'materials', 'precios', 'contracts', 'reporte', 'usabilidad', 'biblioteca', 'membresia', 'settings'];
+const GUIA_INNOVAPP = `InnovApp (Innova Contratistas) es una app para contratistas en Perú: techos metálicos, obra civil, drywall y carpintería metálica, con presupuestos y control del negocio.
+Apartados (nombre → id):
+- Panel Principal (dashboard): balance, ingresos, egresos, novedades.
+- Proyectos & Clientes (projects): crear proyectos, clientes, cobros, estado; "no se dio" saca el proyecto del balance.
+- Techos Metálicos (techos): secciones Diseñar (Planta/Elevación/3D), Materiales (despiece y cortes, agrupados), Presupuesto (Costos, Presupuesto formal con IGV, Resumen) y Plano y cálculo (Plano CM-02, Análisis RNE E.090). En el celular: botón "?" abre "¿Cómo quieres empezar?" (Paso a paso, Asistente con medidas: dos aguas, una agua, arco…, Foto de tu boceto = 10 créditos, Dibujar libre); barra de abajo Selec., Viga, Columna, Tijeral, Correa, Deshacer y Más (Medir, Rehacer, Rejilla); botón ⤢ para pantalla completa; al apoyar el dedo aparece una lupa con la medida. "Propuesta visual para el cliente" arma un link con 3D, opciones A/B/C y aceptación. "Enviar a proyectos" guarda el monto en Proyectos.
+- Obra Civil (concreto): muros (ladrillo), columnas, vigas, zapatas, cimientos, losas, escaleras, puertas/ventanas, instalaciones; metrado automático (concreto, acero, encofrado, ladrillos); "Cimentación desde Techos"; vista 3D; DXF para AutoCAD. Losa: elegir Losa y tocar dos esquinas opuestas.
+- Drywall (drywall): tabiques de drywall u OSB sobre la obra, puertas/ventanas, accesorios, cielo raso, "Capas" para ver u ocultar la obra y el techo, cotizador.
+- Carpintería Metálica (carpinteria): puertas, portones, rejas, ventanas, escaleras: herramientas Tubo, Marco (cortes a 45°), Plancha, Accesorio; plano de fabricación, materiales y presupuesto.
+- Calculadora Estructural (calculator): medidas → perfiles, precio al cliente, ganancia y costos; "Abrir en Techos 3D".
+- Gastos / Materiales & Gastos (gastos, materials): registrar gastos; escanear boleta: con QR gratis, sin QR 1 crédito.
+- Precios (precios): catálogo propio de precios; si algo dice "sin precio", ponerlo una vez aquí.
+- Contratos (contracts): contratos y EPP; redactar con IA = 2 créditos.
+- Reporte del mes (reporte). Academia Técnica (usabilidad): videos y cursos (algunos se desbloquean con créditos). Recursos Técnicos (biblioteca): planos, manuales, plantillas.
+- Membresía Premium (membresia): planes mensuales/anuales y recargas de créditos; se pagan por WhatsApp/Yape y el administrador los valida.
+- Configuración (settings): datos de la empresa y logo (salen en presupuestos), moneda, notificaciones.
+PIN y acceso: el PIN lo entrega el administrador; si lo perdió, debe hablar con Innova.`;
+
+export const asistenteSoporte = onCall(
+  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '256MiB', timeoutSeconds: 60 },
+  async (request) => {
+    const token = request.auth?.token || {};
+    const ws = String(token.workspace || '').replace(/^user_/, '');
+    if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
+    if (token.role !== 'admin') {
+      const cfg = await db.collection('config_ia').doc('planes').get();
+      if (!(cfg.exists && cfg.data()?.habilitadaUsuarios === true)) throw new HttpsError('failed-precondition', 'SIN_ASISTENTE');
+    }
+    const apiKey = process.env.ANTHROPIC_API_KEY || '';
+    if (!apiKey) throw new HttpsError('failed-precondition', 'SIN_ASISTENTE');
+
+    // Tope diario por usuario (se guarda en ai_access, que el usuario no puede escribir).
+    const hoy = new Date().toISOString().slice(0, 10);
+    const refUso = db.collection('ai_access').doc(ws);
+    await db.runTransaction(async (tx) => {
+      const u = (await tx.get(refUso)).data() || {};
+      const n = u.soporteDia?.fecha === hoy ? Number(u.soporteDia.n) || 0 : 0;
+      if (n >= SOPORTE_TOPE_DIA && token.role !== 'admin') throw new HttpsError('resource-exhausted', 'TOPE_DIA');
+      tx.set(refUso, { soporteDia: { fecha: hoy, n: n + 1 } }, { merge: true });
+    });
+
+    const refChat = db.collection('soporte_chats').doc(ws);
+    const chat = (await refChat.get()).data() || {};
+    const historial = (Array.isArray(chat.mensajes) ? chat.mensajes : [])
+      .filter((m) => m && (m.de === 'usuario' || m.de === 'asistente') && m.texto)
+      .slice(-8)
+      .map((m) => ({ role: m.de === 'usuario' ? 'user' : 'assistant', content: String(m.texto).slice(0, 1500) }));
+    while (historial.length && historial[0].role !== 'user') historial.shift();
+    if (!historial.length || historial[historial.length - 1].role !== 'user') {
+      const p = String(request.data?.pregunta || '').slice(0, 1500).trim();
+      if (!p) throw new HttpsError('invalid-argument', 'Falta la pregunta.');
+      historial.push({ role: 'user', content: p });
+    }
+
+    const sistema = [
+      'Eres el asistente de ayuda de InnovApp. Respondes en español de Perú, claro y corto (máximo 110 palabras), con pasos numerados cuando sirva.',
+      'Solo ayudas a usar InnovApp y con dudas técnicas básicas de techos metálicos, obra civil, drywall y carpintería metálica.',
+      'Nunca digas qué empresa, modelo o tecnología de IA eres; si te preguntan, di que eres el asistente de Innova.',
+      'No inventes funciones que no estén en la guía. Si no sabes, o el tema es de pagos, PIN, cuenta, errores del sistema o algo que necesite a una persona,',
+      'dilo en una frase y sugiere tocar "Hablar con Innova".',
+      `Si conviene llevar al usuario a un apartado, termina con una línea exacta "IR: <id>" usando uno de: ${VISTAS_IR.join(', ')}.`,
+      '', 'GUÍA DE LA APP:', GUIA_INNOVAPP,
+    ].join('\n');
+
+    let texto = '';
+    try {
+      const anthropic = new Anthropic({ apiKey });
+      const msg = await anthropic.messages.create({ model: SOPORTE_MODEL, max_tokens: 600, system: sistema, messages: historial });
+      const block = (msg.content || []).find((b) => b.type === 'text');
+      texto = (block ? block.text : '').trim();
+    } catch (e) {
+      throw errorDeIA(e);
+    }
+    if (!texto) throw new HttpsError('unavailable', 'No se pudo responder. Intenta de nuevo.');
+    let ir = '';
+    texto = texto.replace(/\n?\s*IR:\s*([a-z_]+)\s*$/i, (_m, v) => { if (VISTAS_IR.includes(v)) ir = v; return ''; }).trim();
+    const mensaje = { id: `a${Date.now()}`, de: 'asistente', texto: texto.slice(0, 2000), fecha: new Date().toISOString(), ...(ir ? { ir } : {}) };
+    await refChat.set({
+      ws, mensajes: FieldValue.arrayUnion(mensaje), sinLeerUsuario: FieldValue.increment(1),
+      ultimo: recortar(mensaje.texto, 120), ultimoDe: 'asistente', actualizado: mensaje.fecha,
+    }, { merge: true });
+    return { ok: true };
+  }
+);
+
+// Avisos del chat: lo que escribe el usuario (cuando habla con una persona) le llega al
+// admin; lo que responde el admin le llega al usuario.
+export const avisoSoporte = onDocumentWritten({ ...opcionesAviso, document: 'soporte_chats/{ws}' }, async (e) => {
+  const antes = e.data?.before?.data() || {}; const d = e.data?.after?.data();
+  if (!d) return;
+  const n0 = Array.isArray(antes.mensajes) ? antes.mensajes.length : 0;
+  const msgs = Array.isArray(d.mensajes) ? d.mensajes : [];
+  if (msgs.length <= n0) return;
+  const m = msgs[msgs.length - 1] || {};
+  if (m.tarjeta) return; // asesoría o reporte: ya avisan sus propios avisos (sin duplicar)
+  const cuerpo = m.texto || (m.foto ? '📷 Foto' : m.tarjeta?.titulo || '');
+  if (m.de === 'admin') await enviarPush({ aWs: [e.params.ws] }, '💬 Innova te respondió', cuerpo, 'soporte');
+  else if (m.de === 'usuario' && d.conPersona) await enviarPush({ aAdmin: true }, `💬 ${d.nombre || 'Un usuario'}`, cuerpo, 'soporte');
+  else if (m.de === 'sistema' && d.conPersona && !antes.conPersona) await enviarPush({ aAdmin: true }, `💬 ${d.nombre || 'Un usuario'} quiere hablar con Innova`, d.ultimo || '', 'soporte');
 });

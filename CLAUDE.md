@@ -44,3 +44,13 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   comunicados/clases/recursos → usuarios; ticket/asesoría nueva → admin; cambio de estado → autor.
 - Con la app abierta el sistema no muestra el push; la app avisa con notificaciones locales
   (`notificar` evita repetir lo que ya llegó por push al volver a abrirla).
+
+## Ayuda y soporte (chat)
+- Reemplaza "Atención & Asesorías" en el menú (`AyudaSoporteView`). Un chat por usuario en
+  `soporte_chats/<ws>` (`src/lib/soporte.ts`); regla: dueño o admin.
+- Asistente: Cloud Function `asistenteSoporte` (gratis, tope 30/día por usuario en
+  `ai_access/<ws>.soporteDia`; solo con la IA activada para usuarios). Sin IA: respuestas
+  locales (FAQ). Nunca menciona proveedor ni modelo.
+- Asesorías y reportes del chat se guardan también en `asesorias` / `tickets` (sus avisos y su
+  gestión siguen igual; el admin los gestiona en la pestaña "Asesorías y reportes").
+- Push del chat: `avisoSoporte` (trigger). Compras en la app: `config_ia/planes.comprasEnApp`.

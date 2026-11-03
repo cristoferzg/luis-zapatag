@@ -41,7 +41,7 @@ import { formatCurrencyWithSymbol, useCompanyCurrency, getCompanyCurrency, saveC
 const CatalogoPreciosView = lazy(() => import('./components/CatalogoPreciosView'));
 const CotizadorRapidoView = lazy(() => import('./components/CotizadorRapidoView'));
 const UsuariosView = lazy(() => import('./components/UsuariosView'));
-const SoporteYAsesoriasView = lazy(() => import('./components/SoporteYAsesoriasView'));
+const AyudaSoporteView = lazy(() => import('./components/AyudaSoporteView'));
 const MaterialesYGastosView = lazy(() => import('./components/MaterialesYGastosView'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
 const MembresiaView = lazy(() => import('./components/MembresiaView'));
@@ -2443,15 +2443,16 @@ export default function App() {
       case 'tickets':
       case 'asesorias':
         return (
-          <SoporteYAsesoriasView 
-            tickets={tickets} 
-            setTickets={setTickets} 
-            asesorias={asesorias} 
-            setAsesorias={setAsesorias} 
-            currentUser={user} 
+          <AyudaSoporteView
+            tickets={tickets}
+            setTickets={setTickets}
+            asesorias={asesorias}
+            setAsesorias={setAsesorias}
+            currentUser={user}
             isAdmin={isAdmin}
-            initialSubTab={currentView === 'asesorias' ? 'asesorias' : 'tickets'}
             usuariosList={usuarios}
+            onIr={v => setCurrentView(v as ViewType)}
+            gestionarAlEntrar={currentView === 'asesorias' || currentView === 'tickets'}
           />
         );
       case 'biblioteca': 
@@ -2550,7 +2551,7 @@ export default function App() {
     { id: 'supervision', label: 'Supervisión', icon: Eye, adminOnly: true },
     { id: 'biblioteca', label: 'Recursos Técnicos', icon: BookOpen, badge: recursosNuevos.length || undefined },
     { id: 'contracts', label: 'Contratos & EPP', icon: FileSignature },
-    { id: 'soporte', label: 'Atención & Asesorías', icon: Headset },
+    { id: 'soporte', label: 'Ayuda y soporte', icon: Headset },
     { id: 'settings', label: 'Configuración', icon: Settings },
   ];
   
@@ -2582,7 +2583,7 @@ export default function App() {
     precios: { label: 'Nuevo material', boton: 'Agregar material propio' },
     usuarios: { label: 'Nuevo acceso', campo: 'input[placeholder^="Ej. Juan Pérez"]' },
     contracts: { label: 'Nuevo contrato', campo: 'main select' },
-    soporte: { label: 'Nuevo ticket', campo: 'input[placeholder^="Ej. Error al registrar"]' },
+    // soporte: sin botón + (es un chat; el + tapaba el botón de enviar)
     usabilidad: { label: 'Nuevo curso', boton: 'Nuevo Curso', soloAdmin: true },
   };
   const fabActual = FAB[currentView] && (!FAB[currentView].soloAdmin || isAdmin) && (!FAB[currentView].ir || disponible(FAB[currentView].ir!)) ? FAB[currentView] : null;
