@@ -1,3 +1,4 @@
+import { aVigaSimple } from './vigaSimple';
 // Hook de Gestión de Estado Vectorial CAD y Trazado Libre (Node-to-Node / Line-to-Line)
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
 
@@ -78,6 +79,7 @@ export interface UseTechosCadEngineReturn {
   /** Aplica nodos y barras nuevos en un solo paso (se puede deshacer). */
   aplicarEdicion: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>) => void;
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
+  pedirVigaSimple: (perfilId: string) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
   setLedVigas: (on: boolean) => void;
   setCoberturaTodo: (coverageId: string) => boolean;
@@ -385,6 +387,19 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setHistory(newHist);
     setHistoryIndex(newHist.length - 1);
   }, [history, historyIndex]);
+
+  // Viga simple (sin tijeral) para cualquier modelo del Asistente: se pide antes de generar
+  // y, cuando la nave queda armada, se dejan solo las vigas de un tubo rectangular.
+  const vigaSimplePendiente = useRef<string | null>(null);
+  const pedirVigaSimple = useCallback((perfilId: string) => { vigaSimplePendiente.current = perfilId; }, []);
+  useEffect(() => {
+    const perfil = vigaSimplePendiente.current;
+    if (!perfil || !Object.keys(segments).length) return;
+    vigaSimplePendiente.current = null;
+    const r = aVigaSimple(nodes, segments, perfil);
+    setNodes(r.nodes); setSegments(r.segs);
+    pushHistory(r.nodes, r.segs, coverageZones);
+  }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateNodeAnchorBolts = useCallback((nodeId: string, numPernos: number, boltDiameter: string) => {
     setNodes(prev => {
@@ -4392,6 +4407,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     clearScene,
     loadScene,
     replaceScene,
+    pedirVigaSimple,
     setOcultos,
     setLedVigas,
     setCoberturaTodo,

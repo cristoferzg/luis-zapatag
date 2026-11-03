@@ -15,6 +15,30 @@ export function aVigaSimple(nodes: Record<string, Node3D>, segs: Record<string, 
     if (sg.rolEstructural === 'arriostre' && !(usados.has(sg.nodeAId) && usados.has(sg.nodeBId))) continue;
     nuevosSegs[sg.id] = sg.rolEstructural === 'cordon_superior' ? { ...sg, profileId: perfilId, rolEstructural: 'viga_principal' } : sg;
   }
+  // Columnas que quedaron sin viga encima (p. ej. el arco parabólico apoya en el cordón
+  // inferior): se unen al nudo de viga más cercano de su mismo pórtico.
+  const enViga = new Set<string>();
+  Object.values(nuevosSegs).forEach(sg => { if (sg.rolEstructural === 'viga_principal') { enViga.add(sg.nodeAId); enViga.add(sg.nodeBId); } });
+  const noColumna = new Set<string>();
+  Object.values(nuevosSegs).forEach(sg => { if (sg.rolEstructural !== 'columna' && sg.rolEstructural !== 'arriostre') { noColumna.add(sg.nodeAId); noColumna.add(sg.nodeBId); } });
+  for (const sg of Object.values(nuevosSegs)) {
+    if (sg.rolEstructural !== 'columna') continue;
+    const a = nodes[sg.nodeAId], b = nodes[sg.nodeBId];
+    if (!a || !b) continue;
+    const top = a.y >= b.y ? a : b;
+    if (noColumna.has(top.id)) continue;
+    let mejor: Node3D | undefined, dMin = Infinity;
+    for (const id of enViga) {
+      const n = nodes[id];
+      if (!n || Math.abs((n.z || 0) - (top.z || 0)) > 0.05 || n.y < top.y - 0.01) continue;
+      const d = Math.hypot(n.x - top.x, n.y - top.y);
+      if (d < dMin) { dMin = d; mejor = n; }
+    }
+    if (mejor && dMin > 0.001 && dMin < 3) {
+      const id = `vs_union_${sg.id}`;
+      nuevosSegs[id] = { id, nodeAId: top.id, nodeBId: mejor.id, profileId: perfilId, rolEstructural: 'viga_principal' } as Segment3D;
+    }
+  }
   const enUso = new Set<string>();
   Object.values(nuevosSegs).forEach(sg => { enUso.add(sg.nodeAId); enUso.add(sg.nodeBId); });
   const nuevosNodos: Record<string, Node3D> = {};

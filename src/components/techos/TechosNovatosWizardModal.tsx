@@ -302,9 +302,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const numTijeralesNum = parseInt(numTijeralesStr);
   const numTijerales = Number.isNaN(numTijeralesNum) ? 5 : Math.max(2, numTijeralesNum);
   const numTijeralesBajo = !Number.isNaN(numTijeralesNum) && numTijeralesNum < 2;
-  const admiteVigaSimple = tipo === 'dos_aguas' || tipo === 'una_agua';
+  // Viga simple (sin tijeral): en los modelos que se arman con tijerales.
+  const admiteVigaSimple = !sinTijeral && !['mezzanine', 'cupula_domo', 'curvo_autoportante', 'dientes_sierra'].includes(tipo);
   const usaVigaSimple = admiteVigaSimple && vigaSimple;
-  const tramoVigaM = tipo === 'dos_aguas' ? luzM / 2 : luzM;
+  const tramoVigaM = tipo === 'una_agua' ? luzM : tipo === 'dientes_sierra' ? luzM / Math.max(1, parseInt(numDientesStr) || 3) : luzM / 2;
   const perfilViga = perfilVigaElegido || perfilVigaSugerido(tramoVigaM);
   const numDientes = Math.max(1, parseInt(numDientesStr) || 3);
   const alturaDienteM = Math.max(0.5, parseFloat(alturaDienteStr) || 1.8);
@@ -461,10 +462,13 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
       ? (parseFloat(customMontanteSpacing) || trussSpacingM)
       : (tipo === 'dos_aguas' ? undefined : luzM / Math.max(1, trussDivisions));
 
+    // Otros modelos: se arma la nave normal y el motor la deja con vigas simples.
+    if (usaVigaSimple && tipo !== 'dos_aguas' && tipo !== 'una_agua') engineState.pedirVigaSimple(perfilViga);
+
     if (tipo === 'parabolico') {
       const peralteArco = trussHeightM || Math.max(0.50, Math.min(1.20, Number((luzM / 18).toFixed(2))));
       engineState.generateRoofParabolic(luzM, largoM, alturaColM, flechaM, tipoTijeral, peralteArco, orientacionTijeral, numTijerales, undefined, spacingParam, perimetralBracingEnabled, tipoTijeralPerimetral);
-    } else if (usaVigaSimple) {
+    } else if (usaVigaSimple && (tipo === 'dos_aguas' || tipo === 'una_agua')) {
       // Viga simple: se arma la nave y se deja solo la viga superior en tubo rectangular.
       const nave = tipo === 'dos_aguas'
         ? engineState.generateRoofGable(luzM, largoM, alturaColM, pendientePct, 'escalera_vierendeel', 'vertical', numTijerales, undefined, trussDivisions, spacingParam, trussHeightM, false, undefined, true)
