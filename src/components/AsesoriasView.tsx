@@ -5,7 +5,7 @@ import {
   CheckCircle2, Building, Sparkles, Lock, ShieldCheck
 } from 'lucide-react';
 import { SystemUser } from '../types';
-import { simb } from '../lib/currency';
+import { simb, precioPEN, precioConSoles, aSoles, enMoneda, getCompanyCurrency } from '../lib/currency';
 
 export interface Asesoria {
   id: string;
@@ -126,7 +126,7 @@ export default function AsesoriasView({
     }
 
     const priceText = a.price !== undefined && !isNaN(Number(a.price))
-      ? `💰 *Precio:* ${simb()} ${Number(a.price).toFixed(2)} Soles`
+      ? `💰 *Precio:* ${precioConSoles(Number(a.price))}`
       : null;
 
     const lines = [
@@ -161,8 +161,8 @@ export default function AsesoriasView({
     if (!subject.trim() || !requestedDate) return;
     
     const assignedUser = usuariosList.find(u => u.id === assignedUserId);
-    const numericPrice = parseFloat(price);
-    const validPrice = !isNaN(numericPrice) && numericPrice >= 0 ? numericPrice : undefined;
+    const numericPrice = parseFloat(price.replace(',', '.'));
+    const validPrice = !isNaN(numericPrice) && numericPrice >= 0 ? aSoles(numericPrice) : undefined; // se guarda en soles
 
     const newAsesoria: Asesoria = {
       id: Date.now().toString(),
@@ -204,7 +204,7 @@ export default function AsesoriasView({
     setEditClientInfo(a.clientInfo || '');
     setEditAuthorPhone(a.authorPhone || '');
     setEditNotes(a.notes || '');
-    setEditPrice(a.price !== undefined ? a.price.toString() : '');
+    setEditPrice(a.price !== undefined ? String(enMoneda(a.price)) : '');
     setEditScheduledDate(a.scheduledDate || a.requestedDate || '');
     setEditScheduledTime(a.scheduledTime || '10:00 AM');
     setEditMeetLink(a.meetLink || '');
@@ -215,8 +215,8 @@ export default function AsesoriasView({
   };
 
   const handleSaveAdminResponse = (id: string, overrideStatus?: Asesoria['status']) => {
-    const numericPrice = parseFloat(editPrice);
-    const validPrice = !isNaN(numericPrice) && numericPrice >= 0 ? numericPrice : undefined;
+    const numericPrice = parseFloat(editPrice.replace(',', '.'));
+    const validPrice = !isNaN(numericPrice) && numericPrice >= 0 ? aSoles(numericPrice) : undefined; // se guarda en soles
     const finalStatus = overrideStatus || editStatus;
     const assignedUser = usuariosList.find(u => u.id === editAssignedUserId);
 
@@ -508,7 +508,7 @@ export default function AsesoriasView({
               {isAdmin && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
-                    Precio en Soles (Opcional)
+                    Precio en {getCompanyCurrency().name} (opcional)
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-3 text-slate-400 font-bold text-xs">{simb()}</span>
@@ -555,7 +555,7 @@ export default function AsesoriasView({
                 <p className="text-xs text-blue-700 leading-relaxed">
                   {isAdmin 
                     ? 'Al programar la asesoría, el usuario seleccionado recibirá el enlace de Google Meet/Zoom y una notificación directa en su Panel de Control.'
-                    : 'Al enviar la solicitud, el administrador confirmará la fecha, el enlace de Google Meet/Zoom y el costo en Soles (PEN).'}
+                    : 'Al enviar la solicitud, el administrador confirmará la fecha, el enlace de Google Meet/Zoom y el costo.'}
                 </p>
               </div>
 
@@ -828,7 +828,7 @@ export default function AsesoriasView({
                               <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
                                 <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Costo de Asesoría</p>
                                 <p className="text-xl font-bold text-emerald-600 font-mono">
-                                  {simb()} {Number(a.price).toFixed(2)}
+                                  {precioPEN(Number(a.price))}
                                 </p>
                               </div>
                             )}
@@ -1039,7 +1039,7 @@ export default function AsesoriasView({
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div>
                                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                                    Precio en Soles (S/.)
+                                    Precio ({simb()})
                                   </label>
                                   <div className="relative">
                                     <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">{simb()}</span>
@@ -1226,7 +1226,7 @@ export default function AsesoriasView({
                                 authorPhone: editAuthorPhone || a.authorPhone,
                                 notes: editNotes || a.notes,
                                 status: editStatus,
-                                price: parseFloat(editPrice) >= 0 ? parseFloat(editPrice) : a.price,
+                                price: parseFloat(editPrice.replace(',', '.')) >= 0 ? aSoles(parseFloat(editPrice.replace(',', '.'))) : a.price,
                                 scheduledDate: editScheduledDate || a.scheduledDate,
                                 scheduledTime: editScheduledTime || a.scheduledTime,
                                 meetLink: editMeetLink || a.meetLink,

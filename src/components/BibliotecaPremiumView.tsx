@@ -31,11 +31,7 @@ import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/Asisten
 import SliderDestacados, { videoDemo } from './common/SliderDestacados';
 import { usarPlantilla, NOMBRE_MODULO, detectarPlantilla } from '../lib/plantillas';
 import { comprasPermitidas } from '../lib/plataforma';
-import { 
-  getCompanyCurrency, 
-  convertAmount, 
-  formatCurrencyWithSymbol 
-} from '../lib/currency';
+import { getCompanyCurrency, convertAmount, formatCurrencyWithSymbol, precioPEN, precioConSoles } from '../lib/currency';
 import { 
   saveBibliotecaBackup, 
   getBibliotecaBackup,
@@ -326,7 +322,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
     const userIdentifier = currentUser?.name || userEmail || 'Colaborador';
     const isSpecialOffer = item.isOferta || (item.precioOriginalSoles && item.precioOriginalSoles > (item.precioSoles || 0));
     const offerBadge = isSpecialOffer ? '🔥 [OPCIÓN DESTACADA]' : '';
-    const message = `Hola Innova Contratistas, deseo habilitar el recurso técnico: "${item.titulo}" (Manual/Plano PDF). ${offerBadge}\n\n💵 Inversión: S/ ${item.precioSoles || 0} ${item.precioOriginalSoles ? `(Precio anterior: S/ ${item.precioOriginalSoles})` : ''}\n👤 Mi usuario/PIN es: ${userIdentifier}\n\nPor favor confirmar mi acceso para descarga.`;
+    const message = `Hola Innova Contratistas, deseo habilitar el recurso técnico: "${item.titulo}" (Manual/Plano PDF). ${offerBadge}\n\n💵 Inversión: ${precioConSoles(item.precioSoles || 0)} ${item.precioOriginalSoles ? `(Precio anterior: ${precioConSoles(item.precioOriginalSoles)})` : ''}\n👤 Mi usuario/PIN es: ${userIdentifier}\n\nPor favor confirmar mi acceso para descarga.`;
     const whatsappUrl = `https://wa.me/${adminPhone.replace('+', '')}?text=${encodeURIComponent(message)}`;
     try {
       const a = document.createElement('a');
@@ -1042,7 +1038,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
               
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                 <span className="font-bold text-slate-600">Inversión:</span>
-                <span className="text-base font-black text-indigo-600">S/ {(purchasingItem.precioSoles || 0).toFixed(2)}</span>
+                <span className="text-base font-black text-indigo-600">{precioPEN(purchasingItem.precioSoles || 0)}</span>
               </div>
             </div>
 

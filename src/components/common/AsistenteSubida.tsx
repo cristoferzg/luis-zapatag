@@ -17,6 +17,8 @@ import {
 import { uploadFileToFirebaseStorage } from '../../lib/storage';
 import { safeStorage } from '../../lib/storageManager';
 import { Plantilla, ModuloPlantilla, NOMBRE_MODULO, capturarDiseno, pesoKB, plantillaDesdeArchivo } from '../../lib/plantillas';
+import { precioPEN, simb, enMoneda, aSoles } from '../../lib/currency';
+import CampoNumero from '../CampoNumero';
 
 export interface AdjuntoSubido { nombre: string; url: string; tipo: string; tamano?: number }
 
@@ -230,8 +232,8 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
           <p className="text-[11px] text-slate-500 line-clamp-2">{b.descripcion || 'Descripción breve…'}</p>
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-baseline gap-1.5">
-              <span className={`text-base font-black ${b.isFree ? 'text-emerald-600' : 'text-slate-900'}`}>{b.isFree ? 'Gratis' : `S/ ${precioFinal.toFixed(2)}`}</span>
-              {tachado > 0 && <span className="text-[11px] text-slate-400 line-through">S/ {tachado.toFixed(2)}</span>}
+              <span className={`text-base font-black ${b.isFree ? 'text-emerald-600' : 'text-slate-900'}`}>{b.isFree ? 'Gratis' : precioPEN(precioFinal)}</span>
+              {tachado > 0 && <span className="text-[11px] text-slate-400 line-through">{precioPEN(tachado)}</span>}
             </div>
             {b.adjuntos.length > 0 && <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Paperclip className="w-3 h-3" />{b.adjuntos.length}</span>}
           </div>
@@ -465,12 +467,12 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
                   {!b.isFree && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className={etiqueta}>Precio (S/)</label>
-                        <input type="number" min={0} step="0.1" inputMode="decimal" className={campo} value={b.precio || ''} onChange={e => set({ precio: Number(e.target.value) || 0 })} />
+                        <label className={etiqueta}>Precio ({simb()})</label>
+                        <CampoNumero className={campo} min={0} step={0.1} value={b.precio ? enMoneda(b.precio) : undefined} permitirVacio onCommit={v => set({ precio: v ? aSoles(v) : 0 })} />
                       </div>
                       <div>
-                        <label className={etiqueta}>Precio antes (S/)</label>
-                        <input type="number" min={0} step="0.1" inputMode="decimal" className={campo} value={b.precioAntes || ''} onChange={e => set({ precioAntes: Number(e.target.value) || 0 })} placeholder="Opcional" />
+                        <label className={etiqueta}>Precio antes ({simb()})</label>
+                        <CampoNumero className={campo} min={0} step={0.1} value={b.precioAntes ? enMoneda(b.precioAntes) : undefined} permitirVacio placeholder="Opcional" onCommit={v => set({ precioAntes: v ? aSoles(v) : 0 })} />
                       </div>
                       <div>
                         <label className={etiqueta}><Tag className="w-3 h-3 inline -mt-0.5" /> Descuento %</label>

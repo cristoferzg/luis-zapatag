@@ -17,7 +17,7 @@ import { safeStorage } from '../lib/storageManager';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
 import SliderDestacados, { videoDemo } from './common/SliderDestacados';
 import { comprasPermitidas } from '../lib/plataforma';
-import { getCompanyCurrency, convertAmount, formatCurrencyWithSymbol } from '../lib/currency';
+import { getCompanyCurrency, convertAmount, formatCurrencyWithSymbol, precioPEN } from '../lib/currency';
 
 export interface TutorialVideo {
   id: string;
@@ -2059,7 +2059,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                     <p className="text-slate-500 text-xs font-bold">Curso: {targetPurchaseVideo.category}</p>
                   </>
                 )}
-                <p className="text-emerald-600 font-black text-lg mt-1">S/ {getEffectivePrice(targetPurchaseVideo).toFixed(2)}</p>
+                <p className="text-emerald-600 font-black text-lg mt-1">{precioPEN(getEffectivePrice(targetPurchaseVideo))}</p>
               </div>
 
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1 text-xs text-slate-600 leading-relaxed">
@@ -2078,7 +2078,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                   className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95 cursor-pointer"
                 >
                   <MessageCircle className="w-4 h-4 text-white" />
-                  <span>Comprar por WhatsApp (S/ {getEffectivePrice(targetPurchaseVideo).toFixed(2)})</span>
+                  <span>Comprar por WhatsApp ({precioPEN(getEffectivePrice(targetPurchaseVideo))})</span>
                 </button>
                 <button
                   type="button"

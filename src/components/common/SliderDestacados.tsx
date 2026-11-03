@@ -2,6 +2,7 @@
 // deslizar con el dedo y cada lámina tiene su botón de acción.
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
+import { precioPEN } from '../../lib/currency';
 
 export interface LaminaSlider {
   id: string;
@@ -105,8 +106,8 @@ export default function SliderDestacados({ laminas }: { laminas: LaminaSlider[] 
                 {l.descripcion && <p className="text-xs sm:text-sm text-slate-200 line-clamp-2">{l.descripcion}</p>}
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   {!l.sinPrecio && <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black text-white">{l.gratis ? 'Gratis' : `S/ ${final.toFixed(2)}`}</span>
-                    {antes > 0 && <span className="text-sm text-slate-300 line-through">S/ {antes.toFixed(2)}</span>}
+                    <span className="text-2xl font-black text-white">{l.gratis ? 'Gratis' : precioPEN(final)}</span>
+                    {antes > 0 && <span className="text-sm text-slate-300 line-through">{precioPEN(antes)}</span>}
                   </div>}
                   <button type="button" onClick={l.onAccion} className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 text-sm font-black shadow cursor-pointer">{l.textoBoton}</button>
                 </div>

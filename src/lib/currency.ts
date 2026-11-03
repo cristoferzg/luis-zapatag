@@ -164,3 +164,15 @@ export const simb = (): string => getCompanyCurrency().symbol;
 
 /** Monto con la moneda de la empresa: "S/ 1,234.50", "$ 1,234.50"… */
 export const dinero = (amount: number): string => formatCurrencyWithSymbol(amount);
+
+// ── Precios de la plataforma (planes, créditos, cursos, recursos, asesorías) ──
+// Se guardan en soles y se muestran / editan en la moneda elegida en Configuración.
+/** Soles → moneda de la empresa (número, 2 decimales). */
+export const enMoneda = (soles: number): number => Math.round(convertAmount(soles || 0, 'PEN', getCompanyCurrency().code) * 100) / 100;
+/** Soles → texto con la moneda de la empresa: "$ 5.31". */
+export const precioPEN = (soles: number): string => formatCurrencyWithSymbol(enMoneda(soles));
+/** Lo escrito en la moneda de la empresa → soles, para guardarlo. */
+export const aSoles = (v: number): number => Math.round(convertAmount(v || 0, getCompanyCurrency().code, 'PEN') * 100) / 100;
+/** Para mensajes de WhatsApp al administrador: el precio y, si no es soles, su valor en soles. */
+export const precioConSoles = (soles: number): string =>
+  getCompanyCurrency().code === 'PEN' ? precioPEN(soles) : `${precioPEN(soles)} (S/ ${(soles || 0).toFixed(2)})`;

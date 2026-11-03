@@ -13,9 +13,9 @@ import {
 } from '../lib/aiAccess';
 import { comprasPermitidas } from '../lib/plataforma';
 import { safeStorage } from '../lib/storageManager';
+import { precioPEN, precioConSoles } from '../lib/currency';
 
 const WA_ADMIN = '51966000500';
-const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const abrirWhatsApp = (msg: string) => {
   const a = document.createElement('a');
@@ -48,7 +48,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
     const periodo = anual && plan.precioAnualSoles ? 'anual' : 'mensual';
     try { if (ctx.userId) await solicitarPlanIA(ctx.userId, ctx.userName, plan, periodo); } catch { /* ignore */ }
     setEnviado(plan.id);
-    const precio = periodo === 'anual' ? `S/ ${plan.precioAnualSoles!.toFixed(2)} al año` : `S/ ${plan.precioSoles.toFixed(2)} al mes`;
+    const precio = periodo === 'anual' ? `${precioConSoles(plan.precioAnualSoles!)} al año` : `${precioConSoles(plan.precioSoles)} al mes`;
     abrirWhatsApp(`Hola Innova Contratistas, quiero activar el *Plan ${plan.nombre}* (${precio}, ${plan.creditosMes} créditos al mes).\n👤 Mi usuario: ${ctx.userName || ctx.userId}\nPor favor habilitarlo.`);
   };
 
@@ -56,7 +56,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
     if (!acepto) return;
     try { if (ctx.userId) await solicitarCreditos(ctx.userId, ctx.userName, p); } catch { /* ignore */ }
     setEnviado(p.id);
-    abrirWhatsApp(`Hola Innova Contratistas, quiero una *recarga de ${p.creditos} créditos* (S/ ${p.precioSoles.toFixed(2)}).\n👤 Mi usuario: ${ctx.userName || ctx.userId}`);
+    abrirWhatsApp(`Hola Innova Contratistas, quiero una *recarga de ${p.creditos} créditos* (${precioConSoles(p.precioSoles)}).\n👤 Mi usuario: ${ctx.userName || ctx.userId}`);
   };
 
   const pagos = planes.filter(p => p.precioSoles > 0);
@@ -105,10 +105,10 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
                   {p.destacado && <span className="absolute -top-2.5 left-4 text-[10px] font-black bg-amber-400 text-amber-950 rounded-full px-2.5 py-0.5">MÁS ELEGIDO</span>}
                   <h4 className="text-base font-black text-slate-900">{p.nombre}</h4>
                   <p className="mt-1">
-                    <span className="text-3xl font-black text-slate-900">S/ {S(esAnual ? p.precioAnualSoles! : p.precioSoles)}</span>
+                    <span className="text-3xl font-black text-slate-900">{precioPEN(esAnual ? p.precioAnualSoles! : p.precioSoles)}</span>
                     <span className="text-xs text-slate-500 font-bold">{esAnual ? '/año' : '/mes'}</span>
                   </p>
-                  {esAnual && <p className="text-[11px] font-bold text-emerald-700">Ahorras S/ {S(p.precioSoles * 12 - p.precioAnualSoles!)} al año</p>}
+                  {esAnual && <p className="text-[11px] font-bold text-emerald-700">Ahorras {precioPEN(p.precioSoles * 12 - p.precioAnualSoles!)} al año</p>}
                   <p className="text-sm font-bold text-slate-700 mt-2 flex items-center gap-1.5"><Zap className="w-4 h-4 text-amber-500" />{p.creditosMes.toLocaleString('es-PE')} créditos al mes</p>
                   <p className="text-[11px] text-slate-500">≈ {p.creditosMes.toLocaleString('es-PE')} boletas o {Math.floor(p.creditosMes / COSTO_CREDITOS.croquis)} planos</p>
                   <ul className="text-xs text-slate-600 mt-3 space-y-1.5 flex-1">
@@ -134,7 +134,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
                     className={`rounded-xl border p-3 text-left cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-default ${enviado === k.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50'}`}>
                     <span className="block text-lg font-black text-slate-900">+{k.creditos}</span>
                     <span className="block text-[11px] text-slate-500">créditos</span>
-                    <span className="block text-sm font-black text-slate-800 mt-1">{enviado === k.id ? '✓ Enviado' : `S/ ${k.precioSoles.toFixed(2)}`}</span>
+                    <span className="block text-sm font-black text-slate-800 mt-1">{enviado === k.id ? '✓ Enviado' : precioPEN(k.precioSoles)}</span>
                   </button>
                 ))}
               </div>

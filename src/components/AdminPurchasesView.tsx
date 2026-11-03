@@ -6,6 +6,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { CourseCategory, TutorialVideo } from './UsabilidadVideosView';
 import { grantAIPlan, grantCreditos } from '../lib/aiAccess';
+import { precioPEN } from '../lib/currency';
 
 interface Purchase {
   id: string;
@@ -142,7 +143,7 @@ export default function AdminPurchasesView() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="font-black text-slate-900 text-sm leading-tight break-words">{purchase.itemName}</h3>
-                  {purchase.amount ? <span className="shrink-0 text-sm font-black text-slate-900">S/ {S(purchase.amount)}</span> : null}
+                  {purchase.amount ? <span className="shrink-0 text-sm font-black text-slate-900">{precioPEN(purchase.amount)}</span> : null}
                 </div>
                 <p className="text-xs font-bold text-slate-600 mt-0.5 truncate">{purchase.userName || 'Usuario'} <span className="font-mono font-medium text-slate-400 text-[10px]">{purchase.userId}</span></p>
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">

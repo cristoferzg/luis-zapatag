@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { auth } from '../lib/firebase';
 import { Sparkles, Save, Check, Coins } from 'lucide-react';
 import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios } from '../lib/aiAccess';
+import { simb, enMoneda, aSoles } from '../lib/currency';
+import CampoNumero from './CampoNumero';
 
 const campo = 'w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none bg-white';
 const etiqueta = 'text-[11px] font-bold text-slate-500 uppercase tracking-wide';
@@ -98,12 +100,12 @@ export default function PlanesIAAdminPanel() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className={etiqueta}>S/ al mes</label>
-                <input type="number" step="0.10" min="0" value={p.precioSoles} disabled={p.id === 'gratis'} onChange={e => updPlan(i, { precioSoles: n(e.target.value) })} className={campo} />
+                <label className={etiqueta}>{simb()} al mes</label>
+                <CampoNumero step={0.1} min={0} value={enMoneda(p.precioSoles)} disabled={p.id === 'gratis'} onCommit={v => updPlan(i, { precioSoles: aSoles(v || 0) })} className={campo} />
               </div>
               <div>
-                <label className={etiqueta}>S/ al año</label>
-                <input type="number" step="1" min="0" value={p.precioAnualSoles || ''} placeholder="—" disabled={p.id === 'gratis'} onChange={e => updPlan(i, { precioAnualSoles: n(e.target.value) || undefined })} className={campo} />
+                <label className={etiqueta}>{simb()} al año</label>
+                <CampoNumero step={1} min={0} value={p.precioAnualSoles ? enMoneda(p.precioAnualSoles) : undefined} permitirVacio placeholder="—" disabled={p.id === 'gratis'} onCommit={v => updPlan(i, { precioAnualSoles: v ? aSoles(v) : undefined })} className={campo} />
               </div>
             </div>
             <div>
@@ -127,7 +129,7 @@ export default function PlanesIAAdminPanel() {
           {packs.map((k, i) => (
             <div key={i} className="grid grid-cols-2 gap-2">
               <div><label className={etiqueta}>Créditos</label><input type="number" min="1" value={k.creditos} onChange={e => updPack(i, { creditos: Math.round(n(e.target.value)) })} className={campo} /></div>
-              <div><label className={etiqueta}>Precio S/</label><input type="number" step="0.10" min="0" value={k.precioSoles} onChange={e => updPack(i, { precioSoles: n(e.target.value) })} className={campo} /></div>
+              <div><label className={etiqueta}>Precio {simb()}</label><CampoNumero step={0.1} min={0} value={enMoneda(k.precioSoles)} onCommit={v => updPack(i, { precioSoles: aSoles(v || 0) })} className={campo} /></div>
             </div>
           ))}
         </div>
