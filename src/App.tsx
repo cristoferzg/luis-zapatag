@@ -1569,10 +1569,14 @@ function BotonMasFlotante({ label, objetivo, revisar, onClick }: { label: string
   const [escribe, setEscribe] = useState(false);
   useEffect(() => {
     const es = (e: Event) => { const t = e.target as HTMLElement; return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); };
-    const on = (e: Event) => { if (es(e)) setEscribe(true); };
-    const off = (e: Event) => { if (es(e)) setEscribe(false); };
+    // Al terminar de escribir NO reaparece al instante: en el celular el toque que cierra el
+    // teclado (p. ej. en "Registrar Acceso") caía sobre el + que volvía a salir encima de ese
+    // botón y el formulario parecía trabado. Espera a que el teclado se cierre.
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const on = (e: Event) => { if (es(e)) { clearTimeout(t); setEscribe(true); } };
+    const off = (e: Event) => { if (es(e)) { clearTimeout(t); t = setTimeout(() => setEscribe(false), 900); } };
     document.addEventListener('focusin', on); document.addEventListener('focusout', off);
-    return () => { document.removeEventListener('focusin', on); document.removeEventListener('focusout', off); };
+    return () => { clearTimeout(t); document.removeEventListener('focusin', on); document.removeEventListener('focusout', off); };
   }, []);
   if (sobra || escribe) return null;
   return (
