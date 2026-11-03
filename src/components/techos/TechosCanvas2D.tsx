@@ -363,6 +363,9 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const handleToolsPanelPointerDown = (e: React.PointerEvent) => {
     const target = e.target as HTMLElement;
     if (!target.closest('.drag-handle-tools')) return;
+    // Los botones de la cabecera (cerrar) no inician el arrastre: si no, el arrastre
+    // se quedaba con el clic y el botón no respondía.
+    if (target.closest('button')) return;
     e.stopPropagation();
     isDraggingToolsPanelRef.current = true;
     
@@ -3138,7 +3141,12 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             { id: 'draw_correa', label: 'Correa', Icon: Grid },
             { id: 'measure', label: 'Medir', Icon: Ruler },
           ];
-          const openMas = () => { setShowFloatingToolsPanel(true); setIsToolsPanelCollapsed(false); };
+          const openMas = () => {
+            // En PC se abre arriba a la derecha (no tapa la barra de herramientas ni el dibujo).
+            const w = containerRef.current?.clientWidth || 0;
+            if (isDesktop && w > 400) setFloatingToolsPanelPos({ x: Math.max(16, w - 288 - 16), y: 64 });
+            setShowFloatingToolsPanel(true); setIsToolsPanelCollapsed(false);
+          };
           if (isDesktop) {
             return (
               <div className="absolute left-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-1.5 shadow-xl">
