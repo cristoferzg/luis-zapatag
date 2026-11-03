@@ -1,7 +1,7 @@
 // InnovApp para Windows (Innova Contratistas).
 // Abre la web publicada en su propia ventana, como un programa: así cada
 // "firebase deploy" llega también a la PC sin reinstalar nada.
-const { app, BrowserWindow, Menu, shell, screen } = require('electron');
+const { app, BrowserWindow, Menu, shell, screen, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -43,7 +43,8 @@ function crearVentana() {
     backgroundColor: '#0f2a4a',
     show: false,
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true },
+    // backgroundThrottling: que la grabación del 3D no se frene si la ventana queda detrás.
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true, backgroundThrottling: false },
   });
   win.webContents.setUserAgent(`${win.webContents.getUserAgent()} ${AGENTE}`);
   win.once('ready-to-show', () => { if (v.maximizada) win.maximize(); win.show(); });
@@ -61,6 +62,23 @@ function crearVentana() {
   win.webContents.on('will-navigate', (e, url) => {
     if (url.startsWith('file:')) return;
     if (!url.startsWith(ORIGEN)) { e.preventDefault(); shell.openExternal(url); }
+  });
+
+  // Descargas (videos 3D, PDF, DXF…): directo a Descargas\InnovApp, sin preguntar,
+  // con aviso al terminar y la carpeta abierta con el archivo marcado.
+  win.webContents.session.on('will-download', (_e, item) => {
+    const dir = path.join(app.getPath('downloads'), 'InnovApp');
+    try { fs.mkdirSync(dir, { recursive: true }); } catch { /* ya existe */ }
+    const base = item.getFilename() || 'archivo';
+    const ext = path.extname(base), nom = path.basename(base, ext);
+    let destino = path.join(dir, base), i = 1;
+    while (fs.existsSync(destino)) destino = path.join(dir, `${nom} (${i++})${ext}`);
+    item.setSavePath(destino);
+    item.once('done', (_ev, estado) => {
+      if (estado !== 'completed') return;
+      try { new Notification({ title: 'Archivo guardado', body: `${path.basename(destino)} — en Descargas\\InnovApp`, icon: path.join(__dirname, 'icon.png') }).show(); } catch { /* sin avisos */ }
+      shell.showItemInFolder(destino);
+    });
   });
 
   // Sin internet: pantalla propia con "Reintentar".

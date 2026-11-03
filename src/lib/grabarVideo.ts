@@ -22,6 +22,18 @@ export const puedeGrabar = (canvas?: HTMLCanvasElement | null) =>
  * Graba el canvas durante `duracionMs` (o hasta llamar a detener) y descarga
  * el archivo `<nombre>_<fecha>.mp4`. Devuelve null si no se puede grabar.
  */
+/** Aviso flotante mientras se prepara el video (la conversión puede tardar unos segundos). */
+function avisoPreparando(): () => void {
+  try {
+    const d = document.createElement('div');
+    d.setAttribute('role', 'status');
+    d.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:9999;background:#0f2a4a;color:#fff;font:700 13px system-ui,sans-serif;padding:10px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.25)';
+    d.textContent = '🎬 Preparando tu video… (unos segundos)';
+    document.body.appendChild(d);
+    return () => { try { d.remove(); } catch { /* nada */ } };
+  } catch { return () => {}; }
+}
+
 export function grabarCanvas(canvas: HTMLCanvasElement, nombre: string, opts: { duracionMs?: number; onFin?: (ext: string) => void; onPreparando?: () => void } = {}) {
   const fmt = formatoVideo();
   if (!fmt || typeof (canvas as any).captureStream !== 'function') return null;
@@ -38,11 +50,14 @@ export function grabarCanvas(canvas: HTMLCanvasElement, nombre: string, opts: { 
     // La grabación del navegador sale como MP4 fragmentado (o WebM) que WhatsApp no
     // reconoce: se convierte a un MP4 normal H.264. Si no se puede, queda el original.
     opts.onPreparando?.();
+    const quitarAviso = avisoPreparando();
     try {
       const { videoParaWhatsApp } = await import('./comprimirVideo');
-      const listo = await videoParaWhatsApp(blob);
+      // Si el equipo tarda demasiado en convertir (algunas PC con Windows), se entrega el original.
+      const listo = await Promise.race([videoParaWhatsApp(blob), new Promise<null>(ok => setTimeout(() => ok(null), 45_000))]);
       if (listo) { blob = listo; ext = 'mp4'; }
     } catch { /* se descarga el original */ }
+    quitarAviso();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
