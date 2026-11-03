@@ -13,6 +13,7 @@ import type { ContratoPropuesta } from './contratoPropuesta';
 import { collection, addDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db, auth, authReady } from './firebase';
 import { safeStorage } from './storageManager';
+import { getCompanyCurrency } from './currency';
 
 export interface PropuestaPublica {
   empresa: { nombre: string; telefono: string; ruc: string; logo: string; color: string };
@@ -31,6 +32,8 @@ export interface PropuestaPublica {
   estado?: 'enviada' | 'aceptada';
   aceptadaOpcion?: number; aceptadaNombre?: string; aceptadaEn?: string;
   creadaEn?: string; autor?: string;
+  /** Moneda de la empresa al crear el link (código ISO): el cliente la ve igual en su navegador. */
+  moneda?: string;
 }
 
 /** Lo que queda a la vista en la base (el resto va cifrado). */
@@ -82,6 +85,7 @@ export async function publicarPropuesta(p: PropuestaPublica, clave: string): Pro
   if (!claveValida(clave)) throw new Error('Escribe el DNI (8 dígitos) o el celular (9 dígitos) del cliente.');
   const creadaEn = new Date().toISOString();
   const contenido: PropuestaPublica = JSON.parse(JSON.stringify(p));
+  if (!contenido.moneda) contenido.moneda = getCompanyCurrency().code;
   const armar = async (): Promise<DocCifrado> => ({
     v: 2, ...(await cifrar(contenido, clave)), pista: pistaDe(clave),
     empresa: { nombre: p.empresa.nombre, color: p.empresa.color, logo: p.empresa.logo },

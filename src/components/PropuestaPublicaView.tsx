@@ -8,7 +8,7 @@ import { CheckCircle2, Send, Loader2, Lock, FileSignature, ShieldCheck } from 'l
 import { leerPropuesta, aceptarPropuesta, abrirPropuesta, claveValida, PropuestaPublica, PropuestaBloqueada } from '../lib/propuestas';
 import { clausulasContrato } from '../lib/contratoPropuesta';
 import { sinOcultos } from './concreto/obraPisos';
-import { simb } from '../lib/currency';
+import { simb, WORLD_CURRENCIES, saveCompanyCurrency, getCompanyCurrency } from '../lib/currency';
 
 const TechosViewer3D = lazy(() => import('./techos/TechosViewer3D').then(m => ({ default: m.TechosViewer3D })));
 const ConcretoViewer3D = lazy(() => import('./ConcretoViewer3D'));
@@ -77,6 +77,9 @@ export default function PropuestaPublicaView({ id }: { id: string }) {
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const mostrar = (d: PropuestaPublica) => {
+    // Montos en la moneda de la empresa que envió la propuesta (las antiguas eran en soles).
+    const mon = WORLD_CURRENCIES.find(c => c.code === (d.moneda || 'PEN'));
+    if (mon && mon.code !== getCompanyCurrency().code) saveCompanyCurrency(mon);
     setP(d); setEstado('ok');
     setVer3d(!d.imagen && (Object.keys(d.escena?.nodes || {}).length > 0 || !!d.obra?.elems?.length)); // sin foto: el 3D se ve directo
     setElegida(d.aceptadaOpcion ?? Math.max(0, d.opciones.findIndex(o => o.recomendada)));

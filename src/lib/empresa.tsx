@@ -119,7 +119,7 @@ export function BandaMarca() {
 const PALETA_MARCA = ['#f59e0b', '#ea580c', '#dc2626', '#16a34a', '#0d9488', '#2563eb', '#4f46e5', '#7c3aed', '#0f172a'];
 
 /** Condiciones comerciales: adelanto y saldo, validez, garantía y notas. Editables (se guardan en Configuración). */
-export function CondicionesComerciales({ total, moneda = 'S/' }: { total: number; moneda?: string }) {
+export function CondicionesComerciales({ total, moneda = getCompanyCurrency().symbol }: { total: number; moneda?: string }) {
   const { datos, guardar } = useEmpresa();
   const c = condicionesDe(datos);
   const [editando, setEditando] = useState(false);
