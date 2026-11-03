@@ -53,6 +53,7 @@ import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCa
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { perfilesQueCumplen } from './memoriaCalculo';
 import { safeStorage } from '../../lib/storageManager';
+import { tomarArchivoCompartido } from '../../lib/archivosCompartidos';
 import { 
   SavedTechosDesign, 
   fetchAllTechosDesigns, 
@@ -651,6 +652,14 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       setTimeout(() => setShowSavedNotification(false), 2500);
     }
   };
+
+  // Diseño .json compartido con la app desde otra aplicación (Compartir → InnovApp).
+  useEffect(() => {
+    const abrir = () => { const a = tomarArchivoCompartido('techos'); if (a) handleImportJson(a.data, a.nombre); };
+    const t = setTimeout(abrir, 300);
+    window.addEventListener('innova_archivo_pendiente', abrir);
+    return () => { clearTimeout(t); window.removeEventListener('innova_archivo_pendiente', abrir); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExportDxf = () => {
     const dxfString = engineState.exportDxf(nombreProyecto);

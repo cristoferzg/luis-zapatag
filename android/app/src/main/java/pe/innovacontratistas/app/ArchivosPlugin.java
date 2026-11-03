@@ -95,4 +95,15 @@ public class ArchivosPlugin extends Plugin {
             call.reject("No se pudo descargar", e instanceof Exception ? (Exception) e : null);
         }
     }
+
+    // ── Archivos compartidos con InnovApp ("Compartir" / "Abrir con" de Android) ──
+    static JSObject compartidoPendiente = null;
+
+    /** La web lo pide al abrir o al volver a la app: entrega el archivo una sola vez. */
+    @PluginMethod
+    public void tomarCompartido(PluginCall call) {
+        JSObject r = compartidoPendiente != null ? compartidoPendiente : new JSObject();
+        compartidoPendiente = null;
+        call.resolve(r);
+    }
 }

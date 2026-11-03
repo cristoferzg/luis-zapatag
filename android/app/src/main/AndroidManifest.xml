@@ -22,6 +22,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- InnovApp aparece en "Compartir" y "Abrir con" para los diseños .json -->
+            <intent-filter android:label="InnovApp">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/json" />
+            </intent-filter>
+            <intent-filter android:label="InnovApp">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="text/json" />
+            </intent-filter>
+
         </activity>
 
         <!-- Avisos push (Firebase Cloud Messaging): ícono blanco de Innova, color naranja y canal "avisos" -->

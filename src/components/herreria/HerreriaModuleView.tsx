@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom';
+import { tomarArchivoCompartido } from '../../lib/archivosCompartidos';
 // Módulo Principal e Independiente de HERRERÍA para Innova Contratistas Manager
 // Cumple estrictamente todos los lineamientos solicitados para el módulo de Herrería
 import { importarDisenoJson } from './importarDisenoJson';
@@ -228,6 +229,14 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
     setActiveTab('cad');
     setAvisoImport({ ok: true, texto: `✓ "${r.design.nombre}" importado con ${r.design.piezas.length} piezas.${r.avisos.length ? ' ' + r.avisos.join(' ') : ''}` });
   };
+
+  // Diseño .json compartido con la app desde otra aplicación (Compartir → InnovApp).
+  useEffect(() => {
+    const abrir = () => { const a = tomarArchivoCompartido('herreria'); if (a) handleImportJson(a.data, a.nombre); };
+    const t = setTimeout(abrir, 300);
+    window.addEventListener('innova_archivo_pendiente', abrir);
+    return () => { clearTimeout(t); window.removeEventListener('innova_archivo_pendiente', abrir); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Exportar archivo AutoCAD DXF
   const handleExportDxf = () => {
