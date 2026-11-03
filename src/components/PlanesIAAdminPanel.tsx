@@ -6,7 +6,8 @@
 import { useEffect, useState } from 'react';
 import { auth } from '../lib/firebase';
 import { Sparkles, Save, Check, Coins } from 'lucide-react';
-import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios } from '../lib/aiAccess';
+import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios, setComprasEnApp } from '../lib/aiAccess';
+import { comprasEnAppActivas } from '../lib/plataforma';
 import { simb, enMoneda, aSoles } from '../lib/currency';
 import CampoNumero from './CampoNumero';
 
@@ -22,7 +23,8 @@ export default function PlanesIAAdminPanel() {
 
   const [activa, setActiva] = useState(false);
   const [confirmar, setConfirmar] = useState(false);
-  useEffect(() => { getConfigIA().then(c => { setPlanes(c.planes); setPacks(c.packs); }); cargarEstadoIA().then(setActiva); }, []);
+  const [enApp, setEnApp] = useState(comprasEnAppActivas());
+  useEffect(() => { getConfigIA().then(c => { setPlanes(c.planes); setPacks(c.packs); }); cargarEstadoIA().then(v => { setActiva(v); setEnApp(comprasEnAppActivas()); }); }, []);
 
   const cambiarActiva = async (v: boolean) => {
     setError(null);
@@ -89,6 +91,20 @@ export default function PlanesIAAdminPanel() {
             {error && <p className="text-[11px] font-bold text-rose-600">{error}</p>}
           </div>
         )}
+      </div>
+
+      {/* Interruptor: compras dentro de la app de Android */}
+      <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${enApp ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div>
+          <p className="text-sm font-black text-slate-800">Compras dentro de la app de Android: {enApp ? <span className="text-emerald-700">PERMITIDAS</span> : <span className="text-slate-500">SOLO EN LA WEB</span>}</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            {enApp ? 'Desde la app se pueden pedir planes, recargas, cursos y recursos (pago por WhatsApp/Yape). Apágalo si publicas la app en Play Store: Google exige su propio cobro.' : 'En la app solo se ve el saldo; para comprar hay que entrar a la web.'}
+          </p>
+        </div>
+        <button onClick={async () => { setError(null); try { await setComprasEnApp(!enApp); setEnApp(!enApp); } catch (e) { setError(await motivoError(e, 'cambiar las compras en la app')); } }}
+          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-black cursor-pointer ${enApp ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
+          {enApp ? 'Solo en la web' : 'Permitir en la app'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

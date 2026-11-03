@@ -15,6 +15,7 @@
 // =============================================================================
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { fijarComprasEnApp } from './plataforma';
 
 export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2 } as const;
 /** Regalo de bienvenida: créditos extra (no vencen) que cada cuenta recibe una sola vez,
@@ -67,8 +68,15 @@ export async function cargarEstadoIA(): Promise<boolean> {
   try {
     const s = await getDoc(doc(db, 'config_ia', 'planes'));
     _habilitadaUsuarios = s.exists() && (s.data() as any)?.habilitadaUsuarios === true;
+    fijarComprasEnApp(!(s.exists() && (s.data() as any)?.comprasEnApp === false));
   } catch { _habilitadaUsuarios = false; }
   return _habilitadaUsuarios;
+}
+
+/** Permite o no comprar planes, recargas, cursos y recursos dentro de la app de Android (solo admin). */
+export async function setComprasEnApp(v: boolean): Promise<void> {
+  await setDoc(doc(db, 'config_ia', 'planes'), { comprasEnApp: v }, { merge: true });
+  fijarComprasEnApp(v);
 }
 
 /** Enciende o apaga la IA para los usuarios (solo admin). */

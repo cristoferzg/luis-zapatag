@@ -1445,7 +1445,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
         const perfilActivo = PERFILES_CATALOGO.find(p => p.id === perfilActivoId) || PERFILES_CATALOGO[0];
 
         return (
-          <div className="barra-dibujo absolute top-2 sm:top-3 left-2 sm:left-3 z-30 flex items-center gap-1.5 sm:gap-2 pointer-events-auto max-w-[calc(100vw-16px)] select-none">
+          <div className={`barra-dibujo absolute top-2 sm:top-3 left-2 sm:left-3 z-30 flex items-center gap-1.5 sm:gap-2 pointer-events-auto select-none ${esCelular ? 'right-[100px] min-w-0' : 'max-w-[calc(100vw-16px)]'}`}>
             {/* BOTÓN 1: HERRAMIENTA ACTIVA (DROPDOWN TÁCTIL) */}
             <div className="relative">
               <button
@@ -1721,14 +1721,14 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
             </div>
 
             {/* BOTÓN 2: PERFIL COMERCIAL Y VISTAS CAD (DROPDOWN TÁCTIL) */}
-            <div className="relative">
+            <div className="relative min-w-0">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowConfigDropdown(prev => !prev);
                   setShowToolDropdown(false);
                 }}
-                className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-md border text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                className={`max-w-full min-w-0 overflow-hidden flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-md border text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                   showConfigDropdown 
                     ? 'border-indigo-500 ring-2 ring-indigo-400/40 text-indigo-700 bg-indigo-50' 
                     : 'border-slate-200/90 text-slate-800 hover:bg-slate-50'
@@ -1738,13 +1738,13 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
                 <span className="p-1 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
                   <Layers className="w-3.5 h-3.5" />
                 </span>
-                <div className="flex items-center gap-1 max-w-[85px] sm:max-w-[200px] truncate text-left">
-                  <span className="font-black text-slate-900 truncate text-[11px] sm:text-xs">{perfilActivo.dimensiones}</span>
+                <div className="flex items-center gap-1 min-w-0 sm:max-w-[200px] truncate text-left">
+                  <span className={`font-black text-slate-900 truncate text-[11px] sm:text-xs ${esCelular ? 'hidden' : ''}`}>{perfilActivo.dimensiones}</span>
                   <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-extrabold uppercase shrink-0">
                     {currentVista === 'superior' ? 'Planta' : currentVista}
                   </span>
                 </div>
-                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${showConfigDropdown ? 'rotate-180 text-indigo-600' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${esCelular ? 'hidden' : ''} ${showConfigDropdown ? 'rotate-180 text-indigo-600' : ''}`} />
               </button>
 
               {/* Menú Desplegable de Perfil, Vistas e Inspector */}
