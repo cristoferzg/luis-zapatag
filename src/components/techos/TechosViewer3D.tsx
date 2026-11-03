@@ -464,6 +464,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const panelDragStartRef = useRef<{ clientX: number; clientY: number; posX: number; posY: number }>({ clientX: 0, clientY: 0, posX: 0, posY: 0 });
   const panelContainerRef = useRef<HTMLDivElement | null>(null);
   // Minimizado se recuerda: si el usuario lo achicó, la próxima selección también sale chica.
+  // Celular: barra de opciones del 3D plegada (se abre con "Opciones 3D").
+  const [barra3dAbierta, setBarra3dAbierta] = useState(false);
   const [isPanelCollapsed, setIsPanelCollapsedEstado] = useState<boolean>(() => { try { return localStorage.getItem('innova_inspector3d_min') === '1'; } catch { return false; } });
   const setIsPanelCollapsed = (v: boolean) => { setIsPanelCollapsedEstado(v); try { localStorage.setItem('innova_inspector3d_min', v ? '1' : '0'); } catch { /* sin almacenamiento */ } };
   // Pista de uso del 3D: unos segundos y solo las primeras 3 veces (después estorbaba).
@@ -3673,7 +3675,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     <div className="relative w-full h-full flex flex-col bg-slate-950 overflow-hidden select-none touch-none">
       {/* Calidad del 3D (solo celular/tablet) */}
       <button type="button" onClick={() => setCalidad3d(calidad === 'alta' ? 'ahorro' : 'alta')} title="Alta: nítido como en la PC · Ahorro: más fluido y menos batería"
-        className="md:hidden absolute left-2 bottom-14 z-30 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-black shadow border cursor-pointer bg-white text-slate-700 border-slate-200">
+        className={`${barra3dAbierta ? 'md:hidden' : 'hidden'} absolute left-2 bottom-14 z-30 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-black shadow border cursor-pointer bg-white text-slate-700 border-slate-200`}>
         Calidad: <span className={calidad === 'alta' ? 'text-emerald-600' : 'text-amber-600'}>{calidad === 'alta' ? 'Alta' : 'Ahorro'}</span>
       </button>
       {/* Canvas 3D con Giroscopio Espacial y Soporte Táctil/Pointer Completo */}
@@ -3886,7 +3888,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       })()}
 
       {/* WIDGET VISUAL DE ORIENTACIÓN ESPACIAL / GIROSCOPIO 3D */}
-      <div className="absolute bottom-3 right-3 pointer-events-none z-10 flex flex-col items-end gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+      <div className="absolute bottom-3 right-3 pointer-events-none z-10 hidden sm:flex flex-col items-end gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
         <div className="bg-slate-900/90 border border-slate-700/70 backdrop-blur-md rounded-2xl p-2 shadow-xl flex items-center gap-2 text-[10px] font-mono text-slate-300">
           <Compass className="w-4 h-4 text-sky-400" />
           <div className="flex items-center gap-2">
@@ -3900,8 +3902,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       {/* BARRA SUPERIOR ELEGANTE Y COMPLETA */}
       <div className="absolute top-2 sm:top-3 inset-x-2 sm:inset-x-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-20 max-w-[calc(100vw-16px)]">
         
+        {/* Celular: la barra del 3D va plegada en un botón para que se vea el techo */}
+        <button type="button" onClick={() => setBarra3dAbierta(v => !v)} aria-expanded={barra3dAbierta}
+          className="sm:hidden pointer-events-auto inline-flex items-center gap-1.5 h-10 px-3 rounded-2xl bg-white/95 border border-slate-200 shadow-xl text-xs font-black text-slate-800 cursor-pointer">
+          {barra3dAbierta ? <X className="w-4 h-4" /> : <Sliders className="w-4 h-4 text-amber-500" />}
+          {barra3dAbierta ? 'Cerrar' : 'Opciones 3D'}
+        </button>
         {/* Lado Izquierdo: Selector de Aluzinc, Opacidad y Colores Rápidos */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full sm:overflow-x-auto sm:touch-pan-x scrollbar-none shrink-0">
+        <div className={`${barra3dAbierta ? '' : 'max-sm:hidden '}flex flex-wrap sm:flex-nowrap items-center gap-1.5 sm:gap-2 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full sm:overflow-x-auto sm:touch-pan-x scrollbar-none shrink-0`}>
           
           {/* Selector Directo de Modelo Aluzinc */}
           <div className="flex items-center gap-1.5 px-1 shrink-0">
@@ -3968,7 +3976,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         </div>
 
         {/* Lado Derecho: Simulación (Lluvia, Sismo), Iluminación, Cámara y Zoom */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-1.5 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full sm:overflow-x-auto sm:touch-pan-x scrollbar-none select-none">
+        <div className={`${barra3dAbierta ? '' : 'max-sm:hidden '}flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-1.5 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full sm:overflow-x-auto sm:touch-pan-x scrollbar-none select-none`}>
 
           {/* Badge de estado 3D (estilo Herrería, limpio y consistente) */}
           <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shrink-0">
@@ -4151,17 +4159,17 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       </div>
 
       {/* CONTROLES FLOTANTES DE ZOOM Y CENTRADO RÁPIDO (SIEMPRE VISIBLES Y ACCESIBLES EN MÓVIL Y DESKTOP) */}
-      <div className="absolute bottom-6 right-3 sm:right-4 z-40 flex flex-col gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl shadow-2xl border border-slate-200/90 pointer-events-auto select-none touch-manipulation">
+      <div className="absolute bottom-3 sm:bottom-6 right-3 sm:right-4 z-40 flex flex-col gap-1.5 bg-white/95 backdrop-blur-md p-1 sm:p-1.5 rounded-2xl shadow-2xl border border-slate-200/90 pointer-events-auto select-none touch-manipulation">
         <button
           onClick={handleZoomIn}
-          className="p-2 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 hover:bg-slate-100 active:bg-slate-200 active:scale-95 transition-all cursor-pointer shadow-xs flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9"
+          className="max-sm:hidden p-2 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 hover:bg-slate-100 active:bg-slate-200 active:scale-95 transition-all cursor-pointer shadow-xs flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9"
           title="Acercar Cámara (+)"
         >
           <Plus className="w-5 h-5 font-black text-slate-900" />
         </button>
         <button
           onClick={handleZoomOut}
-          className="p-2 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 hover:bg-slate-100 active:bg-slate-200 active:scale-95 transition-all cursor-pointer shadow-xs flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9"
+          className="max-sm:hidden p-2 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 hover:bg-slate-100 active:bg-slate-200 active:scale-95 transition-all cursor-pointer shadow-xs flex items-center justify-center w-10 h-10 sm:w-9 sm:h-9"
           title="Alejar Cámara (-)"
         >
           <Minus className="w-5 h-5 font-black text-slate-900" />
