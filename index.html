@@ -21,6 +21,12 @@
           var mq = window.matchMedia('(max-width: 1279.98px)');
           var aplicar = function () { document.documentElement.classList.toggle('app-marca', !!(esApp || mq.matches)); };
           aplicar();
+          // Opción A: cada celular con su propio estilo de botones (Android = Material 3,
+          // iPhone = estilo Apple). plat-ios / plat-android y es-app para la app instalada.
+          var plat = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
+          var esIOS = plat === 'ios' || /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+          document.documentElement.classList.add(esIOS ? 'plat-ios' : 'plat-android');
+          if (esApp) document.documentElement.classList.add('es-app');
           if (mq.addEventListener) mq.addEventListener('change', aplicar); else if (mq.addListener) mq.addListener(aplicar);
         } catch (e) {}
       })();

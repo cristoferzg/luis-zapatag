@@ -1937,19 +1937,62 @@ export default function App() {
     };
   }, [user?.id, isAdmin]);
 
-  // App Android (Capacitor): el botón "atrás" vuelve al Panel Principal y, si
-  // ya estás ahí, minimiza la app (en vez de cerrarla de golpe).
+  // NAVEGACIÓN COMO APP (opción A): historial de pantallas para "Atrás".
+  // Android: el botón Atrás vuelve a la pantalla anterior (no siempre al Panel) y en el
+  // Panel minimiza la app. iPhone (app): deslizar desde el borde izquierdo vuelve atrás.
   const vistaActualRef = useRef(currentView);
   vistaActualRef.current = currentView;
+  const historialRef = useRef<ViewType[]>([]);
+  const vistaPreviaRef = useRef<ViewType>(currentView);
+  const volviendoRef = useRef(false);
+  useEffect(() => {
+    const previa = vistaPreviaRef.current;
+    const atras = volviendoRef.current;
+    if (!atras && previa !== currentView) {
+      historialRef.current.push(previa);
+      if (historialRef.current.length > 30) historialRef.current.shift();
+    }
+    volviendoRef.current = false;
+    vistaPreviaRef.current = currentView;
+    // Animación de cambio de pantalla (solo estilo celular; ver index.css).
+    if (previa !== currentView) {
+      const m = document.querySelector('main');
+      if (m && document.documentElement.classList.contains('app-marca')) {
+        m.classList.remove('vista-entra', 'vista-vuelve'); void (m as HTMLElement).offsetWidth;
+        m.classList.add('vista-entra'); if (atras) m.classList.add('vista-vuelve');
+        const quitar = () => m.classList.remove('vista-entra', 'vista-vuelve');
+        m.addEventListener('animationend', quitar, { once: true }); setTimeout(quitar, 500);
+      }
+    }
+  }, [currentView]);
+  const volverAtrasRef = useRef<() => boolean>(() => false);
+  volverAtrasRef.current = () => {
+    const h = historialRef.current;
+    while (h.length && h[h.length - 1] === vistaActualRef.current) h.pop();
+    const previa = h.pop() || (vistaActualRef.current !== 'dashboard' ? 'dashboard' as ViewType : null);
+    if (!previa) return false;
+    volviendoRef.current = true;
+    setCurrentView(previa);
+    return true;
+  };
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const h = CapApp.addListener('backButton', () => {
       if (document.querySelector('.fixed.inset-0')) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return; }
-      if (vistaActualRef.current !== 'dashboard') setCurrentView('dashboard');
-      else CapApp.minimizeApp();
+      if (!volverAtrasRef.current()) CapApp.minimizeApp();
     });
     h.catch(() => { /* sin plugin nativo: no hay botón atrás que manejar */ });
-    return () => { h.then(x => x.remove()).catch(() => {}); };
+    // iPhone (app): deslizar desde el borde izquierdo = atrás, como en las apps de Apple.
+    if (Capacitor.getPlatform() !== 'ios') return () => { h.then(x => x.remove()).catch(() => {}); };
+    let x0 = -1, y0 = 0;
+    const ini = (e: TouchEvent) => { const t = e.touches[0]; x0 = t && t.clientX < 22 ? t.clientX : -1; y0 = t ? t.clientY : 0; };
+    const fin = (e: TouchEvent) => {
+      if (x0 < 0) return; const t = e.changedTouches[0]; const dx = t.clientX - x0, dy = Math.abs(t.clientY - y0); x0 = -1;
+      if (dx > 80 && dy < 60 && !document.querySelector('.fixed.inset-0')) volverAtrasRef.current();
+    };
+    document.addEventListener('touchstart', ini, { passive: true });
+    document.addEventListener('touchend', fin, { passive: true });
+    return () => { h.then(x => x.remove()).catch(() => {}); document.removeEventListener('touchstart', ini); document.removeEventListener('touchend', fin); };
   }, []);
 
   // Global custom event listener for module navigation

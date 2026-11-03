@@ -10,11 +10,14 @@ import { recargarPorVersionNueva } from './lib/versionNueva'
 import { instalarCeroIzquierda } from './lib/ceroIzquierda'
 import { tolerarTraductor } from './lib/tolerarTraductor'
 import { instalarDescargasNativas } from './lib/descargasNativas'
+import { instalarSensacionNativa } from './lib/sensacionNativa'
 
 // Que una traducción forzada del navegador no rompa la página (enlace del cliente).
 tolerarTraductor();
 // App de Android: que las descargas (videos 3D, DXF, PDF…) se guarden en el celular.
 instalarDescargasNativas();
+// Opción A: respuesta al tocar como Android (onda) o iPhone (encogido) + vibración en la app.
+instalarSensacionNativa();
 
 // Establish an (anonymous) Firebase Auth session as early as possible so that
 // every Firestore/Storage request is authenticated and the security rules can

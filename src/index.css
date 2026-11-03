@@ -84,6 +84,31 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
 /* Toque Material: sin achicar los botones (solo cambia el fondo) */
 @media (hover: none) and (pointer: coarse) { .app-marca button:active { transform: none !important; } }
 
+/* ── Opción A: cada celular con su sensación ───────────────────────────────── */
+/* Android (Material 3): onda que nace donde se toca (capa aparte, ver sensacionNativa.ts) */
+.onda-material { position: absolute; border-radius: 50%; opacity: .2; transform: scale(0); animation: onda-material .5s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes onda-material { to { transform: scale(1); opacity: 0; } }
+/* iPhone: el botón se encoge y aclara un instante, sin onda */
+.app-marca.plat-ios .toque-ios { scale: .965; opacity: .72; transition: scale .08s ease-out, opacity .08s ease-out; }
+.app-marca.plat-ios * { -webkit-tap-highlight-color: transparent; }
+/* iPhone: barra de abajo translúcida y el ícono activo en naranja, sin píldora */
+.app-marca.plat-ios .nav-app { background: rgba(255, 255, 255, .84) !important; -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: 0 -.5px 0 rgba(0, 0, 0, .18); }
+.app-marca.plat-ios .nav-app > button > span:first-child,
+.app-marca.plat-ios .nav-app > button > span:first-child.bg-\[\#e8def8\] { background: transparent !important; }
+.app-marca.plat-ios .nav-app > button > span:first-child.bg-\[\#e8def8\],
+.app-marca.plat-ios .nav-app > button > span.font-bold:last-child { color: rgb(var(--marca-naranja)) !important; }
+/* iPhone: título más grande, como Ajustes o Notas; sin botón flotante (las acciones van en cada pantalla) */
+.app-marca.plat-ios .barra-app h1 { font-size: 22px !important; font-weight: 800 !important; letter-spacing: -.02em; }
+.app-marca.plat-ios .fab-app { display: none !important; }
+/* Cambio de pantalla: Android con fundido, iPhone deslizando (al volver, desde la izquierda) */
+.app-marca.plat-android main.vista-entra { animation: vista-fundido .24s ease-out both; }
+.app-marca.plat-ios main.vista-entra { animation: vista-desliza .32s cubic-bezier(.2, .8, .2, 1) both; }
+.app-marca.plat-ios main.vista-entra.vista-vuelve { animation-name: vista-vuelve; }
+@keyframes vista-fundido { from { opacity: 0; transform: scale(.99); } }
+@keyframes vista-desliza { from { opacity: .5; transform: translateX(28px); } }
+@keyframes vista-vuelve { from { opacity: .5; transform: translateX(-28px); } }
+@media (prefers-reduced-motion: reduce) { .onda-material, .app-marca main.vista-entra { animation: none !important; } .app-marca.plat-ios .toque-ios { scale: 1; } }
+
 /* Tablet: barra de abajo centrada */
 @media (min-width: 640px) {
   .app-marca .barra-app { padding-left: 24px !important; padding-right: 24px !important; }
