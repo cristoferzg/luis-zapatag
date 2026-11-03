@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { HerreriaDesign, PresupuestoHerreriaResult } from './herreriaTypes';
 import { generarDespiece, generarMaterialesAgrupados, calcularCostosDesglosados, generarPresupuesto } from './herreriaCalculations';
+import { simb } from '../../lib/currency';
 
 interface ProjectOption {
   id: string;
@@ -212,10 +213,10 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
                 <th className="py-3 px-2 text-center">Unidad</th>
                 <th className="py-3 px-2 text-center">Cant</th>
                 <th className="py-3 px-2 text-center">Metrado</th>
-                <th className="py-3 px-3 text-right">Material (S/.)</th>
-                <th className="py-3 px-3 text-right">M.O. (S/.)</th>
-                <th className="py-3 px-3 text-right">P. Unit (S/.)</th>
-                <th className="py-3 px-3 text-right">Subtotal (S/.)</th>
+                <th className="py-3 px-3 text-right">Material ({simb()})</th>
+                <th className="py-3 px-3 text-right">M.O. ({simb()})</th>
+                <th className="py-3 px-3 text-right">P. Unit ({simb()})</th>
+                <th className="py-3 px-3 text-right">Subtotal ({simb()})</th>
                 <th className="py-3 px-3">Observaciones</th>
               </tr>
             </thead>
@@ -229,10 +230,10 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
                   <td className="py-3 px-2 text-center font-sans text-slate-400">{it.unidad}</td>
                   <td className="py-3 px-2 text-center font-bold text-white bg-slate-800/30">{it.cantidad}</td>
                   <td className="py-3 px-2 text-center text-slate-300">{it.metrado.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right text-slate-300">S/. {it.material.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right text-blue-400">S/. {it.manoDeObra.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right font-semibold text-slate-100">S/. {it.precioUnitario.toFixed(2)}</td>
-                  <td className="py-3 px-3 text-right font-bold text-emerald-400">S/. {it.subtotal.toFixed(2)}</td>
+                  <td className="py-3 px-3 text-right text-slate-300">{simb()} {it.material.toFixed(2)}</td>
+                  <td className="py-3 px-3 text-right text-blue-400">{simb()} {it.manoDeObra.toFixed(2)}</td>
+                  <td className="py-3 px-3 text-right font-semibold text-slate-100">{simb()} {it.precioUnitario.toFixed(2)}</td>
+                  <td className="py-3 px-3 text-right font-bold text-emerald-400">{simb()} {it.subtotal.toFixed(2)}</td>
                   <td className="py-3 px-3 font-sans text-slate-400 text-[11px] max-w-xs">{it.observaciones}</td>
                 </tr>
               ))}
@@ -252,19 +253,19 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
         <div className="w-full sm:w-80 space-y-2 font-mono bg-slate-950 p-3.5 rounded-lg border border-slate-800">
           <div className="flex justify-between text-slate-300">
             <span>Costo Directo Base:</span>
-            <span>S/. {presupuesto.costoDirecto.toFixed(2)}</span>
+            <span>{simb()} {presupuesto.costoDirecto.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-slate-300">
             <span>Gastos Generales (10%):</span>
-            <span>S/. {presupuesto.gastosGeneralesMonto.toFixed(2)}</span>
+            <span>{simb()} {presupuesto.gastosGeneralesMonto.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-slate-300">
             <span>Utilidad (20%):</span>
-            <span className="text-blue-400">S/. {presupuesto.utilidadMonto.toFixed(2)}</span>
+            <span className="text-blue-400">{simb()} {presupuesto.utilidadMonto.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-slate-200 font-bold pt-1.5 border-t border-slate-800">
             <span>Subtotal sin IGV:</span>
-            <span>S/. {presupuesto.subtotalSinIgv.toFixed(2)}</span>
+            <span>{simb()} {presupuesto.subtotalSinIgv.toFixed(2)}</span>
           </div>
 
           <div className="flex items-center justify-between text-slate-400 py-1">
@@ -277,12 +278,12 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
               />
               <span>Incluir I.G.V. (18%):</span>
             </label>
-            <span>S/. {igvFinal.toFixed(2)}</span>
+            <span>{simb()} {igvFinal.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-between text-emerald-400 font-bold text-sm pt-2 border-t border-slate-800">
             <span>TOTAL PRESUPUESTO:</span>
-            <span className="text-base font-extrabold">S/. {totalFinal.toFixed(2)} PEN</span>
+            <span className="text-base font-extrabold">{simb()} {totalFinal.toFixed(2)} PEN</span>
           </div>
         </div>
       </div>
@@ -316,7 +317,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
                   <option value="new">+ CREAR NUEVO PROYECTO DE CARPINTERÍA METÁLICA</option>
                   {projects.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.client} - Actual: S/. {p.presupuesto?.toFixed(2) || '0.00'})
+                      {p.name} ({p.client} - Actual: {simb()} {p.presupuesto?.toFixed(2) || '0.00'})
                     </option>
                   ))}
                 </select>
@@ -357,7 +358,7 @@ export const HerreriaPresupuestoView: React.FC<HerreriaPresupuestoViewProps> = (
               <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs">
                 <div className="flex justify-between font-bold text-white">
                   <span>Monto Total a Asignar:</span>
-                  <span className="font-mono text-emerald-400">S/. {totalFinal.toFixed(2)} PEN</span>
+                  <span className="font-mono text-emerald-400">{simb()} {totalFinal.toFixed(2)} PEN</span>
                 </div>
                 <span className="text-[10px] text-slate-500 mt-1 block">
                   Se transferirá la lista completa de insumos, materiales y especificaciones de taller.

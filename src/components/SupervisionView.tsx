@@ -9,6 +9,7 @@ import {
   Eye, Search, Download, Upload, FolderKanban, Users, Wallet, ChevronLeft, ShieldCheck, AlertTriangle, Check, X,
 } from 'lucide-react';
 import type { Client, FinanceRecord, Project, SystemConfig, SystemUser } from '../types';
+import { simb } from '../lib/currency';
 
 interface Props {
   usuarios: SystemUser[];
@@ -42,7 +43,7 @@ const delUsuario = (u: SystemUser) => {
   return (r: any) => ids.has(r?.userId) || r?.id === `settings_user_${bare(u.id)}`;
 };
 
-const soles = (n: number) => `S/ ${(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const soles = (n: number) => `${simb()} ${(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function SupervisionView({ usuarios, projects, clients, finances, settings, setProjects, setClients, setFinances, setSettings }: Props) {
   const [busca, setBusca] = useState('');

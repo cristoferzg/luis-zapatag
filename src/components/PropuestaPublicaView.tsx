@@ -8,11 +8,12 @@ import { CheckCircle2, Send, Loader2, Lock, FileSignature, ShieldCheck } from 'l
 import { leerPropuesta, aceptarPropuesta, abrirPropuesta, claveValida, PropuestaPublica, PropuestaBloqueada } from '../lib/propuestas';
 import { clausulasContrato } from '../lib/contratoPropuesta';
 import { sinOcultos } from './concreto/obraPisos';
+import { simb } from '../lib/currency';
 
 const TechosViewer3D = lazy(() => import('./techos/TechosViewer3D').then(m => ({ default: m.TechosViewer3D })));
 const ConcretoViewer3D = lazy(() => import('./ConcretoViewer3D'));
 const sinLogoRoto = (e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none'; };
-const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function PropuestaPublicaView({ id }: { id: string }) {
   const [p, setP] = useState<PropuestaPublica | null>(null);

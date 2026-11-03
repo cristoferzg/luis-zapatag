@@ -20,6 +20,7 @@ import { seAnaliza, perfilRecomendado, perfilMasEconomico } from './propiedadesP
 import { calcularMemoria, contextoCargas } from './memoriaCalculo';
 import MemoriaCalculoTechos, { ESTILO_ESTADO } from './MemoriaCalculoTechos';
 import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
+import { simb } from '../../lib/currency';
 
 interface TechosEstructuralAnalysisViewProps {
   engineState: UseTechosCadEngineReturn;
@@ -112,7 +113,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
   const aplicarAhorro = () => {
     if (!ahorro) return;
     engineState.updateSegmentsProfiles(ahorro.nuevos);
-    setAvisoAplicar(`✓ Aplicado: ahorras S/ ${ahorro.total.toFixed(2)} en perfiles y todo sigue sin riesgo de pandeo.`);
+    setAvisoAplicar(`✓ Aplicado: ahorras ${simb()} ${ahorro.total.toFixed(2)} en perfiles y todo sigue sin riesgo de pandeo.`);
     setAhorro(null);
     setTimeout(() => setAvisoAplicar(null), 12000);
   };
@@ -162,7 +163,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
       {ahorro && (
         <div className="p-4 bg-white border-2 border-emerald-300 rounded-2xl space-y-2 shadow-xs">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-black text-emerald-800">{ahorro.cambios.length ? `Puedes ahorrar S/ ${ahorro.total.toFixed(2)} en perfiles` : 'Tus perfiles ya son los más económicos que cumplen'}</p>
+            <p className="text-sm font-black text-emerald-800">{ahorro.cambios.length ? `Puedes ahorrar ${simb()} ${ahorro.total.toFixed(2)} en perfiles` : 'Tus perfiles ya son los más económicos que cumplen'}</p>
             <button onClick={() => setAhorro(null)} className="text-xs font-bold text-slate-400 cursor-pointer">Cerrar</button>
           </div>
           {ahorro.cambios.length > 0 && (<>
@@ -172,14 +173,14 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
                 <tbody>
                   {ahorro.cambios.map((c, i) => (
                     <tr key={i} className="border-t border-slate-100">
-                      <td className="py-1.5 font-bold capitalize">{c.n} {c.rol}</td><td className="text-slate-500">{c.de}</td><td className="font-bold text-emerald-700">{c.a}</td><td className="text-right font-mono font-bold">S/ {c.ahorro.toFixed(2)}</td>
+                      <td className="py-1.5 font-bold capitalize">{c.n} {c.rol}</td><td className="text-slate-500">{c.de}</td><td className="font-bold text-emerald-700">{c.a}</td><td className="text-right font-mono font-bold">{simb()} {c.ahorro.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <p className="text-[11px] text-slate-500">Se compara con los precios de tu Catálogo de precios. Cada cambio deja cada tramo dentro de la esbeltez máxima de la E.090 y soporta la carga del techo (columnas) o no se flecha más de L/240 (vigas), con espesores mínimos para soldar (columnas 2 mm, vigas 1.5 mm). Es un prediseño: valídalo con un ingeniero.</p>
-            <button onClick={aplicarAhorro} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer">Aplicar y ahorrar S/ {ahorro.total.toFixed(2)}</button>
+            <button onClick={aplicarAhorro} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer">Aplicar y ahorrar {simb()} {ahorro.total.toFixed(2)}</button>
           </>)}
         </div>
       )}

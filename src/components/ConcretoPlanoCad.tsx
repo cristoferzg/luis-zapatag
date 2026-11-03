@@ -44,6 +44,7 @@ import { caidaDePoligono, nombreDireccion, NOMBRE_CAIDA } from './techos/cobertu
 import { SavedTechosDesign, getCachedTechosDesigns, fetchAllTechosDesigns, esPlanoMio } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
 import ConcretoViewer3D from './ConcretoViewer3D';
+import { simb } from '../lib/currency';
 
 export type PlanoTipo = 'columna' | 'zapata' | 'viga' | 'cimiento' | 'losa' | 'muro' | 'escalera' | 'placa';
 type Herramienta = 'select' | 'grupo' | 'pan' | 'abertura' | 'bloque' | 'instalacion' | PlanoTipo;
@@ -952,7 +953,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     });
     txt += `\n--- TOTALES ---\nConcreto: ${totales.concretoM3.toFixed(2)} m³ | Acero: ${totales.aceroKg.toFixed(0)} kg | Encofrado: ${totales.encofradoM2.toFixed(1)} m²\n`;
     txt += `Cemento: ${Math.ceil(totales.cementoBolsas)} bolsas | Arena: ${totales.arenaM3.toFixed(2)} m³ | Piedra: ${totales.piedraM3.toFixed(2)} m³ | Agua: ${Math.round(totales.aguaL)} L\n`;
-    txt += `COSTO REFERENCIAL: S/ ${totales.costo.toFixed(2)}\n`;
+    txt += `COSTO REFERENCIAL: ${simb()} ${totales.costo.toFixed(2)}\n`;
     const muros = elems.filter(e => e.tipo === 'muro');
     if (muros.length) {
       txt += `\n--- MUROS POR PISO ---\n`;
@@ -960,7 +961,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         txt += `${n}:\n`;
         muros.filter(e => (e.nivel || pisos[0] || 'Piso 1') === n).forEach(e => {
           const m = muroDesdePlano(e, obra.ctx(e.nivel)); const r = calcMuro(m, catDrywall, catLadrillo, catOsb);
-          txt += `  ${r.nombre} · ${m.areaM2.toFixed(2)} m² (sin vanos) · ${m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² placa`} · S/ ${r.costo.toFixed(2)}\n`;
+          txt += `  ${r.nombre} · ${m.areaM2.toFixed(2)} m² (sin vanos) · ${m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² placa`} · ${simb()} ${r.costo.toFixed(2)}\n`;
           (e.aberturas || []).forEach(a => { txt += `    - ${PRESETS_ABERTURA[a.tipo].nombre} ${a.w.toFixed(2)} × ${a.h.toFixed(2)} m\n`; });
         });
         const ctx = obra.ctx(n);
@@ -970,7 +971,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         if (cfg?.activo) {
           const mc = mallaCielo(regionesCielo(ms, estructura, ctx.base), cfg, ctx);
           const d = catDrywall.find(x => x.id === cfg.materialId);
-          txt += `  Cielo raso ${d?.tipo || 'drywall'} (${cfg.modo}) · ${mc.area.toFixed(2)} m² · perímetro ${mc.perimetro.toFixed(1)} m · S/ ${(mc.area * (d?.precioM2 || 0)).toFixed(2)}\n`;
+          txt += `  Cielo raso ${d?.tipo || 'drywall'} (${cfg.modo}) · ${mc.area.toFixed(2)} m² · perímetro ${mc.perimetro.toFixed(1)} m · ${simb()} ${(mc.area * (d?.precioM2 || 0)).toFixed(2)}\n`;
         }
       });
     }
@@ -2014,7 +2015,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               {b.origen === 'carpi' && (
                 <label className="flex items-start gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
                   <input type="checkbox" className="mt-0.5" checked={b.incluir} onChange={e => updBloque(b.uid, { incluir: e.target.checked })} />
-                  <span>Incluir en la cotización{d ? ` · S/ ${costoDisenoCarpi(d).toFixed(2)}` : ''}<span className="block text-[10px] font-semibold text-slate-400">Si no lo fabricas tú, desmárcalo y explica por qué en la observación.</span></span>
+                  <span>Incluir en la cotización{d ? ` · ${simb()} ${costoDisenoCarpi(d).toFixed(2)}` : ''}<span className="block text-[10px] font-semibold text-slate-400">Si no lo fabricas tú, desmárcalo y explica por qué en la observación.</span></span>
                 </label>
               )}
               <label className="block text-[10px] font-bold text-slate-600">Observación (sale en la cotización)
@@ -2127,7 +2128,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                     </select>
                   </label>
                   {selElem.x2 !== undefined && selElem.y2 !== undefined && (() => { const area = Math.abs(selElem.x2 - selElem.x1) * Math.abs(selElem.y2 - selElem.y1); const o = catOsb.find(x => x.id === 'osb_18') || catOsb[0]; return (
-                    <p className="col-span-2 text-[10px] font-bold text-slate-500">{area.toFixed(2)} m²{selElem.losaMaterial === 'osb' ? ` de ${o?.tipo || 'OSB'}${o?.precioM2 ? ` · S/ ${(area * o.precioM2).toFixed(2)}` : ''}` : ''} </p>
+                    <p className="col-span-2 text-[10px] font-bold text-slate-500">{area.toFixed(2)} m²{selElem.losaMaterial === 'osb' ? ` de ${o?.tipo || 'OSB'}${o?.precioM2 ? ` · ${simb()} ${(area * o.precioM2).toFixed(2)}` : ''}` : ''} </p>
                   ); })()}
                 </div>
               )}
@@ -2148,7 +2149,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-slate-600 pt-1.5">
                   <span>{m.areaM2.toFixed(2)} m² de muro{(selElem.aberturas || []).length ? ` (sin ${(selElem.aberturas || []).length} vano${(selElem.aberturas || []).length > 1 ? 's' : ''})` : ''}</span>
                   <span>{m.tipo === 'ladrillo' ? `${r.unidades} ladrillos` : `${r.unidades.toFixed(1)} m² de placa`}</span>
-                  <span>{r.costo > 0 ? `S/ ${r.costo.toFixed(2)}` : 'Sin precio (botón Precios)'}</span>
+                  <span>{r.costo > 0 ? `${simb()} ${r.costo.toFixed(2)}` : 'Sin precio (botón Precios)'}</span>
                 </div>
               ); })() : (() => { const r = calcElem(selElem); return (
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] font-bold text-slate-600 border-t border-slate-200/70 pt-1.5">
@@ -2207,14 +2208,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                     updateAbertura(muro.uid, a.id, { carpiId: d.id, carpiNombre: d.nombre, tipo: t, w: d.anchoM, h: d.altoM, sill: t === 'ventana' ? (a.sill || 0.9) : 0 });
                   }} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
                     <option value="">— Sin diseño (solo el vano) —</option>
-                    {disenosCarpi.map(d => <option key={d.id} value={d.id}>{d.nombre} · {d.anchoM.toFixed(2)}×{d.altoM.toFixed(2)} m · S/ {costoDisenoCarpi(d).toFixed(0)}</option>)}
+                    {disenosCarpi.map(d => <option key={d.id} value={d.id}>{d.nombre} · {d.anchoM.toFixed(2)}×{d.altoM.toFixed(2)} m · {simb()} {costoDisenoCarpi(d).toFixed(0)}</option>)}
                   </select>
                 </label>
                 {disenosCarpi.length === 0 && <p className="text-[10px] text-slate-400">Guarda una puerta, ventana o reja en Carpintería Metálica para colocarla aquí.</p>}
                 {a.carpiId && (() => { const d = disenosCarpi.find(x => x.id === a.carpiId); return d ? (<>
                   <label className="flex items-start gap-2 text-[11px] font-bold text-slate-700 cursor-pointer">
                     <input type="checkbox" className="mt-0.5" checked={a.incluir !== false} onChange={e => updateAbertura(muro.uid, a.id, { incluir: e.target.checked })} />
-                    <span>Incluir en la cotización · S/ {costoDisenoCarpi(d).toFixed(2)}</span>
+                    <span>Incluir en la cotización · {simb()} {costoDisenoCarpi(d).toFixed(2)}</span>
                   </label>
                   <label className="block text-[10px] font-bold text-slate-600">Observación (sale en la cotización)
                     <textarea value={a.obs || ''} onChange={e => updateAbertura(muro.uid, a.id, { obs: e.target.value }, 'obs')} rows={2} placeholder="Ej. Con chapa de seguridad / la provee el cliente"
@@ -2274,10 +2275,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               {extras.lineas.map(l => (
                 <div key={l.clave} className="flex justify-between gap-2 text-[11px]">
                   <span className="font-bold text-slate-700 min-w-0 truncate" title={l.nota}>{l.nombre}</span>
-                  <span className="font-mono font-bold text-slate-600 shrink-0">{l.cantidad} {l.unidad}{l.precio ? ` · S/ ${l.subtotal.toFixed(0)}` : ''}</span>
+                  <span className="font-mono font-bold text-slate-600 shrink-0">{l.cantidad} {l.unidad}{l.precio ? ` · ${simb()} ${l.subtotal.toFixed(0)}` : ''}</span>
                 </div>
               ))}
-              <p className="text-[11px] font-black text-slate-800">{extras.costo > 0 ? `S/ ${extras.costo.toFixed(2)}` : 'Pon los precios en Precios → “Acabados e instalaciones”'}</p>
+              <p className="text-[11px] font-black text-slate-800">{extras.costo > 0 ? `${simb()} ${extras.costo.toFixed(2)}` : 'Pon los precios en Precios → “Acabados e instalaciones”'}</p>
               {instalaciones.length > 0 && <button onClick={() => { if (confirm('¿Quitar todos los puntos de instalaciones?')) setInstalaciones([]); }} className="text-[10px] font-bold text-rose-600 cursor-pointer">Quitar todas las instalaciones</button>}
             </div>
           )}
@@ -2310,7 +2311,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 </label>
               </div>
               {cieloPiso.malla.area > 0 ? (
-                <p className="text-[11px] font-bold text-slate-700">{cieloPiso.malla.area.toFixed(2)} m² · perímetro {cieloPiso.malla.perimetro.toFixed(1)} m · {cieloPiso.costo > 0 ? `S/ ${cieloPiso.costo.toFixed(2)}` : 'sin precio'}</p>
+                <p className="text-[11px] font-bold text-slate-700">{cieloPiso.malla.area.toFixed(2)} m² · perímetro {cieloPiso.malla.perimetro.toFixed(1)} m · {cieloPiso.costo > 0 ? `${simb()} ${cieloPiso.costo.toFixed(2)}` : 'sin precio'}</p>
               ) : <p className="text-[10px] font-bold text-amber-700">Dibuja muros cerrados (ambientes) o vincula una estructura para calcular el área.</p>}
               {cieloPiso.malla.recortado && <p className="text-[10px] font-bold text-amber-700">El techo baja hasta {cieloPiso.malla.alturaMin.toFixed(2)} m: el cielo se ajusta bajo la pendiente en esa zona.</p>}
               {cieloPiso.cfg.modo === 'inclinado' && cieloPiso.malla.area > 0 && <p className="text-[10px] font-bold text-slate-500">Sigue el techo de {cieloPiso.malla.alturaMin.toFixed(2)} a {cieloPiso.malla.alturaMax.toFixed(2)} m.</p>}
@@ -2379,7 +2380,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                 </div>
               ))}
               <div className="bg-violet-600 text-white rounded-xl p-2.5 text-center">
-                <p className="text-lg font-black">S/ {metradoDw.total.toFixed(0)}</p>
+                <p className="text-lg font-black">{simb()} {metradoDw.total.toFixed(0)}</p>
                 <p className="text-[10px] font-bold uppercase">Materiales + {metradoDw.dias} días de instalador</p>
               </div>
               <p className="text-[9px] text-slate-400 leading-snug">Detalle completo en la pestaña “Presupuesto” (marca “Incluir lo dibujado en Plano con Techos”). Precios del Catálogo de precios.</p>
@@ -2397,7 +2398,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             ))}
           </div>
           <div className="bg-amber-500 text-slate-950 rounded-xl p-2.5 text-center">
-            <p className="text-lg font-black">S/ {(totales.costo + extras.costo).toFixed(0)}</p>
+            <p className="text-lg font-black">{simb()} {(totales.costo + extras.costo).toFixed(0)}</p>
             <p className="text-[10px] font-bold uppercase">Costo referencial</p>
           </div>
 
@@ -2408,7 +2409,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               {murosPiso.areaDrywall > 0 && <p className="text-[11px] font-bold text-slate-700">Drywall: {murosPiso.areaDrywall.toFixed(1)} m² · {murosPiso.placaM2.toFixed(1)} m² placa</p>}
               {murosPiso.areaOsb > 0 && <p className="text-[11px] font-bold text-slate-700">OSB: {murosPiso.areaOsb.toFixed(1)} m² · {murosPiso.osbM2.toFixed(1)} m² placa</p>}
               {(murosPiso.puertas + murosPiso.ventanas + murosPiso.vanos) > 0 && <p className="text-[11px] font-bold text-slate-700">{murosPiso.puertas} puertas · {murosPiso.ventanas} ventanas{murosPiso.vanos ? ` · ${murosPiso.vanos} vanos` : ''}</p>}
-              <p className="text-[11px] font-black text-slate-800">{murosPiso.costo > 0 ? `S/ ${murosPiso.costo.toFixed(2)}` : 'Ingresa precios en la vista Lista → Precios'}</p>
+              <p className="text-[11px] font-black text-slate-800">{murosPiso.costo > 0 ? `${simb()} ${murosPiso.costo.toFixed(2)}` : 'Ingresa precios en la vista Lista → Precios'}</p>
             </div>
           )}
 

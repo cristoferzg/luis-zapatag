@@ -10,6 +10,7 @@ import { Search, RotateCcw, Users, Tag, Plus, Trash2 } from 'lucide-react';
 import { itemsCatalogo, useCatalogo, quitarPrecio, importarJornales, GrupoCatalogo, esCobertura, unidadCompra, largoPlanchaCompra, fijarCompraCobertura, precioEnUnidad, fijarPrecioEnUnidad, refEnUnidad, agregarPropio, quitarPropio, esPropio } from '../lib/catalogoPrecios';
 import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
 import { PreciosView } from './PreciosView';
+import { simb } from '../lib/currency';
 
 // Búsqueda tolerante: sin tildes, "40x40x2" = "40 × 40 × 2", medidas en
 // pulgadas ("2x2" = 50 × 50 mm), las medidas repetidas cuentan ("40x40" pide
@@ -166,13 +167,13 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
                 </div>
                 <span className="hidden sm:block text-xs font-bold text-slate-500 text-right">por {unidadCompra(i.clave, i.unidad)}</span>
                 <div className="flex items-center gap-1 justify-end">
-                  <span className="text-xs font-bold text-slate-400">S/</span>
+                  <span className="text-xs font-bold text-slate-400">{simb()}</span>
                   <input type="number" step="0.1" min={0} value={propio ? Math.round(precioEnUnidad(i.clave) * 100) / 100 : ''} placeholder={S(refEnUnidad(i.clave, i.ref))}
                     onChange={e => e.target.value === '' ? quitarPrecio(i.clave) : fijarPrecioEnUnidad(i.clave, parseFloat(e.target.value) || 0, 'Catálogo')}
                     className={`w-28 px-2 py-1.5 rounded-lg text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-amber-300 ${propio ? 'bg-amber-50 ring-1 ring-amber-300 text-slate-900' : 'bg-slate-100 text-slate-700'}`} />
                 </div>
                 <div className="col-span-2 sm:col-span-1 flex items-center justify-between sm:justify-end gap-2">
-                  <span className="sm:hidden text-[11px] font-bold text-slate-500">por {unidadCompra(i.clave, i.unidad)} · vigente S/ {S(precioEnUnidad(i.clave))}</span>
+                  <span className="sm:hidden text-[11px] font-bold text-slate-500">por {unidadCompra(i.clave, i.unidad)} · vigente {simb()} {S(precioEnUnidad(i.clave))}</span>
                   {esCobertura(i.clave) && (() => {
                     const L = largoPlanchaCompra(i.clave);
                     const largoDef = INVENTARIO_COBERTURAS.find(c => `cobertura:${c.id}` === i.clave)?.longitudComercialM || 3.66;

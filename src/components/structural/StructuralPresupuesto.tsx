@@ -20,6 +20,7 @@ import {
   ShieldCheck, 
   DollarSign 
 } from 'lucide-react';
+import { simb, getCompanyCurrency } from '../../lib/currency';
 
 interface PresupuestoProps {
   geometria: StructuralGeometry;
@@ -311,15 +312,15 @@ Fecha: ${new Date().toLocaleDateString('es-PE')}
 
 DESGLOSE DE PARTIDAS:
 ${items.map(it => `${it.itemCode} | ${it.descripcion}
-   Metrado: ${it.metrado} ${it.unidad} | Subtotal: S/. ${it.subtotal.toFixed(2)}`).join('\n\n')}
+   Metrado: ${it.metrado} ${it.unidad} | Subtotal: ${simb()} ${it.subtotal.toFixed(2)}`).join('\n\n')}
 
 -----------------------------------------------------
-SUBTOTAL COSTO DIRECTO: S/. ${totalCostoDirecto.toFixed(2)}
-GASTOS GENERALES (10%): S/. ${gastosGenerales.toFixed(2)}
-UTILIDAD (10%): S/. ${utilidad.toFixed(2)}
-IGV (18%): S/. ${igv.toFixed(2)}
+SUBTOTAL COSTO DIRECTO: ${simb()} ${totalCostoDirecto.toFixed(2)}
+GASTOS GENERALES (10%): ${simb()} ${gastosGenerales.toFixed(2)}
+UTILIDAD (10%): ${simb()} ${utilidad.toFixed(2)}
+IGV (18%): ${simb()} ${igv.toFixed(2)}
 =====================================================
-TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
+TOTAL PRESUPUESTO ESTIMADO: ${simb()} ${totalPresupuestoPEN.toFixed(2)} PEN
 =====================================================`;
 
     navigator.clipboard.writeText(text);
@@ -397,23 +398,23 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Acero Fabricado</span>
           <p className="text-xl md:text-2xl font-black font-mono text-blue-700 mt-1">
-            S/. {(totalSteelWeightKg * steelPricePerKg).toLocaleString('es-PE', { maximumFractionDigits: 2 })}
+            {simb()} {(totalSteelWeightKg * steelPricePerKg).toLocaleString('es-PE', { maximumFractionDigits: 2 })}
           </p>
-          <span className="text-[11px] text-slate-400 mt-0.5 block">{totalSteelWeightKg.toFixed(1)} kg @ S/. {steelPricePerKg.toFixed(2)}/kg</span>
+          <span className="text-[11px] text-slate-400 mt-0.5 block">{totalSteelWeightKg.toFixed(1)} kg @ {simb()} {steelPricePerKg.toFixed(2)}/kg</span>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Cobertura de Techo</span>
           <p className="text-xl md:text-2xl font-black font-mono text-indigo-700 mt-1">
-            S/. {(areaTechoM2 * coveragePricePerM2).toLocaleString('es-PE', { maximumFractionDigits: 2 })}
+            {simb()} {(areaTechoM2 * coveragePricePerM2).toLocaleString('es-PE', { maximumFractionDigits: 2 })}
           </p>
-          <span className="text-[11px] text-slate-400 mt-0.5 block">{areaTechoM2.toFixed(1)} m² @ S/. {coveragePricePerM2.toFixed(2)}/m²</span>
+          <span className="text-[11px] text-slate-400 mt-0.5 block">{areaTechoM2.toFixed(1)} m² @ {simb()} {coveragePricePerM2.toFixed(2)}/m²</span>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Mano de Obra / Montaje</span>
           <p className="text-xl md:text-2xl font-black font-mono text-amber-700 mt-1">
-            S/. {subtotalManoObra.toLocaleString('es-PE', { maximumFractionDigits: 2 })}
+            {simb()} {subtotalManoObra.toLocaleString('es-PE', { maximumFractionDigits: 2 })}
           </p>
           <span className="text-[11px] text-slate-400 mt-0.5 block">Armado, corte, soldadura e izaje</span>
         </div>
@@ -421,7 +422,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
         <div className="bg-gradient-to-br from-emerald-600 to-teal-800 text-white rounded-2xl p-4 shadow-md">
           <span className="text-[11px] font-bold text-emerald-100 uppercase tracking-wider block">Total Presupuesto (Inc. IGV)</span>
           <p className="text-xl md:text-2xl font-black font-mono text-white mt-1">
-            S/. {totalPresupuestoPEN.toLocaleString('es-PE', { maximumFractionDigits: 2 })}
+            {simb()} {totalPresupuestoPEN.toLocaleString('es-PE', { maximumFractionDigits: 2 })}
           </p>
           <span className="text-[11px] text-emerald-200 mt-0.5 block">Precio llave en mano garantizado</span>
         </div>
@@ -438,7 +439,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
           <div>
-            <label className="block text-slate-500 font-semibold mb-1">Acero (S/./kg):</label>
+            <label className="block text-slate-500 font-semibold mb-1">Acero ({simb()}/kg):</label>
             <input
               type="number"
               step="0.5"
@@ -448,7 +449,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
             />
           </div>
           <div>
-            <label className="block text-slate-500 font-semibold mb-1">Cobertura (S/./m²):</label>
+            <label className="block text-slate-500 font-semibold mb-1">Cobertura ({simb()}/m²):</label>
             <input
               type="number"
               step="1"
@@ -458,7 +459,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
             />
           </div>
           <div>
-            <label className="block text-slate-500 font-semibold mb-1">Mano de Obra (S/./kg):</label>
+            <label className="block text-slate-500 font-semibold mb-1">Mano de Obra ({simb()}/kg):</label>
             <input
               type="number"
               step="0.5"
@@ -468,7 +469,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
             />
           </div>
           <div>
-            <label className="block text-slate-500 font-semibold mb-1">Canaleta (S/./m):</label>
+            <label className="block text-slate-500 font-semibold mb-1">Canaleta ({simb()}/m):</label>
             <input
               type="number"
               step="1"
@@ -478,7 +479,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
             />
           </div>
           <div>
-            <label className="block text-slate-500 font-semibold mb-1">Bajante (S/./m):</label>
+            <label className="block text-slate-500 font-semibold mb-1">Bajante ({simb()}/m):</label>
             <input
               type="number"
               step="1"
@@ -513,9 +514,9 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
                 <th className="py-3 px-2 text-center w-16">Und</th>
                 <th className="py-3 px-3 text-right w-24">Metrado</th>
                 <th className="py-3 px-3">Material</th>
-                <th className="py-3 px-3 text-right w-24">M.O. (S/.)</th>
-                <th className="py-3 px-3 text-right w-24">P.U. (S/.)</th>
-                <th className="py-3 px-3 text-right w-28">Subtotal (S/.)</th>
+                <th className="py-3 px-3 text-right w-24">M.O. ({simb()})</th>
+                <th className="py-3 px-3 text-right w-24">P.U. ({simb()})</th>
+                <th className="py-3 px-3 text-right w-28">Subtotal ({simb()})</th>
                 <th className="py-3 px-3 hidden md:table-cell">Observaciones Técnicas</th>
               </tr>
             </thead>
@@ -540,13 +541,13 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
                     </span>
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono text-slate-600">
-                    S/. {it.manoObraUnitario.toFixed(2)}
+                    {simb()} {it.manoObraUnitario.toFixed(2)}
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono text-slate-600">
-                    S/. {it.precioUnitario.toFixed(2)}
+                    {simb()} {it.precioUnitario.toFixed(2)}
                   </td>
                   <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                    S/. {it.subtotal.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {simb()} {it.subtotal.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="py-2.5 px-3 text-slate-500 text-[11px] hidden md:table-cell leading-snug">
                     {it.observaciones}
@@ -560,7 +561,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
                   Costo Directo Total:
                 </td>
                 <td className="py-3 px-3 text-right font-mono text-base font-black text-blue-700">
-                  S/. {totalCostoDirecto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {simb()} {totalCostoDirecto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td className="hidden md:table-cell"></td>
               </tr>
@@ -588,33 +589,33 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-2 text-xs">
           <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
             <span>Liquidación Presupuestal</span>
-            <span className="font-mono text-slate-400">PEN Soles</span>
+            <span className="font-mono text-slate-400">{getCompanyCurrency().code} · {simb()}</span>
           </h4>
           <div className="divide-y divide-slate-100 text-slate-600 pt-1">
             <div className="py-1.5 flex justify-between">
               <span>Costo Directo (Materiales + Mano de obra):</span>
-              <strong className="font-mono text-slate-800">S/. {totalCostoDirecto.toFixed(2)}</strong>
+              <strong className="font-mono text-slate-800">{simb()} {totalCostoDirecto.toFixed(2)}</strong>
             </div>
             <div className="py-1.5 flex justify-between">
               <span>Gastos Generales (10%):</span>
-              <strong className="font-mono text-slate-800">S/. {gastosGenerales.toFixed(2)}</strong>
+              <strong className="font-mono text-slate-800">{simb()} {gastosGenerales.toFixed(2)}</strong>
             </div>
             <div className="py-1.5 flex justify-between">
               <span>Utilidad de Empresa (10%):</span>
-              <strong className="font-mono text-slate-800">S/. {utilidad.toFixed(2)}</strong>
+              <strong className="font-mono text-slate-800">{simb()} {utilidad.toFixed(2)}</strong>
             </div>
             <div className="py-1.5 flex justify-between">
               <span>Subtotal Neto:</span>
-              <strong className="font-mono text-slate-800">S/. {subtotalNeto.toFixed(2)}</strong>
+              <strong className="font-mono text-slate-800">{simb()} {subtotalNeto.toFixed(2)}</strong>
             </div>
             <div className="py-1.5 flex justify-between">
               <span>Impuesto General a las Ventas (IGV 18%):</span>
-              <strong className="font-mono text-slate-800">S/. {igv.toFixed(2)}</strong>
+              <strong className="font-mono text-slate-800">{simb()} {igv.toFixed(2)}</strong>
             </div>
             <div className="py-2 flex justify-between items-center text-sm font-black text-slate-900 border-t-2 border-slate-300">
               <span className="uppercase text-blue-900">PRESUPUESTO TOTAL:</span>
               <span className="font-mono text-lg text-emerald-700">
-                S/. {totalPresupuestoPEN.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {simb()} {totalPresupuestoPEN.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -632,7 +633,7 @@ TOTAL PRESUPUESTO ESTIMADO: S/. ${totalPresupuestoPEN.toFixed(2)} PEN
               ¡Presupuesto Enviado Exitosamente!
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              El diseño de techo metálico ha sido transferido e integrado al sistema de proyectos de <strong>{currentSettings?.appName || 'Innova Contratistas'}</strong> con un monto total de <strong>S/. {totalPresupuestoPEN.toLocaleString('es-PE', { maximumFractionDigits: 2 })} PEN</strong>.
+              El diseño de techo metálico ha sido transferido e integrado al sistema de proyectos de <strong>{currentSettings?.appName || 'Innova Contratistas'}</strong> con un monto total de <strong>{simb()} {totalPresupuestoPEN.toLocaleString('es-PE', { maximumFractionDigits: 2 })} PEN</strong>.
             </p>
 
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left text-xs space-y-1">

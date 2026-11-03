@@ -44,6 +44,7 @@ import { HerreriaSelectedType } from './HerreriaPropertiesPanel';
 import { findBestSnapPoint, SnapResult, distance2D, roundToPrecision } from './cadSnapEngine';
 import { HerreriaContextMenu, ContextMenuPosition } from './HerreriaContextMenu';
 import { CadGesturesAndShortcutsModal } from '../common/CadGesturesAndShortcutsModal';
+import { simb } from '../../lib/currency';
 
 function distancePointToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
   const l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
@@ -2236,56 +2237,56 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Bisagra Tubular 3"</span>
-                <span className="text-[10px] text-slate-500">Soldable con rodaje • S/. 10.50</span>
+                <span className="text-[10px] text-slate-500">Soldable con rodaje • {simb()} 10.50</span>
               </button>
               <button
                 onClick={() => handleCrearAccesorio('bisagra_reforzada', 'Bisagra Capuchina 3 1/2"', 'Bisagra reforzada 4 perforaciones', 14.00)}
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Bisagra Capuchina</span>
-                <span className="text-[10px] text-slate-500">Reforzada 3 1/2" • S/. 14.00</span>
+                <span className="text-[10px] text-slate-500">Reforzada 3 1/2" • {simb()} 14.00</span>
               </button>
               <button
                 onClick={() => handleCrearAccesorio('chapa_sobreponer', 'Cerradura de Sobreponer Forte 3G', 'Cerradura con cerrojo de tres golpes', 85.00)}
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Cerradura Forte 3G</span>
-                <span className="text-[10px] text-slate-500">Sobreponer de seguridad • S/. 85.00</span>
+                <span className="text-[10px] text-slate-500">Sobreponer de seguridad • {simb()} 85.00</span>
               </button>
               <button
                 onClick={() => handleCrearAccesorio('cerradura_embutir', 'Cerradura de Embutir Travex', 'Cerradura embutida para perfil angosto', 75.00)}
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Cerradura Embutir</span>
-                <span className="text-[10px] text-slate-500">Perfil angosto Travex • S/. 75.00</span>
+                <span className="text-[10px] text-slate-500">Perfil angosto Travex • {simb()} 75.00</span>
               </button>
               <button
                 onClick={() => handleCrearAccesorio('cerrojo_pasador', 'Pasador de Piso y Techo 50cm', 'Cerrojo vertical de anclaje para hoja pasiva', 24.00)}
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Cerrojo Pasador 50cm</span>
-                <span className="text-[10px] text-slate-500">Piso o techo portón • S/. 24.00</span>
+                <span className="text-[10px] text-slate-500">Piso o techo portón • {simb()} 24.00</span>
               </button>
               <button
                 onClick={() => handleCrearAccesorio('manija_tirador', 'Tirador Tubular de Acero Inox 40cm', 'Manija tirador recto para puerta metálica', 45.00)}
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Tirador Inox 40cm</span>
-                <span className="text-[10px] text-slate-500">Tirador moderno inox • S/. 45.00</span>
+                <span className="text-[10px] text-slate-500">Tirador moderno inox • {simb()} 45.00</span>
               </button>
               <button
                 onClick={() => handleCrearAccesorio('rueda_porton', 'Rueda de Acero 3" Canal U con Rodaje', 'Rueda inferior para portón corredizo al piso', 32.00)}
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Rueda Portón Canal U</span>
-                <span className="text-[10px] text-slate-500">Rueda 3" con rodaje • S/. 32.00</span>
+                <span className="text-[10px] text-slate-500">Rueda 3" con rodaje • {simb()} 32.00</span>
               </button>
               <button
                 onClick={() => handleCrearAccesorio('placa_base', 'Placa Base de Anclaje 150x150x6mm', 'Placa de acero con 4 perforaciones para perno', 28.00)}
                 className="p-3 text-left bg-slate-50 hover:bg-blue-50 hover:border-blue-300 rounded-xl border border-slate-200 transition-colors"
               >
                 <span className="text-xs font-bold text-slate-800 block">Placa Base 150x150</span>
-                <span className="text-[10px] text-slate-500">Base anclaje 4 pernos • S/. 28.00</span>
+                <span className="text-[10px] text-slate-500">Base anclaje 4 pernos • {simb()} 28.00</span>
               </button>
             </div>
             <div className="mt-4 flex justify-end">

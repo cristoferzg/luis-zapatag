@@ -6,6 +6,7 @@
 // =============================================================================
 import React, { useMemo, useState } from 'react';
 import { DollarSign, Users, Truck, ArrowRight, Trash2 } from 'lucide-react';
+import { simb } from '../lib/currency';
 
 interface CostItem { id: string; name: string; unitCost: number; provider?: string; category: 'material' | 'labor' | 'operational' }
 
@@ -56,7 +57,7 @@ export const CostsCatalogView: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) =>
             {antiguos.map(c => (
               <li key={c.id} className="flex justify-between gap-2 text-xs text-slate-600">
                 <span className="truncate">{c.name} <span className="text-slate-400">· {porTipo[c.category] || ''}{c.provider ? ` · ${c.provider}` : ''}</span></span>
-                <span className="font-bold shrink-0">S/ {Number(c.unitCost || 0).toFixed(2)}</span>
+                <span className="font-bold shrink-0">{simb()} {Number(c.unitCost || 0).toFixed(2)}</span>
               </li>
             ))}
           </ul>

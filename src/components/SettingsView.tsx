@@ -1251,6 +1251,11 @@ export default function SettingsView({
                       setSelectedCurrencyCode(newCode);
                       const curr = WORLD_CURRENCIES.find(c => c.code === newCode);
                       if (curr) saveCompanyCurrency(curr);
+                      // Se guarda al instante en la empresa (llega a todos sus equipos).
+                      const idCfg = currentSettings.id;
+                      setSettings(settings.some(x => x.id === idCfg)
+                        ? settings.map(x => x.id === idCfg ? { ...x, currency: newCode } : x)
+                        : [...settings, { ...currentSettings, currency: newCode, userId: activeUid || 'guest' } as any]);
                     }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-slate-400 transition-all cursor-pointer"
                   >

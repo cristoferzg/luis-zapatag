@@ -9,6 +9,7 @@ import { safeStorage } from '../lib/storageManager';
 import { UploadProgressBar } from './common/UploadProgressBar';
 import { SystemUser } from '../types';
 import LectorComprobante, { DatosPago } from './common/LectorComprobante';
+import { simb } from '../lib/currency';
 export type { SystemUser };
 
 interface UsuariosViewProps {
@@ -767,7 +768,7 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
                             </span>
                             {u.pago?.nroOperacion && (
                               <span className="text-[10px] font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200" title={`Pago${u.pago.metodo ? ` por ${u.pago.metodo}` : ''}${u.pago.fecha ? ` el ${u.pago.fecha}` : ''}`}>
-                                Op. {u.pago.nroOperacion}{u.pago.monto !== undefined ? ` · S/ ${u.pago.monto.toFixed(2)}` : ''}
+                                Op. {u.pago.nroOperacion}{u.pago.monto !== undefined ? ` · ${simb()} ${u.pago.monto.toFixed(2)}` : ''}
                               </span>
                             )}
                             <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" title="Volumen de datos / utilidad registrada">

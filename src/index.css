@@ -107,3 +107,8 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
    en la PC con ventana mediana aparecía una barra de desplazamiento). */
 .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Adaptable: un selector o campo nunca más ancho que su contenedor (un <select> crece
+   hasta su opción más larga — p. ej. un nombre de proyecto largo — y corría la página). */
+select, input, textarea { max-width: 100%; }
+select { text-overflow: ellipsis; }

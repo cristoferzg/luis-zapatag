@@ -2,6 +2,7 @@
 // Salen de ⚙ Configuración; si falta alguno, el documento deja escribirlo y
 // lo guarda en la misma configuración (no se inventan RUC ni teléfonos).
 import { createContext, useContext, useState } from 'react';
+import { getCompanyCurrency } from './currency';
 
 export interface DatosEmpresa {
   nombre: string;
@@ -105,7 +106,7 @@ export const condicionesDe = (d: DatosEmpresa) => ({
   adelantoPct: Math.min(100, Math.max(0, parseFloat(d.adelantoPct) || 50)),
   validezDias: Math.max(1, parseInt(d.validezDias) || 15),
   garantia: d.garantia || '12 meses en estructura y montaje, contra defectos de fabricación.',
-  condiciones: (d.condiciones || 'Precios en soles.\nNo incluye obras civiles ni trámites municipales, salvo que se indique.')
+  condiciones: (d.condiciones || `Precios en ${getCompanyCurrency().name.toLowerCase()} (${getCompanyCurrency().symbol}).\nNo incluye obras civiles ni trámites municipales, salvo que se indique.`)
     .split('\n').map(x => x.trim()).filter(Boolean),
 });
 

@@ -12,6 +12,7 @@ import {
   Tag 
 } from 'lucide-react';
 import { safeStorage } from '../../lib/storageManager';
+import { simb } from '../../lib/currency';
 
 interface TechosMaterialesViewProps {
   design?: any;
@@ -224,7 +225,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
           {itemsAdicionales.length > 0 && (
             <div className="bg-indigo-50 border border-indigo-200 px-3.5 py-1.5 rounded-xl text-right">
               <span className="text-[10px] uppercase font-bold text-indigo-700 block">Subtotal Adjuntados:</span>
-              <span className="text-sm font-mono font-black text-indigo-900">S/. {subtotalAdicionales.toFixed(2)}</span>
+              <span className="text-sm font-mono font-black text-indigo-900">{simb()} {subtotalAdicionales.toFixed(2)}</span>
             </div>
           )}
         </div>
@@ -241,7 +242,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
               </h3>
             </div>
             <span className="text-xs font-mono font-bold text-indigo-700">
-              Subtotal: S/. {subtotalAdicionales.toFixed(2)} PEN
+              Subtotal: {simb()} {subtotalAdicionales.toFixed(2)} PEN
             </span>
           </div>
 
@@ -253,8 +254,8 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
                   <th className="py-2.5 px-3">Código Comercial</th>
                   <th className="py-2.5 px-3 text-center">Unidad</th>
                   <th className="py-2.5 px-3 text-center">Cantidad</th>
-                  <th className="py-2.5 px-3 text-right">Precio Unit. (S/.)</th>
-                  <th className="py-2.5 px-3 text-right">Subtotal (S/.)</th>
+                  <th className="py-2.5 px-3 text-right">Precio Unit. ({simb()})</th>
+                  <th className="py-2.5 px-3 text-right">Subtotal ({simb()})</th>
                   <th className="py-2.5 px-3">Observación</th>
                   <th className="py-2.5 px-3 text-center">Acción</th>
                 </tr>
@@ -266,8 +267,8 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
                     <td className="py-2.5 px-3 text-indigo-600 font-bold text-[11px]">{item.codigoComercial || 'N/A'}</td>
                     <td className="py-2.5 px-3 text-center text-slate-600 font-sans">{item.unidad}</td>
                     <td className="py-2.5 px-3 text-center font-bold bg-indigo-50/50">{item.cantidad}</td>
-                    <td className="py-2.5 px-3 text-right text-slate-600">S/. {item.precioUnitario.toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-emerald-600">S/. {item.subtotal.toFixed(2)}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-600">{simb()} {item.precioUnitario.toFixed(2)}</td>
+                    <td className="py-2.5 px-3 text-right font-bold text-emerald-600">{simb()} {item.subtotal.toFixed(2)}</td>
                     <td className="py-2.5 px-3 font-sans text-slate-500 text-[11px]">{item.observacion || '-'}</td>
                     <td className="py-2.5 px-3 text-center">
                       <button
@@ -357,7 +358,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
                     </div>
                     <div className="text-right shrink-0">
                       <span className="font-mono font-black text-sky-800 block">{l.cantidad} {l.unidad}</span>
-                      <span className="text-[10px] text-slate-500">{l.precio ? `S/ ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
+                      <span className="text-[10px] text-slate-500">{l.precio ? `${simb()} ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
                     </div>
                   </div>
                 ))}
@@ -381,7 +382,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
                     </div>
                     <div className="text-right shrink-0">
                       <span className="font-mono font-black text-amber-800 block">{l.cantidad} {l.unidad}</span>
-                      <span className="text-[10px] text-slate-500">{l.precio ? `S/ ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
+                      <span className="text-[10px] text-slate-500">{l.precio ? `${simb()} ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
                     </div>
                   </div>
                 ))}
@@ -405,7 +406,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
                     </div>
                     <div className="text-right shrink-0">
                       <span className="font-mono font-black text-teal-800 block">{l.cantidad} {l.unidad}</span>
-                      <span className="text-[10px] text-slate-500">{l.precio ? `S/ ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
+                      <span className="text-[10px] text-slate-500">{l.precio ? `${simb()} ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
                     </div>
                   </div>
                 ))}
@@ -429,7 +430,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
                     </div>
                     <div className="text-right shrink-0">
                       <span className="font-mono font-black text-emerald-800 block">{l.cantidad} {l.unidad}</span>
-                      <span className="text-[10px] text-slate-500">{l.precio ? `S/ ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
+                      <span className="text-[10px] text-slate-500">{l.precio ? `${simb()} ${l.subtotal.toFixed(2)}` : 'sin precio'}</span>
                     </div>
                   </div>
                 ))}
@@ -514,7 +515,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
                         </div>
                       </div>
                       <span className="text-xs font-mono font-bold text-emerald-600 shrink-0">
-                        S/. {catItem.precioSugerido.toFixed(2)}
+                        {simb()} {catItem.precioSugerido.toFixed(2)}
                       </span>
                     </button>
                   ))
@@ -588,7 +589,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
 
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                      Precio Unit. (S/.) *
+                      Precio Unit. ({simb()}) *
                     </label>
                     <input
                       type="number"
@@ -617,7 +618,7 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
 
                 <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                   <div className="text-xs font-bold text-slate-800">
-                    Subtotal Insumo: <span className="text-emerald-600 font-mono text-sm">S/. {(cantidadManual * precioManual).toFixed(2)}</span>
+                    Subtotal Insumo: <span className="text-emerald-600 font-mono text-sm">{simb()} {(cantidadManual * precioManual).toFixed(2)}</span>
                   </div>
 
                   <div className="flex items-center gap-2">

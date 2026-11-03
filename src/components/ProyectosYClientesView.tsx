@@ -6,6 +6,7 @@ import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, 
 import { safeStorage } from '../lib/storageManager';
 import { sincronizarAceptadas, datosDiseno, fechaCorta, opcionesDesdePrecio } from '../lib/acuerdoTechos';
 import { prepararArchivoCarpeta, migrarArchivosPesados } from '../lib/carpetaArchivos';
+import { simb, dinero } from '../lib/currency';
 
 interface ProyectosYClientesViewProps {
   projects: Project[];
@@ -20,7 +21,7 @@ interface ProyectosYClientesViewProps {
 }
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(amount);
+  return dinero(amount);
 };
 
 export default function ProyectosYClientesView({
@@ -91,12 +92,12 @@ ${notesText.trim() || 'Sin notas u observaciones registradas.'}
 2. RESUMEN FINANCIERO Y DE OBRAS:
 --------------------------------------------------------------------------------
 Proyectos Totales: ${clientProjects.length}
-Monto Total Pactado: S/ ${totalPresupuesto.toFixed(2)}
-Monto Cobrado: S/ ${totalCobrado.toFixed(2)}
-Saldo Pendiente: S/ ${saldo.toFixed(2)}
+Monto Total Pactado: ${simb()} ${totalPresupuesto.toFixed(2)}
+Monto Cobrado: ${simb()} ${totalCobrado.toFixed(2)}
+Saldo Pendiente: ${simb()} ${saldo.toFixed(2)}
 
 Proyectos:
-${clientProjects.map(p => `- ${p.name}: Presupuesto S/ ${p.presupuesto || 0} (${p.status})`).join('\n') || 'Sin proyectos activos'}
+${clientProjects.map(p => `- ${p.name}: Presupuesto ${simb()} ${p.presupuesto || 0} (${p.status})`).join('\n') || 'Sin proyectos activos'}
 
 
 3. PLANOS 3D REGISTRADOS (${designs.length}):
@@ -226,7 +227,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
   const [subiendoArchivo, setSubiendoArchivo] = useState<'photo' | 'contract' | null>(null);
   const AVATAR_COLORES = ['bg-blue-50 text-blue-600', 'bg-amber-50 text-amber-600', 'bg-emerald-50 text-emerald-600', 'bg-purple-50 text-purple-600', 'bg-rose-50 text-rose-600', 'bg-sky-50 text-sky-600'];
   const iniciales = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '📁';
-  const soles = (v: number) => `S/ ${Math.round(v).toLocaleString('es-PE')}`;
+  const soles = (v: number) => `${simb()} ${Math.round(v).toLocaleString('es-PE')}`;
   const colorAvatar = (n: string) => AVATAR_COLORES[[...n].reduce((a, ch) => a + ch.charCodeAt(0), 0) % AVATAR_COLORES.length];
 
   const handleClientFileUpload = async (clientId: string, e: React.ChangeEvent<HTMLInputElement>, fileType: 'photo' | 'contract' | 'document') => {
@@ -448,7 +449,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
               </select>
             </div>
             <div className="md:col-span-1">
-              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Presupuesto (S/)</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Presupuesto ({simb()})</label>
               <input required value={pPresupuesto} onChange={e => setPPresupuesto(e.target.value)} onFocus={e => e.target.select()} type="number" min="0" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="0.00" />
             </div>
             <div className="md:col-span-1">

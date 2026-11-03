@@ -23,6 +23,7 @@ import {
 } from './herreriaTypes';
 import { PERFILES_CATALOGO } from './herreriaCatalog';
 import { HerreriaPerfilesSelector } from './HerreriaPerfilesSelector';
+import { simb } from '../../lib/currency';
 
 export type HerreriaSelectedType = 
   | 'pieza_cad'
@@ -683,7 +684,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
           </div>
 
           <div>
-            <label className="text-[11px] text-slate-600 font-semibold block mb-1">Precio Unitario Estimado (S/.)</label>
+            <label className="text-[11px] text-slate-600 font-semibold block mb-1">Precio Unitario Estimado ({simb()})</label>
             <input
               type="number"
               step="0.50"

@@ -5,6 +5,7 @@ import { precio, fijarPrecio, claveDrywall, claveOsb, claveLadrillo, AREA_PLANCH
 import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
 import { OsbItem } from '../../catalogo/osb';
+import { simb } from '../../lib/currency';
 
 interface Props {
   drywall: DrywallItem[];
@@ -44,7 +45,7 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onLadrillo, osb }:
                 <p className="text-xs font-bold text-slate-800">{d.tipo}</p>
                 <p className="text-[10px] text-slate-500">{d.espesor} mm · {d.pesoM2} kg/m² · plancha 1.22 × 2.44 m</p>
               </div>
-              <label className="text-[11px] font-bold text-slate-600">S/ por plancha
+              <label className="text-[11px] font-bold text-slate-600">{simb()} por plancha
                 <input type="number" inputMode="decimal" min={0} value={plancha(claveOsb(d.id), d.precioM2)}
                   onChange={e => fijarPrecio(claveOsb(d.id), num(e.target.value), 'Obra Civil')}
                   className={inputCls} />
@@ -60,7 +61,7 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onLadrillo, osb }:
                 <p className="text-xs font-bold text-slate-800">{d.tipo}</p>
                 <p className="text-[10px] text-slate-500">{d.espesor} mm · {d.pesoM2} kg/m² · plancha 1.22 × 2.44 m</p>
               </div>
-              <label className="text-[11px] font-bold text-slate-600">S/ por plancha
+              <label className="text-[11px] font-bold text-slate-600">{simb()} por plancha
                 <input type="number" inputMode="decimal" min={0} value={plancha(claveDrywall(d.id), d.precioM2)}
                   onChange={e => fijarPrecio(claveDrywall(d.id), num(e.target.value), 'Obra Civil')}
                   className={inputCls} />
@@ -76,7 +77,7 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onLadrillo, osb }:
                 <p className="text-xs font-bold text-slate-800">{l.tipo}</p>
                 <p className="text-[10px] text-slate-500">{l.dimensiones} · {l.pesoUnitario} kg/u · {l.uso}</p>
               </div>
-              <label className="text-[11px] font-bold text-slate-600">S/ por millar
+              <label className="text-[11px] font-bold text-slate-600">{simb()} por millar
                 <input type="number" inputMode="decimal" min={0} value={precio(claveLadrillo(l.id), l.precioxMil)}
                   onChange={e => fijarPrecio(claveLadrillo(l.id), num(e.target.value), 'Obra Civil')}
                   className={inputCls} />

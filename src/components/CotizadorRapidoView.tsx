@@ -11,8 +11,9 @@ import { Calculator, TrendingUp, DollarSign, PieChart, ShieldCheck, Box, Layers,
 import { safeStorage } from '../lib/storageManager';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, SOLDADURA_AWS_E6011, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR } from './techos/techosCadCatalog';
 import { precio, clavePerfilDe, claveCobertura, useCatalogo } from '../lib/catalogoPrecios';
+import { simb, dinero } from '../lib/currency';
 
-const formatCurrency = (amount: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(amount);
+const formatCurrency = (amount: number) => dinero(amount);
 const n = (v: string, d = 0) => { const x = parseFloat(v); return Number.isFinite(x) ? x : d; };
 
 type Forma = 'una_agua' | 'dos_aguas' | 'arco';
@@ -209,7 +210,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
       `Cobertura: ${cob?.nombre || ''}, ${r.planchas} planchas.`,
       ...r.items.slice(1).map(i => `- ${i.nombre}: ${i.cant}`),
       '',
-      `Presupuesto a todo costo: S/ ${total.toFixed(2)}`,
+      `Presupuesto a todo costo: ${simb()} ${total.toFixed(2)}`,
     ].join('\n');
   };
 
@@ -444,7 +445,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
                 </div>
                 <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800 text-xs font-bold">
                   {f.modo === 'm2' && (
-                    <label className="text-slate-400">PRECIO/m²<span className="flex items-center text-indigo-300 mt-0.5">S/ <input type="number" value={f.precioPorM2} onChange={e => set('precioPorM2', e.target.value)} className="w-16 ml-1 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /></span></label>
+                    <label className="text-slate-400">PRECIO/m²<span className="flex items-center text-indigo-300 mt-0.5">{simb()}<input type="number" value={f.precioPorM2} onChange={e => set('precioPorM2', e.target.value)} className="w-16 ml-1 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /></span></label>
                   )}
                   <>
                     <label className="text-slate-400">MANO DE OBRA<span className="flex items-center text-indigo-300 mt-0.5"><input type="number" value={f.manoObraPct} onChange={e => set('manoObraPct', e.target.value)} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">%</span></span></label>
@@ -457,7 +458,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
                 <div className="bg-indigo-600/30 p-5 rounded-xl border border-indigo-500/40 text-center">
                   <h5 className="text-indigo-200 text-xs font-semibold uppercase mb-2 flex justify-center items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Precio al cliente</h5>
                   <p className="text-3xl font-bold">{formatCurrency(total)}</p>
-                  <p className="text-xs text-indigo-300 mt-1">{f.modo === 'm2' ? `${r.areaCobro.toFixed(1)} m² (largo × ancho) × S/ ${f.precioPorM2}` : `S/ ${(total / r.areaCobro).toFixed(0)} por m² (largo × ancho)`}</p>
+                  <p className="text-xs text-indigo-300 mt-1">{f.modo === 'm2' ? `${r.areaCobro.toFixed(1)} m² (largo × ancho) × ${simb()} ${f.precioPorM2}` : `${simb()} ${(total / r.areaCobro).toFixed(0)} por m² (largo × ancho)`}</p>
                 </div>
                 <div className={`p-5 rounded-xl border text-center ${!noAlcanza ? 'bg-emerald-950/70 border-emerald-500/60' : 'bg-rose-950/70 border-rose-500/60'}`}>
                   <h5 className="text-emerald-300 text-xs font-extrabold uppercase mb-2 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Tu ganancia</h5>
@@ -474,14 +475,14 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
               </div>
               {noAlcanza && (
                 <p className="relative z-10 mt-4 text-xs font-bold text-rose-200 bg-rose-950/60 border border-rose-500/50 rounded-lg px-3 py-2">
-                  {r.paraManoObraM2 < 0 ? 'Con este precio por m² no alcanza ni para los materiales.' : 'Con este precio por m² no alcanza para la mano de obra y los gastos calculados.'} Sube el precio a S/ {Math.ceil(r.precioM2Sugerido)} por m².
+                  {r.paraManoObraM2 < 0 ? 'Con este precio por m² no alcanza ni para los materiales.' : 'Con este precio por m² no alcanza para la mano de obra y los gastos calculados.'} Sube el precio a {simb()} {Math.ceil(r.precioM2Sugerido)} por m².
                 </p>
               )}
               <div className="relative z-10 mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                 <Package className="w-3.5 h-3.5" />
-                <span>Precio justo por m² (materiales + mano de obra + gastos + {r.utilidadPct} % de ganancia): <b className="text-white">S/ {Math.ceil(r.precioM2Sugerido)}</b> · total {formatCurrency(r.totalMateriales)}.</span>
+                <span>Precio justo por m² (materiales + mano de obra + gastos + {r.utilidadPct} % de ganancia): <b className="text-white">{simb()} {Math.ceil(r.precioM2Sugerido)}</b> · total {formatCurrency(r.totalMateriales)}.</span>
                 {f.modo === 'm2' && Math.ceil(r.precioM2Sugerido) !== n(f.precioPorM2) && (
-                  <button onClick={() => set('precioPorM2', String(Math.ceil(r.precioM2Sugerido)))} className="px-2 py-1 rounded-md bg-indigo-600 text-white font-bold cursor-pointer">Usar S/ {Math.ceil(r.precioM2Sugerido)}/m²</button>
+                  <button onClick={() => set('precioPorM2', String(Math.ceil(r.precioM2Sugerido)))} className="px-2 py-1 rounded-md bg-indigo-600 text-white font-bold cursor-pointer">Usar {simb()} {Math.ceil(r.precioM2Sugerido)}/m²</button>
                 )}
               </div>
             </div>

@@ -158,3 +158,9 @@ export function formatConvertedPrice(
   };
 }
 
+
+/** Símbolo de la moneda elegida por la empresa (S/, $, €…) para mostrar montos. */
+export const simb = (): string => getCompanyCurrency().symbol;
+
+/** Monto con la moneda de la empresa: "S/ 1,234.50", "$ 1,234.50"… */
+export const dinero = (amount: number): string => formatCurrencyWithSymbol(amount);

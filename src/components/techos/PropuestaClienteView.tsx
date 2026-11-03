@@ -49,11 +49,12 @@ import { redactarConIA } from '../../lib/redaccionIA';
 import { iaVisibleParaUI } from '../../lib/aiAccess';
 import { Sparkles } from 'lucide-react';
 import type { TechosDelProyecto } from '../../types';
+import { simb } from '../../lib/currency';
 
 export interface OpcionPropuesta { nombre: string; coberturaId: string; nota: string }
 
 const K_OPCIONES = 'innova_propuesta_opciones';
-const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function opcionesPorDefecto(actual?: string): OpcionPropuesta[] {
   const alu = INVENTARIO_COBERTURAS.filter(c => /aluzinc|calamina/.test(c.categoria)).sort((a, b) => a.costoM2Sol - b.costoM2Sol);

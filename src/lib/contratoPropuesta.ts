@@ -1,3 +1,4 @@
+import { simb } from './currency';
 // =============================================================================
 // Contrato para revisar dentro del link de la propuesta. Usa las mismas
 // cláusulas que el módulo Contratos; el monto, el adelanto y el saldo se arman
@@ -15,7 +16,7 @@ export interface ContratoPropuesta {
 
 export interface ClausulaContrato { titulo: string; texto: string[] }
 
-const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function clausulasContrato(c: ContratoPropuesta, d: {
   cliente: string; dni?: string; direccion?: string; proyecto: string; ubicacion?: string;

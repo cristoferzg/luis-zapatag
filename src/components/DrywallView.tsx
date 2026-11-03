@@ -25,6 +25,7 @@ import {
   despiecePartida, posicionParantes, uid, PLANCHA_W, PLANCHA_H, LineaDrywall,
 } from './drywall/calculoDrywall';
 import { CotizacionDrywall, KEY_COT_ACTUAL, KEY_COT_LISTA, cotizacionVacia, leerCotizacionActual, leerCotizaciones } from './drywall/cotizacionDrywall';
+import { simb } from '../lib/currency';
 
 // Lo dibujado en el plano / 3D (compartido con Obra Civil), metrado como drywall por piso.
 function usePlanoDrywall() {
@@ -42,7 +43,7 @@ function usePlanoDrywall() {
   return { plano, diseno };
 }
 
-const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const f2 = (n: number) => n.toLocaleString('es-PE', { maximumFractionDigits: 2 });
 type Pestana = 'cotizar' | 'elevacion' | 'plano' | 'presupuesto';
 

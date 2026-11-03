@@ -9,6 +9,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { Project, AsistenciaRecord } from '../types';
+import { simb, dinero } from '../lib/currency';
 
 interface PersonalYAsistenciaViewProps {
   projects: Project[];
@@ -17,7 +18,7 @@ interface PersonalYAsistenciaViewProps {
 }
 
 const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(amount);
+  return dinero(amount);
 };
 
 export default function PersonalYAsistenciaView({
@@ -318,7 +319,7 @@ export default function PersonalYAsistenciaView({
                        
                       {paymentType === 'Global' || paymentType === 'Por Evento' ? (
                         <div className="md:col-span-3">
-                          <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Monto Total Pactado (S/)</label>
+                          <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Monto Total Pactado ({simb()})</label>
                           <input required value={globalAmount} onChange={e => setGlobalAmount(e.target.value)} type="number" step="0.01" min="0" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Ej. 0.00" />
                         </div>
                       ) : (
@@ -328,7 +329,7 @@ export default function PersonalYAsistenciaView({
                             <input required value={days} onChange={e => setDays(e.target.value)} type="number" min="1" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Ej. 5" />
                           </div>
                           <div className="md:col-span-2">
-                            <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Pago Diario (S/)</label>
+                            <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Pago Diario ({simb()})</label>
                             <input required value={dailyRate} onChange={e => setDailyRate(e.target.value)} type="number" step="0.01" min="0" className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Ej. 120.00" />
                           </div>
                         </>
@@ -366,7 +367,7 @@ export default function PersonalYAsistenciaView({
                                   <span>{p.role}</span>
                                   {p.paymentType !== 'Global' && p.paymentType !== 'Por Día' && <span className="bg-indigo-100 text-indigo-700 px-1.5 rounded-sm">{p.paymentType}</span>}
                                   {p.paymentType === 'Por Día' && (
-                                    <span className="bg-emerald-100 text-emerald-700 px-1.5 rounded-sm">{p.days} días a S/{p.dailyRate}</span>
+                                    <span className="bg-emerald-100 text-emerald-700 px-1.5 rounded-sm">{p.days} días a {simb()} {p.dailyRate}</span>
                                   )}
                                 </div>
                               </div>
@@ -426,7 +427,7 @@ export default function PersonalYAsistenciaView({
                   </div>
                   <div className="flex items-center space-x-2 pt-1">
                     <input type="checkbox" id="toolsCheckbox" checked={calcTools} onChange={e => setCalcTools(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-500" />
-                    <label htmlFor="toolsCheckbox" className="text-sm text-indigo-800 font-medium cursor-pointer">Pone sus propias herramientas (+ S/ 30)</label>
+                    <label htmlFor="toolsCheckbox" className="text-sm text-indigo-800 font-medium cursor-pointer">Pone sus propias herramientas (+ {simb()} 30)</label>
                   </div>
                   
                   <div className="mt-4 pt-4 border-t border-indigo-200/50">
@@ -445,7 +446,7 @@ export default function PersonalYAsistenciaView({
                     <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2">Registrar Adelanto</h3>
                     <form onSubmit={handleAddAdelanto} className="space-y-3">
                       <div>
-                        <label className="block text-xs font-semibold text-slate-500 mb-1">Monto (S/)</label>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1">Monto ({simb()})</label>
                         <input required value={adelantoMonto} onChange={e => setAdelantoMonto(e.target.value)} type="number" step="0.01" min="0" max={(pSelectedWorker.amount || 0) - ((pSelectedWorker.adelantos || []).reduce((s: number, a: any) => s + a.amount, 0))} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-emerald-500" placeholder="Ej. 0.00" />
                       </div>
                       <div className="grid grid-cols-2 gap-3">

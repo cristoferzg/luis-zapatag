@@ -8,6 +8,7 @@ import {
   X 
 } from 'lucide-react';
 import { PuertaVentanaDesign, PresupuestoCarpinteriaResult } from './carpinteriaTypes';
+import { simb } from '../../lib/currency';
 
 interface CarpinteriaProjectModalProps {
   isOpen: boolean;
@@ -53,8 +54,8 @@ export const CarpinteriaProjectModal: React.FC<CarpinteriaProjectModalProps> = (
 - Tipo: ${design.tipoElemento.toUpperCase()} (${design.anchoM.toFixed(2)}m x ${design.altoM.toFixed(2)}m = ${(design.anchoM * design.altoM).toFixed(2)} m²)
 - Apertura: ${design.sentidoApertura}
 - Acabado: ${design.acabado.colorNombre} (${design.acabado.tipoPintura.replace(/_/g, ' ')})
-- Costo Directo: S/. ${presupuesto.costoDirecto.toFixed(2)} PEN
-- Presupuesto Final (Inc. IGV): S/. ${presupuesto.totalPresupuestoPEN.toFixed(2)} PEN`;
+- Costo Directo: ${simb()} ${presupuesto.costoDirecto.toFixed(2)} PEN
+- Presupuesto Final (Inc. IGV): ${simb()} ${presupuesto.totalPresupuestoPEN.toFixed(2)} PEN`;
 
     if (selectedProjectId === 'new') {
       const newProj = {
@@ -69,7 +70,7 @@ export const CarpinteriaProjectModal: React.FC<CarpinteriaProjectModalProps> = (
       };
 
       setProjects(prev => [newProj, ...prev]);
-      setSuccessMessage(`¡Se ha creado el proyecto "${newProj.name}" con el presupuesto asignado de S/. ${presupuesto.totalPresupuestoPEN.toFixed(2)}!`);
+      setSuccessMessage(`¡Se ha creado el proyecto "${newProj.name}" con el presupuesto asignado de ${simb()} ${presupuesto.totalPresupuestoPEN.toFixed(2)}!`);
       setTimeout(() => {
         if (onSuccessNavigate) onSuccessNavigate(newProj.id);
         onClose();
@@ -148,7 +149,7 @@ export const CarpinteriaProjectModal: React.FC<CarpinteriaProjectModalProps> = (
                 <div className="text-right">
                   <span className="text-[10px] uppercase font-bold text-slate-500 block">Monto a Asignar</span>
                   <strong className="text-indigo-900 font-mono text-base font-black">
-                    S/. {presupuesto.totalPresupuestoPEN.toFixed(2)}
+                    {simb()} {presupuesto.totalPresupuestoPEN.toFixed(2)}
                   </strong>
                 </div>
               </div>
@@ -242,7 +243,7 @@ export const CarpinteriaProjectModal: React.FC<CarpinteriaProjectModalProps> = (
                     >
                       {projects.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.name} — Cliente: {p.client} (Actual: S/. {p.presupuesto?.toFixed(2) || '0.00'})
+                          {p.name} — Cliente: {p.client} (Actual: {simb()} {p.presupuesto?.toFixed(2) || '0.00'})
                         </option>
                       ))}
                     </select>

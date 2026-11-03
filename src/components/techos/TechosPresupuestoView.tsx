@@ -10,6 +10,7 @@ import { useCatalogo } from '../../lib/catalogoPrecios';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import PropuestaClienteView from './PropuestaClienteView';
 import { Presentation } from 'lucide-react';
+import { simb } from '../../lib/currency';
 
 interface ProjectOption {
   id: string;
@@ -83,17 +84,17 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
   const hojaRef = useRef<HTMLDivElement>(null);
   const partidas: { item: string; desc: string; monto: number; sub?: string[] }[] = isBom ? [
     { item: '01', desc: 'Materiales e insumos', monto: design.costoDirectoMaterialesSoles, sub: [
-      `Perfilería estructural (${(design.despiecePerfiles || []).reduce((n: number, p: any) => n + p.totalBarrasComerciales6m, 0)} barras de 6 m): S/. ${(design.costoPerfilesSoles ?? 0).toFixed(2)}`,
-      `Cobertura (${(design.resumenCoberturas || []).reduce((n: number, c: any) => n + c.areaEfectivaCalculadaM2, 0).toFixed(1)} m²): S/. ${(design.costoCoberturasSoles ?? 0).toFixed(2)}`,
-      `Placas base, pernos y soldadura: S/. ${(design.costoAccesoriosSoles ?? 0).toFixed(2)}`,
-      ...((design.canaletas || []).length ? [`Canaletas y bajadas de agua: S/. ${(design.costoCanaletasSoles ?? 0).toFixed(2)}`] : []),
-      ...((design.iluminacionLed || []).length ? [`Iluminación LED en vigas (cinta, perfil difusor, fuentes): S/. ${(design.costoLedSoles ?? 0).toFixed(2)}`] : []),
-      ...((design.mecanismoMovil || []).length ? [`Mecanismo de techo movible (rieles, ruedas, accionamiento): S/. ${(design.costoMovilSoles ?? 0).toFixed(2)}`] : []),
+      `Perfilería estructural (${(design.despiecePerfiles || []).reduce((n: number, p: any) => n + p.totalBarrasComerciales6m, 0)} barras de 6 m): ${simb()} ${(design.costoPerfilesSoles ?? 0).toFixed(2)}`,
+      `Cobertura (${(design.resumenCoberturas || []).reduce((n: number, c: any) => n + c.areaEfectivaCalculadaM2, 0).toFixed(1)} m²): ${simb()} ${(design.costoCoberturasSoles ?? 0).toFixed(2)}`,
+      `Placas base, pernos y soldadura: ${simb()} ${(design.costoAccesoriosSoles ?? 0).toFixed(2)}`,
+      ...((design.canaletas || []).length ? [`Canaletas y bajadas de agua: ${simb()} ${(design.costoCanaletasSoles ?? 0).toFixed(2)}`] : []),
+      ...((design.iluminacionLed || []).length ? [`Iluminación LED en vigas (cinta, perfil difusor, fuentes): ${simb()} ${(design.costoLedSoles ?? 0).toFixed(2)}`] : []),
+      ...((design.mecanismoMovil || []).length ? [`Mecanismo de techo movible (rieles, ruedas, accionamiento): ${simb()} ${(design.costoMovilSoles ?? 0).toFixed(2)}`] : []),
     ] },
     { item: '02', desc: 'Mano de obra: fabricación y montaje', monto: design.costoManoObraMontajeSoles,
-      sub: costos.manoObraModo === 'detalle' && totalCuadrilla(costos) > 0 ? costos.cuadrilla.filter(f => f.cantidad * jornalDe(f) * f.dias > 0).map(f => `${f.cargo}: ${f.cantidad} × ${f.dias} días × S/. ${jornalDe(f).toFixed(2)}`) : undefined },
+      sub: costos.manoObraModo === 'detalle' && totalCuadrilla(costos) > 0 ? costos.cuadrilla.filter(f => f.cantidad * jornalDe(f) * f.dias > 0).map(f => `${f.cargo}: ${f.cantidad} × ${f.dias} días × ${simb()} ${jornalDe(f).toFixed(2)}`) : undefined },
     { item: '03', desc: 'Gastos operativos (grúa, transporte, andamios, EPP)', monto: design.costoEquiposGruaSoles,
-      sub: costos.operativosModo === 'detalle' ? costos.operativos.filter(f => f.monto > 0).map(f => `${f.concepto}: S/. ${f.monto.toFixed(2)}`) : undefined },
+      sub: costos.operativosModo === 'detalle' ? costos.operativos.filter(f => f.monto > 0).map(f => `${f.concepto}: ${simb()} ${f.monto.toFixed(2)}`) : undefined },
     { item: '04', desc: `Gastos generales (${costos.gastosGeneralesPct}%)`, monto: design.gastosGeneralesSoles ?? 0 },
     { item: '05', desc: `Utilidad (${costos.utilidadPct}%)`, monto: design.utilidadSoles ?? 0 },
   ] : [];
@@ -102,7 +103,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
     const especificacionesTexto = 
       `PRESUPUESTO ESTRUCTURA METALICA: ${nombreProyecto}\n` +
       `Ubicación: ${ubicacion}\n` +
-      `Subtotal: S/. ${subtotal.toFixed(2)} | IGV: S/. ${igv.toFixed(2)} | Total: S/. ${totalConIgv.toFixed(2)}\n` +
+      `Subtotal: ${simb()} ${subtotal.toFixed(2)} | IGV: ${simb()} ${igv.toFixed(2)} | Total: ${simb()} ${totalConIgv.toFixed(2)}\n` +
       `Partidas: Perfilería A36, Tijerales, Coberturas y Montaje con grúa.`;
 
     if (selectedProjectId === 'new') {
@@ -122,7 +123,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
       }
     } else {
       // Si ya hay un monto acordado con el cliente, no se pisa sin preguntar.
-      const reemplazar = !acordado || Math.abs(acordado.total - totalConIgv) < 0.5 || window.confirm(`Este proyecto tiene acordado S/ ${acordado.total.toFixed(2)} con el cliente. ¿Reemplazarlo por el presupuesto actual S/ ${totalConIgv.toFixed(2)}? (Cancelar: se guardan los datos y se mantiene lo acordado)`);
+      const reemplazar = !acordado || Math.abs(acordado.total - totalConIgv) < 0.5 || window.confirm(`Este proyecto tiene acordado ${simb()} ${acordado.total.toFixed(2)} con el cliente. ¿Reemplazarlo por el presupuesto actual ${simb()} ${totalConIgv.toFixed(2)}? (Cancelar: se guardan los datos y se mantiene lo acordado)`);
       if (onTechosProyecto && disenoId) onTechosProyecto(selectedProjectId, { disenoId, disenoNombre: nombreProyecto });
       if (onSaveToProject) {
         onSaveToProject(selectedProjectId, {
@@ -171,15 +172,15 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
               Integrar este Presupuesto al Módulo de Proyectos
             </h3>
             <p className="text-xs text-slate-600">
-              Guarda el monto de <span className="font-bold text-slate-900">S/. {totalConIgv.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span> directamente en el portafolio principal de obras.
+              Guarda el monto de <span className="font-bold text-slate-900">{simb()} {totalConIgv.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span> directamente en el portafolio principal de obras.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3 min-w-0 w-full md:w-auto md:max-w-[50%]">
             <select
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none"
+              className="w-full sm:w-auto min-w-0 max-w-full truncate bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none"
             >
               <option value="new">+ Crear Nuevo Proyecto</option>
               {projects.map((p) => (
@@ -195,7 +196,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
                 value={nuevoProyectoNombre}
                 onChange={(e) => setNuevoProyectoNombre(e.target.value)}
                 placeholder="Nombre de la Obra"
-                className="bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none w-48"
+                className="bg-white border border-slate-300 text-slate-800 text-xs font-semibold rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none w-full sm:w-48 min-w-0"
               />
             )}
 
@@ -236,19 +237,19 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
               <div className="grid sm:grid-cols-3 gap-2">
                 <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
                   <p className="text-[10px] font-black uppercase text-emerald-700">Precio pactado con el cliente</p>
-                  <p className="text-xl font-black text-emerald-900">S/ {fmt(pactado)}</p>
+                  <p className="text-xl font-black text-emerald-900">{simb()} {fmt(pactado)}</p>
                   <p className="text-[11px] text-emerald-800">Opción {acordado.opcion}{acordado.cobertura ? ` · ${acordado.cobertura}` : ''}</p>
                   <p className="text-[10px] text-emerald-700">{acordado.fuente === 'link' ? 'Aceptada por el cliente en el link' : 'Acordado'} · {fechaCorta(acordado.fecha)}</p>
                 </div>
                 <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
                   <p className="text-[10px] font-black uppercase text-slate-500">Costo del diseño actual</p>
-                  <p className="text-xl font-black text-slate-900">S/ {fmt(costo)}</p>
+                  <p className="text-xl font-black text-slate-900">{simb()} {fmt(costo)}</p>
                   <p className="text-[11px] text-slate-500">Materiales + mano de obra + equipos (sin gastos generales ni utilidad)</p>
                 </div>
                 <div className={`rounded-xl border p-3 ${margen >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
                   <p className="text-[10px] font-black uppercase text-slate-500">Te queda de margen</p>
-                  <p className={`text-xl font-black ${margen >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>S/ {fmt(margen)}</p>
-                  <p className="text-[11px] text-slate-600">{margen >= 0 ? `${pactado > 0 ? Math.round((margen / pactado) * 100) : 0}% del precio. Si cotizaras hoy con tus % saldría S/ ${fmt(totalConIgv)}.` : 'El diseño cuesta más de lo pactado: revisa perfiles o conversa un adicional.'}</p>
+                  <p className={`text-xl font-black ${margen >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{simb()} {fmt(margen)}</p>
+                  <p className="text-[11px] text-slate-600">{margen >= 0 ? `${pactado > 0 ? Math.round((margen / pactado) * 100) : 0}% del precio. Si cotizaras hoy con tus % saldría ${simb()} ${fmt(totalConIgv)}.` : 'El diseño cuesta más de lo pactado: revisa perfiles o conversa un adicional.'}</p>
                 </div>
               </div>
             );
@@ -323,7 +324,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
             <tr className="bg-slate-900 text-white uppercase text-[10px]">
               <th className="p-2.5">Item</th>
               <th className="p-2.5">Descripción de la Partida</th>
-              <th className="p-2.5 text-right">Monto (S/.)</th>
+              <th className="p-2.5 text-right">Monto ({simb()})</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -334,7 +335,7 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
                   <span className="font-bold">{p.desc}</span>
                   {p.sub && p.sub.length > 0 && <ul className="mt-1 space-y-0.5 text-[11px] text-slate-500">{p.sub.map((t, i) => <li key={i}>· {t}</li>)}</ul>}
                 </td>
-                <td className="p-2.5 text-right font-mono font-bold">S/. {(p.monto || 0).toFixed(2)}</td>
+                <td className="p-2.5 text-right font-mono font-bold">{simb()} {(p.monto || 0).toFixed(2)}</td>
               </tr>
             ))}
             {!isBom && <tr><td colSpan={3} className="p-4 text-center text-slate-400">Diseña tu techo en "1. Diseño CAD" para generar la cotización.</td></tr>}
@@ -346,15 +347,15 @@ export const TechosPresupuestoView: React.FC<TechosPresupuestoViewProps> = ({
           <div className="w-64 space-y-1.5 text-right">
             <div className="flex justify-between">
               <span className="text-slate-600">SUBTOTAL:</span>
-              <span className="font-bold">S/. {subtotal.toFixed(2)}</span>
+              <span className="font-bold">{simb()} {subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-600">I.G.V. (18%){costos.igv ? '' : ' — no aplicado'}:</span>
-              <span className="font-bold">S/. {igv.toFixed(2)}</span>
+              <span className="font-bold">{simb()} {igv.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-base font-black text-amber-600 border-t border-slate-300 pt-1.5">
-              <span>TOTAL (S/.):</span>
-              <span>S/. {totalConIgv.toFixed(2)}</span>
+              <span>TOTAL ({simb()}):</span>
+              <span>{simb()} {totalConIgv.toFixed(2)}</span>
             </div>
           </div>
         </div>

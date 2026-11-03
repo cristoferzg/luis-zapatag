@@ -20,6 +20,7 @@ import { Project, Material, FinanceRecord } from '../types';
 import { scanReceipt } from '../lib/receiptScan';
 import { checkAIAccess } from '../lib/aiAccess';
 import PlanesIAModal from './PlanesIAModal';
+import { simb, dinero } from '../lib/currency';
 
 interface MaterialesYGastosViewProps {
   projects: Project[];
@@ -165,7 +166,7 @@ export default function MaterialesYGastosView({
   const [editingGastoId, setEditingGastoId] = useState<string | null>(null);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(amount);
+    return dinero(amount);
   };
 
   const project = projects.find(p => String(p.id) === String(selectedProject)) || 
@@ -423,7 +424,7 @@ export default function MaterialesYGastosView({
                 <option value="">Seleccione un proyecto...</option>
                 {projects.map(p => (
                   <option key={p.id} value={p.id}>
-                    {p.name} — {p.client} (S/ {p.presupuesto?.toFixed(2) || '0.00'})
+                    {p.name} — {p.client} ({simb()} {p.presupuesto?.toFixed(2) || '0.00'})
                   </option>
                 ))}
               </select>
@@ -477,21 +478,21 @@ export default function MaterialesYGastosView({
                       <div className="md:col-span-2">
                         <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Nombre del Material o Perfil</label>
                         <input required list="catalogo-precios-lista" value={name} onChange={e => { setName(e.target.value); const it = itemsCatalogo().find(i => i.nombre === e.target.value.trim()); if (it && !unitPrice) setUnitPrice(String(precio(it.clave))); }} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 font-medium" placeholder="Escribe o elige del Catálogo de precios (ej. Tubo 2x2)" />
-                        <datalist id="catalogo-precios-lista">{itemsCatalogo().map(i => <option key={i.clave} value={i.nombre}>{`${i.unidad} · S/ ${precio(i.clave).toFixed(2)}`}</option>)}</datalist>
-                        {itemCat && <p className="text-[11px] text-slate-500 mt-1">Del catálogo: por {itemCat.unidad} · precio vigente S/ {precio(itemCat.clave).toFixed(2)}</p>}
+                        <datalist id="catalogo-precios-lista">{itemsCatalogo().map(i => <option key={i.clave} value={i.nombre}>{`${i.unidad} · ${simb()} ${precio(i.clave).toFixed(2)}`}</option>)}</datalist>
+                        {itemCat && <p className="text-[11px] text-slate-500 mt-1">Del catálogo: por {itemCat.unidad} · precio vigente {simb()} {precio(itemCat.clave).toFixed(2)}</p>}
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Cantidad (Uds / Barras / m²)</label>
                         <input required type="number" step="0.01" min="0" value={quantity} onChange={e => setQuantity(e.target.value)} onFocus={e => e.target.select()} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 font-mono" placeholder="Ej. 1" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Precio Unit. (S/)</label>
+                        <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Precio Unit. ({simb()})</label>
                         <input required type="number" step="0.01" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} onFocus={e => e.target.select()} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 font-mono" placeholder="Ej. 0.00" />
                       </div>
                       {precioDistinto && (
                         <label className="md:col-span-4 flex items-center gap-2 text-xs font-bold text-amber-800 bg-amber-50 rounded-xl px-3 py-2 cursor-pointer">
                           <input type="checkbox" checked={actualizarCatalogo} onChange={e => setActualizarCatalogo(e.target.checked)} />
-                          Actualizar el precio en el Catálogo de precios a S/ {parseFloat(unitPrice).toFixed(2)} (se usará en Techos, CarpiMetal, Obra Civil y Drywall)
+                          Actualizar el precio en el Catálogo de precios a {simb()} {parseFloat(unitPrice).toFixed(2)} (se usará en Techos, CarpiMetal, Obra Civil y Drywall)
                         </label>
                       )}
                       <div className="md:col-span-4 flex justify-end space-x-3 mt-1">
@@ -770,7 +771,7 @@ export default function MaterialesYGastosView({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Monto (S/)</label>
+              <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">Monto ({simb()})</label>
               <input required value={amount} onChange={e => setAmount(e.target.value)} type="number" min="0" step="0.01" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500" placeholder="Ej. 0.00" />
             </div>
             <div>

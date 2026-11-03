@@ -8,13 +8,14 @@ import { DollarSign, Plus, Trash2, RotateCcw, Package, HardHat, Truck, Percent }
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR, SOLDADURA_AWS_E6011 } from './techosCadCatalog';
 import { useCostosTechos, guardarCostosTechos, totalCuadrilla, totalOperativos, CostosTechos, jornalDe } from './costosTechos';
 import { useCatalogo, precio, fijarPrecio, quitarPrecio, tienePrecioPropio, clavePerfilDe, claveCobertura, claveJornal, largoPlanchaCompra, precioEnUnidad, fijarPrecioEnUnidad, fijarCompraCobertura } from '../../lib/catalogoPrecios';
+import { simb } from '../../lib/currency';
 
 interface TechosCostosViewProps {
   design?: any;
   onUpdateDesign?: (updated: any) => void;
 }
 
-const S = (n: number) => `S/ ${(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const S = (n: number) => `${simb()} ${(n || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const num = (v: string) => Math.max(0, parseFloat(v) || 0);
 const inp = 'w-full px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-300';
 
@@ -103,7 +104,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         {perfiles.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[520px]">
-              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Perfil</th><th className="text-right">Barras a comprar</th><th className="text-right w-32">Precio S/ por barra</th><th className="text-right">Subtotal</th><th /></tr></thead>
+              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Perfil</th><th className="text-right">Barras a comprar</th><th className="text-right w-32">Precio {simb()} por barra</th><th className="text-right">Subtotal</th><th /></tr></thead>
               <tbody>
                 {perfiles.map(p => {
                   const editado = tienePrecioPropio(clavePf(p.profileId));
@@ -124,7 +125,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         {coberturas.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[520px]">
-              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Cobertura</th><th className="text-right">A comprar</th><th className="text-right w-40">Precio S/</th><th className="text-right">Subtotal</th><th /></tr></thead>
+              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Cobertura</th><th className="text-right">A comprar</th><th className="text-right w-40">Precio {simb()}</th><th className="text-right">Subtotal</th><th /></tr></thead>
               <tbody>
                 {[...new Map(coberturas.map(z => [z.coberturaMaterialId, z])).values()].map(z => {
                   const filas = coberturas.filter(x => x.coberturaMaterialId === z.coberturaMaterialId);
@@ -156,10 +157,10 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([
-            ['techos:placa_base', `Placa base (S/ c/u) · ${bom?.placasBaseTotalesUnids ?? 0} u`, PLACA_BASE_ESTANDAR.costoUnidadSol],
-            ['techos:perno_anclaje', 'Pernos de anclaje (S/ caja ×100)', PERNO_ANCLAJE_J.costoCaja100Sol],
-            ['techos:perno_epdm', `Pernos EPDM (S/ caja ×100) · ${bom?.cajasPernosEpdmTotales ?? 0} cj`, PERNO_EPDM_ESTANDAR.costoCaja100Sol],
-            ['soldadura:kg', `Soldadura (S/ kg) · ${bom?.kgSoldaduraAwsEstimados ?? 0} kg`, SOLDADURA_AWS_E6011.costoKgSol],
+            ['techos:placa_base', `Placa base (${simb()} c/u) · ${bom?.placasBaseTotalesUnids ?? 0} u`, PLACA_BASE_ESTANDAR.costoUnidadSol],
+            ['techos:perno_anclaje', `Pernos de anclaje (${simb()} caja ×100)`, PERNO_ANCLAJE_J.costoCaja100Sol],
+            ['techos:perno_epdm', `Pernos EPDM (${simb()} caja ×100) · ${bom?.cajasPernosEpdmTotales ?? 0} cj`, PERNO_EPDM_ESTANDAR.costoCaja100Sol],
+            ['soldadura:kg', `Soldadura (${simb()} kg) · ${bom?.kgSoldaduraAwsEstimados ?? 0} kg`, SOLDADURA_AWS_E6011.costoKgSol],
           ] as [string, string, number][]).map(([k, l, def]) => (
             <label key={k} className="text-[10px] font-bold text-slate-500">{l}
               <input type="number" step="0.1" value={precio(k, def)} onChange={e => fijarPrecio(k, num(e.target.value), 'Techos')} className={`${inp} mt-0.5`} />
@@ -178,7 +179,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[520px]">
-              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Cargo</th><th className="w-20">Cantidad</th><th className="w-28">Jornal S/ día</th><th className="w-20">Días</th><th className="text-right">Subtotal</th><th /></tr></thead>
+              <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1.5">Cargo</th><th className="w-20">Cantidad</th><th className="w-28">Jornal {simb()} día</th><th className="w-20">Días</th><th className="text-right">Subtotal</th><th /></tr></thead>
               <tbody>
                 {c.cuadrilla.map(f => {
                   const up = (p: Partial<typeof f>) => set({ cuadrilla: c.cuadrilla.map(x => x.id === f.id ? { ...x, ...p } : x) });

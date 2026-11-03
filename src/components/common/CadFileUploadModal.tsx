@@ -362,7 +362,7 @@ export const CadFileUploadModal: React.FC<CadFileUploadModalProps> = ({
             </span>
             <p className="text-slate-600 text-[11px] leading-relaxed">
               1. En AutoCAD, escribe en la consola el comando <code className="bg-white px-1.5 py-0.5 rounded border border-amber-300 font-mono font-bold text-amber-800">DXFOUT</code> o ve a <strong>Archivo &gt; Guardar Como</strong> y selecciona <strong>AutoCAD R12/2018 DXF (*.dxf)</strong>.<br />
-              2. Sube el archivo aquí y podrás editarlo, mover nodos, calcular el despiece de perfiles y cotizar en Soles al instante.
+              2. Sube el archivo aquí y podrás editarlo, mover nodos, calcular el despiece de perfiles y cotizar al instante.
             </p>
           </div>
         </div>

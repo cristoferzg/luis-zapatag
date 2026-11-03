@@ -17,6 +17,7 @@ import defaultAdminLogo from '../assets/images/logo_innova_2026.png';
 import { safeStorage } from '../lib/storageManager';
 import { prepararArchivoCarpeta } from '../lib/carpetaArchivos';
 import { getCachedTechosDesigns, fetchAllTechosDesigns, SavedTechosDesign } from '../lib/techosDesignsRepo';
+import { simb } from '../lib/currency';
 
 interface ContratosYEPPViewProps {
   projects: Project[];
@@ -555,11 +556,11 @@ function ContratosSubView({
         {/* MONTO Y ADELANTO */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Presupuesto Total (S/)</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Presupuesto Total ({simb()})</label>
             <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800" value={presupuestoTotal} onChange={e => setPresupuestoTotal(Number(e.target.value))} />
           </div>
           <div>
-            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Adelanto Acordado (S/)</label>
+            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Adelanto Acordado ({simb()})</label>
             <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800" value={adelantoInput} onChange={e => setAdelantoInput(Number(e.target.value))} />
           </div>
         </div>
@@ -843,11 +844,11 @@ function ContratosSubView({
                   <div className="clause-block">
                     <h2 className="font-bold text-slate-950 text-[10.5pt] mb-0.5 uppercase tracking-wide">SEGUNDO: PRESUPUESTO Y FORMA DE PAGO</h2>
                     <p className="mb-0.5">
-                      El presupuesto total acordado para el proyecto es de <strong>S/ {presupuestoTotal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong>.
+                      El presupuesto total acordado para el proyecto es de <strong>{simb()} {presupuestoTotal.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong>.
                     </p>
                     <ul className="list-none pl-3 space-y-0.5">
-                      <li>• <strong>Adelanto Acordado:</strong> S/ {adelantoInput.toLocaleString('es-PE', { minimumFractionDigits: 2 })} a la firma del contrato y/o inicio de obra.</li>
-                      <li>• <strong>Saldo Pendiente:</strong> S/ {saldoPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2 })}, que será cancelado según el avance de obra o a la entrega final y conformidad del cliente.</li>
+                      <li>• <strong>Adelanto Acordado:</strong> {simb()} {adelantoInput.toLocaleString('es-PE', { minimumFractionDigits: 2 })} a la firma del contrato y/o inicio de obra.</li>
+                      <li>• <strong>Saldo Pendiente:</strong> {simb()} {saldoPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2 })}, que será cancelado según el avance de obra o a la entrega final y conformidad del cliente.</li>
                     </ul>
                     {(pagoCtaBcp || pagoYape || pagoCtaCorriente || pagoDetracciones) && (
                       <div className="mt-2 pt-2 border-t border-slate-200 text-[9.5pt] space-y-0.5">

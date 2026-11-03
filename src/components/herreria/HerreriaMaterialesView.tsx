@@ -24,6 +24,7 @@ import {
 import { HerreriaDesign, MaterialAgrupado } from './herreriaTypes';
 import { generarDespiece, generarMaterialesAgrupados } from './herreriaCalculations';
 import { safeStorage } from '../../lib/storageManager';
+import { simb } from '../../lib/currency';
 
 interface HerreriaMaterialesViewProps {
   design: HerreriaDesign;
@@ -207,21 +208,21 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
       if (cat.items.length > 0) {
         texto += `--- ${getCategoriaNombre(cat.categoria).toUpperCase()} ---\n`;
         cat.items.forEach(it => {
-          texto += `${it.nombre} | Cant: ${it.cantidad} ${it.unidad} | P.Unit: S/. ${it.precioUnitario.toFixed(2)} | Subtotal: S/. ${it.subtotal.toFixed(2)}\n`;
+          texto += `${it.nombre} | Cant: ${it.cantidad} ${it.unidad} | P.Unit: ${simb()} ${it.precioUnitario.toFixed(2)} | Subtotal: ${simb()} ${it.subtotal.toFixed(2)}\n`;
         });
-        texto += `Subtotal: S/. ${cat.subtotalCategoria.toFixed(2)}\n\n`;
+        texto += `Subtotal: ${simb()} ${cat.subtotalCategoria.toFixed(2)}\n\n`;
       }
     });
 
     if (itemsAdicionales.length > 0) {
       texto += `--- INSUMOS Y PERFILES ADICIONALES ADJUNTADOS ---\n`;
       itemsAdicionales.forEach(it => {
-        texto += `${it.nombre} (${it.codigoComercial || 'N/A'}) | Cant: ${it.cantidad} ${it.unidad} | P.Unit: S/. ${it.precioUnitario.toFixed(2)} | Subtotal: S/. ${it.subtotal.toFixed(2)} | Obs: ${it.observacion || '-'}\n`;
+        texto += `${it.nombre} (${it.codigoComercial || 'N/A'}) | Cant: ${it.cantidad} ${it.unidad} | P.Unit: ${simb()} ${it.precioUnitario.toFixed(2)} | Subtotal: ${simb()} ${it.subtotal.toFixed(2)} | Obs: ${it.observacion || '-'}\n`;
       });
-      texto += `Subtotal Adicionales: S/. ${subtotalAdicionales.toFixed(2)}\n\n`;
+      texto += `Subtotal Adicionales: ${simb()} ${subtotalAdicionales.toFixed(2)}\n\n`;
     }
 
-    texto += `TOTAL MATERIALES CONSOLIDADO ESTIMADO: S/. ${subtotalTotalPEN.toFixed(2)} PEN`;
+    texto += `TOTAL MATERIALES CONSOLIDADO ESTIMADO: ${simb()} ${subtotalTotalPEN.toFixed(2)} PEN`;
     navigator.clipboard.writeText(texto);
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
@@ -326,7 +327,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                 REQUERIMIENTO CONSOLIDADO DE MATERIALES
               </h2>
               <p className="text-xs text-slate-500">
-                Insumos calculados + Perfiles comerciales serie LAC/LAF adjuntados • Precios Perú (PEN S/.)
+                Insumos calculados + Perfiles comerciales serie LAC/LAF adjuntados • Precios Perú (PEN {simb()})
               </p>
             </div>
           </div>
@@ -357,7 +358,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
 
           <div className="text-right bg-white px-3.5 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
             <span className="text-[10px] text-slate-500 uppercase font-semibold block">Total Consolidado</span>
-            <span className="text-base font-mono font-bold text-emerald-600">S/. {subtotalTotalPEN.toFixed(2)}</span>
+            <span className="text-base font-mono font-bold text-emerald-600">{simb()} {subtotalTotalPEN.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -373,7 +374,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
               </h3>
             </div>
             <span className="text-xs font-mono font-bold text-indigo-700">
-              Subtotal Adjuntados: S/. {subtotalAdicionales.toFixed(2)}
+              Subtotal Adjuntados: {simb()} {subtotalAdicionales.toFixed(2)}
             </span>
           </div>
 
@@ -385,8 +386,8 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                   <th className="py-2.5 px-3">Código Comercial</th>
                   <th className="py-2.5 px-3 text-center">Unidad</th>
                   <th className="py-2.5 px-3 text-center">Cantidad</th>
-                  <th className="py-2.5 px-3 text-right">Precio Unit. (S/.)</th>
-                  <th className="py-2.5 px-3 text-right">Subtotal (S/.)</th>
+                  <th className="py-2.5 px-3 text-right">Precio Unit. ({simb()})</th>
+                  <th className="py-2.5 px-3 text-right">Subtotal ({simb()})</th>
                   <th className="py-2.5 px-3">Observación</th>
                   <th className="py-2.5 px-3 text-center">Acción</th>
                 </tr>
@@ -398,8 +399,8 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                     <td className="py-2.5 px-3 text-indigo-600 font-bold text-[11px]">{item.codigoComercial || 'N/A'}</td>
                     <td className="py-2.5 px-3 text-center text-slate-600 font-sans">{item.unidad}</td>
                     <td className="py-2.5 px-3 text-center font-bold bg-indigo-50/50">{item.cantidad}</td>
-                    <td className="py-2.5 px-3 text-right text-slate-600">S/. {item.precioUnitario.toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-emerald-600">S/. {item.subtotal.toFixed(2)}</td>
+                    <td className="py-2.5 px-3 text-right text-slate-600">{simb()} {item.precioUnitario.toFixed(2)}</td>
+                    <td className="py-2.5 px-3 text-right font-bold text-emerald-600">{simb()} {item.subtotal.toFixed(2)}</td>
                     <td className="py-2.5 px-3 font-sans text-slate-500 text-[11px]">{item.observacion || '-'}</td>
                     <td className="py-2.5 px-3 text-center">
                       <button
@@ -443,7 +444,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                   <span className="tracking-wide uppercase">{getCategoriaNombre(cat.categoria)}</span>
                 </div>
                 <div className="text-xs font-mono font-bold text-emerald-600">
-                  Subtotal: S/. {cat.subtotalCategoria.toFixed(2)}
+                  Subtotal: {simb()} {cat.subtotalCategoria.toFixed(2)}
                 </div>
               </div>
 
@@ -454,8 +455,8 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                       <th className="py-2.5 px-4">Descripción del Insumo</th>
                       <th className="py-2.5 px-4 text-center">Unidad</th>
                       <th className="py-2.5 px-4 text-center">Cantidad Requerida</th>
-                      <th className="py-2.5 px-4 text-right">Precio Unit. (S/.)</th>
-                      <th className="py-2.5 px-4 text-right">Subtotal (S/.)</th>
+                      <th className="py-2.5 px-4 text-right">Precio Unit. ({simb()})</th>
+                      <th className="py-2.5 px-4 text-right">Subtotal ({simb()})</th>
                       <th className="py-2.5 px-4">Detalle / Observación</th>
                     </tr>
                   </thead>
@@ -465,8 +466,8 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                         <td className="py-2.5 px-4 font-sans font-medium text-slate-900">{item.nombre}</td>
                         <td className="py-2.5 px-4 text-center text-slate-500 font-sans">{item.unidad}</td>
                         <td className="py-2.5 px-4 text-center font-bold text-slate-800 bg-slate-50">{item.cantidad}</td>
-                        <td className="py-2.5 px-4 text-right text-slate-600">S/. {item.precioUnitario.toFixed(2)}</td>
-                        <td className="py-2.5 px-4 text-right font-bold text-emerald-600">S/. {item.subtotal.toFixed(2)}</td>
+                        <td className="py-2.5 px-4 text-right text-slate-600">{simb()} {item.precioUnitario.toFixed(2)}</td>
+                        <td className="py-2.5 px-4 text-right font-bold text-emerald-600">{simb()} {item.subtotal.toFixed(2)}</td>
                         <td className="py-2.5 px-4 font-sans text-slate-500 text-[11px]">{item.observacion || '-'}</td>
                       </tr>
                     ))}
@@ -543,7 +544,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                         </div>
                       </div>
                       <span className="text-xs font-mono font-bold text-emerald-600 shrink-0">
-                        S/. {catItem.precioSugerido.toFixed(2)}
+                        {simb()} {catItem.precioSugerido.toFixed(2)}
                       </span>
                     </button>
                   ))
@@ -618,7 +619,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
 
                   <div>
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                      Precio Unit. (S/.) *
+                      Precio Unit. ({simb()}) *
                     </label>
                     <input
                       type="number"
@@ -647,7 +648,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
 
                 <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                   <div className="text-xs font-bold text-slate-800">
-                    Subtotal Insumo: <span className="text-emerald-600 font-mono text-sm">S/. {(cantidadManual * precioManual).toFixed(2)}</span>
+                    Subtotal Insumo: <span className="text-emerald-600 font-mono text-sm">{simb()} {(cantidadManual * precioManual).toFixed(2)}</span>
                   </div>
 
                   <div className="flex items-center gap-2">

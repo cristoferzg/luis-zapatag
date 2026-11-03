@@ -8,8 +8,9 @@ import { BarChart3, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Wallet,
 import type { Project, FinanceRecord } from '../types';
 import BotonImprimir from './common/BotonImprimir';
 import { CabeceraEmpresa, BandaMarca } from '../lib/empresa';
+import { simb } from '../lib/currency';
 
-const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const mesDe = (fecha?: string) => (fecha || '').slice(0, 7); // 'YYYY-MM' (fechas ISO o 'YYYY-MM-DD')
 const nombreMes = (m: string) => { const [y, mm] = m.split('-').map(Number); return new Date(y, mm - 1, 1).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }); };
 const mover = (m: string, d: number) => { const [y, mm] = m.split('-').map(Number); const f = new Date(y, mm - 1 + d, 1); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`; };

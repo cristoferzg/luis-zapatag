@@ -11,6 +11,7 @@ import {
 import { getProfileById } from './structuralCatalog';
 import { calculateRoofGeometry } from './structuralGenerator';
 import { FileSpreadsheet, Download, Copy, Check, Droplets, ShieldCheck, Layers, Hammer } from 'lucide-react';
+import { simb } from '../../lib/currency';
 
 interface MetradoProps {
   geometria: StructuralGeometry;
@@ -216,15 +217,15 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
       csv += `07.2,Sellador de Poliuretano Sikaflex,Cartucho 300ml,${cartuchosSikaflex},und,-,-,-\n`;
     }
     csv += `\nRESUMEN PRESUPUESTO ESTIMADO (PEN):\n`;
-    csv += `Acero Fabricado: S/. ${costSteel.toFixed(2)}\n`;
-    csv += `Cobertura de Techo: S/. ${costRoofCoverage.toFixed(2)}\n`;
-    csv += `Evacuación Pluvial: S/. ${costPlumbingDrainage.toFixed(2)}\n`;
-    csv += `Remates y Fijaciones: S/. ${costRematesScrews.toFixed(2)}\n`;
-    csv += `Conexiones y Placas: S/. ${costHardware.toFixed(2)}\n`;
-    csv += `Mano de Obra Montaje: S/. ${costLabor.toFixed(2)}\n`;
-    csv += `Subtotal: S/. ${subtotalCost.toFixed(2)}\n`;
-    csv += `IGV (18%): S/. ${igvTax.toFixed(2)}\n`;
-    csv += `TOTAL GENERAL: S/. ${totalCost.toFixed(2)}\n`;
+    csv += `Acero Fabricado: ${simb()} ${costSteel.toFixed(2)}\n`;
+    csv += `Cobertura de Techo: ${simb()} ${costRoofCoverage.toFixed(2)}\n`;
+    csv += `Evacuación Pluvial: ${simb()} ${costPlumbingDrainage.toFixed(2)}\n`;
+    csv += `Remates y Fijaciones: ${simb()} ${costRematesScrews.toFixed(2)}\n`;
+    csv += `Conexiones y Placas: ${simb()} ${costHardware.toFixed(2)}\n`;
+    csv += `Mano de Obra Montaje: ${simb()} ${costLabor.toFixed(2)}\n`;
+    csv += `Subtotal: ${simb()} ${subtotalCost.toFixed(2)}\n`;
+    csv += `IGV (18%): ${simb()} ${igvTax.toFixed(2)}\n`;
+    csv += `TOTAL GENERAL: ${simb()} ${totalCost.toFixed(2)}\n`;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -243,7 +244,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
 - Evacuación Pluvial: ${roofGeo.tieneCanaleta ? `${metrosCanaleta.toFixed(1)}m canaleta, ${cantBajantes} bajantes (${metrosBajantes.toFixed(1)}m)` : 'Sin canaleta'}
 - Remates y Babetas: ${totalLinearRemates.toFixed(1)} m lineales (+ ${cartuchosSikaflex} cartuchos Sikaflex)
 - Tornillos Autoperforantes: ${totalScrewsCount} unidades con arandela EPDM
-- Presupuesto Estimado: S/. ${totalCost.toLocaleString('es-PE', { maximumFractionDigits: 0 })} PEN (Inc. IGV y montaje)`;
+- Presupuesto Estimado: ${simb()} ${totalCost.toLocaleString('es-PE', { maximumFractionDigits: 0 })} PEN (Inc. IGV y montaje)`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -334,7 +335,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
         <div className="col-span-2 lg:col-span-1 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Presupuesto Estimado</div>
           <div className="text-2xl font-bold font-mono text-indigo-700 mt-1">
-            S/. {totalCost.toLocaleString('es-PE', { maximumFractionDigits: 0 })}
+            {simb()} {totalCost.toLocaleString('es-PE', { maximumFractionDigits: 0 })}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">Inc. IGV, montaje y materiales</div>
         </div>
@@ -575,13 +576,13 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
       {/* BUDGET ESTIMATE CARD */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
         <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center justify-between">
-          <span>Costos Unitarios y Estimación Presupuestaria (Soles PEN)</span>
+          <span>Costos Unitarios y Estimación Presupuestaria ({simb()})</span>
           <span className="text-[11px] text-slate-400 font-normal">Precios editables del mercado de construcción en Perú</span>
         </h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Acero Fabricado (S/./kg):</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Acero Fabricado ({simb()}/kg):</label>
             <input 
               type="number" 
               step="0.5" 
@@ -591,7 +592,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Cobertura Techo (S/./m²):</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Cobertura Techo ({simb()}/m²):</label>
             <input 
               type="number" 
               step="1" 
@@ -601,7 +602,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Canaleta Pluvial (S/./m):</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Canaleta Pluvial ({simb()}/m):</label>
             <input 
               type="number" 
               step="1" 
@@ -611,7 +612,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Bajante Pluvial (S/./m):</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Bajante Pluvial ({simb()}/m):</label>
             <input 
               type="number" 
               step="1" 
@@ -621,7 +622,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Mano de Obra (S/./kg):</label>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Mano de Obra ({simb()}/kg):</label>
             <input 
               type="number" 
               step="0.5" 
@@ -635,19 +636,19 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
         {/* Breakdown Cost Summary */}
         <div className="border-t border-slate-200 pt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-xs text-slate-600">
-            <div>• Acero: <strong className="font-mono text-slate-800">S/. {costSteel.toFixed(2)}</strong></div>
-            <div>• Cobertura: <strong className="font-mono text-slate-800">S/. {costRoofCoverage.toFixed(2)}</strong></div>
-            <div>• Evacuación: <strong className="font-mono text-slate-800">S/. {costPlumbingDrainage.toFixed(2)}</strong></div>
-            <div>• Remates y Sikaflex: <strong className="font-mono text-slate-800">S/. {costRematesScrews.toFixed(2)}</strong></div>
-            <div>• Placas y Anclajes: <strong className="font-mono text-slate-800">S/. {costHardware.toFixed(2)}</strong></div>
-            <div>• Montaje y Equipos: <strong className="font-mono text-slate-800">S/. {costLabor.toFixed(2)}</strong></div>
+            <div>• Acero: <strong className="font-mono text-slate-800">{simb()} {costSteel.toFixed(2)}</strong></div>
+            <div>• Cobertura: <strong className="font-mono text-slate-800">{simb()} {costRoofCoverage.toFixed(2)}</strong></div>
+            <div>• Evacuación: <strong className="font-mono text-slate-800">{simb()} {costPlumbingDrainage.toFixed(2)}</strong></div>
+            <div>• Remates y Sikaflex: <strong className="font-mono text-slate-800">{simb()} {costRematesScrews.toFixed(2)}</strong></div>
+            <div>• Placas y Anclajes: <strong className="font-mono text-slate-800">{simb()} {costHardware.toFixed(2)}</strong></div>
+            <div>• Montaje y Equipos: <strong className="font-mono text-slate-800">{simb()} {costLabor.toFixed(2)}</strong></div>
           </div>
 
           <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center justify-between md:space-x-6 shrink-0">
             <div>
               <div className="text-[11px] font-bold text-indigo-700 uppercase">Costo Total de Obra (Inc. IGV)</div>
               <div className="text-2xl font-black font-mono text-indigo-950">
-                S/. {totalCost.toLocaleString('es-PE', { maximumFractionDigits: 2 })}
+                {simb()} {totalCost.toLocaleString('es-PE', { maximumFractionDigits: 2 })}
               </div>
             </div>
           </div>

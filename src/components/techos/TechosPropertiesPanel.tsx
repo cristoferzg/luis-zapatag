@@ -9,6 +9,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { TechoEstructuraDesign, TipoTecho, TipoTijeral, TipoCobertura, ColorCobertura } from './techosTypes';
+import { simb } from '../../lib/currency';
 
 interface TechosPropertiesPanelProps {
   design: TechoEstructuraDesign;
@@ -836,7 +837,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               </h3>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Materiales Estructura y Cobertura (S/ por m²)</label>
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Materiales Estructura y Cobertura ({simb()} por m²)</label>
                 <input
                   type="number"
                   value={design.costoM2Materiales}
@@ -846,7 +847,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Mano de Obra y Montaje (S/ por m²)</label>
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Mano de Obra y Montaje ({simb()} por m²)</label>
                 <input
                   type="number"
                   value={design.costoM2ManoObra}
@@ -856,7 +857,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Equipos y Camión Grúa (S/ por m²)</label>
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">Equipos y Camión Grúa ({simb()} por m²)</label>
                 <input
                   type="number"
                   value={design.costoM2EquiposGrua}

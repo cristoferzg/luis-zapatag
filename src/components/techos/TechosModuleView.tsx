@@ -63,6 +63,7 @@ import {
   esPlanoMio
 } from '../../lib/techosDesignsRepo';
 import type { TechosDelProyecto } from '../../types';
+import { simb } from '../../lib/currency';
 
 interface ProjectOption {
   id: string;
@@ -355,9 +356,9 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
                     </div>
                     <div className="text-right">
                       <span className="inline-block bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-[10px] font-black text-slate-700">
-                        S/. {totalCost.toFixed(2)}
+                        {simb()} {totalCost.toFixed(2)}
                       </span>
-                      <p className="text-[9px] text-slate-400 mt-1">S/. {(profile.costoMetroSol).toFixed(2)}/m</p>
+                      <p className="text-[9px] text-slate-400 mt-1">{simb()} {(profile.costoMetroSol).toFixed(2)}/m</p>
                     </div>
                   </div>
                 ))
@@ -367,7 +368,7 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
             {profileStats.length > 0 && (
               <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs">
                 <span className="font-bold text-slate-600">Total Perfilería:</span>
-                <span className="font-mono font-black text-amber-700 text-sm">S/. {totalStructuralCost.toFixed(2)} Soles</span>
+                <span className="font-mono font-black text-amber-700 text-sm">{simb()} {totalStructuralCost.toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -395,7 +396,7 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
                         <div className="grid grid-cols-3 gap-2 pt-1">
                           <div><p className="text-[9px] font-bold text-slate-400 uppercase">Área</p><p className="font-mono font-black text-slate-800">{c.area.toFixed(1)} m²</p></div>
                           <div><p className="text-[9px] font-bold text-slate-400 uppercase">{/rollo/i.test(c.nombre) ? 'Paños' : 'Planchas'}</p><p className="font-mono font-black text-blue-700">{Math.ceil(c.planchas)}</p></div>
-                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">Costo</p><p className="font-mono font-black text-amber-700">S/. {c.costo.toFixed(2)}</p></div>
+                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">Costo</p><p className="font-mono font-black text-amber-700">{simb()} {c.costo.toFixed(2)}</p></div>
                         </div>
                         {info && <p className="text-[10px] text-slate-500">Plancha de {(info.anchoTotalMm / 1000).toFixed(2)} m (útil {(info.anchoUtilMm / 1000).toFixed(2)} m) × {info.longitudComercialM?.toFixed(2) || '—'} m · traslape {(info.traslapeTransversalMinMm || 200) / 10} cm</p>}
                       </div>

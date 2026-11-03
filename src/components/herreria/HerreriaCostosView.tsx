@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { HerreriaDesign, CostoDesglosado } from './herreriaTypes';
 import { generarDespiece, generarMaterialesAgrupados, calcularCostosDesglosados } from './herreriaCalculations';
+import { simb, getCompanyCurrency } from '../../lib/currency';
 
 interface HerreriaCostosViewProps {
   design: HerreriaDesign;
@@ -143,7 +144,7 @@ export const HerreriaCostosView: React.FC<HerreriaCostosViewProps> = ({ design, 
                 ESTRUCTURA Y ANÁLISIS DE COSTOS
               </h2>
               <p className="text-xs text-slate-500">
-                Desglose analítico de fabricación por rubros técnicos • Moneda: Soles (S/.)
+                Desglose analítico de fabricación por rubros técnicos • Moneda: {getCompanyCurrency().name} ({simb()})
               </p>
             </div>
           </div>
@@ -152,7 +153,7 @@ export const HerreriaCostosView: React.FC<HerreriaCostosViewProps> = ({ design, 
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 px-4 py-2 rounded-2xl shadow-2xs text-right">
             <span className="text-[10px] text-slate-500 uppercase font-semibold block">Costo Directo Total</span>
-            <span className="text-lg font-mono font-bold text-blue-600">S/. {costos.costoDirectoTotal.toFixed(2)}</span>
+            <span className="text-lg font-mono font-bold text-blue-600">{simb()} {costos.costoDirectoTotal.toFixed(2)}</span>
           </div>
         </div>
       </div>
@@ -162,25 +163,25 @@ export const HerreriaCostosView: React.FC<HerreriaCostosViewProps> = ({ design, 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] text-slate-500 block font-medium">Materiales + Accesorios</span>
           <span className="text-xl font-mono font-bold text-slate-900">
-            S/. {(costos.materiales + costos.accesorios).toFixed(2)}
+            {simb()} {(costos.materiales + costos.accesorios).toFixed(2)}
           </span>
         </div>
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] text-slate-500 block font-medium">Mano de Obra Taller</span>
           <span className="text-xl font-mono font-bold text-blue-600">
-            S/. {(costos.corte + costos.soldadura + costos.armado + costos.esmerilado + costos.pintura).toFixed(2)}
+            {simb()} {(costos.corte + costos.soldadura + costos.armado + costos.esmerilado + costos.pintura).toFixed(2)}
           </span>
         </div>
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] text-slate-500 block font-medium">Obra y Flete</span>
           <span className="text-xl font-mono font-bold text-teal-600">
-            S/. {(costos.instalacion + costos.transporte).toFixed(2)}
+            {simb()} {(costos.instalacion + costos.transporte).toFixed(2)}
           </span>
         </div>
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] text-slate-500 block font-medium">Precio Sugerido Venta</span>
           <span className="text-xl font-mono font-bold text-emerald-600">
-            S/. {costos.precioTotalVenta.toFixed(2)}
+            {simb()} {costos.precioTotalVenta.toFixed(2)}
           </span>
         </div>
       </div>
@@ -218,7 +219,7 @@ export const HerreriaCostosView: React.FC<HerreriaCostosViewProps> = ({ design, 
                 {/* Input Editable o Monto */}
                 {rubro.editable && rubro.campoMO ? (
                   <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-300">
-                    <span className="text-xs text-slate-500 font-mono">S/.</span>
+                    <span className="text-xs text-slate-500 font-mono">{simb()}</span>
                     <input
                       type="number"
                       step="10"
@@ -229,7 +230,7 @@ export const HerreriaCostosView: React.FC<HerreriaCostosViewProps> = ({ design, 
                   </div>
                 ) : (
                   <div className="font-mono text-sm font-bold text-slate-900 px-2">
-                    S/. {rubro.monto.toFixed(2)}
+                    {simb()} {rubro.monto.toFixed(2)}
                   </div>
                 )}
               </div>
@@ -242,23 +243,23 @@ export const HerreriaCostosView: React.FC<HerreriaCostosViewProps> = ({ design, 
       <div className="bg-white border border-slate-200 rounded-2xl p-4 my-4 space-y-2 text-xs shadow-2xs">
         <div className="flex justify-between text-slate-600">
           <span>Gastos Generales de Taller (10%):</span>
-          <span className="font-mono font-semibold text-slate-900">S/. {costos.gastosGenerales.toFixed(2)}</span>
+          <span className="font-mono font-semibold text-slate-900">{simb()} {costos.gastosGenerales.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-slate-600">
           <span>Utilidad Estimada del Contratista (20%):</span>
-          <span className="font-mono font-semibold text-blue-600">S/. {costos.utilidad.toFixed(2)}</span>
+          <span className="font-mono font-semibold text-blue-600">{simb()} {costos.utilidad.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-slate-800 font-bold pt-2 border-t border-slate-200">
           <span>Subtotal antes de Impuestos:</span>
-          <span className="font-mono text-slate-900">S/. {costos.subtotal.toFixed(2)}</span>
+          <span className="font-mono text-slate-900">{simb()} {costos.subtotal.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-slate-500">
           <span>I.G.V. (18% opcional):</span>
-          <span className="font-mono">S/. {costos.igv.toFixed(2)}</span>
+          <span className="font-mono">{simb()} {costos.igv.toFixed(2)}</span>
         </div>
         <div className="flex justify-between text-emerald-700 font-bold text-sm pt-2 border-t border-slate-200">
           <span>PRECIO TOTAL ESTIMADO DE VENTA:</span>
-          <span className="font-mono text-base font-extrabold text-emerald-600">S/. {costos.precioTotalVenta.toFixed(2)} PEN</span>
+          <span className="font-mono text-base font-extrabold text-emerald-600">{simb()} {costos.precioTotalVenta.toFixed(2)} PEN</span>
         </div>
       </div>
     </div>

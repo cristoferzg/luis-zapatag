@@ -31,6 +31,7 @@ import {
   ShieldAlert, 
   SlidersHorizontal 
 } from 'lucide-react';
+import { simb } from '../../lib/currency';
 
 export type PropertyItemType = 'column' | 'beam' | 'purlin' | 'truss' | 'brace' | 'sector' | 'edge' | 'void' | 'gutter' | 'downspout';
 
@@ -963,7 +964,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       >
                         {ALUZINC_CATALOG.map(al => (
                           <option key={al.id} value={al.espesorMm + ' mm'}>
-                            {al.perfil} ({al.calibre} - S/. {al.precioSolesM2}/m²)
+                            {al.perfil} ({al.calibre} - {simb()} {al.precioSolesM2}/m²)
                           </option>
                         ))}
                       </select>
@@ -1054,7 +1055,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       >
                         {CANALETA_OPTIONS.map(c => (
                           <option key={c.id} value={c.id}>
-                            {c.nombre} (S/. {c.precioSolesM}/m)
+                            {c.nombre} ({simb()} {c.precioSolesM}/m)
                           </option>
                         ))}
                       </select>
@@ -1070,7 +1071,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                         >
                           {BAJANTE_OPTIONS.map(b => (
                             <option key={b.id} value={b.diametroPulg}>
-                              Ø {b.diametroPulg} ({b.material}) - S/. {b.precioSolesM}/m
+                              Ø {b.diametroPulg} ({b.material}) - {simb()} {b.precioSolesM}/m
                             </option>
                           ))}
                         </select>

@@ -15,6 +15,7 @@ import {
   Copy, Check, X, AlertTriangle, ChevronDown, Pencil
 } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
+import { simb } from '../lib/currency';
 
 export interface PriceItem {
   nombre: string;
@@ -158,12 +159,12 @@ export const PreciosView: React.FC = () => {
     const text = `*COTIZACIÓN ESTIMADA — INNOVA CONTRATISTAS*
 Fecha: ${new Date().toLocaleDateString('es-PE')}  ·  Región: ${selectedRegion}
 ----------------------------------------
-Costo directo base: S/ ${baseCosto.toFixed(2)}
-Merma e imprevistos (${imprevistosPercent}%): S/ ${montoImprevistos.toFixed(2)}
-Costo de producción: S/ ${costoProduccion.toFixed(2)}
-Utilidad (${marginMode === 'percent' ? marginPercent + '%' : 'monto fijo'}): S/ ${montoUtilidad.toFixed(2)}
-Subtotal: S/ ${subtotal.toFixed(2)}
-${incluirIgv ? `IGV (18%): S/ ${montoIgv.toFixed(2)}\n` : ''}PRECIO FINAL SUGERIDO: S/ ${precioFinalCalculado.toFixed(2)} ${incluirIgv ? '(con factura)' : '(neto / proforma)'}
+Costo directo base: ${simb()} ${baseCosto.toFixed(2)}
+Merma e imprevistos (${imprevistosPercent}%): ${simb()} ${montoImprevistos.toFixed(2)}
+Costo de producción: ${simb()} ${costoProduccion.toFixed(2)}
+Utilidad (${marginMode === 'percent' ? marginPercent + '%' : 'monto fijo'}): ${simb()} ${montoUtilidad.toFixed(2)}
+Subtotal: ${simb()} ${subtotal.toFixed(2)}
+${incluirIgv ? `IGV (18%): ${simb()} ${montoIgv.toFixed(2)}\n` : ''}PRECIO FINAL SUGERIDO: ${simb()} ${precioFinalCalculado.toFixed(2)} ${incluirIgv ? '(con factura)' : '(neto / proforma)'}
 ----------------------------------------
 Precios referenciales sujetos a verificación en planos o visita de campo.`;
     if (navigator.clipboard?.writeText) {
@@ -273,7 +274,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
               <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
                 <h3 className="text-[11px] font-black uppercase tracking-wider text-slate-500">{cat.categoria}</h3>
                 {editMode && (
-                  <button onClick={() => setItemModal({ open: true, mode: 'add', categoryName: cat.categoria, item: { nombre: '', precio: 'S/ ', variacion: 'Estable', detalle: '' } })}
+                  <button onClick={() => setItemModal({ open: true, mode: 'add', categoryName: cat.categoria, item: { nombre: '', precio: simb() + ' ', variacion: 'Estable', detalle: '' } })}
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 cursor-pointer">
                     <Plus className="w-3.5 h-3.5" /> Añadir
                   </button>
@@ -292,7 +293,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-[13px] font-black text-slate-900 whitespace-nowrap">{item.precio}</span>
+                      <span className="text-[13px] font-black text-slate-900 whitespace-nowrap">{String(item.precio || '').replace(/^S\/\.?\s*/, simb() + ' ')}</span>
                     </div>
                     {editMode && (
                       <div className="flex items-center gap-0.5 shrink-0">
@@ -340,7 +341,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
               <div>
                 <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Costo directo base (materiales + mano de obra)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">S/</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">{simb()}</span>
                   <input type="number" min="0" value={costoEstimado === 0 ? '' : costoEstimado}
                     onChange={e => setCostoEstimado(e.target.value === '' ? 0 : Number(e.target.value))}
                     inputMode="decimal" placeholder="Ej. 3500.00"
@@ -351,7 +352,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
               <div>
                 <div className="flex justify-between items-center mb-1.5">
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Merma e imprevistos</label>
-                  <span className="text-[11px] font-bold text-slate-600">+{imprevistosPercent}% · S/ {montoImprevistos.toFixed(2)}</span>
+                  <span className="text-[11px] font-bold text-slate-600">+{imprevistosPercent}% · {simb()} {montoImprevistos.toFixed(2)}</span>
                 </div>
                 <div className="grid grid-cols-5 gap-1.5">
                   {[0, 3, 5, 8, 10].map(v => (
@@ -366,7 +367,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
                   <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Margen de utilidad</label>
                   <div className="flex items-center p-0.5 bg-slate-100 rounded-lg border border-slate-200">
                     <button onClick={() => setMarginMode('percent')} className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${marginMode === 'percent' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}>%</button>
-                    <button onClick={() => setMarginMode('fixed')} className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${marginMode === 'fixed' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}>S/</button>
+                    <button onClick={() => setMarginMode('fixed')} className={`px-2 py-0.5 rounded-md text-[11px] font-bold cursor-pointer ${marginMode === 'fixed' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}>{simb()}</button>
                   </div>
                 </div>
                 {marginMode === 'percent' ? (
@@ -378,7 +379,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
                   </div>
                 ) : (
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">S/</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">{simb()}</span>
                     <input type="number" min="0" value={margenFijo}
                       onChange={e => setMargenFijo(e.target.value === '' ? 0 : Number(e.target.value))}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-2 text-[13px] font-bold outline-none focus:border-slate-400 text-slate-800" />
@@ -395,7 +396,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
               <div className="bg-slate-900 text-white rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Precio final sugerido</p>
-                  <p className="text-xl font-black">S/ {precioFinalCalculado.toFixed(2)}</p>
+                  <p className="text-xl font-black">{simb()} {precioFinalCalculado.toFixed(2)}</p>
                   <p className="text-[10px] text-slate-400">{incluirIgv ? 'con factura' : 'neto / proforma'}</p>
                 </div>
                 <button onClick={handleCopyWhatsApp}

@@ -5,6 +5,7 @@ import {
   CheckCircle2, Building, Sparkles, Lock, ShieldCheck
 } from 'lucide-react';
 import { SystemUser } from '../types';
+import { simb } from '../lib/currency';
 
 export interface Asesoria {
   id: string;
@@ -125,7 +126,7 @@ export default function AsesoriasView({
     }
 
     const priceText = a.price !== undefined && !isNaN(Number(a.price))
-      ? `💰 *Precio:* S/. ${Number(a.price).toFixed(2)} Soles`
+      ? `💰 *Precio:* ${simb()} ${Number(a.price).toFixed(2)} Soles`
       : null;
 
     const lines = [
@@ -510,7 +511,7 @@ export default function AsesoriasView({
                     Precio en Soles (Opcional)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-3 text-slate-400 font-bold text-xs">S/.</span>
+                    <span className="absolute left-3 top-3 text-slate-400 font-bold text-xs">{simb()}</span>
                     <input
                       type="number"
                       step="0.10"
@@ -827,7 +828,7 @@ export default function AsesoriasView({
                               <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
                                 <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Costo de Asesoría</p>
                                 <p className="text-xl font-bold text-emerald-600 font-mono">
-                                  S/. {Number(a.price).toFixed(2)}
+                                  {simb()} {Number(a.price).toFixed(2)}
                                 </p>
                               </div>
                             )}
@@ -1041,7 +1042,7 @@ export default function AsesoriasView({
                                     Precio en Soles (S/.)
                                   </label>
                                   <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">S/.</span>
+                                    <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">{simb()}</span>
                                     <input
                                       type="number"
                                       step="0.10"

@@ -10,6 +10,7 @@ import {
 } from './obraPisos';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import { precioBarraPerfil, clavePerfilDe, fijarPrecio } from '../../lib/catalogoPrecios';
+import { simb } from '../../lib/currency';
 
 interface Props {
   nivel: string;
@@ -26,7 +27,7 @@ interface Props {
 }
 
 const inputCls = 'mt-1 w-full px-2.5 py-2 rounded-lg bg-white text-sm text-slate-700 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-200';
-const S = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb, techosLib, onChange, onIrATechos, obra, estructuraNombre }: Props) {
   const setMuro = (id: string, patch: Partial<MuroCapa>) =>
@@ -252,7 +253,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
                   {PERFILES_TANQUE.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
                 </select>
               </label>
-              <label className="text-[11px] font-bold text-slate-600">Precio perfil (S/ barra)
+              <label className="text-[11px] font-bold text-slate-600">Precio perfil ({simb()} barra)
                 {(() => { const pf = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sistema.tanque!.perfilId); const k = pf ? clavePerfilDe(pf) : ''; return (
                   <input type="number" inputMode="decimal" min={0} value={pf ? precioBarraPerfil(pf, pf.costoMetroSol * (pf.longitudComercialM || 6)) : 0} onChange={e => k && fijarPrecio(k, Math.max(0, parseFloat(e.target.value) || 0), 'Obra Civil')} className={inputCls} />
                 ); })()}

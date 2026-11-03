@@ -14,6 +14,7 @@ import {
   ZoomOut,
   Cuboid
 } from 'lucide-react';
+import { simb } from '../../lib/currency';
 
 export type TipoCarpinteria = 
   | 'puerta' 
@@ -323,7 +324,7 @@ Perfil Travesaño: ${project.tipoTravesaño}
 Tipo de Relleno: ${project.tipoRelleno.replace(/_/g, ' ')} (${project.espesorPlancha})
 Peso Estimado Acero: ${pesoTotalAceroKg.toFixed(1)} kg
 Cerrajería / Accesorios: ${project.cerradura}
-Total Estimado: S/. ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
+Total Estimado: ${simb()} ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -856,7 +857,7 @@ Total Estimado: S/. ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
                 </div>
                 <div className="w-px h-3 bg-slate-800"></div>
                 <div>
-                  <span className="text-slate-400">Cotización:</span> <strong className="text-indigo-400 font-mono">S/. {totalCotizacion.toFixed(0)} PEN</strong>
+                  <span className="text-slate-400">Cotización:</span> <strong className="text-indigo-400 font-mono">{simb()} {totalCotizacion.toFixed(0)} PEN</strong>
                 </div>
               </div>
             </div>
@@ -952,8 +953,8 @@ Total Estimado: S/. ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
                       <th className="p-3">Descripción de Partida / Perfil / Insumo</th>
                       <th className="p-3 text-center">Unidad</th>
                       <th className="p-3 text-right">Cant.</th>
-                      <th className="p-3 text-right">P. Unit (S/.)</th>
-                      <th className="p-3 text-right">Subtotal (S/.)</th>
+                      <th className="p-3 text-right">P. Unit ({simb()})</th>
+                      <th className="p-3 text-right">Subtotal ({simb()})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1003,15 +1004,15 @@ Total Estimado: S/. ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
                   <tfoot className="border-t-2 border-slate-800 bg-slate-50 font-bold text-xs">
                     <tr>
                       <td colSpan={4} className="p-3 text-right text-slate-600">Subtotal Costo Directo:</td>
-                      <td className="p-3 text-right font-mono">S/. {subtotal.toFixed(2)}</td>
+                      <td className="p-3 text-right font-mono">{simb()} {subtotal.toFixed(2)}</td>
                     </tr>
                     <tr>
                       <td colSpan={4} className="p-2.5 text-right text-slate-600">IGV (18%):</td>
-                      <td className="p-2.5 text-right font-mono">S/. {igv.toFixed(2)}</td>
+                      <td className="p-2.5 text-right font-mono">{simb()} {igv.toFixed(2)}</td>
                     </tr>
                     <tr className="text-indigo-900 bg-indigo-50 text-sm">
                       <td colSpan={4} className="p-3.5 text-right">TOTAL PRESUPUESTO OFICIAL:</td>
-                      <td className="p-3.5 text-right font-mono text-base font-black">S/. {totalCotizacion.toFixed(2)} PEN</td>
+                      <td className="p-3.5 text-right font-mono text-base font-black">{simb()} {totalCotizacion.toFixed(2)} PEN</td>
                     </tr>
                   </tfoot>
                 </table>
