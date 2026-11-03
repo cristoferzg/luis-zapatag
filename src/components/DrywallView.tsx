@@ -70,7 +70,7 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
     { id: 'presupuesto', label: 'Presupuesto', corto: 'Presupuesto', icon: ClipboardList },
   ];
   const Cabecera = (
-    <div className="flex flex-row items-center justify-between gap-2 lg:gap-3 px-2 sm:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
+    <div className="oculto-en-dibujo flex flex-row items-center justify-between gap-2 lg:gap-3 px-2 sm:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
       <div className="flex items-center gap-2 lg:gap-2.5 min-w-0">
         <div className="p-1.5 lg:p-2 rounded-xl bg-violet-500/10 text-violet-600"><PanelsTopLeft className="w-4 h-4 lg:w-5 lg:h-5" /></div>
         <div className="min-w-0">

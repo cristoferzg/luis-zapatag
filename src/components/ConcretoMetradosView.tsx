@@ -379,7 +379,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   if (modo === 'cad') {
     return (
       <div className="w-full h-full flex flex-col bg-slate-50 font-sans">
-        <div className="flex items-center justify-between gap-2 lg:gap-3 px-2 lg:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
+        <div className="oculto-en-dibujo flex items-center justify-between gap-2 lg:gap-3 px-2 lg:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
           <div className="flex items-center gap-2 lg:gap-2.5 min-w-0">
             <div className="p-1.5 lg:p-2 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
               <Box className="w-4 h-4 lg:w-5 lg:h-5" />
