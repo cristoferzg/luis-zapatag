@@ -543,19 +543,22 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
 
             {/* Cuadro de perfiles reales + notas RNE */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-2 text-[10px]">
-                <div className="font-black uppercase text-slate-800 border-b border-slate-300 pb-1 flex items-center justify-between">
+              <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-2 text-[10px] min-w-0">
+                <div className="font-black uppercase text-slate-800 border-b border-slate-300 pb-1 flex flex-wrap items-center justify-between gap-x-2">
                   <span>CUADRO DE ELEMENTOS Y PERFILES (DEL DISEÑO)</span>
                   <span className="text-amber-700 font-bold">RNE E.090</span>
                 </div>
                 <div className="space-y-1 font-mono text-[9.5px]">
                   {(info.cuadro as any[]).map((c) => (
-                    <div key={c.rol} className="flex justify-between gap-2 border-b border-slate-200 pb-0.5">
-                      <span className="font-bold flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="inline-block w-3 h-[3px] rounded" style={{ background: ROL_COLOR[c.rol] || '#334155' }} />
+                    <div key={c.rol} className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2 border-b border-slate-200 pb-1 min-w-0">
+                      <span className="font-bold flex items-center gap-1.5 sm:whitespace-nowrap shrink-0">
+                        <span className="inline-block w-3 h-[3px] rounded shrink-0" style={{ background: ROL_COLOR[c.rol] || '#334155' }} />
                         {c.label} <span className="text-slate-400">({c.cantidad})</span>:
                       </span>
-                      <span className="text-slate-800 text-right">{c.perfiles}</span>
+                      {/* Un perfil por línea; en celular debajo del nombre, sin salirse del cuadro. */}
+                      <span className="text-slate-800 sm:text-right min-w-0 break-words pl-4 sm:pl-0">
+                        {String(c.perfiles || '').split(' · ').map((pf: string, i: number) => <span key={i} className="block">{pf}</span>)}
+                      </span>
                     </div>
                   ))}
                 </div>
