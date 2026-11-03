@@ -121,8 +121,8 @@ export interface UseTechosCadEngineReturn {
 
   // Generadores Paramétricos Automáticos que generan Nodos y Segmentos reales en PROJECT_MODEL
   generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => string | void;
-  generateRoofGable: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral, numTijerales?: number, posicionesTijeralesCustom?: number[], numDivisionsOrPanels?: number, customSpacingM?: number, peralteM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
-  generateRoofMonoslope: (luzM: number, largoM?: number, alturaCol1M?: number, alturaCol2M?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, peralteTijeralM?: number, orientacionTijeral?: OrientacionTijeral, posicionesTijeralesCustom?: number[], customSpacingM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
+  generateRoofGable: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral, numTijerales?: number, posicionesTijeralesCustom?: number[], numDivisionsOrPanels?: number, customSpacingM?: number, peralteM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral, soloDevolver?: boolean) => { nodes: Record<string, Node3D>; segs: Record<string, Segment3D> } | void;
+  generateRoofMonoslope: (luzM: number, largoM?: number, alturaCol1M?: number, alturaCol2M?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, peralteTijeralM?: number, orientacionTijeral?: OrientacionTijeral, posicionesTijeralesCustom?: number[], customSpacingM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral, soloDevolver?: boolean) => { nodes: Record<string, Node3D>; segs: Record<string, Segment3D> } | void;
   generateRoofParabolic: (luzM: number, largoM?: number, alturaColM?: number, flechaM?: number, tipoTijeral?: TipoTijeral, peralteArcoM?: number, orientacionTijeral?: OrientacionTijeral, numTijerales?: number, posicionesTijeralesCustom?: number[], customSpacingM?: number, perimetralBracingEnabled?: boolean, tipoTijeralPerimetral?: TipoTijeral) => void;
   generateRoofSawtooth: (luzM: number, largoM?: number, alturaColM?: number, numDientes?: number, alturaDienteM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, numDivisionsPerTooth?: number, customSpacingM?: number, peralteM?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofHip: (luzM: number, largoM?: number, alturaColM?: number, alturaCumbreraM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral, anchoCaidaExtremosM?: number) => void;
@@ -1436,8 +1436,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     posicionesTijeralesCustom?: number[],
     customSpacingM?: number,
     _perimetralBracingEnabled?: boolean,
-    _tipoTijeralPerimetral?: TipoTijeral
-  ) => {
+    _tipoTijeralPerimetral?: TipoTijeral,
+    soloDevolver?: boolean // true: devuelve la nave sin cargarla (viga simple del Asistente)
+  ): { nodes: Record<string, Node3D>; segs: Record<string, Segment3D> } | void => {
     const newNodes: Record<string, Node3D> = {};
     const newSegs: Record<string, Segment3D> = {};
 
@@ -1635,6 +1636,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     }
 
     if (hasLongitudinal || hasPerimetral) tijeralesDeAlero(newNodes, newSegs, { perfil: vigaProf, perfilCordon: correaProf });
+    if (soloDevolver) return { nodes: newNodes, segs: newSegs };
     setNodes(newNodes);
     setSegments(newSegs);
     pushHistory(newNodes, newSegs, coverageZones);

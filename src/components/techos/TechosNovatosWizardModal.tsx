@@ -17,6 +17,8 @@ import { UseTechosCadEngineReturn, OrientacionTijeral } from './useTechosCadEngi
 import { VistaTechoCAD } from './techosCadEngineTypes';
 import { TipoTijeral, CATALOGO_TIJERALES_INFO } from './techosCadColors';
 import { safeStorage } from '../../lib/storageManager';
+import { aVigaSimple, perfilVigaSugerido, PERFILES_VIGA_SIMPLE } from './vigaSimple';
+import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { calculateE090Requirements } from '../../lib/e090StructuralAnalysis';
 
 interface TechosNovatosWizardModalProps {
@@ -68,6 +70,9 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [pendienteStr, setPendienteStr] = useState<string>('20');
   const [alturaCol2Str, setAlturaCol2Str] = useState<string>('6.0');
   const [numTijeralesStr, setNumTijeralesStr] = useState<string>('5');
+  // Viga simple (sin tijeral): pórticos de una sola viga de tubo rectangular (una agua / dos aguas).
+  const [vigaSimple, setVigaSimple] = useState(false);
+  const [perfilVigaElegido, setPerfilVigaElegido] = useState<string>('');
 
   // Estados específicos para Dientes de Sierra y Cuatro Aguas
   const [numDientesStr, setNumDientesStr] = useState<string>('3');
@@ -293,7 +298,14 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const pendientePct = Math.max(1, parseFloat(pendienteStr) || 20);
   const sinTijeral = tipo === 'pergola' || tipo === 'sol_sombra' || tipo === 'marquesina' || tipo === 'alpino';
   const alturaCol2M = Math.max(alturaColM + 0.2, parseFloat(alturaCol2Str) || 6.0);
-  const numTijerales = Math.max(2, parseInt(numTijeralesStr) || 5);
+  // 0 o 1 no son válidos: se usan 2 (uno en cada extremo) y se avisa; vacío = 5.
+  const numTijeralesNum = parseInt(numTijeralesStr);
+  const numTijerales = Number.isNaN(numTijeralesNum) ? 5 : Math.max(2, numTijeralesNum);
+  const numTijeralesBajo = !Number.isNaN(numTijeralesNum) && numTijeralesNum < 2;
+  const admiteVigaSimple = tipo === 'dos_aguas' || tipo === 'una_agua';
+  const usaVigaSimple = admiteVigaSimple && vigaSimple;
+  const tramoVigaM = tipo === 'dos_aguas' ? luzM / 2 : luzM;
+  const perfilViga = perfilVigaElegido || perfilVigaSugerido(tramoVigaM);
   const numDientes = Math.max(1, parseInt(numDientesStr) || 3);
   const alturaDienteM = Math.max(0.5, parseFloat(alturaDienteStr) || 1.8);
   const alturaCumbreraHipM = Math.max(0.5, parseFloat(alturaCumbreraHipStr) || 2.0);
@@ -452,6 +464,15 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
     if (tipo === 'parabolico') {
       const peralteArco = trussHeightM || Math.max(0.50, Math.min(1.20, Number((luzM / 18).toFixed(2))));
       engineState.generateRoofParabolic(luzM, largoM, alturaColM, flechaM, tipoTijeral, peralteArco, orientacionTijeral, numTijerales, undefined, spacingParam, perimetralBracingEnabled, tipoTijeralPerimetral);
+    } else if (usaVigaSimple) {
+      // Viga simple: se arma la nave y se deja solo la viga superior en tubo rectangular.
+      const nave = tipo === 'dos_aguas'
+        ? engineState.generateRoofGable(luzM, largoM, alturaColM, pendientePct, 'escalera_vierendeel', 'vertical', numTijerales, undefined, trussDivisions, spacingParam, trussHeightM, false, undefined, true)
+        : engineState.generateRoofMonoslope(luzM, largoM, alturaColM, alturaCol2M, 'escalera_vierendeel', numTijerales, trussHeightM || 0.60, 'vertical', undefined, spacingParam, false, undefined, true);
+      if (nave) {
+        const r = aVigaSimple(nave.nodes, nave.segs, perfilViga);
+        engineState.replaceScene(r.nodes, r.segs, engineState.coverageZones || {});
+      }
     } else if (tipo === 'dos_aguas') {
       engineState.generateRoofGable(luzM, largoM, alturaColM, pendientePct, tipoTijeral, orientacionTijeral, numTijerales, undefined, trussDivisions, spacingParam, trussHeightM, perimetralBracingEnabled, tipoTijeralPerimetral);
     } else if (tipo === 'una_agua') {
@@ -1586,7 +1607,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {/* CANTIDAD DE TIJERALES / PÓRTICOS */}
               <div className={`${sinTijeral ? 'hidden ' : ''}p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs sm:col-span-2`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">Cantidad de Tijerales / Ejes (Pórticos):</span>
+                  <span className="text-xs font-bold text-slate-800">{usaVigaSimple ? 'Cantidad de pórticos (vigas):' : 'Cantidad de Tijerales / Ejes (Pórticos):'}</span>
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
@@ -1617,6 +1638,11 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     Separación: {numTijerales > 1 ? (largoM / (numTijerales - 1)).toFixed(2) : 0}m e/e
                   </span>
                 </div>
+                {numTijeralesBajo && (
+                  <p className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2 py-1.5">
+                    Mínimo 2 pórticos (uno en cada extremo del techo); se usarán 2. Si no quieres tijerales, elige abajo “Viga simple (sin tijeral)”.
+                  </p>
+                )}
               </div>
 
               {/* OPCIONES ESPECIALES DE MEZZANINE */}
@@ -1676,7 +1702,42 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
           </div>
 
           {/* PASO 3: SELECCIONAR TIPO DE TIJERAL Y RECOMENDACIÓN DE INGENIERÍA (no aplica a pérgola, sol y sombra ni marquesina) */}
-          {!sinTijeral && (
+          {admiteVigaSimple && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+              <p className="text-xs font-black uppercase text-slate-700 tracking-wider">¿Lleva tijeral?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button type="button" onClick={() => setVigaSimple(false)}
+                  className={`min-h-[44px] px-3 py-2 rounded-xl border text-left text-xs font-bold cursor-pointer ${!vigaSimple ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-amber-50'}`}>
+                  Con tijeral (celosía)
+                  <span className="block text-[10px] font-semibold opacity-80">Para luces grandes: Warren, Pratt, Howe…</span>
+                </button>
+                <button type="button" onClick={() => setVigaSimple(true)}
+                  className={`min-h-[44px] px-3 py-2 rounded-xl border text-left text-xs font-bold cursor-pointer ${vigaSimple ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-amber-50'}`}>
+                  Viga simple (sin tijeral)
+                  <span className="block text-[10px] font-semibold opacity-80">Una sola viga de tubo rectangular por pórtico</span>
+                </button>
+              </div>
+              {vigaSimple && (
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold text-slate-600">Perfil de la viga (tramo de {tramoVigaM.toFixed(2)} m por viga)</label>
+                  <select value={perfilViga} onChange={e => setPerfilVigaElegido(e.target.value)}
+                    className="w-full max-w-full min-h-[40px] bg-white border border-slate-300 rounded-lg px-2 text-xs font-semibold text-slate-800">
+                    {PERFILES_VIGA_SIMPLE.map(id => {
+                      const pf = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id);
+                      return pf ? <option key={id} value={id}>{pf.nombre}{id === perfilVigaSugerido(tramoVigaM) ? ' · sugerido' : ''}</option> : null;
+                    })}
+                  </select>
+                  {tramoVigaM > 6 && (
+                    <p className="text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                      Cada viga cubre más de 6 m: con viga simple se necesita un tubo grande. Para esta luz conviene tijeral (sale más liviano y económico).
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!sinTijeral && !usaVigaSimple && (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
@@ -2323,7 +2384,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
                 <span className="w-4 h-4 rounded-full bg-emerald-600 text-white font-black text-[10px] flex items-center justify-center">4</span>
                 <Ruler className="w-3.5 h-3.5 text-emerald-600" />
-                Definir Espacios entre Montantes y Peralte
+                {usaVigaSimple ? 'Separación de correas sobre la viga' : 'Definir Espacios entre Montantes y Peralte'}
               </label>
 
               {/* Toggle Por N° de Espacios vs Por Distancia Fija */}
