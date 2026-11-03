@@ -112,6 +112,9 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
 /* Techos · pantalla completa para dibujar (botón ⤢ en el celular): se ocultan la barra
    azul, las secciones del módulo, la navegación de abajo y el botón +. */
 html.modo-dibujo .barra-app, html.modo-dibujo .nav-app, html.modo-dibujo .fab-app, html.modo-dibujo .oculto-en-dibujo { display: none !important; }
+/* Paneles fijos que se apoyaban sobre la navegación: en pantalla completa bajan al borde. */
+html.modo-dibujo .sube-sin-nav { bottom: env(safe-area-inset-bottom, 0px) !important; }
+html.modo-dibujo .sube-sin-nav-2 { bottom: calc(48px + env(safe-area-inset-bottom, 0px)) !important; }
 
 /* Tablet: barra de abajo centrada */
 @media (min-width: 640px) {

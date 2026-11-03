@@ -27,7 +27,10 @@ import {
   FolderOpen,
   X,
   ChevronDown,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Minimize2,
+  Undo2,
+  Redo2
 } from 'lucide-react';
 import { 
   HerreriaDesign, 
@@ -65,6 +68,10 @@ interface HerreriaCanvas2DProps {
   vistaActiva?: VistaHerreria;
   onChangeVista?: (v: VistaHerreria) => void;
   onOpenTemplates?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
@@ -76,7 +83,11 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   isInspectorOpen = false,
   vistaActiva,
   onChangeVista,
-  onOpenTemplates
+  onOpenTemplates,
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false
 }) => {
   const [internalVista, setInternalVista] = useState<VistaHerreria>('frontal');
   const currentVista = vistaActiva ?? internalVista;
@@ -132,6 +143,14 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   // Celular, tablet o ventana mediana (< 1280 px, donde está la barra de abajo de la app):
   // los controles del lienzo van en una barra FIJA abajo, como botones de la app.
   const [barraAbajo, setBarraAbajo] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1280);
+  // CELULAR · dibujo cómodo (como Techos): ¿Cómo empezar?, pantalla completa, pista y lupa.
+  const esCelular = barraAbajo && typeof window !== 'undefined' && window.innerWidth < 640;
+  const [inicioAbierto, setInicioAbierto] = useState(false);
+  const [modoDibujo, setModoDibujo] = useState(false);
+  const [pistaVisible, setPistaVisible] = useState(false);
+  const [masAbajo, setMasAbajo] = useState(false);
+  const [lupa, setLupa] = useState<{ x: number; y: number } | null>(null);
+  const toqueDibujoRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     const f = () => setBarraAbajo(window.innerWidth < 1280);
     window.addEventListener('resize', f); return () => window.removeEventListener('resize', f);
@@ -266,6 +285,26 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
 
   // Piezas existentes
   const piezas = design.piezas || [];
+  const HERR_DIBUJO: HerramientaCad[] = ['linea', 'horizontal', 'vertical', 'rectangulo', 'arco', 'platina_tope', 'plancha', 'accesorio', 'cota'];
+  const dibujando = HERR_DIBUJO.includes(herramienta);
+  useEffect(() => {
+    if (!esCelular || piezas.length > 0) return;
+    let visto = false; try { visto = sessionStorage.getItem('carpi_inicio_visto') === '1'; } catch { /* nada */ }
+    if (!visto) setInicioAbierto(true);
+  }, [esCelular, piezas.length === 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cerrarInicio = () => { setInicioAbierto(false); try { sessionStorage.setItem('carpi_inicio_visto', '1'); } catch { /* nada */ } };
+  useEffect(() => {
+    document.documentElement.classList.toggle('modo-dibujo', modoDibujo);
+    const salir = () => setModoDibujo(false);
+    window.addEventListener('innova_salir_dibujo', salir);
+    return () => { window.removeEventListener('innova_salir_dibujo', salir); document.documentElement.classList.remove('modo-dibujo'); };
+  }, [modoDibujo]);
+  useEffect(() => {
+    if (!esCelular) return;
+    setPistaVisible(true);
+    const t = setTimeout(() => setPistaVisible(false), 6000);
+    return () => clearTimeout(t);
+  }, [herramienta, esCelular]);
   const accesorios = design.accesoriosCad || [];
   const cotas = design.cotasCad || [];
 
@@ -286,6 +325,11 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
 
   // Puntero y SNAP en tiempo real
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (toqueDibujoRef.current) {
+      toqueDibujoRef.current = { x: e.clientX, y: e.clientY };
+      const rc = containerRef.current?.getBoundingClientRect();
+      if (rc) setLupa({ x: e.clientX - rc.left, y: e.clientY - rc.top });
+    }
     if (pointerDownPosRef.current) {
       const dist = Math.hypot(e.clientX - pointerDownPosRef.current.x, e.clientY - pointerDownPosRef.current.y);
       if (dist > 5) {
@@ -392,6 +436,17 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch' && esCelular && dibujando && e.isPrimary) {
+      // Lupa: mientras el dedo está apoyado se ve el punto ampliado; se coloca al soltar.
+      toqueDibujoRef.current = { x: e.clientX, y: e.clientY };
+      const rc = containerRef.current?.getBoundingClientRect();
+      if (rc) setLupa({ x: e.clientX - rc.left, y: e.clientY - rc.top });
+      setPistaVisible(false);
+      return;
+    }
+    colocarPunto(e);
+  };
+  const colocarPunto = (e: React.PointerEvent) => {
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     hasDraggedRef.current = false;
 
@@ -508,6 +563,10 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   };
 
   const handlePointerUp = () => {
+    if (toqueDibujoRef.current) {
+      const q = toqueDibujoRef.current; toqueDibujoRef.current = null; setLupa(null);
+      colocarPunto({ clientX: q.x, clientY: q.y, button: 0, altKey: false, target: svgRef.current, preventDefault: () => {}, pointerType: 'touch' } as unknown as React.PointerEvent);
+    }
     setIsPanning(false);
     isPanningRef.current = false;
     draggingElementRef.current = null;
@@ -1069,6 +1128,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
   // Touch Gestures: Pinch Zoom, 2-Finger Pan, Long-press (Right Click Context Menu), Double Tap
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
+      toqueDibujoRef.current = null; setLupa(null); // dos dedos = zoom, no se dibuja
       if (longPressTimerRef.current) {
         clearTimeout(longPressTimerRef.current);
         longPressTimerRef.current = null;
@@ -1905,39 +1965,151 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
           DOCK FLOTANTE INFERIOR DERECHO: ZOOM Y AJUSTES SNAP (TOUCH FRIENDLY)
       ======================================================== */}
       {barraAbajo && (() => {
-        const it = 'shrink-0 min-w-[46px] flex-1 h-[52px] flex flex-col items-center justify-center gap-0.5 cursor-pointer';
-        const ic = (A: boolean) => `h-7 w-10 rounded-full flex items-center justify-center transition-colors ${A ? 'bg-blue-100 text-blue-700' : 'text-slate-600'}`;
+        // Barra de abajo (celular/tablet): las herramientas para dibujar + Deshacer + Más.
+        // Imanes, 90°, enderezar, profundidad y zoom quedan en "Más".
+        const it = 'shrink-0 min-w-[46px] flex-1 h-[58px] flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-30';
+        const ic = (A: boolean) => `h-8 w-11 rounded-full flex items-center justify-center transition-colors ${A ? 'bg-blue-100 text-blue-700' : 'text-slate-600'}`;
         const tx = (A: boolean) => `text-[10px] leading-none ${A ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`;
-        const b = (A: boolean, Icon: any, label: string, onClick: () => void, title: string) => (
-          <button key={label} type="button" onClick={onClick} title={title} className={it}>
-            <span className={ic(A)}><Icon className="w-[17px] h-[17px]" /></span><span className={tx(A)}>{label}</span>
+        const elegir = (h: HerramientaCad) => { setHerramienta(h); setStartPoint(null); };
+        const b = (A: boolean, Icon: any, label: string, onClick: () => void, title: string, dis = false) => (
+          <button key={label} type="button" onClick={onClick} title={title} aria-label={title} disabled={dis} className={it}>
+            <span className={ic(A)}><Icon className="w-5 h-5" /></span><span className={tx(A)}>{label}</span>
           </button>
         );
-        return (
-          <div onWheel={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}
+        const chip = (A: boolean, Icon: any, label: string, onClick: () => void) => (
+          <button key={label} type="button" onClick={onClick} className={`min-h-[48px] flex items-center gap-2 px-3 rounded-2xl text-[13px] font-semibold text-left cursor-pointer ${A ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-800'}`}>
+            <Icon className="w-4 h-4 shrink-0" /> {label}
+          </button>
+        );
+        return (<>
+          <div onWheel={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}
             className="absolute left-0 right-0 bottom-0 z-30 flex items-stretch overflow-x-auto bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(15,42,74,0.06)] px-0.5 scrollbar-none select-none">
-            {b(snapEndpoints, Square, 'Vértices', () => setSnapEndpoints(!snapEndpoints), 'Imán a vértices / extremos')}
-            {b(snapMidpoints, Circle, 'Medios', () => setSnapMidpoints(!snapMidpoints), 'Imán a puntos medios')}
-            {b(snapSegments, Magnet, 'Ejes', () => setSnapSegments(!snapSegments), 'Imán a ejes y uniones')}
-            {b(snapGrid, Grid, 'Rejilla', () => setSnapGrid(!snapGrid), 'Imán a la rejilla')}
-            {b(orthoLock, MoveRight, '90°', () => setOrthoLock(!orthoLock), 'Recto 90° (horizontal / vertical)')}
-            {b(false, Compass, 'Enderezar', handleStraightenCrookedTubes, 'Enderezar tubos inclinados')}
-            <div className="shrink-0 flex flex-col items-center justify-center px-1.5 h-[52px]" title="Profundidad del plano de trabajo (eje Z)">
-              <div className="flex items-center gap-0.5">
-                <button type="button" onClick={() => setPlanoProfundidadM(v => roundToPrecision(v - 0.05, 3))} className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-sm cursor-pointer">−</button>
-                <input type="number" step={5} value={Math.round(planoProfundidadM * 100)}
-                  onChange={(e) => { const cm = parseFloat(e.target.value); setPlanoProfundidadM(Number.isFinite(cm) ? roundToPrecision(cm / 100, 3) : 0); }}
-                  className="w-9 text-center text-[11px] font-bold rounded-md border border-slate-200 py-0.5" />
-                <button type="button" onClick={() => setPlanoProfundidadM(v => roundToPrecision(v + 0.05, 3))} className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-sm cursor-pointer">+</button>
+            {b(herramienta === 'select', MousePointer, 'Selec.', () => elegir('select'), 'Seleccionar')}
+            {b(herramienta === 'linea', LineIcon, 'Tubo', () => elegir('linea'), 'Tubo (línea libre)')}
+            {b(herramienta === 'rectangulo', Square, 'Marco', () => elegir('rectangulo'), 'Marco cerrado')}
+            {b(herramienta === 'plancha', Layers, 'Plancha', () => elegir('plancha'), 'Plancha o malla')}
+            {b(herramienta === 'accesorio', Lock, 'Accesorio', () => elegir('accesorio'), 'Accesorio')}
+            {onUndo && b(false, Undo2, 'Deshacer', onUndo, 'Deshacer', !canUndo)}
+            {b(masAbajo, SlidersHorizontal, 'Más', () => setMasAbajo(true), 'Más herramientas')}
+          </div>
+          {masAbajo && (
+            <div className="fixed inset-0 z-[95]" onClick={() => setMasAbajo(false)} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+              <div className="absolute inset-0 bg-slate-900/40" />
+              <div className="absolute left-0 right-0 bottom-0 max-h-[80vh] overflow-y-auto bg-white rounded-t-3xl shadow-2xl p-3 pb-[calc(16px+env(safe-area-inset-bottom))] space-y-3" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-base font-black text-slate-900">Más herramientas</span>
+                  <button onClick={() => setMasAbajo(false)} className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Cerrar</button>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {chip(herramienta === 'horizontal', MoveRight, 'Horizontal 0°', () => { elegir('horizontal'); setMasAbajo(false); })}
+                  {chip(herramienta === 'vertical', MoveUp, 'Vertical 90°', () => { elegir('vertical'); setMasAbajo(false); })}
+                  {chip(herramienta === 'arco', Circle, 'Arco (3 puntos)', () => { elegir('arco'); setMasAbajo(false); })}
+                  {chip(herramienta === 'platina_tope', SlidersHorizontal, 'Pestaña batiente', () => { elegir('platina_tope'); setMasAbajo(false); })}
+                  {chip(herramienta === 'cota', Ruler, 'Cota (medida)', () => { elegir('cota'); setMasAbajo(false); })}
+                  {chip(herramienta === 'mover', Hand, 'Mover el plano', () => { elegir('mover'); setMasAbajo(false); })}
+                  {onRedo && <button type="button" onClick={() => { onRedo(); setMasAbajo(false); }} disabled={!canRedo} className="min-h-[48px] flex items-center gap-2 px-3 rounded-2xl text-[13px] font-semibold text-left bg-slate-50 text-slate-800 cursor-pointer disabled:opacity-40"><Redo2 className="w-4 h-4 shrink-0" /> Rehacer</button>}
+                  {chip(false, Compass, 'Enderezar tubos', () => { handleStraightenCrookedTubes(); setMasAbajo(false); })}
+                </div>
+                <div>
+                  <p className="px-1 pb-1 text-[11px] font-black uppercase tracking-wider text-slate-400">Imanes y guías</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {chip(snapEndpoints, Square, 'Vértices', () => setSnapEndpoints(!snapEndpoints))}
+                    {chip(snapMidpoints, Circle, 'Puntos medios', () => setSnapMidpoints(!snapMidpoints))}
+                    {chip(snapSegments, Magnet, 'Ejes y uniones', () => setSnapSegments(!snapSegments))}
+                    {chip(snapGrid, Grid, 'Rejilla', () => setSnapGrid(!snapGrid))}
+                    {chip(orthoLock, MoveRight, 'Recto 90°', () => setOrthoLock(!orthoLock))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-2">
+                  <span className="text-[13px] font-semibold text-slate-800">Profundidad Z</span>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setPlanoProfundidadM(v => roundToPrecision(v - 0.05, 3))} className="w-8 h-8 rounded-full bg-white border border-slate-200 font-bold cursor-pointer">−</button>
+                    <span className="w-14 text-center text-sm font-bold">{Math.round(planoProfundidadM * 100)} cm</span>
+                    <button type="button" onClick={() => setPlanoProfundidadM(v => roundToPrecision(v + 0.05, 3))} className="w-8 h-8 rounded-full bg-white border border-slate-200 font-bold cursor-pointer">+</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {chip(false, Plus, 'Acercar', () => handleZoom(1.25))}
+                  {chip(false, Minus, 'Alejar', () => handleZoom(0.8))}
+                  {chip(false, Maximize2, 'Ver todo', () => { centerView(); setMasAbajo(false); })}
+                </div>
               </div>
-              <span className="text-[10px] font-medium text-slate-600 leading-none mt-1">Prof. Z (cm)</span>
             </div>
-            {b(false, Plus, 'Acercar', () => handleZoom(1.25), 'Acercar')}
-            {b(false, Minus, 'Alejar', () => handleZoom(0.8), 'Alejar')}
-            {b(false, Maximize2, 'Ver todo', centerView, 'Centrar y ver todo')}
+          )}
+        </>);
+      })()}
+      {/* Celular: "?" y pantalla completa (arriba a la derecha) */}
+      {esCelular && (
+        <div className="absolute top-2 right-2 z-30 flex gap-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+          <button onClick={() => setInicioAbierto(true)} aria-label="Cómo empezar y ayuda" className="w-9 h-9 rounded-xl bg-white/95 border border-slate-200 shadow-sm text-slate-700 font-black text-sm cursor-pointer">?</button>
+          <button onClick={() => setModoDibujo(v => !v)} aria-label={modoDibujo ? 'Salir de pantalla completa' : 'Pantalla completa para dibujar'}
+            className={`w-9 h-9 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${modoDibujo ? 'bg-slate-900 text-white border-slate-900' : 'bg-white/95 text-slate-700 border-slate-200'}`}>
+            {modoDibujo ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+        </div>
+      )}
+      {/* Celular: pista de la herramienta */}
+      {esCelular && pistaVisible && !lupa && (() => {
+        const PISTA: Partial<Record<HerramientaCad, string>> = {
+          select: 'Toca una pieza para ver sus datos · mantén el dedo para más opciones',
+          linea: 'Toca el inicio y el final del tubo · sigue tocando para encadenar',
+          horizontal: 'Toca dos puntos: el tubo queda horizontal', vertical: 'Toca dos puntos: el tubo queda vertical',
+          rectangulo: 'Toca dos esquinas opuestas del marco', plancha: 'Toca dos esquinas opuestas de la plancha',
+          accesorio: 'Toca donde va el accesorio', arco: 'Toca el inicio, el final y luego la curva',
+          cota: 'Toca dos puntos para poner la medida', platina_tope: 'Toca dos puntos de la pestaña batiente', mover: 'Arrastra para mover el plano',
+        };
+        const txt = PISTA[herramienta]; if (!txt) return null;
+        return (
+          <div className="absolute left-1/2 -translate-x-1/2 top-14 z-30 w-max max-w-[88%] text-center bg-slate-900/90 text-white text-[11.5px] font-semibold leading-snug px-3 py-1.5 rounded-xl shadow-lg pointer-events-none">
+            {txt}{dibujando ? <span className="block text-[10px] font-medium text-slate-300">Deja el dedo para ver la lupa</span> : null}
           </div>
         );
       })()}
+      {/* Celular: lupa al poner un punto con el dedo */}
+      {lupa && (() => {
+        const R = 30, L = 124;
+        const W = containerRef.current?.clientWidth || 400, H = containerRef.current?.clientHeight || 600;
+        const top = lupa.y - L - 40 < 4 ? lupa.y + 40 : lupa.y - L - 40;
+        const left = Math.max(4, Math.min(lupa.x - L / 2, W - L - 4));
+        const rc = containerRef.current?.getBoundingClientRect();
+        const w = rc ? screenToWorld(lupa.x + rc.left, lupa.y + rc.top) : { x: 0, y: 0 };
+        return (
+          <div className="absolute z-40 pointer-events-none rounded-full overflow-hidden border-[3px] border-white shadow-xl bg-slate-50" style={{ left, top, width: L, height: L }}>
+            <svg width={L} height={L} viewBox={`${lupa.x - R} ${lupa.y - R} ${2 * R} ${2 * R}`}>
+              <use href="#cad-grid-bg" x={0} y={0} width={W} height={H} />
+              <path d={`M ${lupa.x - 9} ${lupa.y} H ${lupa.x + 9} M ${lupa.x} ${lupa.y - 9} V ${lupa.y + 9}`} stroke="#2563eb" strokeWidth="1" />
+              <circle cx={lupa.x} cy={lupa.y} r="2.2" fill="#2563eb" />
+            </svg>
+            <span className="absolute bottom-2 inset-x-0 text-center text-[10px] font-mono font-bold text-slate-800">{(w.x * 100).toFixed(0)} · {(w.y * 100).toFixed(0)} cm</span>
+          </div>
+        );
+      })()}
+      {/* ¿Cómo quieres empezar? (celular, diseño vacío o botón ?) */}
+      {inicioAbierto && (
+        <div className="fixed inset-0 z-[96] bg-slate-900/40 flex items-end justify-center" onClick={cerrarInicio} onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+          <div className="w-full bg-white rounded-t-3xl p-4 pb-[calc(20px+env(safe-area-inset-bottom))] space-y-2 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-base font-black text-slate-900">¿Cómo quieres empezar?</p>
+                <p className="text-xs text-slate-500">Elige una forma. Siempre puedes volver aquí con el botón <b>?</b></p>
+              </div>
+              <button onClick={cerrarInicio} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer shrink-0"><X className="w-4 h-4" /></button>
+            </div>
+            {([
+              ['🚪', 'Marco de puerta, ventana o reja', 'Toca dos esquinas: el marco se arma con cortes a 45°', 'rectangulo'],
+              ['📏', 'Tubo por tubo', 'Toca el inicio y el final de cada tubo', 'linea'],
+              ['▦', 'Plancha o malla', 'Para forrar puertas, portones o rejas', 'plancha'],
+              ['🔩', 'Accesorios', 'Bisagras, chapas, ruedas y tiradores', 'accesorio'],
+            ] as [string, string, string, HerramientaCad][]).map(([ico, t, d, h]) => (
+              <button key={t} onClick={() => { cerrarInicio(); setHerramienta(h); setStartPoint(null); }}
+                className="w-full flex items-center gap-3 text-left p-3 rounded-2xl border border-slate-200 hover:bg-blue-50 cursor-pointer">
+                <span className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg shrink-0">{ico}</span>
+                <span className="min-w-0"><span className="block text-sm font-black text-slate-900">{t}</span><span className="block text-[11px] text-slate-500">{d}</span></span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Nunca más alto que el lienzo: en celular ya no se monta sobre las pestañas de arriba. */}
       {!barraAbajo && <div className="absolute bottom-4 right-3 z-30 flex flex-col gap-1.5 pointer-events-auto select-none items-end max-h-[calc(100%-1.5rem)] overflow-y-auto overscroll-contain [scrollbar-width:none]">
         {/* SNAP Magnético y Ortho */}

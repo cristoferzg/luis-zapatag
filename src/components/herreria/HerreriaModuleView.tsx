@@ -261,7 +261,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           Proyecto: [Nombre del proyecto]
           Botones: [ + NUEVO ] [ GUARDAR ] [ CARGAR ] [ EXPORTAR ] [ AYUDA ]
       ================================================== */}
-      <header className="w-full bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20 shadow-xs">
+      <header className="oculto-en-dibujo w-full bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0 z-20 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-sm">
             <DoorClosed className="w-5 h-5" />
@@ -430,7 +430,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           ];
           const actual = SECC.find(x => x.tabs.some(t => t.id === activeTab)) || SECC[0];
           return (
-            <div className="sm:hidden w-full py-1.5 space-y-1.5">
+            <div className="oculto-en-dibujo sm:hidden w-full py-1.5 space-y-1.5">
               <div className="flex bg-slate-100 rounded-xl p-0.5">
                 {SECC.map(x => (
                   <button key={x.id} onClick={() => setActiveTab(x.tabs[0].id)}
@@ -539,6 +539,10 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
                 onOpenInspector={() => setIsOpenMobileSheet(prev => !prev)}
                 isInspectorOpen={isOpenMobileSheet}
                 onNuevo={handleNuevo}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+                canUndo={canUndo}
+                canRedo={canRedo}
               />
             </div>
 
