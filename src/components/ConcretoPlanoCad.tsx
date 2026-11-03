@@ -1274,7 +1274,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
         {!estructura && disenos.length === 0 && <span className="hidden sm:inline text-[11px] text-slate-400">Guarda un diseño en Techos Metálicos para verlo aquí.</span>}
       </div>
       {/* Barra de herramientas */}
-      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0 max-lg:flex-wrap max-lg:overflow-visible">
+      <div className="barra-dibujo flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-slate-200 overflow-x-auto whitespace-nowrap [&>*]:shrink-0 max-lg:flex-wrap max-lg:overflow-visible">
         {/* Piso activo para muros + material del próximo muro */}
         <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500">
           Piso

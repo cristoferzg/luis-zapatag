@@ -1562,7 +1562,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       {/* 1. SUB-BARRA DE VISTA: PLANTA / SECCIÓN / 3D WEBGL (CON SOPORTE DE SCROLL POR RUEDA DE RATÓN) */}
       <div 
         ref={barraDeslizable}
-        className="min-h-9 sm:h-10 bg-white border-b border-slate-200 px-2 sm:px-3 py-1 sm:py-0 flex flex-wrap sm:flex-nowrap items-center justify-between shrink-0 z-20 shadow-2xs gap-1 sm:gap-2 sm:overflow-x-auto scrollbar-none"
+        className="barra-dibujo min-h-9 sm:h-10 bg-white border-b border-slate-200 px-2 sm:px-3 py-1 sm:py-0 flex flex-wrap sm:flex-nowrap items-center justify-between shrink-0 z-20 shadow-2xs gap-1 sm:gap-2 sm:overflow-x-auto scrollbar-none"
       >
         {/* Izquierda: Vistas + Herramienta (acceso rápido estilo Herrería) */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 shrink-0 min-w-0">

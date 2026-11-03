@@ -116,6 +116,15 @@ html.modo-dibujo .barra-app, html.modo-dibujo .nav-app, html.modo-dibujo .fab-ap
 html.modo-dibujo .sube-sin-nav { bottom: env(safe-area-inset-bottom, 0px) !important; }
 html.modo-dibujo .sube-sin-nav-2 { bottom: calc(48px + env(safe-area-inset-bottom, 0px)) !important; }
 
+/* Celular: botones de la fila de arriba de los editores (Techos, Obra Civil, Drywall,
+   Carpintería) grandes para el dedo, como la barra de abajo (mín. 40 px). */
+@media (max-width: 639.98px) {
+  .barra-dibujo button, .barra-dibujo select, .barra-dibujo label { min-height: 40px; }
+  .barra-dibujo button.w-8, .barra-dibujo button.w-9 { width: 40px; }
+  .barra-dibujo button { font-size: 13px; }
+  .barra-dibujo svg { width: 18px; height: 18px; }
+}
+
 /* Tablet: barra de abajo centrada */
 @media (min-width: 640px) {
   .app-marca .barra-app { padding-left: 24px !important; padding-right: 24px !important; }

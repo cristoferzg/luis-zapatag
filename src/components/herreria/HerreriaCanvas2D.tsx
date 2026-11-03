@@ -1445,7 +1445,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
         const perfilActivo = PERFILES_CATALOGO.find(p => p.id === perfilActivoId) || PERFILES_CATALOGO[0];
 
         return (
-          <div className="absolute top-2 sm:top-3 left-2 sm:left-3 z-30 flex items-center gap-1.5 sm:gap-2 pointer-events-auto max-w-[calc(100vw-16px)] select-none">
+          <div className="barra-dibujo absolute top-2 sm:top-3 left-2 sm:left-3 z-30 flex items-center gap-1.5 sm:gap-2 pointer-events-auto max-w-[calc(100vw-16px)] select-none">
             {/* BOTÓN 1: HERRAMIENTA ACTIVA (DROPDOWN TÁCTIL) */}
             <div className="relative">
               <button
@@ -2040,7 +2040,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
       })()}
       {/* Celular: "?" y pantalla completa (arriba a la derecha) */}
       {esCelular && (
-        <div className="absolute top-2 right-2 z-30 flex gap-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+        <div className="barra-dibujo absolute top-2 right-2 z-30 flex gap-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
           <button onClick={() => setInicioAbierto(true)} aria-label="Cómo empezar y ayuda" className="w-9 h-9 rounded-xl bg-white/95 border border-slate-200 shadow-sm text-slate-700 font-black text-sm cursor-pointer">?</button>
           <button onClick={() => setModoDibujo(v => !v)} aria-label={modoDibujo ? 'Salir de pantalla completa' : 'Pantalla completa para dibujar'}
             className={`w-9 h-9 rounded-xl border shadow-sm flex items-center justify-center cursor-pointer ${modoDibujo ? 'bg-slate-900 text-white border-slate-900' : 'bg-white/95 text-slate-700 border-slate-200'}`}>
