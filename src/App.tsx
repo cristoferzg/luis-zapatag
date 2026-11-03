@@ -1978,6 +1978,7 @@ export default function App() {
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     const h = CapApp.addListener('backButton', () => {
+      if (document.documentElement.classList.contains('modo-dibujo')) { window.dispatchEvent(new Event('innova_salir_dibujo')); return; }
       if (document.querySelector('.fixed.inset-0')) { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return; }
       if (!volverAtrasRef.current()) CapApp.minimizeApp();
     });

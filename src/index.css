@@ -109,6 +109,10 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
 @keyframes vista-vuelve { from { opacity: .5; transform: translateX(-28px); } }
 @media (prefers-reduced-motion: reduce) { .onda-material, .app-marca main.vista-entra { animation: none !important; } .app-marca.plat-ios .toque-ios { scale: 1; } }
 
+/* Techos · pantalla completa para dibujar (botón ⤢ en el celular): se ocultan la barra
+   azul, las secciones del módulo, la navegación de abajo y el botón +. */
+html.modo-dibujo .barra-app, html.modo-dibujo .nav-app, html.modo-dibujo .fab-app, html.modo-dibujo .oculto-en-dibujo { display: none !important; }
+
 /* Tablet: barra de abajo centrada */
 @media (min-width: 640px) {
   .app-marca .barra-app { padding-left: 24px !important; padding-right: 24px !important; }

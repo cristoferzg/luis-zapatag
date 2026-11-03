@@ -1003,7 +1003,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       )}
 
       {/* 1. CABECERA PRINCIPAL UNIFICADA (ESTILO HERRERÍA) */}
-      <header className="w-full bg-white border-b border-slate-200 px-2.5 sm:px-5 py-1.5 sm:py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0 z-20 shadow-xs">
+      <header className="oculto-en-dibujo w-full bg-white border-b border-slate-200 px-2.5 sm:px-5 py-1.5 sm:py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0 z-20 shadow-xs">
         
         {/* Título e Identificación de Módulo */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -1196,7 +1196,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           ];
           const actual = SECC.find(x => x.tabs.some(t => t.id === activeTab)) || SECC[0];
           return (
-            <div className="sm:hidden w-full py-1.5 space-y-1.5">
+            <div className="oculto-en-dibujo sm:hidden w-full py-1.5 space-y-1.5">
               <div className="flex bg-slate-100 rounded-xl p-0.5">
                 {SECC.map(x => (
                   <button key={x.id} onClick={() => setActiveTab(x.tabs[0].id)}

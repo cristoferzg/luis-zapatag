@@ -24,6 +24,8 @@ import {
   CheckCircle2,
   Spline,
   HelpCircle,
+  Maximize2,
+  Minimize2,
   Sparkles,
   Wrench,
   AlertTriangle,
@@ -336,7 +338,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const [showNovatosWizard, setShowNovatosWizard] = useState<boolean>(false);
   // Revisar diseño: nodos repetidos, perfiles duplicados, extremos que no conectan.
   const [showRevision, setShowRevision] = useState(false);
-  const [pasoAPaso, setPasoAPaso] = useState<number | null>(null); // diseño A: Base → Estructura → Techo → Revisar
+  const [pasoAPaso, setPasoAPaso] = useState<number | null>(null);
+  // CELULAR · dibujo cómodo: tarjeta "¿Cómo quieres empezar?", pantalla completa,
+  // pista de cada herramienta y lupa al poner un punto con el dedo.
+  const [inicioAbierto, setInicioAbierto] = useState(false);
+  const [modoDibujo, setModoDibujo] = useState(false);
+  const [pistaVisible, setPistaVisible] = useState(false);
+  const [lupa, setLupa] = useState<{ x: number; y: number } | null>(null);
+  const toqueDibujoRef = useRef<{ x0: number; y0: number; x: number; y: number; movido: boolean } | null>(null); // diseño A: Base → Estructura → Techo → Revisar
   const nProblemas = useRevisionDiseno(engineState).length;
   // Llega desde la Calculadora con medidas: se abre el Asistente con ellas.
   useEffect(() => { try { if (localStorage.getItem('innova_cotizador_a_techos')) setShowNovatosWizard(true); } catch { /* nada */ } }, []);
@@ -480,6 +489,32 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // Herramientas que dibujan sobre el lienzo (no selección/paneo).
   const DRAWING_TOOLS: ToolModoCad[] = ['draw_line', 'draw_arc', 'draw_col', 'draw_tijeral', 'draw_correa', 'draw_arriostre', 'draw_tensor', 'draw_node', 'measure'];
   const isDrawingTool = DRAWING_TOOLS.includes(activeTool);
+  const esCelular = !isDesktop && typeof window !== 'undefined' && window.innerWidth < 640;
+
+  // 1) Diseño en blanco en el celular: "¿Cómo quieres empezar?" (una vez por sesión).
+  const nNodos = Object.keys(engineState?.nodes || {}).length;
+  useEffect(() => {
+    if (!esCelular || !engineState || nNodos > 0) return;
+    let visto = false; try { visto = sessionStorage.getItem('techos_inicio_visto') === '1'; } catch { /* nada */ }
+    if (!visto) setInicioAbierto(true);
+  }, [esCelular, !!engineState, nNodos]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cerrarInicio = () => { setInicioAbierto(false); try { sessionStorage.setItem('techos_inicio_visto', '1'); } catch { /* nada */ } };
+
+  // 2) Pantalla completa para dibujar: oculta la barra azul, las secciones y la navegación.
+  useEffect(() => {
+    document.documentElement.classList.toggle('modo-dibujo', modoDibujo);
+    const salir = () => setModoDibujo(false);
+    window.addEventListener('innova_salir_dibujo', salir);
+    return () => { window.removeEventListener('innova_salir_dibujo', salir); document.documentElement.classList.remove('modo-dibujo'); };
+  }, [modoDibujo]);
+
+  // 4) Pista de la herramienta elegida (se esconde sola a los 6 s).
+  useEffect(() => {
+    if (!esCelular) return;
+    setPistaVisible(true);
+    const t = setTimeout(() => setPistaVisible(false), 6000);
+    return () => clearTimeout(t);
+  }, [activeTool, esCelular]);
 
   // Al elegir una herramienta de dibujo, colapsa el panel flotante para que no
   // tape el lienzo ni se "coma" los clics destinados a dibujar (móvil, tablet
@@ -833,6 +868,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   // TOUCH GESTURES MÓVILES (PINCH-TO-ZOOM, PAN Y ARRASTRE DE NODO)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
+      toqueDibujoRef.current = null; setLupa(null); // dos dedos = zoom, no se dibuja
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -846,6 +882,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
     } else if (e.touches.length === 1) {
       const touch = e.touches[0];
       touchPanStartRef.current = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
+      // 5) Lupa: con una herramienta de dibujo, el dedo tapa el punto; la lupa lo muestra.
+      if (isDrawingTool && vista !== '3d' && !draggingNodeId) {
+        const rc = containerRef.current?.getBoundingClientRect();
+        toqueDibujoRef.current = { x0: touch.clientX, y0: touch.clientY, x: touch.clientX, y: touch.clientY, movido: false };
+        setPistaVisible(false); // ya entendió: la pista no tapa el dibujo
+        setCursorCoords(screenToWorld(touch.clientX, touch.clientY));
+        if (rc) setLupa({ x: touch.clientX - rc.left, y: touch.clientY - rc.top });
+      }
       // Con UN dedo solo se panea cuando la herramienta es Mover/Seleccionar
       // (igual que en PC). Con una herramienta de DIBUJO, el toque COLOCA el
       // elemento y no debe mover el lienzo ante un micro-movimiento del dedo.
@@ -872,6 +916,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           y: midY - touchPanStartRef.current.y
         });
       }
+    } else if (e.touches.length === 1 && toqueDibujoRef.current && !draggingNodeId) {
+      // Dedo moviéndose con herramienta de dibujo: se ajusta el punto (no se mueve el lienzo).
+      const touch = e.touches[0], t = toqueDibujoRef.current;
+      t.x = touch.clientX; t.y = touch.clientY;
+      if (Math.hypot(t.x - t.x0, t.y - t.y0) > 10) t.movido = true;
+      setCursorCoords(screenToWorld(touch.clientX, touch.clientY));
+      const rc = containerRef.current?.getBoundingClientRect();
+      if (rc) setLupa({ x: touch.clientX - rc.left, y: touch.clientY - rc.top });
     } else if (e.touches.length === 1 && touchPanStartRef.current) {
       const touch = e.touches[0];
       if (draggingNodeId && engineState) {
@@ -898,6 +950,14 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (e.touches.length < 2) {
       touchPinchDistRef.current = null;
+    }
+    if (toqueDibujoRef.current) {
+      const t = toqueDibujoRef.current;
+      toqueDibujoRef.current = null;
+      setLupa(null);
+      // Si el dedo se movió para ajustar el punto, se coloca donde se soltó
+      // (sin mover, el toque normal ya lo coloca).
+      if (t.movido && e.touches.length === 0) handleCanvasClick({ clientX: t.x, clientY: t.y } as React.MouseEvent);
     }
     if (e.touches.length === 0) {
       touchPanStartRef.current = null;
@@ -1760,9 +1820,22 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             </button>
           )}
 
+          {/* CELULAR: "?" abre "¿Cómo quieres empezar?" y el botón de pantalla completa */}
+          <button onClick={() => setInicioAbierto(true)} aria-label="Cómo empezar y ayuda" title="Cómo empezar"
+            className="sm:hidden w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-700 flex items-center justify-center cursor-pointer shrink-0">
+            <HelpCircle className="w-4 h-4" />
+          </button>
+          {vista !== '3d' && (
+            <button onClick={() => setModoDibujo(v => !v)} aria-label={modoDibujo ? 'Salir de pantalla completa' : 'Pantalla completa para dibujar'}
+              title={modoDibujo ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              className={`sm:hidden w-8 h-8 rounded-lg border flex items-center justify-center cursor-pointer shrink-0 ${modoDibujo ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200'}`}>
+              {modoDibujo ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+          )}
+
           {/* PASO A PASO (diseño A): lo esencial en 4 decisiones grandes */}
           <button onClick={() => setPasoAPaso(0)}
-            className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-white hover:bg-orange-50 text-orange-700 border border-orange-300 font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
+            className="hidden sm:flex p-1 sm:px-2.5 sm:py-1 rounded-lg bg-white hover:bg-orange-50 text-orange-700 border border-orange-300 font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs shrink-0"
             title="Paso a paso: base de columnas, estructura, techo y revisar">
             <span className="text-sm leading-none">①</span><span className="text-xs font-black">Paso a paso</span>
           </button>
@@ -1770,7 +1843,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           {/* BOTÓN ASISTENTE 1-CLIC */}
           <button
             onClick={() => setShowNovatosWizard(true)}
-            className="p-1 sm:px-2.5 sm:py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0"
+            className="hidden sm:flex p-1 sm:px-2.5 sm:py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 cursor-pointer shadow-xs active:scale-95 transition-all shrink-0"
             title="Abrir Asistente para generar techos completos en 1 clic"
           >
             <Sparkles className="w-3.5 h-3.5 fill-slate-950 shrink-0" />
@@ -1831,7 +1904,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
       </div>
 
       {/* BANNER DIDÁCTICO ORIENTADOR DE VISTAS (PLANTA VS ELEVACIÓN) */}
-      <TechosViewModeGuideBanner
+      {!modoDibujo && <TechosViewModeGuideBanner
         vista={vista}
         onOpenWizard={() => setShowNovatosWizard(true)}
         onOpenControlsSumilla={() => setShowControlsSumilla(true)}
@@ -1842,7 +1915,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         onRedo={engineState ? () => engineState.redo() : undefined}
         canUndo={!!engineState?.canUndo}
         canRedo={!!engineState?.canRedo}
-      />
+      />}
 
       {/* 2. ÁREA DE LIENZO PRINCIPAL (CAD 2D O VISOR 3D WEBGL) */}
       <div 
@@ -1882,7 +1955,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 </pattern>
               </defs>
 
-              <g transform={`translate(${centerTranslateX}, ${centerTranslateY})`}>
+              <g id="techos-dibujo" transform={`translate(${centerTranslateX}, ${centerTranslateY})`}>
                 {/* IMAGEN DE REFERENCIA (plano a mano / foto) — fondo para calcar.
                     Solo en Planta; se mueve y escala con el lienzo. */}
                 {refImg && vista === 'planta' && (
@@ -2386,6 +2459,45 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
               </g>
             </svg>
+            {/* 4) PISTA de la herramienta (celular): qué hacer después de elegirla */}
+            {esCelular && pistaVisible && !lupa && (() => {
+              const PISTA: Partial<Record<ToolModoCad, string>> = {
+                select: 'Toca un elemento para ver sus datos · arrastra un punto para moverlo',
+                draw_line: 'Toca el inicio y el final de la viga · sigue tocando para encadenar',
+                draw_col: 'Toca donde va cada columna',
+                draw_tijeral: 'Toca el inicio y el final del tijeral',
+                draw_correa: 'Toca dos puntos: la correa va entre tijerales',
+                measure: 'Toca dos puntos para medir la distancia',
+                draw_arc: 'Toca el inicio, el final y luego la altura del arco',
+                draw_tensor: 'Toca los dos puntos del tensor',
+                draw_arriostre: 'Toca los dos extremos de la cruz',
+              };
+              const txt = PISTA[activeTool]; if (!txt) return null;
+              return (
+                <div className="absolute left-1/2 -translate-x-1/2 top-9 z-30 w-max max-w-[88%] text-center bg-slate-900/90 text-white text-[11.5px] font-semibold leading-snug px-3 py-1.5 rounded-xl shadow-lg pointer-events-none">
+                  {txt}{isDrawingTool && activeTool !== 'draw_col' ? <span className="block text-[10px] font-medium text-slate-300">Deja el dedo para ver la lupa</span> : null}
+                </div>
+              );
+            })()}
+            {/* 5) LUPA: el dedo tapa el punto; aquí se ve dónde cae y su medida */}
+            {lupa && (() => {
+              const R = 30, L = 124;
+              const ancho = containerRef.current?.clientWidth || 400;
+              const top = lupa.y - L - 40 < 4 ? lupa.y + 40 : lupa.y - L - 40;
+              const left = Math.max(4, Math.min(lupa.x - L / 2, ancho - L - 4));
+              return (
+                <div className="absolute z-40 pointer-events-none rounded-full overflow-hidden border-[3px] border-white shadow-xl bg-slate-50" style={{ left, top, width: L, height: L }}>
+                  <svg width={L} height={L} viewBox={`${lupa.x - R} ${lupa.y - R} ${2 * R} ${2 * R}`}>
+                    <use href="#techos-dibujo" />
+                    <path d={`M ${lupa.x - 9} ${lupa.y} H ${lupa.x + 9} M ${lupa.x} ${lupa.y - 9} V ${lupa.y + 9}`} stroke="#f97316" strokeWidth="1" />
+                    <circle cx={lupa.x} cy={lupa.y} r="2.2" fill="#f97316" />
+                  </svg>
+                  <span className="absolute bottom-2 inset-x-0 text-center text-[10px] font-mono font-bold text-slate-800">
+                    {(activeSnap?.x ?? cursorCoords.x).toFixed(2)} · {(activeSnap ? (vista === 'planta' ? activeSnap.z : activeSnap.y) : cursorCoords.y).toFixed(2)} m
+                  </span>
+                </div>
+              );
+            })()}
             {/* MENSAJE DE LIENZO EN BLANCO: centrado en la pantalla, sin cruzarse con los ejes */}
             {Object.keys(nodes).length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none p-4">
@@ -3175,48 +3287,59 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           // Móvil: barra de herramientas FIJA abajo, de borde a borde, como los botones de
           // la app (no flota encima del dibujo). Los toques sobre la barra no mueven el lienzo.
           const frenar = (e: React.SyntheticEvent) => e.stopPropagation();
-          const item = 'shrink-0 min-w-[38px] flex-1 h-[52px] flex flex-col items-center justify-center gap-0.5 cursor-pointer';
-          const icono = (A: boolean) => `h-7 w-9 rounded-full flex items-center justify-center transition-colors ${A ? 'bg-orange-100 text-orange-700' : 'text-slate-600'}`;
+          const item = 'shrink-0 min-w-[44px] flex-1 h-[58px] flex flex-col items-center justify-center gap-1 cursor-pointer';
+          const icono = (A: boolean) => `h-8 w-11 rounded-full flex items-center justify-center transition-colors ${A ? 'bg-orange-100 text-orange-700' : 'text-slate-600'}`;
           return (
             <div
               onTouchStart={frenar} onTouchMove={frenar} onTouchEnd={frenar} onMouseDown={frenar}
               className="absolute left-0 right-0 bottom-0 z-30 flex items-stretch overflow-x-auto bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(15,42,74,0.06)] px-0.5 [scrollbar-width:none]"
             >
-              {railTools.map(t => {
+              {railTools.filter(t => t.id !== 'measure').map(t => {
                 const A = activeTool === t.id;
                 const Icon = t.Icon;
                 return (
                   <button key={t.id} onClick={() => toggleTool(t.id)} title={t.label} aria-label={t.label} className={item}>
-                    <span className={icono(A)}><Icon className="w-[18px] h-[18px]" /></span>
+                    <span className={icono(A)}><Icon className="w-5 h-5" /></span>
                     <span className={`text-[10px] leading-none ${A ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{t.label === 'Seleccionar' ? 'Selec.' : t.label}</span>
                   </button>
                 );
               })}
               <button onClick={() => engineState.undo()} disabled={!engineState.canUndo} aria-label="Deshacer" className={`${item} disabled:opacity-30`}>
-                <span className={icono(false)}><Undo2 className="w-[17px] h-[17px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Atrás</span>
+                <span className={icono(false)}><Undo2 className="w-5 h-5" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Deshacer</span>
               </button>
-              <button onClick={() => engineState.redo()} disabled={!engineState.canRedo} aria-label="Rehacer" className={`${item} disabled:opacity-30`}>
-                <span className={icono(false)}><Redo2 className="w-[17px] h-[17px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Adelante</span>
-              </button>
-              <label className={item} title="Paso de rejilla (snap)">
-                <span className={icono(false)}><Grid className="w-[16px] h-[16px] text-blue-600" /></span>
-                <select
-                  value={engineState.snapGridSizeM}
-                  onChange={(e) => engineState.setSnapGridSizeM(parseFloat(e.target.value) || 0.25)}
-                  className="text-[9px] font-medium bg-transparent outline-none text-slate-600 w-10 text-center cursor-pointer leading-none"
-                >
-                  <option value={0.1}>0.10 m</option>
-                  <option value={0.25}>0.25 m</option>
-                  <option value={0.5}>0.50 m</option>
-                  <option value={1.0}>1.00 m</option>
-                </select>
-              </label>
               <button onClick={openMas} title="Más herramientas" aria-label="Más herramientas" className={item}>
-                <span className={icono(false)}><MoreHorizontal className="w-[18px] h-[18px]" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Más</span>
+                <span className={icono(false)}><MoreHorizontal className="w-5 h-5" /></span><span className="text-[10px] font-medium leading-none text-slate-600">Más</span>
               </button>
             </div>
           );
         })()}
+
+        {inicioAbierto && engineState && (
+          <div className="absolute inset-0 z-[95] bg-slate-900/40 flex items-end sm:items-center justify-center" onClick={cerrarInicio}
+            onTouchStart={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()}>
+            <div className="w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-4 pb-5 space-y-2 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-base font-black text-slate-900">¿Cómo quieres empezar?</p>
+                  <p className="text-xs text-slate-500">Elige una forma. Siempre puedes volver aquí con el botón <b>?</b></p>
+                </div>
+                <button onClick={cerrarInicio} aria-label="Cerrar" className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer shrink-0"><X className="w-4 h-4" /></button>
+              </div>
+              {([
+                ['①', 'Paso a paso', 'Base de columnas, estructura, techo y revisar', () => setPasoAPaso(0)],
+                ['✨', 'Asistente con medidas', 'Dos aguas, una agua, arco…: el techo se arma solo', () => setShowNovatosWizard(true)],
+                ...(iaVisibleParaUI() ? [['📷', 'Foto de tu boceto', 'Tu dibujo a mano se convierte en plano', () => { if (vista !== 'planta') handleSetVista('planta'); handleIaButtonClick(); }]] : []),
+                ['✏️', 'Dibujar libre', 'Empiezas con la herramienta Viga', () => { if (vista === '3d') handleSetVista('planta'); setTool('draw_line'); }],
+              ] as [string, string, string, () => void][]).map(([ic, t, d, fn]) => (
+                <button key={t} onClick={() => { cerrarInicio(); fn(); }}
+                  className="w-full flex items-center gap-3 text-left p-3 rounded-2xl border border-slate-200 hover:bg-orange-50 cursor-pointer">
+                  <span className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-lg shrink-0">{ic}</span>
+                  <span className="min-w-0"><span className="block text-sm font-black text-slate-900">{t}</span><span className="block text-[11px] text-slate-500">{d}</span></span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {pasoAPaso !== null && engineState && (() => {
           const segs = Object.values(engineState.segments || {});
@@ -3408,6 +3531,17 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* CELULAR: la rejilla salió de la barra de abajo y vive aquí */}
+              {!isDesktop && engineState && (
+                <div className="border-t border-slate-800 pt-3 flex items-center justify-between gap-2">
+                  <span className="font-black text-[9px] uppercase tracking-wider text-slate-400">Rejilla (se pega a)</span>
+                  <select value={engineState.snapGridSizeM} onChange={(e) => engineState.setSnapGridSizeM(parseFloat(e.target.value) || 0.25)}
+                    className="bg-slate-800 text-white text-xs font-bold rounded-lg px-2 py-1.5 border border-slate-700">
+                    <option value={0.1}>0.10 m</option><option value={0.25}>0.25 m</option><option value={0.5}>0.50 m</option><option value={1.0}>1.00 m</option>
+                  </select>
+                </div>
+              )}
 
               {/* SECCIÓN EDICIÓN: COPIAR, PEGAR, ELIMINAR */}
               <div className="border-t border-slate-800 pt-3 space-y-2">
