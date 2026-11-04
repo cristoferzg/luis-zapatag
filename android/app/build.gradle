@@ -6,11 +6,11 @@ def propsFirma = new Properties()
 def archivoFirma = rootProject.file('keystore.properties')
 if (archivoFirma.exists()) { archivoFirma.withInputStream { propsFirma.load(it) } }
 // Versión única: la misma de la web (dist/version.txt, copiada por `npx cap sync`), p. ej.
-// 2026.11.05.1432. versionCode = AAMMDDHHmm/10 → siempre mayor en cada compilación (Play lo exige).
+// 2026.11.05.1432 (versionName). versionCode = contador simple de codigo-version.txt (10, 11, 12…):
+// se sube en 1 en cada versión que va a Google Play (Play exige que siempre aumente y avisa si salta mucho).
 def archivoVersion = file('src/main/assets/public/version.txt')
 def versionWeb = archivoVersion.exists() ? archivoVersion.text.trim() : new Date().format('yyyy.MM.dd.HHmm')
-def partes = versionWeb.tokenize('.')
-def versionAuto = Integer.parseInt((partes[0].substring(2) + partes[1] + partes[2] + partes[3].substring(0, 3)))
+def versionAuto = Integer.parseInt(file('codigo-version.txt').text.trim())
 
 android {
     namespace = "pe.innovacontratistas.app"
