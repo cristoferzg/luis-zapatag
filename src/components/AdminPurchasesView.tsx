@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { updateRecord, useFirestoreArraySync } from '../lib/db';
 import { Check, X, Eye, Search, Sparkles, Coins, GraduationCap, ScanLine } from 'lucide-react';
 import LectorComprobante from './common/LectorComprobante';
-import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { CourseCategory, TutorialVideo } from './UsabilidadVideosView';
 import { grantAIPlan, grantCreditos } from '../lib/aiAccess';
@@ -48,11 +48,6 @@ export default function AdminPurchasesView() {
   const grantAccess = async (purchase: Purchase) => {
     const uid = purchase.userId;
     if (!uid) return;
-    // Membresía (cuenta creada desde la app, pagada por Yape) → la cuenta queda activa.
-    if (purchase.itemId === 'membresia') {
-      await setDoc(doc(db, 'usuarios', uid), { membresia: { estado: 'activa', origen: 'yape', fecha: new Date().toISOString() } }, { merge: true });
-      return;
-    }
     // 0) ¿Es un PLAN DE IA? (itemId = 'ai_plan_<planId>') → activa el plan.
     if (purchase.itemId?.startsWith('ai_plan_')) {
       const [planId, periodo] = purchase.itemId.replace('ai_plan_', '').split('__');
@@ -103,7 +98,7 @@ export default function AdminPurchasesView() {
     .filter(p => !q || [p.itemName, p.userName, p.userId, p.nroOperacion].some(v => (v || '').toLowerCase().includes(q)))
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const tipoDe = (p: Purchase) => p.itemId === 'membresia' ? { l: 'Membresía', Ic: Check, c: 'bg-emerald-100 text-emerald-700' } : p.itemId?.startsWith('ai_plan_') ? { l: 'Plan IA', Ic: Sparkles, c: 'bg-amber-100 text-amber-700' }
+  const tipoDe = (p: Purchase) => p.itemId?.startsWith('ai_plan_') ? { l: 'Plan IA', Ic: Sparkles, c: 'bg-amber-100 text-amber-700' }
     : p.itemId?.startsWith('ai_creditos_') ? { l: 'Créditos', Ic: Coins, c: 'bg-violet-100 text-violet-700' }
     : { l: 'Curso / clase', Ic: GraduationCap, c: 'bg-sky-100 text-sky-700' };
   const fecha = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : `${d.toLocaleDateString('es-PE')} · ${d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`; };

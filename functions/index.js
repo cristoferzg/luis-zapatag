@@ -84,27 +84,19 @@ async function anotarFallo(ref) {
   });
 }
 
-// ---- Cuentas creadas desde la app (membresía de pago único) ----
-const CELULAR_RE = /^9\d{8}$/;
-const PIN_FACIL = /^(\d)\1{5}$|^(012345|123456|234567|345678|456789|987654|876543|765432|654321|543210)$/;
-const membresiaPendiente = (u) => u?.autoRegistro === true && u?.membresia?.estado !== 'activa';
-const MAX_REGISTROS_DIA = 3;
-
 export const loginWithPin = onCall({ secrets: ['ADMIN_PIN'], region: 'us-central1', cors: true, invoker: 'public' },
   async (request) => {
     const pin = String(request.data?.pin || '').trim();
-    const celular = String(request.data?.celular || '').replace(/\D/g, '');
 
     if (!/^\d{6}$/.test(pin)) {
       throw new HttpsError('invalid-argument', 'El PIN debe tener 6 dígitos.');
     }
-    if (celular && !CELULAR_RE.test(celular)) throw new HttpsError('invalid-argument', 'El celular debe tener 9 dígitos y empezar con 9.');
     const intentos = refIntentos(request);
     await revisarBloqueo(intentos);
 
     // 1) Master administrator PIN (stored as a server secret, never in the bundle).
     const adminPin = process.env.ADMIN_PIN || '';
-    if (!celular && adminPin && secretsEqual(pin, adminPin)) {
+    if (adminPin && secretsEqual(pin, adminPin)) {
       await intentos.delete().catch(() => {});
       const claims = { role: 'admin', workspace: 'admin' };
       const token = await getAuth().createCustomToken('admin', claims);
@@ -113,22 +105,14 @@ export const loginWithPin = onCall({ secrets: ['ADMIN_PIN'], region: 'us-central
 
     // 2) Registered users. Admin SDK bypasses rules, so the client never needs
     //    read access to this collection.
-    // Cuentas creadas desde la app: entran con celular + PIN (el PIN solo no basta, así
-    // nadie entra a una cuenta ajena probando PIN). Las que crea el admin, con el PIN.
-    let docSnap = null;
-    if (celular) {
-      const s = await db.collection('usuarios').where('celular', '==', celular).limit(1).get();
-      if (!s.empty && secretsEqual(pin, String(s.docs[0].data()?.pin || ''))) docSnap = s.docs[0];
-    } else {
-      const s = await db.collection('usuarios').where('pin', '==', pin).limit(10).get();
-      docSnap = s.docs.find((d) => d.data()?.accesoConCelular !== true) || null;
-    }
-    if (!docSnap) {
+    const snap = await db.collection('usuarios').where('pin', '==', pin).limit(1).get();
+    if (snap.empty) {
       await anotarFallo(intentos).catch(() => {});
       // Generic message — do not reveal whether a PIN exists.
       throw new HttpsError('permission-denied', 'PIN no válido.');
     }
 
+    const docSnap = snap.docs[0];
     const data = docSnap.data() || {};
     if (data.isActive === false) {
       throw new HttpsError('permission-denied', 'Usuario desactivado.');
@@ -143,14 +127,6 @@ export const loginWithPin = onCall({ secrets: ['ADMIN_PIN'], region: 'us-central
     // `usuarios` doc id. So the workspace claim must be the bare doc id (no prefix),
     // otherwise users get locked out of their own (and existing) data.
     const workspace = role === 'admin' ? 'admin' : uid;
-
-    // Cuenta creada desde la app sin la membresía pagada: sesión SOLO para pagar
-    // (sin rol, las reglas no le dejan leer ni escribir nada).
-    if (membresiaPendiente(data)) {
-      await intentos.delete().catch(() => {});
-      const token = await getAuth().createCustomToken(uid, { pendiente: uid });
-      return { token, role: 'pendiente', workspace: '', name: data.name || 'Usuario', membresia: 'pendiente' };
-    }
 
     // Best-effort last-login stamp.
     try {
@@ -270,83 +246,6 @@ async function cobrarUsoIA(request, accion, costoFijo) {
 }
 
 // =============================================================================
-// Registro desde la app: cualquiera crea su cuenta (nombre, celular y PIN) y la activa
-// con un pago único (Google Play en Android; Yape en la web, validado por el admin).
-// Config en config_ia/membresia { registroAbierto, precioSoles, yapeNumero, yapeNombre }.
-// =============================================================================
-export const registrarCuenta = onCall({ secrets: ['ADMIN_PIN'], region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
-  const nombre = String(request.data?.nombre || '').trim().replace(/\s+/g, ' ').slice(0, 60);
-  const celular = String(request.data?.celular || '').replace(/\D/g, '');
-  const pin = String(request.data?.pin || '').trim();
-  if (nombre.length < 3) throw new HttpsError('invalid-argument', 'Escribe tu nombre.');
-  if (!CELULAR_RE.test(celular)) throw new HttpsError('invalid-argument', 'El celular debe tener 9 dígitos y empezar con 9.');
-  if (!/^\d{6}$/.test(pin)) throw new HttpsError('invalid-argument', 'El PIN debe tener 6 dígitos.');
-  if (PIN_FACIL.test(pin) || (process.env.ADMIN_PIN && secretsEqual(pin, process.env.ADMIN_PIN))) throw new HttpsError('invalid-argument', 'PIN_FACIL');
-  const cfg = (await db.collection('config_ia').doc('membresia').get()).data() || {};
-  if (cfg.registroAbierto !== true) throw new HttpsError('failed-precondition', 'REGISTRO_CERRADO');
-  // Máximo 3 cuentas por día desde la misma conexión.
-  const refReg = db.collection('registro_intentos').doc(createHash('sha256').update('reg:' + ipDe(request)).digest('hex').slice(0, 40));
-  const hoy = new Date().toISOString().slice(0, 10);
-  const reg = (await refReg.get()).data();
-  if (reg && reg.dia === hoy && reg.n >= MAX_REGISTROS_DIA) throw new HttpsError('resource-exhausted', 'Demasiadas cuentas creadas hoy desde esta conexión.');
-  const ref = db.collection('usuarios').doc();
-  await db.runTransaction(async (tx) => {
-    const ya = await tx.get(db.collection('usuarios').where('celular', '==', celular).limit(1));
-    if (!ya.empty) throw new HttpsError('already-exists', 'CELULAR_REGISTRADO');
-    tx.set(ref, {
-      name: nombre, celular, pin, role: 'user', isActive: true, userId: 'admin',
-      autoRegistro: true, accesoConCelular: true, membresia: { estado: 'pendiente' },
-      createdAt: new Date().toISOString(),
-    });
-  });
-  await refReg.set({ dia: hoy, n: reg && reg.dia === hoy ? (reg.n || 0) + 1 : 1 });
-  return { ok: true };
-});
-
-/** Web/PC: el usuario avisa que pagó por Yape; queda pendiente en "Validar Compras". */
-export const solicitarMembresia = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
-  const uid = String(request.auth?.token?.pendiente || '');
-  if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión con tu celular y PIN.');
-  const u = (await db.collection('usuarios').doc(uid).get()).data();
-  if (!u || !membresiaPendiente(u)) return { ok: true, yaActiva: true };
-  const ya = await db.collection('purchases').where('userId', '==', uid).where('status', '==', 'pendiente').get();
-  if (ya.docs.some((d) => d.data().itemId === 'membresia')) return { ok: true, yaEnviada: true };
-  const cfg = (await db.collection('config_ia').doc('membresia').get()).data() || {};
-  await db.collection('purchases').add({
-    userId: uid, userName: u.name || '', celular: u.celular || '', itemId: 'membresia', itemName: 'Membresía InnovApp (pago único)',
-    amount: Number(cfg.precioSoles) || 0, status: 'pendiente', voucherUrl: '', createdAt: new Date().toISOString(),
-  });
-  return { ok: true };
-});
-
-/** Borra la cuenta del usuario y sus datos (lo exige Google Play). Las compras se conservan por ley. */
-export const eliminarMiCuenta = onCall({ region: 'us-central1', cors: true, timeoutSeconds: 300, invoker: 'public' }, async (request) => {
-  const t = request.auth?.token || {};
-  if (t.role === 'admin') throw new HttpsError('failed-precondition', 'La cuenta del administrador no se puede borrar.');
-  const ws = String(t.workspace || t.pendiente || '').replace(/^user_/, '');
-  if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
-  const conservar = new Set(['purchases', 'compras_play', 'config_ia', 'login_intentos', 'registro_intentos']);
-  const refs = [db.collection('usuarios').doc(ws), db.collection('ai_access').doc(ws), db.collection('soporte_chats').doc(ws)];
-  for (const col of await db.listCollections()) {
-    if (conservar.has(col.id)) continue;
-    const [a, b, c] = await Promise.all([
-      col.where('userId', 'in', [ws, 'user_' + ws]).get(),
-      col.where('authorUid', '==', ws).get(),
-      col.where('ws', '==', ws).get(),
-    ]);
-    for (const d of [...a.docs, ...b.docs, ...c.docs]) refs.push(d.ref);
-  }
-  const unicos = [...new Map(refs.map((r) => [r.path, r])).values()];
-  for (let i = 0; i < unicos.length; i += 400) {
-    const lote = db.batch();
-    unicos.slice(i, i + 400).forEach((r) => lote.delete(r));
-    await lote.commit();
-  }
-  try { await getAuth().deleteUser(request.auth.uid); } catch (_) { /* ya no existe */ }
-  return { ok: true, borrados: unicos.length };
-});
-
-// =============================================================================
 // Compras con Google Play (app de Android): recargas de créditos y planes.
 //
 //   Productos en Play Console (deben coincidir con config_ia/planes):
@@ -384,22 +283,19 @@ async function llamarPlay(ruta, metodo = 'GET') {
   }
   return texto ? JSON.parse(texto) : {};
 }
-const PRODUCTO_MEMBRESIA = 'membresia_unica'; // producto único (no consumible) en Play Console
 const PACKS_DEFAULT = [{ creditos: 50 }, { creditos: 150 }, { creditos: 500 }]; // igual que PACKS_CREDITOS_DEFAULT del cliente
 const SUSCRIPCION_VIGENTE = ['SUBSCRIPTION_STATE_ACTIVE', 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD', 'SUBSCRIPTION_STATE_CANCELED'];
 
 export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
   const token = request.auth?.token || {};
-  const productId = String(request.data?.productId || '');
-  const purchaseToken = String(request.data?.purchaseToken || '');
-  const esMembresia = productId === PRODUCTO_MEMBRESIA;
-  const esCreditos = /^creditos_\d{1,5}$/.test(productId);
-  const esPlan = /^plan_[a-z0-9_-]{1,30}$/.test(productId);
-  // La membresía la paga una cuenta recién creada (sesión "pendiente", aún sin datos).
-  const ws = String(token.workspace || (esMembresia ? token.pendiente : '') || '').replace(/^user_/, '');
+  const ws = String(token.workspace || '').replace(/^user_/, '');
   if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
   if (token.role === 'admin') throw new HttpsError('failed-precondition', 'El administrador no necesita comprar.');
-  if ((!esCreditos && !esPlan && !esMembresia) || !/^[\w.\-:]{10,4096}$/.test(purchaseToken)) throw new HttpsError('invalid-argument', 'Compra no válida.');
+  const productId = String(request.data?.productId || '');
+  const purchaseToken = String(request.data?.purchaseToken || '');
+  const esCreditos = /^creditos_\d{1,5}$/.test(productId);
+  const esPlan = /^plan_[a-z0-9_-]{1,30}$/.test(productId);
+  if ((!esCreditos && !esPlan) || !/^[\w.\-:]{10,4096}$/.test(purchaseToken)) throw new HttpsError('invalid-argument', 'Compra no válida.');
 
   const refCompra = db.collection('compras_play').doc(createHash('sha256').update(purchaseToken).digest('hex'));
   const previa = (await refCompra.get()).data();
@@ -409,29 +305,6 @@ export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, inv
   const cfg = cfgSnap.exists ? cfgSnap.data() : {};
   const refAcceso = db.collection('ai_access').doc(ws);
   const tok = encodeURIComponent(purchaseToken);
-
-  if (esMembresia) {
-    if (previa?.entregado) return { ok: true, tipo: 'membresia', yaEntregada: true };
-    const p = await llamarPlay(`/products/${productId}/tokens/${tok}`);
-    if (p.purchaseState === 2) return { ok: false, pendiente: true };
-    if (p.purchaseState !== 0) throw new HttpsError('failed-precondition', 'La compra fue cancelada o reembolsada.');
-    if (p.obfuscatedExternalAccountId && p.obfuscatedExternalAccountId !== ws) throw new HttpsError('permission-denied', 'Esta compra pertenece a otra cuenta.');
-    const refU = db.collection('usuarios').doc(ws);
-    await db.runTransaction(async (tx) => {
-      const c = await tx.get(refCompra);
-      if (c.exists && c.data().entregado) return;
-      const u = await tx.get(refU);
-      if (!u.exists) throw new HttpsError('not-found', 'La cuenta no existe.');
-      const fecha = new Date().toISOString();
-      tx.set(refU, { membresia: { estado: 'activa', origen: 'google_play', orderId: p.orderId || '', fecha } }, { merge: true });
-      tx.set(refCompra, { ws, productId, tipo: 'membresia', orderId: p.orderId || '', entregado: true, fecha });
-      tx.set(db.collection('purchases').doc(), { userId: ws, userName: u.data().name || '', celular: u.data().celular || '', itemId: 'membresia', itemName: 'Membresía InnovApp (Google Play)', amount: 0, status: 'validada', origen: 'google_play', orderId: p.orderId || '', voucherUrl: '', createdAt: fecha });
-    });
-    if (p.acknowledgementState !== 1) {
-      try { await llamarPlay(`/products/${productId}/tokens/${tok}:acknowledge`, 'POST'); } catch (e) { console.warn('[Play] no se pudo reconocer', e?.message); }
-    }
-    return { ok: true, tipo: 'membresia' };
-  }
 
   if (esCreditos) {
     if (previa?.entregado) return { ok: true, tipo: 'creditos', creditos: previa.creditos, yaEntregada: true };

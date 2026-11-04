@@ -20,7 +20,6 @@ import PlanesIAAdminPanel from './PlanesIAAdminPanel';
 import MisCreditosCard from './MisCreditosCard';
 import { esAppAndroid } from '../lib/plataforma';
 import DescargasAppPanel from './DescargasAppPanel';
-import CuentaMembresiaPanel from './CuentaMembresiaPanel';
 import { publicarComunicado, quitarComunicado } from '../lib/comunicados';
 import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
@@ -1331,8 +1330,6 @@ export default function SettingsView({
         <span className="min-w-0 flex-1"><b className="block text-sm text-slate-800">Política de privacidad</b><span className="block text-xs text-slate-500">Qué datos guarda la app, con quién se comparten y cómo pedir que se borren.</span></span>
         <span className="text-slate-400 text-lg shrink-0">›</span>
       </a>
-
-      <CuentaMembresiaPanel isAdmin={isAdmin} />
 
       {(isAdmin || !esAppAndroid()) && <DescargasAppPanel isAdmin={isAdmin} onAvisar={setGlobalNotifs ? (title, message) => {
         const ahora = Date.now();
