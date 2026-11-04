@@ -1479,7 +1479,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
                   
                   <div 
                     onClick={(e) => e.stopPropagation()}
-                    className="fixed left-2 right-2 top-12 sm:absolute sm:top-full sm:left-0 sm:right-auto mt-1.5 z-40 max-w-[calc(100vw-16px)] sm:max-w-none sm:w-[340px] max-h-[80vh] overflow-y-auto bg-white/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/90 p-2.5 flex flex-col gap-2 animate-fadeIn mx-auto sm:mx-0"
+                    className="fixed left-2 right-2 top-12 sm:absolute sm:top-full sm:left-0 sm:right-auto mt-1.5 z-40 max-w-[calc(100vw-16px)] sm:max-w-none sm:w-[340px] max-h-[80vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-2.5 flex flex-col gap-2 animate-fadeIn mx-auto sm:mx-0"
                   >
                     {/* Categoría 1: Navegación */}
                     <div>
@@ -1738,7 +1738,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
                 <span className="p-1 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
                   <Layers className="w-3.5 h-3.5" />
                 </span>
-                <div className="flex items-center gap-1 min-w-0 sm:max-w-[200px] truncate text-left">
+                <div className={`flex items-center gap-1 text-left ${esCelular ? 'shrink-0' : 'min-w-0 sm:max-w-[200px] truncate'}`}>
                   <span className={`font-black text-slate-900 truncate text-[11px] sm:text-xs ${esCelular ? 'hidden' : ''}`}>{perfilActivo.dimensiones}</span>
                   <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-extrabold uppercase shrink-0">
                     {currentVista === 'superior' ? 'Planta' : currentVista}
@@ -1752,13 +1752,13 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
                 <>
                   {/* Backdrop invisible para cerrar al hacer clic fuera */}
                   <div 
-                    className="fixed inset-0 z-30 bg-slate-900/10 backdrop-blur-[1px]" 
+                    className="fixed inset-0 z-[55] bg-slate-900/10 backdrop-blur-[1px]" 
                     onClick={(e) => { e.stopPropagation(); setShowConfigDropdown(false); }} 
                   />
                   
                   <div 
                     onClick={(e) => e.stopPropagation()}
-                    className="fixed left-2 right-2 top-12 sm:absolute sm:top-full sm:left-auto sm:right-0 mt-1.5 z-40 max-w-[calc(100vw-16px)] sm:max-w-none sm:w-[350px] max-h-[80vh] overflow-y-auto bg-white/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/90 p-3 flex flex-col gap-3 animate-fadeIn mx-auto sm:mx-0"
+                    className="fixed left-2 right-2 top-12 sm:absolute sm:top-full sm:left-auto sm:right-0 mt-1.5 z-[60] max-w-[calc(100vw-16px)] sm:max-w-none sm:w-[350px] max-h-[80vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200/90 p-3 flex flex-col gap-3 animate-fadeIn mx-auto sm:mx-0"
                   >
                     {/* 1. Selector de Perfil Comercial */}
                     <div>
@@ -2039,7 +2039,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
         </>);
       })()}
       {/* Celular: "?" y pantalla completa (arriba a la derecha) */}
-      {esCelular && (
+      {esCelular && !showConfigDropdown && !showToolDropdown && (
         <div className="barra-dibujo absolute top-2 right-2 z-30 flex gap-1.5" onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
           <button onClick={() => setInicioAbierto(true)} aria-label="Cómo empezar y ayuda" className="w-9 h-9 rounded-xl bg-white/95 border border-slate-200 shadow-sm text-slate-700 font-black text-sm cursor-pointer">?</button>
           <button onClick={() => setModoDibujo(v => !v)} aria-label={modoDibujo ? 'Salir de pantalla completa' : 'Pantalla completa para dibujar'}

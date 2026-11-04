@@ -1219,7 +1219,7 @@ export default function ContratosYEPPView({
   return (
     <div className="space-y-6">
       {/* UNIFIED HEADER BAR */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-3xs">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 xl:bg-white xl:p-6 xl:rounded-3xl xl:border xl:border-slate-200/80 xl:shadow-3xs">
         <div className="titulo-pagina">
           <div className="flex items-center gap-2 mb-1">
             <span className="p-2 bg-slate-900 text-amber-400 rounded-2xl border border-slate-800">
@@ -1235,22 +1235,22 @@ export default function ContratosYEPPView({
         </div>
 
         {/* UNIFIED TABS SWITCHER (SOBER ELEGANT STYLING) */}
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shrink-0 self-start md:self-auto">
+        <div className="flex w-full xl:w-auto bg-white xl:bg-slate-100 p-1 xl:p-1.5 rounded-xl xl:rounded-2xl border border-slate-200 shrink-0 self-start md:self-auto">
           <button
             onClick={() => setActiveTab('contratos')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 xl:flex-none min-h-[40px] px-3 xl:px-4 py-2 xl:py-2.5 rounded-lg xl:rounded-xl font-bold text-xs flex flex-row items-center justify-center gap-2 [white-space:nowrap] transition-all cursor-pointer ${
               activeTab === 'contratos'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <FileSignature className={`w-4 h-4 ${activeTab === 'contratos' ? 'text-white' : 'text-slate-500'}`} />
-            <span>Generador de Contratos</span>
+            <span><span className="xl:hidden">Contratos</span><span className="hidden xl:inline">Generador de Contratos</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('epp')}
-            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 xl:flex-none min-h-[40px] px-3 xl:px-4 py-2 xl:py-2.5 rounded-lg xl:rounded-xl font-bold text-xs flex flex-row items-center justify-center gap-2 [white-space:nowrap] transition-all cursor-pointer ${
               activeTab === 'epp'
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
