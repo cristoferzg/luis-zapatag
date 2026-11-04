@@ -37,6 +37,8 @@ import { safeStorage } from './lib/storageManager';
 import { forzarActualizacion } from './lib/versionNueva';
 import { notificar, debeInvitar, marcarInvitado, activarNotificaciones } from './lib/notificaciones';
 import { registrarPush, quitarPush } from './lib/pushNativo';
+import { RegistroCuenta, PantallaMembresia } from './components/AccesoCuenta';
+import { leerConfigMembresia } from './lib/cuentas';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol, useCompanyCurrency, getCompanyCurrency, saveCompanyCurrency, WORLD_CURRENCIES } from './lib/currency';
@@ -1587,6 +1589,16 @@ export default function App() {
   const [pinError, setPinError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showPinMask, setShowPinMask] = useState(true);
+  // Cuentas creadas desde la app: entran con celular + PIN; si aún no pagaron, ven la pantalla de pago.
+  const [celularInput, setCelularInput] = useState(() => safeStorage.getItem<string>('innova_login_celular', ''));
+  const [modoCelular, setModoCelular] = useState(() => !!safeStorage.getItem<string>('innova_login_celular', ''));
+  const [registrando, setRegistrando] = useState(false);
+  const [registroAbierto, setRegistroAbierto] = useState(false);
+  const [pendiente, setPendiente] = useState<{ uid: string; nombre: string; celular: string; pin: string } | null>(() => (import.meta.env.DEV && (window as any).__pendienteSimulado) || null);
+  useEffect(() => {
+    if (user) return;
+    authReady.then(() => leerConfigMembresia()).then(c => setRegistroAbierto(c.registroAbierto === true)).catch(() => {});
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Si la app se recargó sola por una versión nueva, vuelve al apartado que se estaba abriendo.
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     try { const v = sessionStorage.getItem('innova_vista_tras_recarga'); sessionStorage.removeItem('innova_vista_tras_recarga'); if (v) return v as ViewType; } catch { /* nada */ }
@@ -1690,7 +1702,7 @@ export default function App() {
     if (!/^\d{6}$/.test(renovar.pin)) { setRenovar(r => ({ ...r, error: 'El PIN tiene 6 dígitos.' })); return; }
     setRenovar(r => ({ ...r, cargando: true, error: '' }));
     try {
-      const res = await loginWithPinViaFunction(renovar.pin);
+      const res = await loginWithPinViaFunction(renovar.pin, (user as any)?.celular);
       const mismo = user?.role === 'admin' ? res.role === 'admin' : res.workspace.replace(/^user_/, '') === String(user?.id || '').replace(/^user_/, '');
       if (!mismo) { setRenovar(r => ({ ...r, cargando: false, error: 'Ese PIN es de otra cuenta.' })); return; }
       safeStorage.setItem('innova_sesion_v2', true);
@@ -2031,12 +2043,42 @@ export default function App() {
 
   if (loading || !authInitialized) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>;
 
-  const handlePinLogin = async (e?: React.FormEvent) => {
+  const handlePinLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!pinInput || pinInput.length !== 6) {
+    return ingresar(pinInput, modoCelular ? celularInput : '');
+  };
+  // Abre la sesión con lo que devolvió el servidor (también tras pagar la membresía).
+  const entrarCon = (result: Awaited<ReturnType<typeof loginWithPinViaFunction>>, celular: string) => {
+    const nowStr = new Date().toLocaleDateString('es-PE') + ' ' +
+      new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    const sessionUser: SystemUser = result.role === 'admin'
+      ? { id: 'admin', name: result.name || 'Innova Contratistas', email: PRIMARY_ADMIN_EMAIL, role: 'admin', pin: '', isActive: true, lastLogin: nowStr }
+      : { id: result.workspace.replace(/^user_/, ''), name: result.name || 'Usuario', role: 'user', pin: '', isActive: true, lastLogin: nowStr, ...(celular ? { celular } : {}) } as SystemUser;
+    const otraPersona = cambiarEspacioDeTrabajo(sessionUser.id);
+    safeStorage.setItem('savedUser', sessionUser);
+    safeStorage.setItem('innova_sesion_v2', true);
+    setPendiente(null);
+    if (otraPersona) { safeStorage.setItem('innova_vista_tras_recarga', 'dashboard'); window.location.reload(); return; }
+    setUser(sessionUser);
+    if (result.role === 'admin') safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
+    setCurrentView('dashboard');
+  };
+  const activarPendiente = async (): Promise<boolean> => {
+    if (!pendiente) return false;
+    try {
+      const r = await loginWithPinViaFunction(pendiente.pin, pendiente.celular);
+      if (r.membresia === 'pendiente') return false;
+      entrarCon(r, pendiente.celular);
+      return true;
+    } catch { return false; }
+  };
+  const salirPendiente = async () => { setPendiente(null); setPinInput(''); try { await auth.signOut(); } catch { /* nada */ } };
+  const ingresar = async (pinIngresado: string, celular: string) => {
+    if (!pinIngresado || pinIngresado.length !== 6) {
       setPinError('El PIN debe tener exactamente 6 dígitos numéricos.');
       return;
     }
+    if (celular && !/^9\d{8}$/.test(celular)) { setPinError('El celular debe tener 9 dígitos y empezar con 9.'); return; }
     setIsLoggingIn(true);
     setPinError('');
 
@@ -2046,23 +2088,17 @@ export default function App() {
     //    function is not deployed yet, we fall through to the legacy flow below,
     //    so the app keeps working before and after the function is live.
     try {
-      const result = await loginWithPinViaFunction(pinInput);
-      const nowStr = new Date().toLocaleDateString('es-PE') + ' ' +
-        new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-      const sessionUser: SystemUser = result.role === 'admin'
-        ? { id: 'admin', name: result.name || 'Innova Contratistas', email: PRIMARY_ADMIN_EMAIL, role: 'admin', pin: '', isActive: true, lastLogin: nowStr }
-        : { id: result.workspace.replace(/^user_/, ''), name: result.name || 'Usuario', role: 'user', pin: '', isActive: true, lastLogin: nowStr };
+      const result = await loginWithPinViaFunction(pinIngresado, celular || undefined);
+      if (celular) safeStorage.setItem('innova_login_celular', celular);
+      // Cuenta creada desde la app que aún no pagó: pantalla de activación.
+      if (result.membresia === 'pendiente') {
+        setPendiente({ uid: auth.currentUser?.uid || '', nombre: result.name, celular, pin: pinIngresado });
+        setIsLoggingIn(false);
+        return;
+      }
       // Si en este equipo trabajaba otra persona, su trabajo se aparta y este usuario
       // empieza con lo suyo (o en blanco). Se recarga para abrir todo limpio.
-      const otraPersona = cambiarEspacioDeTrabajo(sessionUser.id);
-      safeStorage.setItem('savedUser', sessionUser);
-      safeStorage.setItem('innova_sesion_v2', true);
-      if (otraPersona) { safeStorage.setItem('innova_vista_tras_recarga', 'dashboard'); window.location.reload(); return; }
-      setUser(sessionUser);
-      if (result.role === 'admin') {
-        safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
-      }
-      setCurrentView('dashboard');
+      entrarCon(result, celular);
       setIsLoggingIn(false);
       return;
     } catch (fnErr: any) {
@@ -2070,9 +2106,9 @@ export default function App() {
       // guardadas en el equipo). Aquí solo se explica por qué no se pudo entrar.
       const code = String(fnErr?.code || '').toLowerCase();
       const msg = String(fnErr?.message || '');
-      if (code.includes('permission-denied')) setPinError(/desactivado/i.test(msg) ? 'Este usuario ha sido desactivado. Comuníquese con el administrador.' : 'PIN no válido. Verifica los 6 dígitos.');
+      if (code.includes('permission-denied')) setPinError(/desactivado/i.test(msg) ? 'Este usuario ha sido desactivado. Comuníquese con el administrador.' : celular ? 'Celular o PIN no válidos.' : 'PIN no válido. Verifica los 6 dígitos.');
       else if (code.includes('resource-exhausted')) setPinError('Demasiados intentos. Espera unos minutos y vuelve a intentarlo.');
-      else if (code.includes('invalid-argument')) setPinError('El PIN debe tener exactamente 6 dígitos numéricos.');
+      else if (code.includes('invalid-argument')) setPinError(msg || 'El PIN debe tener exactamente 6 dígitos numéricos.');
       else if (code.includes('unavailable') || code.includes('deadline') || code.includes('network') || !navigator.onLine) setPinError('Sin conexión con el servidor. Revisa tu internet e inténtalo de nuevo.');
       else setPinError('No se pudo validar el PIN en este momento. Inténtalo de nuevo en unos segundos.');
       console.warn('[pinAuth] ingreso rechazado:', code || msg);
@@ -2109,6 +2145,10 @@ export default function App() {
     );
   }
 
+  if (!user && pendiente) {
+    return <PantallaMembresia uid={pendiente.uid} nombre={pendiente.nombre} onActivar={activarPendiente} onSalir={salirPendiente} />;
+  }
+
   if (!isAdmin && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 select-none">
@@ -2121,17 +2161,25 @@ export default function App() {
             <p className="text-[9px] font-bold text-blue-600 uppercase tracking-widest mt-0.5">Estructuras Metálicas & Obras</p>
           </div>
 
+          {registrando ? (
+            <RegistroCuenta onVolver={() => setRegistrando(false)} onCreada={(cel, pin) => { setRegistrando(false); setModoCelular(true); setCelularInput(cel); setPinInput(pin); ingresar(pin, cel); }} />
+          ) : (<>
           <div className="mb-3.5 p-2 bg-slate-50 border border-slate-200/80 rounded-xl text-left flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
               <Key className="w-3.5 h-3.5 text-blue-600" />
             </div>
             <div>
-              <p className="text-[11px] font-bold text-slate-800 leading-tight">Acceso por PIN</p>
-              <p className="text-[9px] text-slate-500">Ingresa tu clave de 6 dígitos</p>
+              <p className="text-[11px] font-bold text-slate-800 leading-tight">{modoCelular ? 'Acceso con celular y PIN' : 'Acceso por PIN'}</p>
+              <p className="text-[9px] text-slate-500">{modoCelular ? 'Tu celular y tu clave de 6 dígitos' : 'Ingresa tu clave de 6 dígitos'}</p>
             </div>
           </div>
 
           <form onSubmit={(e) => handlePinLogin(e)} className="space-y-3">
+            {modoCelular && (
+              <input type="text" inputMode="numeric" autoComplete="tel" maxLength={9} value={celularInput}
+                onChange={e => setCelularInput(e.target.value.replace(/\D/g, ''))} placeholder="Celular (9 dígitos)" disabled={isLoggingIn}
+                className="w-full py-2.5 px-3 bg-slate-50 focus:bg-white border border-slate-200 focus:border-blue-600 rounded-xl outline-none text-center text-base font-mono tracking-widest font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-sm placeholder:tracking-normal placeholder:font-sans" />
+            )}
             <div className="relative">
               <input
                 // Siempre "text" con teclado numérico: en Android un campo "password" ignora
@@ -2182,6 +2230,11 @@ export default function App() {
               )}
             </button>
           </form>
+          <div className="mt-3 grid gap-1">
+            <button type="button" onClick={() => { setModoCelular(!modoCelular); setPinError(''); }} className="text-[11px] font-bold text-slate-500 hover:text-slate-700 py-1 cursor-pointer">{modoCelular ? 'Entrar solo con PIN' : 'Entrar con mi celular'}</button>
+            {registroAbierto && <button type="button" onClick={() => { setRegistrando(true); setPinError(''); }} className="text-[12px] font-black text-blue-600 hover:text-blue-700 py-1 cursor-pointer">¿No tienes cuenta? Crear cuenta</button>}
+          </div>
+          </>)}
 
           <p className="mt-4 text-[9px] text-slate-400 font-medium">
             Innova Contratistas Cloud · <a href="/privacidad.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-600">Política de privacidad</a>

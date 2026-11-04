@@ -65,7 +65,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   "Avisar a todos que actualicen" (también publica un comunicado → push).
 - Programa de PC 2.0 (`desktop/`, `npm run dist`): manda su versión en el agente (`InnovaContratistasPC/x.y.z`); si el instalador subido (versión tomada del nombre `InnovApp-Setup-x.y.z.exe`) es más nuevo, `AvisoVersionApp` invita a descargarlo.
 - Instalador de PC: el admin lo sube desde el panel (web/PC) a `descargas/pc` (Storage: lectura pública, escritura admin). En la app Android no se ofrecen otros instaladores; el aviso de actualización solo lleva a la ficha de Play (`enlacePlaySeguro`).
-- Simulación solo en DEV: `window.__descargasSimuladas` (incluirlo en el grep del dist).
+- Simulación solo en DEV: `window.__descargasSimuladas`, `__membresiaSimulada`, `__pendienteSimulado` (incluirlos en el grep del dist).
 
 ## Seguridad (reglas por usuario)
 - `firestore.rules`: cada usuario solo lo suyo (`userId` / `authorUid`); contenido del sistema
@@ -91,3 +91,13 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   Play Console), entrega una sola vez (`compras_play/<sha256 token>`, solo servidor), consume/reconoce y registra en
   `purchases` (`origen: 'google_play'`). Renovaciones: se confirman al abrir la app.
 - Pruebas: `cd seguridad && npm run test:play` (API de Google simulada, solo en emulador).
+
+## Cuentas desde la app (registro + pago único)
+- `registrarCuenta` (nombre, celular 9 dígitos, PIN; `config_ia/membresia.registroAbierto`; máx. 3/día por IP en
+  `registro_intentos`). Cuentas `autoRegistro` entran con **celular + PIN** (`accesoConCelular`): el PIN solo nunca
+  entra a ellas. Hasta pagar, `loginWithPin` da token `{pendiente: uid}` sin rol → las reglas no dejan leer/escribir.
+- Pago: Google Play `membresia_unica` (no consumible, `validarCompraPlay`) o Yape (`solicitarMembresia` → Validar
+  Compras, itemId `membresia`). Usuarios creados por el admin no pagan.
+- `eliminarMiCuenta` (exigido por Play): borra usuarios/ai_access/soporte y todo doc con `userId`/`authorUid`/`ws` del
+  usuario; conserva `purchases`/`compras_play`. UI: Configuración y pantalla de pago (`AccesoCuenta.tsx`).
+- Simulación DEV: `__membresiaSimulada`, `__pendienteSimulado`. Pruebas: `cd seguridad && npm run test:cuentas`.

@@ -34,8 +34,8 @@ async function entregar(tx: any, silencioso = false) {
     const r = (await fn({ productId, purchaseToken })).data || {};
     if (r.pendiente) { if (!silencioso) avisar({ ok: false, pendiente: true, mensaje: 'Tu pago está pendiente. Se cargará solo cuando Google lo confirme.' }); return; }
     try { await tx.finish(); } catch { /* el servidor ya la consumió o reconoció */ }
-    window.dispatchEvent(new CustomEvent('innova_saldo_ia'));
-    if (!silencioso || !r.yaEntregada) avisar({ ok: true, mensaje: r.tipo === 'creditos' ? `¡Listo! Se sumaron ${r.creditos} créditos.` : '¡Listo! Tu plan ya está activo.' });
+    window.dispatchEvent(new CustomEvent(r.tipo === 'membresia' ? 'innova_membresia_activa' : 'innova_saldo_ia'));
+    if (!silencioso || !r.yaEntregada) avisar({ ok: true, mensaje: r.tipo === 'creditos' ? `¡Listo! Se sumaron ${r.creditos} créditos.` : r.tipo === 'membresia' ? '¡Listo! Tu cuenta ya está activa.' : '¡Listo! Tu plan ya está activo.' });
   } catch {
     if (!silencioso) avisar({ ok: false, mensaje: 'No se pudo confirmar la compra. Si se cobró, se confirmará sola al volver a abrir la app.' });
   }
@@ -50,6 +50,7 @@ export function iniciarPagosPlay(ws: string, creditos: number[], planes: string[
   store.obfuscator = 'disabled';
   store.applicationUsername = () => _ws; // Google guarda de quién es la compra
   store.register([
+    { id: 'membresia_unica', type: ProductType.NON_CONSUMABLE, platform: Platform.GOOGLE_PLAY }, // pago único de la cuenta
     ...creditos.map(n => ({ id: idProductoPack(n), type: ProductType.CONSUMABLE, platform: Platform.GOOGLE_PLAY })),
     ...planes.map(id => ({ id: idProductoPlan(id), type: ProductType.PAID_SUBSCRIPTION, platform: Platform.GOOGLE_PLAY })),
   ]);

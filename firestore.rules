@@ -64,6 +64,8 @@ service cloud.firestore {
 
     // Compras con Google Play: las registra solo el servidor (validarCompraPlay); el admin las ve.
     match /compras_play/{id} { allow read: if isAdmin(); allow write: if false; }
+    // Límite de cuentas creadas por conexión (solo servidor).
+    match /registro_intentos/{id} { allow read, write: if false; }
 
     // ---- Usuarios (PIN): solo el admin. Cada usuario puede leer su propia ficha. --
     match /usuarios/{uid} {
