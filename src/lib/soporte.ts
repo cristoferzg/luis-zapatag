@@ -26,6 +26,8 @@ export interface ChatSoporte {
   ultimoDe?: DeMensaje;
   actualizado?: string;
   resuelto?: boolean;
+  fijada?: boolean;              // el admin la dejó arriba de la bandeja
+  pospuestaHasta?: string;       // ISO: oculta en "Pendientes" hasta esa fecha
 }
 
 export const wsDe = (id?: string) => String(id || '').replace(/^user_/, '');
@@ -36,6 +38,8 @@ export function escucharChat(ws: string, cb: (c: ChatSoporte | null) => void): (
   return onSnapshot(doc(db, 'soporte_chats', ws), s => cb(s.exists() ? (s.data() as ChatSoporte) : null), () => cb(null));
 }
 export function escucharBandeja(cb: (cs: ChatSoporte[]) => void): () => void {
+  // Solo en el servidor local de pruebas (capturas): una bandeja simulada.
+  if (import.meta.env.DEV && (window as any).__bandejaSimulada) { cb((window as any).__bandejaSimulada); return () => {}; }
   return onSnapshot(collection(db, 'soporte_chats'), s => {
     const l = s.docs.map(d => ({ ...(d.data() as ChatSoporte), ws: d.id }));
     l.sort((a, b) => String(b.actualizado || '').localeCompare(String(a.actualizado || '')));
@@ -48,7 +52,8 @@ export async function agregarMensaje(ws: string, m: Omit<MensajeSoporte, 'id' | 
   const msg: MensajeSoporte = { id: nuevoId(m.de[0]), fecha: new Date().toISOString(), ...m };
   const resumen = m.texto || (m.foto ? '📷 Foto' : m.tarjeta?.titulo || '');
   const avisa: Record<string, any> = {};
-  if (m.de === 'usuario') avisa.sinLeerAdmin = increment(1);
+  // Si el usuario vuelve a escribir, la conversación se reabre y deja de estar pospuesta.
+  if (m.de === 'usuario') { avisa.sinLeerAdmin = increment(1); avisa.resuelto = false; avisa.pospuestaHasta = null; }
   if (m.de === 'admin') avisa.sinLeerUsuario = increment(1);
   // Sin esperar al servidor: el mensaje aparece al instante (la base lo muestra localmente)
   // y se sincroniza en cuanto hay conexión.
@@ -58,6 +63,9 @@ export async function agregarMensaje(ws: string, m: Omit<MensajeSoporte, 'id' | 
   }, { merge: true }).catch(e => console.warn('No se pudo guardar el mensaje de soporte:', e));
   return msg;
 }
+/** Cambia datos de la conversación sin agregar mensaje (fijar, posponer, resolver). */
+export const ajustarChat = (ws: string, datos: Partial<ChatSoporte> | Record<string, any>) =>
+  setDoc(doc(db, 'soporte_chats', ws), datos, { merge: true }).catch(() => {});
 export const marcarLeido = (ws: string, quien: 'admin' | 'usuario') =>
   setDoc(doc(db, 'soporte_chats', ws), quien === 'admin' ? { sinLeerAdmin: 0 } : { sinLeerUsuario: 0 }, { merge: true }).catch(() => {});
 

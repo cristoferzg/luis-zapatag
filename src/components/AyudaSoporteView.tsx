@@ -3,7 +3,8 @@
 // Usuario: el asistente responde al instante; "Hablar con Innova" pasa la conversación
 // al administrador; "Agendar asesoría" y "Reportar un problema" se hacen dentro del chat
 // (se guardan además como asesoría / ticket, así siguen sus avisos y su gestión).
-// Administrador: bandeja ordenada (sin responder, con persona, todas) y respuesta.
+// Administrador: bandeja inteligente (prioridad por motivo y tiempo de espera, fijar,
+// posponer, resolver) y respuesta.
 // Pensado primero para el celular: botones de 40 px o más y nada más ancho que la pantalla.
 // =============================================================================
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,10 +13,10 @@ import { Ticket } from './TicketsView';
 import { Asesoria } from './AsesoriasView';
 import SoporteYAsesoriasView from './SoporteYAsesoriasView';
 import {
-  ChatSoporte, MensajeSoporte, wsDe, escucharChat, escucharBandeja, agregarMensaje, marcarLeido,
+  ChatSoporte, MensajeSoporte, wsDe, escucharChat, escucharBandeja, agregarMensaje, marcarLeido, ajustarChat,
   preguntarAsistente, respuestaLocal, comprimirFoto,
 } from '../lib/soporte';
-import { iaHabilitadaUsuarios } from '../lib/aiAccess';
+import { iaHabilitadaUsuarios, getAIAccess } from '../lib/aiAccess';
 
 interface Props {
   currentUser: SystemUser | null;
@@ -260,18 +261,92 @@ function HojaReporte({ onCerrar, onEnviar }: { onCerrar: () => void; onEnviar: (
 
 // ── Vista del administrador ───────────────────────────────────────────────────
 const RAPIDAS = ['¡Hola! Ya lo reviso y te escribo en unos minutos 🙌', 'Listo, ya quedó. Vuelve a intentarlo y me cuentas.', 'Te agendo una asesoría para verlo juntos. ¿Te parece mañana a las 10:00?'];
+// Bandeja inteligente: cada conversación recibe una prioridad según lo que el usuario
+// espera (pago o error > pidió una persona > asesoría > duda) y cuánto lleva esperando.
+type Prioridad = 'urg' | 'per' | 'ase' | 'nor' | 'listo';
+type Motivo = 'pago' | 'error' | 'asesoria' | 'duda' | null;
+const RX_PAGO = /pag(u|o|ar|é)|yape|plin|transfer|cr[eé]dit|plan |no se activ|membres/i;
+const RX_ERROR = /no funciona|no puedo|no me deja|error|se borr|no carga|no aparece|no abre|se cierra|falla|bug/i;
+const PESO: Record<Prioridad, number> = { urg: 0, per: 1, ase: 2, nor: 3, listo: 4 };
+function analizar(c: ChatSoporte, asesorias: Asesoria[]) {
+  const ms = c.mensajes || [];
+  // Mensajes del usuario después de la última respuesta del admin: lo que falta atender.
+  let k = ms.length - 1; while (k >= 0 && ms[k].de !== 'admin') k--;
+  const pend = ms.slice(k + 1).filter(m => m.de === 'usuario');
+  const espera = !c.resuelto && (c.sinLeerAdmin || 0) > 0 && pend.length > 0;
+  const desde = espera ? pend[0].fecha : undefined;
+  const texto = pend.map(m => `${m.texto || ''} ${m.tarjeta?.titulo || ''} ${m.tarjeta?.detalle || ''}`).join(' ');
+  const asePend = ms.some(m => m.tarjeta?.tipo === 'asesoria' && !['Programada', 'Aceptada', 'Completada', 'Cancelada', 'Rechazada'].includes(String(asesorias.find(a => a.id === m.tarjeta!.refId)?.status || '')));
+  let motivo: Motivo = null;
+  if (espera && RX_PAGO.test(texto)) motivo = 'pago';
+  else if (espera && (pend.some(m => m.tarjeta?.tipo === 'reporte') || RX_ERROR.test(texto))) motivo = 'error';
+  else if (asePend && !c.resuelto) motivo = 'asesoria';
+  else if (espera) motivo = 'duda';
+  const prio: Prioridad = c.resuelto ? 'listo'
+    : motivo === 'pago' || motivo === 'error' ? 'urg'
+    : c.conPersona && espera ? 'per'
+    : motivo === 'asesoria' ? 'ase'
+    : espera ? 'nor' : 'listo';
+  const horas = desde ? (Date.now() - new Date(desde).getTime()) / 3600e3 : 0;
+  return { prio, motivo, desde, horas, espera };
+}
+const esperaTxt = (h: number) => h < 1 / 60 ? 'ahora' : h < 1 ? `${Math.round(h * 60)} min` : h < 24 ? `${Math.floor(h)} h` : `${Math.floor(h / 24)} d`;
+const MOTIVO: Record<Exclude<Motivo, null>, [string, string]> = {
+  pago: ['💳', 'Pago o créditos'], error: ['⚠️', 'Error'], asesoria: ['📅', 'Asesoría'], duda: ['❓', 'Duda'],
+};
+const BORDE: Record<Prioridad, string> = { urg: 'border-l-red-500', per: 'border-l-orange-400', ase: 'border-l-sky-500', nor: 'border-l-slate-300', listo: 'border-l-emerald-300' };
+type Filtro = 'pend' | 'urg' | 'per' | 'ase' | 'pago' | 'error' | 'duda' | 'todas';
+const planCache = new Map<string, boolean>();
+
 function BandejaAdmin({ tickets, asesorias, onGestionar, usuariosList }: { tickets: Ticket[]; asesorias: Asesoria[]; onGestionar: () => void; usuariosList: SystemUser[] }) {
   const [chats, setChats] = useState<ChatSoporte[]>([]);
-  const [filtro, setFiltro] = useState<'pend' | 'persona' | 'todas'>('pend');
+  const [filtro, setFiltro] = useState<Filtro>('pend');
   const [abierta, setAbierta] = useState<string | null>(null);
+  const [conPlan, setConPlan] = useState<Record<string, boolean>>({});
+  const [, setTic] = useState(0);
   useEffect(() => escucharBandeja(setChats), []);
+  useEffect(() => { const t = setInterval(() => setTic(x => x + 1), 60000); return () => clearInterval(t); }, []); // tiempos de espera al día
+  // 👑 Usuarios con plan de pago (se consulta una vez por usuario).
+  useEffect(() => {
+    let vivo = true;
+    chats.forEach(c => {
+      if (planCache.has(c.ws)) { if (conPlan[c.ws] === undefined) setConPlan(p => ({ ...p, [c.ws]: planCache.get(c.ws)! })); return; }
+      planCache.set(c.ws, false);
+      getAIAccess(c.ws).then(a => {
+        const ok = !!a && !!a.planId && a.planId !== 'gratis' && !(a.venceEl && new Date(a.venceEl).getTime() < Date.now());
+        planCache.set(c.ws, ok); if (vivo) setConPlan(p => ({ ...p, [c.ws]: ok }));
+      });
+    });
+    return () => { vivo = false; };
+  }, [chats]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Cierre automático: solo con el asistente, sin nada pendiente y más de 24 h quieta.
+  useEffect(() => {
+    chats.forEach(c => {
+      if (!c.resuelto && !c.conPersona && c.ultimoDe === 'asistente' && !(c.sinLeerAdmin || 0) && c.actualizado && Date.now() - new Date(c.actualizado).getTime() > 24 * 3600e3) ajustarChat(c.ws, { resuelto: true });
+    });
+  }, [chats]);
   const chat = chats.find(c => c.ws === abierta) || null;
   useEffect(() => { if (abierta && (chat?.sinLeerAdmin || 0) > 0) marcarLeido(abierta, 'admin'); }, [abierta, chat?.sinLeerAdmin]);
-  const lista = chats.filter(c => filtro === 'todas' || (filtro === 'pend' ? (c.sinLeerAdmin || 0) > 0 : c.conPersona && !c.resuelto));
   const nombreDe = (c: ChatSoporte) => c.nombre || usuariosList.find(u => wsDe(u.id) === c.ws)?.name || c.ws;
-  const filtroBtn = (id: typeof filtro, txt: string) => (
-    <button key={id} onClick={() => setFiltro(id)} className={`shrink-0 min-h-[40px] px-3.5 rounded-full border text-[12.5px] font-bold whitespace-nowrap cursor-pointer ${filtro === id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200'}`}>{txt}</button>
-  );
+  const ahora = Date.now();
+  const pospuesta = (c: ChatSoporte) => !!c.pospuestaHasta && new Date(c.pospuestaHasta).getTime() > ahora;
+  const datos = useMemo(() => chats.map(c => ({ c, ...analizar(c, asesorias) })), [chats, asesorias]);
+  const activos = datos.filter(d => d.prio !== 'listo' && !pospuesta(d.c));
+  const cuenta = (f: Filtro) => f === 'todas' ? datos.length : f === 'pend' ? activos.length
+    : ['urg', 'per', 'ase'].includes(f) ? activos.filter(d => d.prio === f).length : activos.filter(d => d.motivo === f).length;
+  const lista = (filtro === 'todas' ? datos : filtro === 'pend' ? activos
+    : ['urg', 'per', 'ase'].includes(filtro) ? activos.filter(d => d.prio === filtro) : activos.filter(d => d.motivo === filtro))
+    .slice().sort((x, y) => (Number(!!y.c.fijada) - Number(!!x.c.fijada)) || (PESO[x.prio] - PESO[y.prio])
+      || (Number(!!conPlan[y.c.ws]) - Number(!!conPlan[x.c.ws])) || (y.horas - x.horas)
+      || String(y.c.actualizado || '').localeCompare(String(x.c.actualizado || '')));
+  const posponiendo = datos.filter(d => d.prio !== 'listo' && pospuesta(d.c)).length;
+  const filtroBtn = (id: Filtro, txt: string, color = 'bg-slate-900 border-slate-900') => {
+    const n = cuenta(id);
+    if (n === 0 && !['pend', 'todas'].includes(id) && filtro !== id) return null;
+    return <button key={id} onClick={() => setFiltro(id)} className={`shrink-0 min-h-[40px] px-3.5 rounded-full border text-[12.5px] font-bold whitespace-nowrap cursor-pointer ${filtro === id ? `${color} text-white` : 'bg-white text-slate-700 border-slate-200'}`}>{txt} <span className="opacity-80">{n}</span></button>;
+  };
+  const accion = 'min-w-0 inline-flex items-center justify-center gap-1 min-h-[40px] px-3 rounded-xl border text-[12px] font-bold cursor-pointer [white-space:nowrap]';
+  const manana = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d.toISOString(); };
 
   if (chat) {
     return (
@@ -296,24 +371,54 @@ function BandejaAdmin({ tickets, asesorias, onGestionar, usuariosList }: { ticke
   }
   return (
     <div className="grid gap-3 min-w-0">
-      <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
-        {filtroBtn('pend', `Sin responder (${chats.filter(c => (c.sinLeerAdmin || 0) > 0).length})`)}
-        {filtroBtn('persona', 'Con persona')}
+      <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] -mx-1 px-1">
+        {filtroBtn('pend', 'Pendientes')}
+        {filtroBtn('urg', '🔴 Urgentes', 'bg-red-600 border-red-600')}
+        {filtroBtn('per', '🟠 Esperan persona', 'bg-orange-500 border-orange-500')}
+        {filtroBtn('ase', '📅 Asesorías', 'bg-sky-600 border-sky-600')}
+        {filtroBtn('pago', '💳 Pagos')}
+        {filtroBtn('error', '⚠️ Errores')}
+        {filtroBtn('duda', '❓ Dudas')}
         {filtroBtn('todas', 'Todas')}
       </div>
+      {filtro === 'pend' && posponiendo > 0 && <p className="text-[11.5px] text-slate-500 -mt-1">⏰ {posponiendo} pospuesta{posponiendo > 1 ? 's' : ''} hasta mañana (en "Todas").</p>}
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
-        {lista.length === 0 && <p className="text-center text-sm text-slate-500 bg-white rounded-2xl p-6">{filtro === 'pend' ? 'Nada pendiente 🎉' : 'Todavía no hay conversaciones.'}</p>}
-        {lista.map(c => (
-          <button key={c.ws} onClick={() => setAbierta(c.ws)} className="w-full min-w-0 flex items-center gap-3 bg-white rounded-2xl p-3 text-left cursor-pointer min-h-[64px] border border-slate-100">
-            <span className="w-10 h-10 rounded-full bg-orange-100 text-orange-800 grid place-items-center font-black shrink-0">{nombreDe(c).split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase()}</span>
-            <span className="min-w-0 flex-1"><b className="block text-[14px] text-slate-900 truncate">{nombreDe(c)}</b><span className="block text-[12px] text-slate-500 truncate">{c.ultimoDe === 'admin' ? 'Tú: ' : ''}{c.ultimo || ''}</span></span>
-            <span className="shrink-0 grid justify-items-end gap-1 text-[10.5px] text-slate-400">
-              {c.actualizado ? hora(c.actualizado) : ''}
-              {c.resuelto ? <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">Resuelto</span> : c.conPersona ? <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-800">Con persona</span> : null}
-              {(c.sinLeerAdmin || 0) > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-orange-500 text-white text-[11px] font-black grid place-items-center">{c.sinLeerAdmin}</span>}
-            </span>
-          </button>
-        ))}
+        {lista.length === 0 && <p className="text-center text-sm text-slate-500 bg-white rounded-2xl p-6">{filtro === 'todas' ? 'Todavía no hay conversaciones.' : 'Nada pendiente 🎉'}</p>}
+        {lista.map(({ c, prio, motivo, horas, espera }) => {
+          const colorEspera = horas >= 24 ? 'bg-red-100 text-red-800' : horas >= 2 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800';
+          return (
+            <div key={c.ws} className={`w-full min-w-0 bg-white rounded-2xl border border-slate-100 border-l-4 ${BORDE[prio]} ${c.fijada ? 'ring-1 ring-orange-200' : ''}`}>
+              <button onClick={() => setAbierta(c.ws)} className="w-full min-w-0 flex items-start gap-3 p-3 pb-2 text-left cursor-pointer">
+                <span className="w-10 h-10 rounded-full bg-orange-100 text-orange-800 grid place-items-center font-black shrink-0">{nombreDe(c).split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase()}</span>
+                <span className="min-w-0 flex-1 grid gap-0.5">
+                  <span className="flex items-center gap-1 min-w-0">
+                    {c.fijada && <span className="shrink-0" title="Fijada">📌</span>}
+                    <b className="text-[14px] text-slate-900 truncate">{nombreDe(c)}</b>
+                    {conPlan[c.ws] && <span className="shrink-0 text-[12px]" title="Tiene plan de pago">👑</span>}
+                  </span>
+                  <span className="block text-[12px] text-slate-500 truncate">{c.ultimoDe === 'admin' ? 'Tú: ' : ''}{c.ultimo || ''}</span>
+                  <span className="flex flex-wrap gap-1 mt-0.5">
+                    {motivo && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700">{MOTIVO[motivo][0]} {MOTIVO[motivo][1]}</span>}
+                    {c.conPersona && !c.resuelto && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-800">Pidió persona</span>}
+                    {c.resuelto && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">Resuelto</span>}
+                    {pospuesta(c) && <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-800">⏰ Mañana</span>}
+                  </span>
+                </span>
+                <span className="shrink-0 grid justify-items-end gap-1 text-[10.5px] text-slate-400">
+                  {espera ? <span className={`text-[10.5px] font-black px-1.5 py-0.5 rounded-md ${colorEspera}`}>⏱ {esperaTxt(horas)}</span> : (c.actualizado ? hora(c.actualizado) : '')}
+                  {(c.sinLeerAdmin || 0) > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-orange-500 text-white text-[11px] font-black grid place-items-center">{c.sinLeerAdmin}</span>}
+                </span>
+              </button>
+              <div className="grid grid-cols-3 gap-1.5 px-3 pb-2.5 sm:flex sm:pl-[64px]">
+                <button onClick={() => ajustarChat(c.ws, { fijada: !c.fijada })} className={`${accion} ${c.fijada ? 'border-orange-300 bg-orange-50 text-orange-800' : 'border-slate-200 bg-white text-slate-700'}`}>📌 {c.fijada ? 'Soltar' : 'Fijar'}</button>
+                {!c.resuelto && <button onClick={() => ajustarChat(c.ws, { pospuestaHasta: pospuesta(c) ? null : manana() })} className={`${accion} border-slate-200 bg-white text-slate-700`}>⏰ {pospuesta(c) ? 'Quitar' : 'Mañana'}</button>}
+                {c.resuelto
+                  ? <button onClick={() => ajustarChat(c.ws, { resuelto: false })} className={`${accion} border-slate-200 bg-white text-slate-700`}>↺ Reabrir</button>
+                  : <button onClick={() => agregarMensaje(c.ws, { de: 'sistema', texto: 'Conversación marcada como resuelta. Si necesitas algo más, escríbenos.' }, { resuelto: true, sinLeerAdmin: 0, fijada: false } as any)} className={`${accion} border-emerald-300 bg-emerald-50 text-emerald-800`}>✓ Resolver</button>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
