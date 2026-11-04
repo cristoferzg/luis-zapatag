@@ -3,7 +3,7 @@
 // Los usuarios ven solo los botones de descarga activos.
 import { useEffect, useRef, useState } from 'react';
 import { Smartphone, Monitor, Download, RefreshCw, Check, Bell, Upload } from 'lucide-react';
-import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay } from '../lib/appDescargas';
+import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay, versionDeInstalador } from '../lib/appDescargas';
 import { uploadFileToFirebaseStorage } from '../lib/storage';
 import { versionApp } from '../lib/version';
 
@@ -47,9 +47,9 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
     setSubiendo(0);
     try {
       const url = await uploadFileToFirebaseStorage(file, 'descargas/pc', pct => setSubiendo(pct));
-      const nuevo: ConfigDescargas = { ...d, pc: { url, activo: true, nombre: file.name, tamanoMb: Math.round(file.size / 1048576 * 10) / 10, subidoEl: new Date().toISOString() } };
+      const nuevo: ConfigDescargas = { ...d, pc: { url, activo: true, nombre: file.name, version: versionDeInstalador(file.name) || '', tamanoMb: Math.round(file.size / 1048576 * 10) / 10, subidoEl: new Date().toISOString() } };
       await guardarDescargas(nuevo); setBorrador(null);
-      aviso('Instalador subido y activado. Ya lo pueden descargar.');
+      aviso(versionDeInstalador(file.name) ? 'Instalador subido. Quien tenga un programa más antiguo verá el aviso para actualizarlo.' : 'Instalador subido y activado. Ya lo pueden descargar.');
     } catch { aviso('No se pudo subir. Revisa tu conexión e inténtalo otra vez.'); }
     finally { setSubiendo(null); }
   };
@@ -94,7 +94,7 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
                   <div className="flex flex-wrap items-center gap-2">
                     <input ref={refExe} type="file" accept=".exe,.msi" className="hidden" onChange={ev => { const fl = ev.target.files?.[0]; if (fl) subirExe(fl); ev.target.value = ''; }} />
                     <button type="button" disabled={subiendo !== null} onClick={() => refExe.current?.click()} className="min-h-[40px] px-3 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"><Upload className="w-4 h-4" /> {subiendo !== null ? `Subiendo… ${subiendo}%` : 'Subir instalador (.exe)'}</button>
-                    {e.nombre && <span className="text-[11px] text-slate-500 min-w-0 truncate">{e.nombre}{e.tamanoMb ? ` · ${e.tamanoMb} MB` : ''}{e.subidoEl ? ` · ${fechaBonita(e.subidoEl)}` : ''}</span>}
+                    {e.nombre && <span className="text-[11px] text-slate-500 min-w-0 truncate">{e.nombre}{e.version ? ` · v${e.version}` : ''}{e.tamanoMb ? ` · ${e.tamanoMb} MB` : ''}{e.subidoEl ? ` · ${fechaBonita(e.subidoEl)}` : ''}</span>}
                   </div>
                 )}
                 {f.id === 'pc' && subiendo !== null && <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-emerald-500 transition-all" style={{ width: `${subiendo}%` }} /></div>}

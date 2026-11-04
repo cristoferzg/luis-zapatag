@@ -6,6 +6,7 @@ import { Download, RefreshCw, Smartphone, Monitor, X } from 'lucide-react';
 import {
   ConfigDescargas, escucharDescargas, desactualizado, plataforma, abrirEnlace, recargarUltimaVersion,
   avisoPospuesto, posponerAviso, enlacePlaySeguro, toca, marcarRecordado, programarRecordatorioNativo, esCelularWeb,
+  programaPCDesactualizado, avisoPCPospuesto, posponerAvisoPC, versionProgramaPC,
 } from '../lib/appDescargas';
 import { versionApp } from '../lib/version';
 
@@ -44,6 +45,24 @@ export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecord
             <button onClick={() => recargarUltimaVersion()} className="min-h-[48px] rounded-xl bg-orange-500 text-white font-black flex items-center justify-center gap-2 cursor-pointer"><RefreshCw className="w-4 h-4" /> Actualizar ahora</button>
           )}
           {!obligatoria && <button onClick={() => { posponerAviso(fecha); setCerrado(true); }} className="min-h-[44px] rounded-xl bg-slate-100 text-slate-700 font-bold cursor-pointer">Más tarde</button>}
+        </div>
+      </div>
+    );
+  }
+
+  // Programa de PC antiguo: invita a descargar el instalador nuevo (se instala encima, sin perder nada).
+  if (plat === 'pc' && !recordOculto && programaPCDesactualizado(cfg) && !avisoPCPospuesto(cfg.pc!.version!)) {
+    const cerrarPC = () => { posponerAvisoPC(cfg.pc!.version!); setRecordOculto(true); };
+    return (
+      <div className="fixed right-6 bottom-6 w-[360px] z-[70] bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 grid gap-2">
+        <div className="flex items-start gap-2">
+          <span className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 grid place-items-center shrink-0"><Monitor className="w-4 h-4" /></span>
+          <div className="min-w-0 flex-1"><b className="block text-sm text-slate-900">Programa de PC nuevo (v{cfg.pc!.version})</b><span className="block text-xs text-slate-500">Tienes la v{versionProgramaPC()}. Descárgalo e instálalo encima: tus datos se mantienen.</span></div>
+          <button onClick={cerrarPC} aria-label="Cerrar" className="w-9 h-9 grid place-items-center rounded-lg text-slate-400 cursor-pointer shrink-0"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => { abrirEnlace(cfg.pc!.url); cerrarPC(); }} className="flex-1 min-h-[40px] rounded-xl bg-orange-500 text-white text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer"><Download className="w-4 h-4" /> Descargar</button>
+          <button onClick={cerrarPC} className="flex-1 min-h-[40px] rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Más tarde</button>
         </div>
       </div>
     );

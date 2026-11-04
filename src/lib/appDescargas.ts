@@ -13,7 +13,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { db } from './firebase';
 import { safeStorage } from './storageManager';
 
-export interface EnlaceApp { url: string; activo: boolean; nombre?: string; tamanoMb?: number; subidoEl?: string }
+export interface EnlaceApp { url: string; activo: boolean; nombre?: string; tamanoMb?: number; subidoEl?: string; version?: string }
 export interface ConfigDescargas {
   android?: EnlaceApp;
   pc?: EnlaceApp;
@@ -101,3 +101,26 @@ export async function programarRecordatorioNativo(dias: number, pendienteActuali
 export const ID_APP_ANDROID = 'pe.innovacontratistas.app';
 export const esEnlacePlay = (url?: string) => !!url && /^https:\/\/play\.google\.com\//.test(url);
 export const enlacePlaySeguro = (url?: string) => esEnlacePlay(url) ? url! : `https://play.google.com/store/apps/details?id=${ID_APP_ANDROID}`;
+
+// ---- Programa de PC: versión del instalador ----
+/** Versión del programa de PC que está corriendo (la manda en su marca: "InnovaContratistasPC/2.0.0"). */
+export const versionProgramaPC = (): string | null => {
+  const m = typeof navigator !== 'undefined' ? navigator.userAgent.match(/InnovaContratistasPC\/([\d.]+)/) : null;
+  return m ? m[1] : null;
+};
+/** Versión que trae el nombre del instalador ("InnovApp-Setup-2.0.0.exe" → "2.0.0"). */
+export const versionDeInstalador = (nombre: string): string | undefined => nombre.match(/(\d+\.\d+(?:\.\d+)?)/)?.[1];
+/** -1 si a es anterior a b, 0 si son iguales, 1 si es posterior. */
+export function compararVersiones(a: string, b: string): number {
+  const x = a.split('.').map(Number), y = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d < 0 ? -1 : 1; }
+  return 0;
+}
+/** ¿Este programa de PC es más antiguo que el instalador publicado? */
+export function programaPCDesactualizado(c: ConfigDescargas): boolean {
+  const mia = versionProgramaPC(), pub = c.pc?.version;
+  return !!(mia && pub && c.pc?.activo && c.pc.url && compararVersiones(mia, pub) < 0);
+}
+const K_PC_POSPUESTO = 'innova_programa_pc_pospuesto';
+export const avisoPCPospuesto = (v: string) => { const p = safeStorage.getItem<{ v: string; hasta: number } | null>(K_PC_POSPUESTO, null); return !!p && p.v === v && p.hasta > Date.now(); };
+export const posponerAvisoPC = (v: string) => safeStorage.setItem(K_PC_POSPUESTO, { v, hasta: Date.now() + 7 * 24 * 3600e3 });

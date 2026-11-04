@@ -63,6 +63,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   (`DescargasAppPanel`); aviso al entrar y recordatorio en `AvisoVersionApp` (montado en App).
 - Flujo al publicar: desplegar hosting, subir la app nueva a Play, y luego el admin pulsa
   "Avisar a todos que actualicen" (también publica un comunicado → push).
+- Programa de PC 2.0 (`desktop/`, `npm run dist`): manda su versión en el agente (`InnovaContratistasPC/x.y.z`); si el instalador subido (versión tomada del nombre `InnovApp-Setup-x.y.z.exe`) es más nuevo, `AvisoVersionApp` invita a descargarlo.
 - Instalador de PC: el admin lo sube desde el panel (web/PC) a `descargas/pc` (Storage: lectura pública, escritura admin). En la app Android no se ofrecen otros instaladores; el aviso de actualización solo lleva a la ficha de Play (`enlacePlaySeguro`).
 - Simulación solo en DEV: `window.__descargasSimuladas` (incluirlo en el grep del dist).
 
