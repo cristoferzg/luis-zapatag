@@ -177,7 +177,7 @@ export const MODELOS_ALUZINC_PERU: ModeloAluzincPeru[] = [
   { id: 'ondulada_025', nombre: 'Calamina Ondulada Zinc (0.25 mm - Económica)', espesorMm: 0.25, tipo: 'calamina_ondulada', opacidadDefecto: 1.0, colorDefectoHex: 0x94a3b8, ribHeightMm: 18, ribCountPerMeter: 8 },
   { id: 'ondulada_030', nombre: 'Calamina Ondulada Zinc (0.30 mm - Reforzada)', espesorMm: 0.30, tipo: 'calamina_ondulada', opacidadDefecto: 1.0, colorDefectoHex: 0x64748b, ribHeightMm: 18, ribCountPerMeter: 8 },
   { id: 'tr4_poly_trans', nombre: 'Policarbonato TR-4 Alveolar Traslúcido (Tragazul 6mm)', espesorMm: 6.0, tipo: 'policarbonato', opacidadDefecto: 0.45, colorDefectoHex: 0x38bdf8, ribHeightMm: 35, ribCountPerMeter: 4 },
-  { id: 'tr5_poly_opal', nombre: 'Policarbonato TR-5 Opalino (Luz Difusa 6mm)', espesorMm: 6.0, tipo: 'policarbonato', opacidadDefecto: 0.60, colorDefectoHex: 0xf8fafc, ribHeightMm: 38, ribCountPerMeter: 5.2 },
+  { id: 'tr5_poly_opal', nombre: 'Policarbonato TR-5 Opalino (Luz Difusa 6mm)', espesorMm: 6.0, tipo: 'policarbonato', opacidadDefecto: 0.78, colorDefectoHex: 0xdbe4ee, ribHeightMm: 38, ribCountPerMeter: 5.2 },
   { id: 'st1000_sand', nombre: 'Panel Termoacústico ST-1000 (Sandwich PUR 30mm)', espesorMm: 30.0, tipo: 'termoacustico', opacidadDefecto: 1.0, colorDefectoHex: 0x15803d, ribHeightMm: 40, ribCountPerMeter: 3 },
   { id: 'eternit_p4', nombre: 'Eternit Fibrocemento Perfil 4 (Gran Onda 5 mm)', espesorMm: 5.0, tipo: 'fibrocemento', opacidadDefecto: 1.0, colorDefectoHex: 0x9ca3af, ribHeightMm: 52, ribCountPerMeter: 5.65 },
   { id: 'eternit_teja', nombre: 'Eternit Teja Andina (Fibrocemento)', espesorMm: 5.0, tipo: 'teja_andina', opacidadDefecto: 1.0, colorDefectoHex: 0xb45309, ribHeightMm: 60, ribCountPerMeter: 4.2 },
@@ -2309,7 +2309,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       if (activeCover.tipo === 'malla') {
         const t = getMallaTexture().clone(); t.needsUpdate = true;
         t.repeat.set(Math.max(4, spanX / 0.06), Math.max(4, spanZ / 0.06)); // ~6 cm por celda
-        Object.assign(aluzincMatTop, { alphaMap: t, transparent: true, alphaTest: 0.35, depthWrite: true });
+        // alphaTest bajo: con 0.35 la malla de 50 % (tejido × opacidad < 0.35) desaparecía entera.
+        Object.assign(aluzincMatTop, { alphaMap: t, transparent: true, alphaTest: 0.08, depthWrite: true });
       }
       aluzincMatTop.needsUpdate = true;
     }
@@ -3045,12 +3046,17 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         // Renderizado de Cumbrera Metálica Plegada (Techos a Dos Aguas)
         const peakPoint = topProfilePoints.reduce((max, p) => p.y > max.y ? p : max, topProfilePoints[0]);
         // Solo con cumbrera de verdad (dos aguas): en una agua el perfil queda recto (2 puntos).
-        if (!movil && peakPoint && topProfilePoints.length >= 3 && coberturaProfile.length >= 3) {
+        // La malla y la lona no llevan cumbrera metálica (salía como una barra maciza).
+        if (!movil && !esTela && peakPoint && topProfilePoints.length >= 3 && coberturaProfile.length >= 3) {
           const ridgeGeo = new THREE.BoxGeometry(0.35, 0.05, (maxZNode - minZNode) + 0.5);
+          // Mismo tono que la plancha (con metal alto se veía como una franja negra) y, en
+          // policarbonato, igual de traslúcida.
           const ridgeMat = new THREE.MeshStandardMaterial({
             color: aluzincColorHex,
-            metalness: 0.85,
-            roughness: 0.25
+            metalness: isPoly ? 0.05 : 0.35,
+            roughness: isPoly ? 0.2 : 0.45,
+            transparent: isTransparent,
+            opacity: finalOpacity,
           });
           const ridgeMesh = new THREE.Mesh(ridgeGeo, ridgeMat);
           ridgeMesh.position.set(peakPoint.x, peakPoint.y + 0.07, (minZNode + maxZNode) / 2);

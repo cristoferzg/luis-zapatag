@@ -54,7 +54,13 @@ const TEX = {
 function materialCobertura(materialId: string): THREE.Material {
   const cat = INVENTARIO_COBERTURAS.find(c => c.id === materialId)?.categoria || 'aluzinc_tr4';
   const ondulada = (color: number) => { const t = TEX.ondulada(color); t.repeat.set(1.2, 1.2); return new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide }); };
+  // Tejas (andina de fibrocemento o española de UPVC): color terracota, como en Techos.
+  if (/teja/i.test(materialId)) return ondulada(0xb4532a);
   switch (cat) {
+    case 'malla_raschel': return new THREE.MeshLambertMaterial({ color: 0x166534, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false });
+    case 'lona_pvc': return new THREE.MeshLambertMaterial({ color: 0xf1f5f9, side: THREE.DoubleSide });
+    case 'policarbonato_compacto': return new THREE.MeshLambertMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false });
+    case 'aluzinc_tr5': return ondulada(0x9aa5b1);
     case 'policarbonato_alveolar': return new THREE.MeshLambertMaterial({ color: 0xbfe3f2, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
     case 'upvc_termoacustica': return ondulada(0xe7ebef);
     case 'panel_sandwich_pur': return new THREE.MeshLambertMaterial({ color: 0xf1f1ee, side: THREE.DoubleSide });
