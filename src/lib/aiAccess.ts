@@ -15,7 +15,7 @@
 // =============================================================================
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase';
-import { fijarComprasEnApp } from './plataforma';
+import { fijarComprasEnApp, fijarPagosPlay } from './plataforma';
 
 export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2 } as const;
 /** Regalo de bienvenida: créditos extra (no vencen) que cada cuenta recibe una sola vez,
@@ -69,6 +69,7 @@ export async function cargarEstadoIA(): Promise<boolean> {
     const s = await getDoc(doc(db, 'config_ia', 'planes'));
     _habilitadaUsuarios = s.exists() && (s.data() as any)?.habilitadaUsuarios === true;
     fijarComprasEnApp(!(s.exists() && (s.data() as any)?.comprasEnApp === false));
+    fijarPagosPlay(s.exists() && (s.data() as any)?.pagosGooglePlay === true);
   } catch { _habilitadaUsuarios = false; }
   return _habilitadaUsuarios;
 }
@@ -77,6 +78,12 @@ export async function cargarEstadoIA(): Promise<boolean> {
 export async function setComprasEnApp(v: boolean): Promise<void> {
   await setDoc(doc(db, 'config_ia', 'planes'), { comprasEnApp: v }, { merge: true });
   fijarComprasEnApp(v);
+}
+
+/** Cobrar planes y recargas con Google Play en la app de Android (solo admin). */
+export async function setPagosGooglePlay(v: boolean): Promise<void> {
+  await setDoc(doc(db, 'config_ia', 'planes'), { pagosGooglePlay: v }, { merge: true });
+  fijarPagosPlay(v);
 }
 
 /** Enciende o apaga la IA para los usuarios (solo admin). */

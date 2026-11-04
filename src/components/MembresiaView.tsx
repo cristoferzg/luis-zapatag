@@ -7,7 +7,7 @@
 import { Crown, Infinity as InfinityIcon, Coins, CheckCircle2, Sparkles, ScanLine, PenTool, FileText, RefreshCw, CalendarClock, Zap } from 'lucide-react';
 import { useSaldoIA } from '../lib/saldoIA';
 import { COSTO_CREDITOS } from '../lib/aiAccess';
-import { comprasPermitidas } from '../lib/plataforma';
+import { comprasIAPermitidas } from '../lib/plataforma';
 import { PlanesIAContenido } from './PlanesIAModal';
 
 const fecha = (iso?: string) => iso ? new Date(iso).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
@@ -105,7 +105,7 @@ export default function MembresiaView({ isAdmin }: { isAdmin: boolean }) {
             </div>
           ))}
         </div>
-        {!comprasPermitidas() && <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5"><Zap className="w-4 h-4" />Para comprar un plan o una recarga entra desde la web (navegador). En la app ves tu saldo y lo usas igual.</p>}
+        {!comprasIAPermitidas() && <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5"><Zap className="w-4 h-4" />Para comprar un plan o una recarga entra desde la web (navegador). En la app ves tu saldo y lo usas igual.</p>}
       </div>
 
       {/* Planes y recargas */}

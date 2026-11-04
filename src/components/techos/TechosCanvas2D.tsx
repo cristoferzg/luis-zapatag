@@ -1,5 +1,5 @@
 // Lienzo CAD Vectorial 2D/3D con Soporte Táctil, Panning, Snapping, Acoplamiento, Arrastre de Nodos, Trazo de Arcos y Sumilla de Controles
-import { comprasPermitidas } from '../../lib/plataforma';
+import { comprasIAPermitidas } from '../../lib/plataforma';
 import { createPortal } from 'react-dom';
 import { useDeslizarHorizontal } from '../../hooks/useDeslizarHorizontal';
 import GuiaBocetoPlano, { EjemploBoceto } from './GuiaBocetoPlano';
@@ -191,7 +191,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         setIaNotice(AVISO_CONFIRMA_PIN);
       } else if (sinCreditos) {
         setShowPlanesIA(sinCreditos);
-        setIaNotice(comprasPermitidas() ? 'No te alcanzan los créditos para leer el plano. Recarga créditos o sube de plan.' : 'No te alcanzan los créditos de este mes para leer el plano.');
+        setIaNotice(comprasIAPermitidas() ? 'No te alcanzan los créditos para leer el plano. Recarga créditos o sube de plan.' : 'No te alcanzan los créditos de este mes para leer el plano.');
       } else if (code.includes('failed-precondition') && getAICtx().isAdmin && /clave|saldo|permiso/i.test(String(err?.message || ''))) {
         setIaNotice(`IA: ${err.message}`);
       } else if (code.includes('failed-precondition')) {

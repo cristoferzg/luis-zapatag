@@ -37,6 +37,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleAuth } from 'google-auth-library';
 
 initializeApp();
 const db = getFirestore();
@@ -243,6 +244,136 @@ async function cobrarUsoIA(request, accion, costoFijo) {
     } catch (_) { /* ignore */ }
   };
 }
+
+// =============================================================================
+// Compras con Google Play (app de Android): recargas de créditos y planes.
+//
+//   Productos en Play Console (deben coincidir con config_ia/planes):
+//     creditos_<n>   → producto consumible: suma <n> créditos extra (no vencen)
+//     plan_<planId>  → suscripción con planes base "mensual" y (Empresa) "anual"
+//
+// La app compra con Google y manda aquí el comprobante (purchaseToken). Este servidor
+// lo confirma con la API de Google Play (nunca se confía en el celular), entrega los
+// créditos o el plan UNA sola vez (compras_play/<hash del token>) y luego consume o
+// reconoce la compra (si no se reconoce en 3 días, Google la reembolsa).
+// La cuenta de servicio de las funciones debe estar invitada en Play Console
+// (Usuarios y permisos) con permiso para ver datos financieros y gestionar pedidos.
+// =============================================================================
+const PAQUETE_ANDROID = 'pe.innovacontratistas.app';
+// Solo en el emulador (pruebas): API de Google simulada.
+const PLAY_SIMULADO = process.env.FUNCTIONS_EMULATOR === 'true' && process.env.PLAY_API_SIMULADA ? process.env.PLAY_API_SIMULADA : '';
+const API_PLAY = `${PLAY_SIMULADO || 'https://androidpublisher.googleapis.com'}/androidpublisher/v3/applications/${PAQUETE_ANDROID}/purchases`;
+let _authPlay = null;
+async function llamarPlay(ruta, metodo = 'GET') {
+  const url = API_PLAY + ruta;
+  let r;
+  if (PLAY_SIMULADO) {
+    r = await fetch(url, { method: metodo });
+  } else {
+    _authPlay = _authPlay || new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/androidpublisher'] });
+    const h = await (await _authPlay.getClient()).getRequestHeaders();
+    r = await fetch(url, { method: metodo, headers: h });
+  }
+  const texto = await r.text();
+  if (!r.ok) {
+    console.error('[Play] respuesta', r.status, ruta.replace(/tokens\/[^/:]+/, 'tokens/…'), texto.slice(0, 300));
+    if (r.status === 401 || r.status === 403) throw new HttpsError('failed-precondition', 'PLAY_SIN_PERMISO');
+    if (r.status === 400 || r.status === 404 || r.status === 410) throw new HttpsError('not-found', 'La compra no existe en Google Play.');
+    throw new HttpsError('unavailable', 'Google Play no respondió. Intenta de nuevo en un momento.');
+  }
+  return texto ? JSON.parse(texto) : {};
+}
+const PACKS_DEFAULT = [{ creditos: 50 }, { creditos: 150 }, { creditos: 500 }]; // igual que PACKS_CREDITOS_DEFAULT del cliente
+const SUSCRIPCION_VIGENTE = ['SUBSCRIPTION_STATE_ACTIVE', 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD', 'SUBSCRIPTION_STATE_CANCELED'];
+
+export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
+  const token = request.auth?.token || {};
+  const ws = String(token.workspace || '').replace(/^user_/, '');
+  if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
+  if (token.role === 'admin') throw new HttpsError('failed-precondition', 'El administrador no necesita comprar.');
+  const productId = String(request.data?.productId || '');
+  const purchaseToken = String(request.data?.purchaseToken || '');
+  const esCreditos = /^creditos_\d{1,5}$/.test(productId);
+  const esPlan = /^plan_[a-z0-9_-]{1,30}$/.test(productId);
+  if ((!esCreditos && !esPlan) || !/^[\w.\-:]{10,4096}$/.test(purchaseToken)) throw new HttpsError('invalid-argument', 'Compra no válida.');
+
+  const refCompra = db.collection('compras_play').doc(createHash('sha256').update(purchaseToken).digest('hex'));
+  const previa = (await refCompra.get()).data();
+  if (previa && previa.ws !== ws) throw new HttpsError('permission-denied', 'Esta compra pertenece a otra cuenta.');
+  if (previa && previa.productId !== productId) throw new HttpsError('invalid-argument', 'La compra no corresponde a ese producto.');
+  const cfgSnap = await db.collection('config_ia').doc('planes').get();
+  const cfg = cfgSnap.exists ? cfgSnap.data() : {};
+  const refAcceso = db.collection('ai_access').doc(ws);
+  const tok = encodeURIComponent(purchaseToken);
+
+  if (esCreditos) {
+    if (previa?.entregado) return { ok: true, tipo: 'creditos', creditos: previa.creditos, yaEntregada: true };
+    const n = parseInt(productId.slice(9), 10);
+    const packs = Array.isArray(cfg?.packs) && cfg.packs.length ? cfg.packs : PACKS_DEFAULT;
+    if (!packs.some((k) => Number(k?.creditos) === n)) throw new HttpsError('failed-precondition', 'Esa recarga no está a la venta.');
+    const p = await llamarPlay(`/products/${productId}/tokens/${tok}`);
+    if (p.purchaseState === 2) return { ok: false, pendiente: true };
+    if (p.purchaseState !== 0) throw new HttpsError('failed-precondition', 'La compra fue cancelada o reembolsada.');
+    if (p.obfuscatedExternalAccountId && p.obfuscatedExternalAccountId !== ws) throw new HttpsError('permission-denied', 'Esta compra pertenece a otra cuenta.');
+    if (p.consumptionState === 1 && !previa) throw new HttpsError('failed-precondition', 'Esta compra ya se usó.');
+    let entregada = false;
+    await db.runTransaction(async (tx) => {
+      const c = await tx.get(refCompra);
+      if (c.exists && c.data().entregado) return;
+      const a = await tx.get(refAcceso);
+      const base = a.exists ? a.data() : { userId: ws, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: CREDITOS_BIENVENIDA };
+      tx.set(refAcceso, { ...base, userId: ws, creditosExtra: (Number(base.creditosExtra) || 0) + n }, { merge: true });
+      tx.set(refCompra, { ws, productId, tipo: 'creditos', creditos: n, orderId: p.orderId || '', entregado: true, fecha: new Date().toISOString() });
+      tx.set(db.collection('purchases').doc(), { userId: ws, userName: '', itemId: `ai_creditos_${n}`, itemName: `Recarga de ${n} créditos (Google Play)`, amount: 0, status: 'validada', origen: 'google_play', orderId: p.orderId || '', voucherUrl: '', createdAt: new Date().toISOString() });
+      entregada = true;
+    });
+    try { await llamarPlay(`/products/${productId}/tokens/${tok}:consume`, 'POST'); } catch (e) { console.warn('[Play] no se pudo consumir', e?.message); }
+    return { ok: true, tipo: 'creditos', creditos: n, yaEntregada: !entregada };
+  }
+
+  // Suscripción (plan)
+  const planId = productId.slice(5);
+  const guardados = Array.isArray(cfg?.planes) ? cfg.planes : [];
+  const planes = guardados.length && guardados.every((p) => Number.isFinite(p?.creditosMes)) ? guardados : PLANES_DEFAULT;
+  const plan = planes.find((p) => p.id === planId);
+  if (!plan || planId === 'gratis') throw new HttpsError('failed-precondition', 'Ese plan no está a la venta.');
+  const s = await llamarPlay(`/subscriptionsv2/tokens/${tok}`);
+  const item = (s.lineItems || []).find((li) => li.productId === productId);
+  if (!item) throw new HttpsError('failed-precondition', 'La compra no corresponde a ese plan.');
+  const cuenta = s.externalAccountIdentifiers?.obfuscatedExternalAccountId;
+  if (cuenta && cuenta !== ws) throw new HttpsError('permission-denied', 'Esta compra pertenece a otra cuenta.');
+  if (s.subscriptionState === 'SUBSCRIPTION_STATE_PENDING') return { ok: false, pendiente: true };
+  const venceEl = item.expiryTime ? new Date(item.expiryTime).toISOString() : '';
+  if (!SUSCRIPCION_VIGENTE.includes(s.subscriptionState) || !venceEl || new Date(venceEl).getTime() < Date.now()) {
+    throw new HttpsError('failed-precondition', 'La suscripción no está vigente.');
+  }
+  const periodo = /anual|annual|year|12m/i.test(item.offerDetails?.basePlanId || '') ? 'anual' : 'mensual';
+  await db.runTransaction(async (tx) => {
+    const c = await tx.get(refCompra);
+    const prev = c.exists ? c.data() : null;
+    if (prev && prev.venceEl === venceEl) return; // ya registrada
+    const a = await tx.get(refAcceso);
+    const actual = a.exists ? a.data() : null;
+    if (!prev) {
+      // Compra nueva: activa el plan con sus créditos del mes (conserva las recargas).
+      tx.set(refAcceso, {
+        ...(actual || {}), userId: ws, planId, periodo, venceEl,
+        creditosRestantes: plan.creditosMes, creditosMesPlan: plan.creditosMes,
+        creditosExtra: actual ? (Number(actual.creditosExtra) || 0) : CREDITOS_BIENVENIDA,
+        mes: mesActual(), usosTotales: Number(actual?.usosTotales) || 0,
+      });
+      tx.set(db.collection('purchases').doc(), { userId: ws, userName: '', itemId: `ai_plan_${planId}${periodo === 'anual' ? '__anual' : ''}`, itemName: `Plan ${plan.nombre || planId} (${periodo}, Google Play)`, amount: 0, status: 'validada', origen: 'google_play', orderId: s.latestOrderId || '', voucherUrl: '', createdAt: new Date().toISOString() });
+    } else if (!actual || actual.planId === planId || !actual.venceEl || new Date(actual.venceEl).getTime() < Date.now()) {
+      // Renovación: solo se alarga la vigencia (los créditos se recargan cada mes).
+      tx.set(refAcceso, { userId: ws, planId, periodo, venceEl, creditosMesPlan: plan.creditosMes }, { merge: true });
+    }
+    tx.set(refCompra, { ws, productId, tipo: 'plan', planId, periodo, venceEl, orderId: s.latestOrderId || '', entregado: true, fecha: new Date().toISOString() }, { merge: true });
+  });
+  if (s.acknowledgementState === 'ACKNOWLEDGEMENT_STATE_PENDING') {
+    try { await llamarPlay(`/subscriptions/${productId}/tokens/${tok}:acknowledge`, 'POST'); } catch (e) { console.warn('[Play] no se pudo reconocer', e?.message); }
+  }
+  return { ok: true, tipo: 'plan', planId, periodo, venceEl };
+});
 
 /**
  * scanReceipt({ imageBase64, mimeType }) -> ReceiptData

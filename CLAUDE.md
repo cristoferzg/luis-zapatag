@@ -81,3 +81,12 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Comunicados: `src/lib/comunicados.ts` (publicar/quitar uno por uno). No reescribir la lista
   `notificaciones` con el setter del hook (borraba los que faltaban en la copia local).
 - Google Play: `cd android && gradle bundleRelease` firma con `android/keystore.properties` (fuera del repo).
+
+## Compras con Google Play (app Android)
+- `cordova-plugin-purchase` (Billing 9). Cliente `src/lib/pagosPlay.ts`; interruptor `config_ia/planes.pagosGooglePlay`
+  (Configuración → Planes y créditos). Con él activo, en Android los planes/recargas de IA se pagan SOLO con Google.
+- IDs: `creditos_<n>` (consumible) y `plan_<id>` (suscripción, planes base `mensual`/`anual`).
+- Servidor: `validarCompraPlay` verifica con la API de Google Play (cuenta de servicio de las funciones invitada en
+  Play Console), entrega una sola vez (`compras_play/<sha256 token>`, solo servidor), consume/reconoce y registra en
+  `purchases` (`origen: 'google_play'`). Renovaciones: se confirman al abrir la app.
+- Pruebas: `cd seguridad && npm run test:play` (API de Google simulada, solo en emulador).

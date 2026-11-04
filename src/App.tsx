@@ -20,7 +20,8 @@ import { loginWithPinViaFunction } from './lib/pinAuth';
 import { cambiarEspacioDeTrabajo, fijarDuenoSiFalta } from './lib/espacioUsuario';
 import { quitarComunicado } from './lib/comunicados';
 import { useFirestoreArraySync } from './lib/db';
-import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
+import { setAICtx, cargarEstadoIA, getConfigIA } from './lib/aiAccess';
+import { usaGooglePlay, iniciarPagosPlay } from './lib/pagosPlay';
 import { useSaldoIA } from './lib/saldoIA';
 import { versionApp } from './lib/version';
 import type { Ticket } from './components/TicketsView';
@@ -1709,7 +1710,14 @@ export default function App() {
   // Membresía y contador de créditos: solo si la IA está abierta a usuarios (el admin siempre).
   const conMembresia = !!user && (isAdmin || iaUsuarios);
   const { saldo: saldoIA } = useSaldoIA(conMembresia);
-  useEffect(() => { if (user) cargarEstadoIA().then(setIaUsuarios); }, [user?.id]);
+  useEffect(() => {
+    if (!user) return;
+    cargarEstadoIA().then(v => {
+      setIaUsuarios(v);
+      // App de Android con Google Play: entrega compras pendientes y confirma renovaciones.
+      if (v && !isAdmin && usaGooglePlay()) getConfigIA().then(c => iniciarPagosPlay(user.id, c.packs.map(k => k.creditos), c.planes.filter(p => p.precioSoles > 0).map(p => p.id)));
+    });
+  }, [user?.id]);
 
   // Strict isolation fallback: Filter arrays to strictly prevent cross-account leakage.
   // The Admin sees ONLY their own records where userId matches administrative tags ('admin', 'user_admin', 'shared', or 'user').

@@ -6,8 +6,9 @@
 import { useEffect, useState } from 'react';
 import { auth } from '../lib/firebase';
 import { Sparkles, Save, Check, Coins } from 'lucide-react';
-import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios, setComprasEnApp } from '../lib/aiAccess';
-import { comprasEnAppActivas } from '../lib/plataforma';
+import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios, setComprasEnApp, setPagosGooglePlay } from '../lib/aiAccess';
+import { comprasEnAppActivas, pagosPlayActivos } from '../lib/plataforma';
+import { idProductoPack, idProductoPlan } from '../lib/pagosPlay';
 import { simb, enMoneda, aSoles } from '../lib/currency';
 import CampoNumero from './CampoNumero';
 
@@ -24,7 +25,8 @@ export default function PlanesIAAdminPanel() {
   const [activa, setActiva] = useState(false);
   const [confirmar, setConfirmar] = useState(false);
   const [enApp, setEnApp] = useState(comprasEnAppActivas());
-  useEffect(() => { getConfigIA().then(c => { setPlanes(c.planes); setPacks(c.packs); }); cargarEstadoIA().then(v => { setActiva(v); setEnApp(comprasEnAppActivas()); }); }, []);
+  const [conPlay, setConPlay] = useState(pagosPlayActivos());
+  useEffect(() => { getConfigIA().then(c => { setPlanes(c.planes); setPacks(c.packs); }); cargarEstadoIA().then(v => { setActiva(v); setEnApp(comprasEnAppActivas()); setConPlay(pagosPlayActivos()); }); }, []);
 
   const cambiarActiva = async (v: boolean) => {
     setError(null);
@@ -105,6 +107,26 @@ export default function PlanesIAAdminPanel() {
           className={`shrink-0 px-4 py-2 rounded-xl text-sm font-black cursor-pointer ${enApp ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
           {enApp ? 'Solo en la web' : 'Permitir en la app'}
         </button>
+      </div>
+
+      {/* Interruptor: cobrar con Google Play en la app de Android */}
+      <div className={`rounded-2xl border p-4 grid gap-2 ${conPlay ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-black text-slate-800">Cobrar con Google Play en la app: {conPlay ? <span className="text-emerald-700">ACTIVO</span> : <span className="text-slate-500">APAGADO</span>}</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{conPlay ? 'En la app de Android los planes y recargas se pagan con Google Play y se cargan solos (nunca por WhatsApp/Yape). En la web y la PC sigue igual.' : 'Actívalo cuando los productos ya estén creados y activos en Play Console.'}</p>
+          </div>
+          <button onClick={async () => { setError(null); try { await setPagosGooglePlay(!conPlay); setConPlay(!conPlay); } catch (e) { setError(await motivoError(e, 'cambiar el cobro con Google Play')); } }}
+            className={`shrink-0 px-4 py-2 rounded-xl text-sm font-black cursor-pointer ${conPlay ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
+            {conPlay ? 'Apagar' : 'Activar Google Play'}
+          </button>
+        </div>
+        <details className="text-[11px] text-slate-600">
+          <summary className="font-bold cursor-pointer">IDs que debes crear en Play Console</summary>
+          <p className="mt-1">Productos integrados (consumibles): {packs.map(k => <b key={k.id} className="font-mono mr-2">{idProductoPack(k.creditos)}</b>)}</p>
+          <p>Suscripciones (plan base <b className="font-mono">mensual</b>{planes.some(p => p.precioAnualSoles) ? <> y <b className="font-mono">anual</b> en Empresa</> : null}): {planes.filter(p => p.precioSoles > 0).map(p => <b key={p.id} className="font-mono mr-2">{idProductoPlan(p.id)}</b>)}</p>
+          <p>Si cambias un precio aquí, cámbialo también en Play Console (en la app se cobra el de Google).</p>
+        </details>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
