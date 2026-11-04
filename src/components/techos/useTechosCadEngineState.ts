@@ -80,9 +80,10 @@ export interface UseTechosCadEngineReturn {
   aplicarEdicion: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>) => void;
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
   pedirVigaSimple: (perfilId: string) => void;
+  setColorCobertura: (colorHex: number) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
   setLedVigas: (on: boolean) => void;
-  setCoberturaTodo: (coverageId: string) => boolean;
+  setCoberturaTodo: (coverageId: string, colorHex?: number) => boolean;
 
   // Operaciones Vectoriales de Trazado Libre
   addNode: (x: number, y: number, z?: number, isFixed?: boolean, exact?: boolean) => string;
@@ -594,10 +595,19 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
 
   // Cambia la cobertura de todo el techo (zonas propias, sin los sobretechos de tanques).
   // Si aún no tiene coberturas, se crean desde las correas.
-  const setCoberturaTodo = useCallback((coverageId: string) => {
+  // Color de la cobertura elegido en el 3D: se guarda en el diseño para Obra Civil y Drywall.
+  const setColorCobertura = useCallback((colorHex: number) => {
+    if (!Object.keys(coverageZones).length) return;
+    const newZones: Record<string, CoverageZone3D> = {};
+    Object.values(coverageZones).forEach(z => { newZones[z.id] = /^tq[0-9a-z]+_/.test(z.id) ? z : { ...z, colorHex }; });
+    setCoverageZones(newZones);
+    pushHistory(nodes, segments, newZones);
+  }, [coverageZones, nodes, segments, pushHistory]);
+
+  const setCoberturaTodo = useCallback((coverageId: string, colorHex?: number) => {
     const base = zonaPrincipal(coverageZones) ? coverageZones : { ...coverageZones, ...zonasDesdeCorreas(nodes, segments, coverageId) };
     const newZones: Record<string, CoverageZone3D> = {};
-    Object.values(base).forEach(z => { newZones[z.id] = /^tq[0-9a-z]+_/.test(z.id) ? z : { ...z, coberturaMaterialId: coverageId }; });
+    Object.values(base).forEach(z => { newZones[z.id] = /^tq[0-9a-z]+_/.test(z.id) ? z : { ...z, coberturaMaterialId: coverageId, ...(colorHex !== undefined ? { colorHex } : {}) }; });
     if (!Object.keys(newZones).length) return false;
     setCoverageZones(newZones);
     setActiveCoverageId(coverageId);
@@ -4408,6 +4418,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     loadScene,
     replaceScene,
     pedirVigaSimple,
+    setColorCobertura,
     setOcultos,
     setLedVigas,
     setCoberturaTodo,

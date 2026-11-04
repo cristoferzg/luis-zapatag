@@ -416,9 +416,9 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         // dibujo borrado u ocultado en Techos) no se dibujan.
         const tocados = new Set<string>();
         Object.values(est.segments || {}).forEach(sg => { tocados.add(sg.nodeAId); tocados.add(sg.nodeBId); });
-        const zonas: { ids: string[]; mat: string; pts?: { x: number; y: number; z: number }[] }[] = Object.values(est.coverageZones || {})
+        const zonas: { ids: string[]; mat: string; color?: number; pts?: { x: number; y: number; z: number }[] }[] = Object.values(est.coverageZones || {})
           .filter(z => (z.nodeIdsBoundary || []).some(id => tocados.has(id)))
-          .map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId }));
+          .map(z => ({ ids: z.nodeIdsBoundary || [], mat: z.coberturaMaterialId, color: z.colorHex }));
         // Techo de una agua (un solo plano): un solo paño apoyado encima de vigas y correas,
         // aunque el diseño tenga sus coberturas en franjas entre correas.
         const pl = panoUnaAgua(N, est.segments || {});
@@ -430,7 +430,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const proy = pl.pts.map(p => p.x * dx + p.z * dz), bajo = Math.max(...proy);
           const pts = pl.pts.map((p, i) => proy[i] > bajo - 0.01 && g > 0.005
             ? { x: p.x + dx * 0.3, y: p.y + (pl.a * dx + pl.b * dz) * 0.3, z: p.z + dz * 0.3 } : p);
-          zonas.splice(0, zonas.length, ...zonas.filter(z => !propias.includes(z)), { ids: [], pts, mat });
+          zonas.splice(0, zonas.length, ...zonas.filter(z => !propias.includes(z)), { ids: [], pts, mat, color: propias[0]?.color });
         } else if (!propias.length) coberturaDesdeCorreas(N, est.segments || {}).forEach(p => zonas.push({ ids: p.ids, mat: 'cob_aluzinc_030' }));
         zonas.forEach(z => {
           const nodos = z.pts || z.ids.map(id => N[id]).filter(Boolean);
@@ -440,7 +440,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const pts = nodos.map(n => new THREE.Vector3(n.x, n.y + 0.06 + extra, n.z));
           if (pts.length < 3) return;
           // Plancha con relieve (ondas, tejas, tela) como en Techos Metálicos.
-          const det = planchaDetallada(pts, z.mat);
+          const det = planchaDetallada(pts, z.mat, z.color);
           if (det) { modelo.add(det); modelo.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), bordes)); return; }
           const pos: number[] = [], uv: number[] = [];
           // Triangulación del contorno en planta: sirve también para zonas en L o con

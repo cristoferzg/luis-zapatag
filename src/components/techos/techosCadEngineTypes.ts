@@ -175,6 +175,7 @@ export interface CoverageZone3D {
   selected?: boolean;
   movil?: TechoMovil;           // Techo movible (opcional): mecanismo de apertura
   canaleta?: CanaletaCfg; // canaletas y bajadas (apagadas si no se activan)
+  colorHex?: number;      // color elegido en el 3D de Techos (Obra Civil y Drywall lo respetan)
 }
 
 // Techo movible: la cobertura se divide en paños que se abren a lo largo (Z).

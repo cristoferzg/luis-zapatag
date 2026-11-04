@@ -104,7 +104,7 @@ export interface EstructuraTechos {
   nombre: string;
   nodes: Record<string, { id: string; x: number; y: number; z: number; nodeLabel?: string }>;
   segments: Record<string, { id: string; nodeAId: string; nodeBId: string; profileId: string; rolEstructural: string; concretoBaseM?: number; anguloRotacionGrados?: number }>;
-  coverageZones: Record<string, { id: string; nombre: string; nodeIdsBoundary: string[]; coberturaMaterialId: string }>;
+  coverageZones: Record<string, { id: string; nombre: string; nodeIdsBoundary: string[]; coberturaMaterialId: string; colorHex?: number }>;
 }
 
 /** Lo que se ocultó en Techos ("ocultar sin borrar") tampoco se dibuja ni se cuenta

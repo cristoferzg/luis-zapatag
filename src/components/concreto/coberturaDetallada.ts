@@ -47,9 +47,10 @@ function dentro(pu: number, pv: number, poly: [number, number][]) {
 }
 
 /** Plancha con relieve sobre un paño (contorno en 3D). null si el paño no sirve. */
-export function planchaDetallada(pts: THREE.Vector3[], materialId: string): THREE.Mesh | null {
+export function planchaDetallada(pts: THREE.Vector3[], materialId: string, colorHex?: number): THREE.Mesh | null {
   if (pts.length < 3) return null;
-  const perfil = perfilDeCobertura(materialId);
+  // El color elegido en Techos manda; si no hay, el típico del material.
+  const perfil = { ...perfilDeCobertura(materialId), ...(colorHex !== undefined ? { color: colorHex } : {}) };
   // Normal del paño (Newell) apuntando hacia arriba.
   const n = new THREE.Vector3();
   for (let i = 0; i < pts.length; i++) {

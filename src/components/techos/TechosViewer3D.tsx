@@ -3652,9 +3652,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const zs = Object.values(zonasCob).filter(z => !/^tq[0-9a-z]+_/.test(z.id));
     return zs[0]?.coberturaMaterialId;
   }, [zonasCob]);
+  // Color guardado en el diseño (se elige con los puntos de color y lo usan Obra Civil y Drywall).
+  const colorGuardado = Object.values(zonasCob).find(z => !/^tq[0-9a-z]+_/.test(z.id) && z.colorHex !== undefined)?.colorHex;
+  useEffect(() => { if (colorGuardado !== undefined) setAluzincColorHex(colorGuardado); }, [colorGuardado]);
+  const elegirColor = (hex: number) => { setAluzincColorHex(hex); engineState?.setColorCobertura?.(hex); };
+
   useEffect(() => {
     const m = modeloDesdeCobertura(coberturaPrincipal);
-    if (m && m !== selectedModeloId) handleModeloChange(m);
+    if (m && m !== selectedModeloId) { handleModeloChange(m); if (colorGuardado !== undefined) setTimeout(() => setAluzincColorHex(colorGuardado), 0); }
     // Si el techo ya está cubierto, la plancha se ve sin tener que activarla.
     if (coberturaPrincipal) setMostrarCobertura(true);
   }, [coberturaPrincipal]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3672,7 +3677,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const elegirModelo = (modeloId: string) => {
     handleModeloChange(modeloId);
     const cob = INVENTARIO_COBERTURAS.find(c => modeloDesdeCobertura(c.id) === modeloId);
-    if (cob && engineState?.setCoberturaTodo) engineState.setCoberturaTodo(cob.id);
+    const mod = MODELOS_ALUZINC_PERU.find(m => m.id === modeloId);
+    if (cob && engineState?.setCoberturaTodo) engineState.setCoberturaTodo(cob.id, mod?.colorDefectoHex);
   };
 
   const diagSismo = getDiagnosticoSismo(sismoMagnitud);
@@ -3968,7 +3974,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             ].map(c => (
               <button
                 key={c.hex}
-                onClick={() => setAluzincColorHex(c.hex)}
+                onClick={() => elegirColor(c.hex)}
                 className={`w-5 h-5 rounded-full border-2 transition-all cursor-pointer transform ${
                   aluzincColorHex === c.hex 
                     ? 'border-amber-500 scale-110 shadow-md ring-2 ring-amber-400/50' 
@@ -4756,7 +4762,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               ].map(c => (
                 <button
                   key={c.hex}
-                  onClick={() => setAluzincColorHex(c.hex)}
+                  onClick={() => elegirColor(c.hex)}
                   className={`h-8 rounded-xl border-2 transition-all flex items-center justify-center cursor-pointer ${
                     aluzincColorHex === c.hex ? 'border-amber-500 scale-105 shadow-md ring-2 ring-amber-300' : 'border-slate-300 hover:scale-102'
                   }`}
