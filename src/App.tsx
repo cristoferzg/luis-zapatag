@@ -148,7 +148,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
     >
       <div className={`p-4 sm:p-5 rounded-2xl border ${priorityBorder} shadow-2xs relative flex flex-col justify-between gap-3 transition-all duration-300 overflow-hidden`}>
         {/* Barra superior del comunicado unificado */}
-        <div className="flex items-center justify-between gap-3 border-b border-slate-100/80 pb-2.5">
+        <div className="flex flex-nowrap items-center justify-between gap-3 border-b border-slate-100/80 pb-2.5">
           <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shadow-3xs ${badgeColor}`}>
               {badgeText}
@@ -2349,7 +2349,7 @@ export default function App() {
     // pantalla de mantenimiento en vez del módulo real.
     if (vistaBloqueada(currentView)) return renderMantenimiento();
     switch (currentView) {
-      case 'dashboard': return <>{(clasesNuevas.length > 0 || recursosNuevos.length > 0) && (
+      case 'dashboard': return <div className="ajustes-compactos">{(clasesNuevas.length > 0 || recursosNuevos.length > 0) && (
         <div className="mb-4 bg-white rounded-2xl border border-orange-200 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-base">✨</span><h3 className="flex-1 text-sm font-black text-slate-900">Novedades para ti</h3>
@@ -2372,7 +2372,7 @@ export default function App() {
             )}
           </div>
         </div>
-      )}<DashboardView projects={proyectosBalance} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} /></>;
+      )}<DashboardView projects={proyectosBalance} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} /></div>;
       case 'admin_purchases': return <AdminPurchasesView />;
       case 'reporte': return <ReporteMesView projects={proyectosBalance} finances={filteredFinances} />;
       case 'supervision': return isAdmin ? (
@@ -2410,7 +2410,7 @@ export default function App() {
       case 'projects':
       case 'clients':
         return (
-          <ProyectosYClientesView 
+          <div className="ajustes-compactos"><ProyectosYClientesView 
             projects={filteredProjects} 
             setProjects={setProjects} 
             clients={filteredClients} 
@@ -2420,7 +2420,7 @@ export default function App() {
             isAdmin={isAdmin}
             currentUser={user || (isAdmin ? { id: 'admin', name: 'Administrador Principal', role: 'Administrador', pin: '', isActive: true, lastLogin: '' } as SystemUser : null)}
             onNavigateToTechos={() => setCurrentView('techos')}
-          />
+          /></div>
         );
       case 'materials':
       case 'gastos':

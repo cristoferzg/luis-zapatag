@@ -137,7 +137,7 @@ html.modo-dibujo .sube-sin-nav-2 { bottom: calc(48px + env(safe-area-inset-botto
    la letra grande. Las filas "texto ↔ botón" bajan el botón a la línea siguiente
    cuando no cabe, y un botón nunca es más ancho que su caja. */
 @media (max-width: 1279.98px) {
-  main.overflow-y-auto:not(.lg\:p-0) .flex.justify-between:not(.flex-col):not([class*="overflow-x"]),
+  main.overflow-y-auto:not(.lg\:p-0) .flex.justify-between:not(.flex-col):not([class*="overflow-x"]):not(.flex-nowrap),
   main.overflow-y-auto:not(.lg\:p-0) .flex.items-center.gap-2:not(.flex-col):not([class*="overflow-x"]):not(.flex-nowrap),
   main.overflow-y-auto:not(.lg\:p-0) .flex.items-center.gap-3:not(.flex-col):not([class*="overflow-x"]):not(.flex-nowrap) { flex-wrap: wrap; row-gap: .5rem; }
   main.overflow-y-auto:not(.lg\:p-0) button { max-width: 100%; }

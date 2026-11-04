@@ -47,7 +47,7 @@ export default function ReporteMesView({ projects, finances }: { projects: Proje
   const tarjeta = (titulo: string, valor: string, sub: string, Ic: any, color: string) => (
     <div className="rounded-2xl border border-slate-200 p-3 bg-white">
       <div className="flex items-center gap-2 text-[11px] font-black uppercase" style={{ color }}><Ic className="w-4 h-4" />{titulo}</div>
-      <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1">{valor}</p>
+      <p className="text-[min(4.5vw,1.125rem)] sm:text-2xl font-black text-slate-900 mt-1 [white-space:nowrap] tracking-tight">{valor}</p>
       <p className="text-[11px] text-slate-500">{sub}</p>
     </div>
   );
@@ -80,7 +80,7 @@ export default function ReporteMesView({ projects, finances }: { projects: Proje
           {tarjeta('Gastado', S(r.gastado), 'materiales, personal y gastos', TrendingDown, '#dc2626')}
           <div className={`rounded-2xl p-3 text-white col-span-2 lg:col-span-1 ${r.utilidad >= 0 ? 'bg-emerald-600' : 'bg-rose-600'}`}>
             <div className="flex items-center gap-2 text-[11px] font-black uppercase"><Wallet className="w-4 h-4" />Utilidad real</div>
-            <p className="text-xl sm:text-2xl font-black mt-1">{S(r.utilidad)}</p>
+            <p className="text-xl sm:text-2xl font-black mt-1 [white-space:nowrap]">{S(r.utilidad)}</p>
             <p className="text-[11px] opacity-90">cobrado − gastado{r.cobrado > 0 ? ` · margen ${((r.utilidad / r.cobrado) * 100).toFixed(0)} %` : ''}</p>
           </div>
         </div>
