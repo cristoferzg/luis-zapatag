@@ -102,3 +102,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 ## Impresión en la app Android
 - El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo
   `Imprimir` (android/.../ImprimirPlugin.java → PrintManager: impresoras o "Guardar como PDF").
+
+## Obra Civil (extras)
+- `disenarObra` (Cloud Function, 8 créditos): texto y/o plano → muros (eje, espesor, alto, aberturas con `desde` al
+  centro) y columnas; se cargan en el piso activo con `commit` (se puede deshacer). UI: `src/components/concreto/DisenoIAObra.tsx`.
+- Aberturas con diseño: `estilo`, `color`, `abre`, `hacia`, `apertura` (geometriaObra: `estiloDe`, `aperturaDe`).
+  3D (ConcretoViewer3D): puertas/ventanas cerradas; `registrar()` las anima en el loop; tocar = abrir/cerrar; botón "Abrir puertas".
