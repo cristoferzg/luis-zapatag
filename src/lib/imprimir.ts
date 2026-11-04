@@ -2,7 +2,34 @@
 // Se copia el elemento a un iframe propio con los estilos de la app, así no
 // salen el menú, los botones ni nada fuera del área, y se puede elegir el
 // tamaño de papel y la orientación.
+import { registerPlugin, Capacitor } from '@capacitor/core';
 import { safeStorage } from './storageManager';
+
+// App de Android: el WebView no tiene window.print(); se usa el plugin nativo `Imprimir`
+// (android/.../ImprimirPlugin.java), que abre el diálogo de impresión del sistema
+// (impresoras o "Guardar como PDF") con el HTML ya armado.
+const ImprimirNativo = registerPlugin<{ html(o: { html: string; titulo: string; tamano: string; orientacion: string }): Promise<void> }>('Imprimir');
+const enAndroid = () => { try { return Capacitor.getPlatform() === 'android'; } catch { return false; } };
+
+/** HTML autocontenido del marco: estilos e imágenes incrustados (el WebView nativo no ve los archivos de la app). */
+async function htmlAutocontenido(doc: Document): Promise<string> {
+  const css: string[] = [];
+  for (const hoja of [...document.styleSheets]) {
+    try { css.push([...hoja.cssRules].map(r => r.cssText).join('\n')); } catch { /* hoja externa sin acceso */ }
+  }
+  doc.querySelectorAll('link[rel="stylesheet"]').forEach(l => l.remove());
+  const st = doc.createElement('style'); st.textContent = css.join('\n');
+  doc.head.prepend(st);
+  await Promise.all([...doc.querySelectorAll('img')].map(async img => {
+    const src = img.getAttribute('src') || '';
+    if (!src || src.startsWith('data:')) return;
+    try {
+      const b = await (await fetch(new URL(src, location.href).href)).blob();
+      img.setAttribute('src', await new Promise<string>((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = mal; r.readAsDataURL(b); }));
+    } catch { /* imagen sin acceso: se deja */ }
+  }));
+  return '<!doctype html>' + doc.documentElement.outerHTML;
+}
 
 export const TAMANOS_PAPEL = ['A4', 'A3', 'A2', 'A1', 'A0', 'Carta', 'Oficio'] as const;
 export type TamanoPapel = typeof TAMANOS_PAPEL[number];
@@ -99,7 +126,15 @@ export function imprimirElemento(el: HTMLElement, opts: OpcionesImpresion) {
   const limpiar = () => setTimeout(() => iframe.remove(), 500);
   win.addEventListener('afterprint', limpiar);
   // Esperar a que carguen estilos y fuentes antes de abrir el diálogo.
-  const lanzar = () => { try { win.focus(); win.print(); } finally { setTimeout(() => { if (document.body.contains(iframe)) iframe.remove(); }, 60000); } };
+  const lanzar = async () => {
+    if (enAndroid()) {
+      try { await ImprimirNativo.html({ html: await htmlAutocontenido(doc), titulo: (opts.titulo || document.title).replace(/</g, ''), tamano: opts.tamano, orientacion: opts.orientacion }); }
+      catch (e) { console.warn('[imprimir] Android:', e); alert('No se pudo abrir la impresión en este celular. Actualiza la app e inténtalo de nuevo.'); }
+      finally { iframe.remove(); }
+      return;
+    }
+    try { win.focus(); win.print(); } finally { setTimeout(() => { if (document.body.contains(iframe)) iframe.remove(); }, 60000); }
+  };
   const links = [...doc.querySelectorAll('link[rel="stylesheet"]')] as HTMLLinkElement[];
   Promise.all(links.map(l => new Promise(r => { if (l.sheet) r(null); else { l.onload = l.onerror = () => r(null); } })))
     .then(() => (doc.fonts?.ready || Promise.resolve()))

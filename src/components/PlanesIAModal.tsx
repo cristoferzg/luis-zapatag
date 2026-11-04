@@ -61,8 +61,10 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
   // Precio: en Google Play, el que muestra Google; si no, el de la configuración.
   const precio = (soles: number, productId: string, planBase?: string) => (play && listoPlay && precioPlay(productId, planBase)) || precioPEN(soles);
 
+  // El administrador tiene la IA ilimitada: aquí solo ve cómo lo ven los usuarios (no compra).
+  const soloVista = () => { if (!ctx.isAdmin) return false; setMsgPlay({ ok: false, t: 'Vista previa: como administrador tienes la IA ilimitada, no se crea ninguna compra.' }); return true; };
   const pedirPlan = async (plan: AIPlan) => {
-    if (!acepto) return;
+    if (!acepto || soloVista()) return;
     const periodo = anual && plan.precioAnualSoles ? 'anual' : 'mensual';
     if (play) return comprarPlay(plan.id, idProductoPlan(plan.id), periodo);
     try { if (ctx.userId) await solicitarPlanIA(ctx.userId, ctx.userName, plan, periodo); } catch { /* ignore */ }
@@ -72,7 +74,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
   };
 
   const pedirPack = async (p: PackCreditos) => {
-    if (!acepto) return;
+    if (!acepto || soloVista()) return;
     if (play) return comprarPlay(p.id, idProductoPack(p.creditos));
     try { if (ctx.userId) await solicitarCreditos(ctx.userId, ctx.userName, p); } catch { /* ignore */ }
     setEnviado(p.id);

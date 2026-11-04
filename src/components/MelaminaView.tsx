@@ -15,11 +15,12 @@ import BotonImprimir from './common/BotonImprimir';
 import { simb } from '../lib/currency';
 import { COLORES_MELAMINA, colorMelamina } from '../catalogo/melamina';
 import {
-  TIPOS, TipoMueble, Mueble, PuertaTipo, tipoDe, muebleNuevo, metradoMelamina, avisosMueble, nombreMueble, esAlto, uid,
+  TIPOS, TipoMueble, Mueble, PuertaTipo, EstiloPuerta, Tirador, tipoDe, muebleNuevo, metradoMelamina, avisosMueble, nombreMueble, esAlto, uid,
   ALTO_MUEBLE_ALTO, TABLERO_L, TABLERO_A, REFILE, MetradoMelamina, Pieza,
 } from './melamina/calculoMelamina';
 import { CotizacionMelamina, KEY_COT_ACTUAL, KEY_COT_LISTA, KEY_PESTANA, cotizacionVacia, leerCotizacionActual, leerCotizaciones, paredNueva } from './melamina/cotizacionMelamina';
 import DibujoMueble, { FrenteSvg } from './melamina/DibujoMueble';
+import DisenoIA, { mueblesDePropuesta } from './melamina/DisenoIA';
 
 const Melamina3D = lazy(() => import('./melamina/Melamina3D'));
 
@@ -191,6 +192,19 @@ function Muebles({ cot, setCot, r, sel, setSel, onPresupuesto, onDisenar }: {
           )}
         </div>
 
+        {/* Diseñar con IA */}
+        <DisenoIA onAplicar={(p, reemplazar) => {
+          const nuevos = mueblesDePropuesta(p);
+          setCot(c => {
+            const base = reemplazar ? [] : c.muebles;
+            // Si la IA trae paredes y no hay muebles ubicados (o se reemplaza), se usan sus paredes.
+            const usarParedes = p.paredes.length > 0 && (reemplazar || !c.muebles.some(m => m.pos));
+            const ubicar = nuevos.map(m => m.pos ? (usarParedes ? m : { ...m, pos: undefined }) : m);
+            return { ...c, muebles: [...base, ...ubicar], paredes: usarParedes ? p.paredes : c.paredes };
+          });
+          if (nuevos.length) setSel(nuevos[0].id);
+        }} />
+
         {/* Agregar mueble */}
         <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-2">
           <p className="text-xs font-black text-slate-800">¿Qué mueble vas a hacer? <span className="font-semibold text-slate-400">Toca para agregar</span></p>
@@ -318,6 +332,37 @@ function EditorMueble({ m, upd, avisos, onDuplicar, onQuitar, onDisenar }: {
           <Num label="Divisiones" value={m.divisiones} max={20} step={1} entero sufijo="und" onChange={v => upd({ divisiones: v })} />
           <Num label="Zócalo" value={m.zocalo} max={0.3} onChange={v => upd({ zocalo: v })} />
         </div>
+        {/* Diseño de puertas y frentes */}
+        {(m.puertas > 0 || m.cajones > 0) && (
+          <div className="rounded-xl border border-slate-200 p-2.5 space-y-2">
+            <p className="text-[10px] font-black text-slate-500 uppercase">Diseño de puertas y frentes</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {m.puertaTipo !== 'ninguna' && m.puertas > 0 && (
+                <label className="block text-[10px] font-bold text-slate-500 uppercase">Puerta
+                  <select value={m.estiloPuerta || 'lisa'} onChange={e => upd({ estiloPuerta: e.target.value as EstiloPuerta })} className={`${inputTxt} cursor-pointer`}>
+                    <option value="lisa">Lisa</option>
+                    <option value="ranurada">Ranurada (líneas)</option>
+                    <option value="vidrio">Vidrio con marco de aluminio</option>
+                  </select>
+                </label>
+              )}
+              <label className="block text-[10px] font-bold text-slate-500 uppercase">Tirador
+                <select value={m.tirador || 'barra'} onChange={e => upd({ tirador: e.target.value as Tirador })} className={`${inputTxt} cursor-pointer`}>
+                  <option value="barra">Barra</option>
+                  <option value="boton">Perilla</option>
+                  <option value="gola">Perfil de aluminio (sin tirador)</option>
+                  <option value="push">Push (abre al presionar)</option>
+                </select>
+              </label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase">Color de los frentes
+                <select value={m.colorFrente || ''} onChange={e => upd({ colorFrente: e.target.value })} className={`${inputTxt} cursor-pointer`}>
+                  <option value="">Igual al mueble</option>
+                  {COLORES_MELAMINA.filter(c => c.nombre !== m.color).map(c => <option key={c.id} value={c.nombre}>{c.nombre}</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <label className="inline-flex items-center gap-2 min-h-[40px] text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-teal-600" checked={m.colgador} onChange={e => upd({ colgador: e.target.checked })} /> Tubo colgador (ropa)</label>
           <label className="inline-flex items-center gap-2 min-h-[40px] text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-teal-600" checked={m.fondoHdf} onChange={e => upd({ fondoHdf: e.target.checked })} /> Fondo de HDF 3 mm</label>
@@ -345,6 +390,16 @@ function Disenador({ cot, setCot, sel, setSel, onMuebles }: { cot: CotizacionMel
   const idx = cot.paredes.indexOf(pared);
   const [arrastre, setArrastre] = useState<{ id: string; dx: number; dy: number; x: number; y: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  // En el celular (Android) el dedo sobre un mueble movía la página y cancelaba el arrastre:
+  // se bloquea el desplazamiento solo cuando el toque empieza sobre un mueble.
+  useEffect(() => {
+    const svg = svgRef.current; if (!svg) return;
+    const sobreMueble = (e: TouchEvent) => !!(e.target as Element | null)?.closest?.('[data-mueble]');
+    const bloquear = (e: TouchEvent) => { if (sobreMueble(e)) e.preventDefault(); };
+    svg.addEventListener('touchstart', bloquear, { passive: false });
+    svg.addEventListener('touchmove', bloquear, { passive: false });
+    return () => { svg.removeEventListener('touchstart', bloquear); svg.removeEventListener('touchmove', bloquear); };
+  }, []);
   const L = pared.largo, A = pared.alto;
   const enPared = cot.muebles.filter(m => m.pos?.pared === idx);
   const sinUbicar = cot.muebles.filter(m => !m.pos || m.pos.pared >= cot.paredes.length);
@@ -499,8 +554,8 @@ function Disenador({ cot, setCot, sel, setSel, onMuebles }: { cot: CotizacionMel
           {enPared.map(m => {
             const p = posDe(m), n = Math.max(1, Math.round(m.cantidad || 1));
             return (
-              <g key={m.id} style={{ cursor: arrastre?.id === m.id ? 'grabbing' : 'grab', touchAction: 'none' }}
-                onPointerDown={e => { e.preventDefault(); const q = punto(e); (e.currentTarget.ownerSVGElement as SVGSVGElement | null)?.setPointerCapture?.(e.pointerId); setSel(m.id); setArrastre({ id: m.id, dx: q.x - p.x, dy: q.y - p.y, x: p.x, y: p.y }); }}>
+              <g key={m.id} data-mueble={m.id} style={{ cursor: arrastre?.id === m.id ? 'grabbing' : 'grab', touchAction: 'none' }}
+                onPointerDown={e => { e.preventDefault(); const q = punto(e); try { svgRef.current?.setPointerCapture(e.pointerId); } catch { /* sin captura */ } setSel(m.id); setArrastre({ id: m.id, dx: q.x - p.x, dy: q.y - p.y, x: p.x, y: p.y }); }}>
                 {Array.from({ length: n }, (_, k) => (
                   <g key={k} transform={`translate(${p.x + k * m.ancho} ${A - p.y - m.alto}) scale(0.001)`}><FrenteSvg m={m} resaltado={sel === m.id && k === 0} /></g>
                 ))}
@@ -544,8 +599,8 @@ function Vista3D({ cot, sel, setSel, onDisenar }: { cot: CotizacionMelamina; sel
   const sinUbicar = cot.muebles.length - ubicados.length;
   if (!cot.muebles.length) return <p className="p-8 text-center text-sm text-slate-400">Agrega muebles en “Muebles” para verlos en 3D.</p>;
   return (
-    <div className="p-3 sm:p-5 space-y-3 max-w-6xl mx-auto">
-      <div className="bg-white rounded-2xl p-3 shadow-xs flex flex-wrap items-center gap-2">
+    <div className="h-full min-h-[480px] flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+      <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs flex flex-wrap items-center gap-2 shrink-0">
         {ubicados.length === 0 ? (
           <>
             <label className="text-[11px] font-bold text-slate-500">Mueble
@@ -560,7 +615,7 @@ function Vista3D({ cot, sel, setSel, onDisenar }: { cot: CotizacionMelamina; sel
         )}
         <button onClick={onDisenar} className={`${btn} bg-teal-50 text-teal-700 hover:bg-teal-100`}><LayoutTemplate className="w-4 h-4" /> Diseñador</button>
       </div>
-      <div className="h-[62vh] min-h-[320px]">
+      <div className="flex-1 min-h-[360px]">
         <Suspense fallback={<div className="w-full h-full rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">Cargando 3D…</div>}>
           <Melamina3D muebles={cot.muebles} paredes={cot.paredes} selId={sel} />
         </Suspense>

@@ -1,6 +1,6 @@
 // Dibujo de frente de un mueble de melamina (SVG, en mm, y hacia abajo).
 // Lo usan la tarjeta de cada mueble (vista previa) y el Diseñador (sobre la pared).
-import { frenteDe, Mueble } from './calculoMelamina';
+import { frenteDe, Mueble, colorFrente } from './calculoMelamina';
 import { colorMelamina } from '../../catalogo/melamina';
 
 // Color un poco más oscuro u claro para puertas y frentes.
@@ -20,7 +20,22 @@ export function FrenteSvg({ m, resaltado = false }: { m: Mueble; resaltado?: boo
   const base = colorMelamina(m.color).hex;
   const linea = oscuro(base) ? '#e2e8f0' : '#334155';
   const sw = Math.max(4, Math.min(W, H) / 120);
-  const puertaFill = tono(base, oscuro(base) ? 0.08 : -0.06);
+  // Frentes: en su propio color si es bicolor; con vidrio, celeste translúcido con marco.
+  const cf = colorFrente(m);
+  const baseFrente = cf ? colorMelamina(cf).hex : base;
+  const puertaFill = cf ? baseFrente : tono(base, oscuro(base) ? 0.08 : -0.06);
+  const lineaFrente = oscuro(baseFrente) ? '#e2e8f0' : '#334155';
+  const vidrio = m.estiloPuerta === 'vidrio', ranurada = m.estiloPuerta === 'ranurada';
+  const tir = m.tirador || 'barra';
+  // Tirador de un frente (puerta o cajón) según el diseño elegido.
+  const Tirador = ({ x, y, w, h, vertical }: { x: number; y: number; w: number; h: number; vertical: boolean }) => {
+    if (tir === 'push') return null;
+    if (tir === 'boton') return <circle cx={x} cy={y} r={Math.max(sw * 2, 14)} fill="#475569" />;
+    if (tir === 'gola') return null; // va como perfil en el borde (abajo)
+    return vertical
+      ? <line x1={x} x2={x} y1={y - Math.min(80, h / 6)} y2={y + Math.min(80, h / 6)} stroke="#475569" strokeWidth={sw * 2} strokeLinecap="round" />
+      : <line x1={x - Math.min(60, w / 4)} x2={x + Math.min(60, w / 4)} y1={y} y2={y} stroke="#475569" strokeWidth={sw * 2} strokeLinecap="round" />;
+  };
   return (
     <g>
       {/* Casco e interior */}
@@ -35,8 +50,9 @@ export function FrenteSvg({ m, resaltado = false }: { m: Mueble; resaltado?: boo
       {/* Cajones */}
       {f.cajones.map((c, i) => (
         <g key={`k${i}`}>
-          <rect x={c.x} y={Y(c.y + c.h)} width={c.w} height={c.h} fill={puertaFill} fillOpacity={c.interior ? 0.6 : 1} stroke={linea} strokeWidth={sw} />
-          <line x1={c.x + c.w / 2 - Math.min(60, c.w / 4)} x2={c.x + c.w / 2 + Math.min(60, c.w / 4)} y1={Y(c.y + c.h / 2)} y2={Y(c.y + c.h / 2)} stroke="#475569" strokeWidth={sw * 2} strokeLinecap="round" />
+          <rect x={c.x} y={Y(c.y + c.h)} width={c.w} height={c.h} fill={c.interior ? tono(base, -0.06) : puertaFill} fillOpacity={c.interior ? 0.6 : 1} stroke={lineaFrente} strokeWidth={sw} />
+          {tir === 'gola' && !c.interior && <line x1={c.x + 10} x2={c.x + c.w - 10} y1={Y(c.y + c.h) + sw * 1.5} y2={Y(c.y + c.h) + sw * 1.5} stroke="#64748b" strokeWidth={sw * 2.2} />}
+          <Tirador x={c.x + c.w / 2} y={Y(c.y + c.h / 2)} w={c.w} h={c.h} vertical={false} />
         </g>
       ))}
       {/* Puertas (semitransparentes para ver el interior) */}
@@ -45,12 +61,19 @@ export function FrenteSvg({ m, resaltado = false }: { m: Mueble; resaltado?: boo
         const hy = m.tipo === 'cocina_alta' ? p.y + 120 : m.tipo === 'cocina_baja' ? p.y + p.h - 120 : p.y + p.h / 2;
         return (
           <g key={`p${i}`}>
-            <rect x={p.x} y={yTop} width={p.w} height={p.h} fill={puertaFill} fillOpacity={p.tipo === 'corrediza' ? (p.plano ? 0.75 : 0.6) : 0.55} stroke={linea} strokeWidth={sw} />
+            {vidrio ? (<>
+              <rect x={p.x} y={yTop} width={p.w} height={p.h} fill="#bfdbfe" fillOpacity={0.45} stroke="#94a3b8" strokeWidth={sw * 2.5} />
+              <line x1={p.x + p.w * 0.2} x2={p.x + p.w * 0.45} y1={yTop + p.h * 0.15} y2={yTop + p.h * 0.05} stroke="#ffffff" strokeOpacity={0.8} strokeWidth={sw} />
+            </>) : (
+              <rect x={p.x} y={yTop} width={p.w} height={p.h} fill={puertaFill} fillOpacity={p.tipo === 'corrediza' ? (p.plano ? 0.75 : 0.6) : cf ? 0.85 : 0.55} stroke={lineaFrente} strokeWidth={sw} />
+            )}
+            {ranurada && [1, 2, 3, 4, 5].map(k => <line key={k} x1={p.x + (p.w * k) / 6} x2={p.x + (p.w * k) / 6} y1={yTop + 15} y2={yTop + p.h - 15} stroke={lineaFrente} strokeOpacity={0.35} strokeWidth={sw * 0.8} />)}
+            {tir === 'gola' && <line x1={p.lado === 'izq' ? p.x + p.w - sw * 1.5 : p.x + sw * 1.5} x2={p.lado === 'izq' ? p.x + p.w - sw * 1.5 : p.x + sw * 1.5} y1={yTop + 10} y2={yTop + p.h - 10} stroke="#64748b" strokeWidth={sw * 2.2} />}
             {p.tipo === 'batiente' && (
               <polyline points={p.lado === 'izq' ? `${p.x + p.w},${yTop} ${p.x},${yTop + p.h / 2} ${p.x + p.w},${yTop + p.h}` : `${p.x},${yTop} ${p.x + p.w},${yTop + p.h / 2} ${p.x},${yTop + p.h}`}
                 fill="none" stroke={linea} strokeOpacity={0.35} strokeWidth={sw / 2} strokeDasharray={`${sw * 4} ${sw * 3}`} />
             )}
-            <line x1={hx} x2={hx} y1={Y(hy + Math.min(80, p.h / 6))} y2={Y(hy - Math.min(80, p.h / 6))} stroke="#475569" strokeWidth={sw * 2} strokeLinecap="round" />
+            <Tirador x={hx} y={Y(hy)} w={p.w} h={p.h} vertical />
           </g>
         );
       })}

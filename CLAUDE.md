@@ -14,7 +14,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   usuarios" en Configuración → Planes y créditos). Hoy APAGADO: el dueño aún no tiene
   saldo en la API; se despliega solo hosting y luego functions + rules al activar.
   En la interfaz NUNCA se muestra el proveedor ni el modelo.
-- Créditos: boleta sin QR = 1, plano a mano = 10 (`COSTO_CREDITOS`, igual en
+- Créditos: boleta sin QR = 1, plano a mano = 10, diseño de melamina = 5 (`COSTO_CREDITOS`, igual en
   `functions/index.js`). QR de boletas gratis. Planes: Gratis 15/mes, Maestro,
   Taller Pro, Empresa (mensual o anual) + recargas que no vencen. Config en
   `config_ia/planes` (`{planes, packs}`), editable en Configuración (admin).
@@ -91,3 +91,14 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   Play Console), entrega una sola vez (`compras_play/<sha256 token>`, solo servidor), consume/reconoce y registra en
   `purchases` (`origen: 'google_play'`). Renovaciones: se confirman al abrir la app.
 - Pruebas: `cd seguridad && npm run test:play` (API de Google simulada, solo en emulador).
+
+## Melamina (extras)
+- `disenarMelamina` (Cloud Function, 5 créditos): texto y/o foto → muebles con medidas, partes, colores y ubicación
+  (herramienta con esquema; el servidor limita los valores). UI: `src/components/melamina/DisenoIA.tsx`.
+- Diseño de frentes por mueble: `estiloPuerta` (lisa/ranurada/vidrio), `tirador` (barra/boton/gola/push), `colorFrente`
+  (bicolor: las piezas llevan `color` y se optimizan con ese tablero). 3D: puertas y cajones se abren (tocar o "Abrir puertas").
+- Diseñador: en Android el arrastre bloquea el scroll solo si el toque empieza sobre un mueble (`data-mueble`).
+
+## Impresión en la app Android
+- El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo
+  `Imprimir` (android/.../ImprimirPlugin.java → PrintManager: impresoras o "Guardar como PDF").

@@ -18,6 +18,8 @@ public class MainActivity extends BridgeActivity {
         // Plugin propio: guardar descargas (videos 3D, DXF, PDF…) en Descargas/InnovApp
         // y recibir archivos que se comparten con la app.
         registerPlugin(ArchivosPlugin.class);
+        // Plugin propio: imprimir o guardar en PDF (el WebView no tiene window.print).
+        registerPlugin(ImprimirPlugin.class);
         super.onCreate(savedInstanceState);
         // Que se comporte como app y no como navegador: sin zoom con dos dedos
         // ni doble toque, y sin que el tamaño de letra del sistema agrande la interfaz.

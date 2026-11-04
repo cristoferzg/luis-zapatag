@@ -35,7 +35,11 @@ const entero = (n: number, a: number, b: number) => Math.max(a, Math.min(b, Math
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
 // ── Tipos de mueble ─────────────────────────────────────────────────────────
-export type TipoMueble = 'closet' | 'closet_corredizo' | 'cocina_baja' | 'cocina_alta' | 'escritorio' | 'estante' | 'zapatera' | 'rack_tv' | 'velador' | 'libre';
+export type TipoMueble = 'closet' | 'closet_corredizo' | 'vestidor' | 'cocina_baja' | 'cocina_alta' | 'alacena' | 'isla' | 'escritorio' | 'archivador' | 'estante' | 'zapatera' | 'rack_tv' | 'velador' | 'comoda' | 'bano' | 'botiquin' | 'libre';
+/** Estilo del frente: lisa, con vidrio (marco de aluminio) o ranurada (líneas decorativas). */
+export type EstiloPuerta = 'lisa' | 'vidrio' | 'ranurada';
+/** Tirador: barra, perilla, perfil de aluminio (gola/uñero) o push (abre al presionar). */
+export type Tirador = 'barra' | 'boton' | 'gola' | 'push';
 export type PuertaTipo = 'batiente' | 'corrediza' | 'ninguna';
 export interface PosMueble { pared: number; x: number; y: number }
 export interface Mueble {
@@ -46,8 +50,11 @@ export interface Mueble {
   colgador: boolean; zocalo: number; // m (0 = sin zócalo)
   color: string; fondoHdf: boolean;
   pos?: PosMueble;
+  estiloPuerta?: EstiloPuerta;   // por defecto 'lisa'
+  tirador?: Tirador;             // por defecto 'barra'
+  colorFrente?: string;          // puertas y frentes en otro color ('' = el mismo)
 }
-type Medidas = Omit<Mueble, 'id' | 'tipo' | 'nombre' | 'cantidad' | 'color' | 'pos'>;
+type Medidas = Omit<Mueble, 'id' | 'tipo' | 'nombre' | 'cantidad' | 'color' | 'pos' | 'estiloPuerta' | 'tirador' | 'colorFrente'>;
 export interface TipoInfo { id: TipoMueble; nombre: string; corto: string; emoji: string; descripcion: string; base: Medidas; nota?: string }
 
 export const TIPOS: TipoInfo[] = [
@@ -55,13 +62,22 @@ export const TIPOS: TipoInfo[] = [
     base: { ancho: 1.8, alto: 2.4, prof: 0.6, puertas: 3, puertaTipo: 'batiente', cajones: 2, repisas: 3, divisiones: 1, colgador: true, zocalo: 0, fondoHdf: true } },
   { id: 'closet_corredizo', nombre: 'Closet corredizo', corto: 'Closet corredizo', emoji: '↔️', descripcion: 'Dos hojas corredizas en riel: ahorra espacio.',
     base: { ancho: 1.8, alto: 2.4, prof: 0.6, puertas: 2, puertaTipo: 'corrediza', cajones: 2, repisas: 3, divisiones: 1, colgador: true, zocalo: 0, fondoHdf: true } },
+  { id: 'vestidor', nombre: 'Vestidor abierto', corto: 'Vestidor', emoji: '👔', descripcion: 'Sin puertas: colgador, repisas y cajones a la vista.',
+    base: { ancho: 2.0, alto: 2.4, prof: 0.5, puertas: 0, puertaTipo: 'ninguna', cajones: 3, repisas: 6, divisiones: 2, colgador: true, zocalo: 0.05, fondoHdf: true } },
   { id: 'cocina_baja', nombre: 'Mueble bajo de cocina', corto: 'Cocina baja', emoji: '🍳', descripcion: 'Bajo tablero, con zócalo, puertas y cajón.',
     base: { ancho: 1.2, alto: 0.9, prof: 0.55, puertas: 2, puertaTipo: 'batiente', cajones: 1, repisas: 1, divisiones: 0, colgador: false, zocalo: 0.1, fondoHdf: true },
     nota: 'El tablero de encima (granito, cuarzo o postformado) no está incluido.' },
   { id: 'cocina_alta', nombre: 'Repostero / mueble alto', corto: 'Repostero', emoji: '🗄️', descripcion: 'Mueble alto de cocina, colgado en la pared.',
     base: { ancho: 1.2, alto: 0.7, prof: 0.33, puertas: 2, puertaTipo: 'batiente', cajones: 0, repisas: 1, divisiones: 0, colgador: false, zocalo: 0, fondoHdf: true } },
+  { id: 'alacena', nombre: 'Alacena / despensa', corto: 'Alacena', emoji: '🥫', descripcion: 'Mueble alto de piso a techo con repisas para víveres.',
+    base: { ancho: 0.6, alto: 2.1, prof: 0.55, puertas: 2, puertaTipo: 'batiente', cajones: 0, repisas: 5, divisiones: 0, colgador: false, zocalo: 0.1, fondoHdf: true } },
+  { id: 'isla', nombre: 'Isla de cocina', corto: 'Isla', emoji: '🏝️', descripcion: 'Mueble bajo al centro de la cocina, con cajones y puertas.',
+    base: { ancho: 1.6, alto: 0.9, prof: 0.9, puertas: 2, puertaTipo: 'batiente', cajones: 2, repisas: 1, divisiones: 1, colgador: false, zocalo: 0.1, fondoHdf: true },
+    nota: 'El tablero de encima (granito, cuarzo o postformado) no está incluido.' },
   { id: 'escritorio', nombre: 'Escritorio con cajonera', corto: 'Escritorio', emoji: '🖥️', descripcion: 'Cajonera lateral de 3 cajones y espacio para las piernas.',
     base: { ancho: 1.2, alto: 0.75, prof: 0.6, puertas: 0, puertaTipo: 'ninguna', cajones: 3, repisas: 0, divisiones: 1, colgador: false, zocalo: 0, fondoHdf: false } },
+  { id: 'archivador', nombre: 'Archivador de oficina', corto: 'Archivador', emoji: '🗃️', descripcion: 'Cajones para carpetas y una puerta abajo.',
+    base: { ancho: 0.5, alto: 1.1, prof: 0.55, puertas: 1, puertaTipo: 'batiente', cajones: 3, repisas: 1, divisiones: 0, colgador: false, zocalo: 0.05, fondoHdf: true } },
   { id: 'estante', nombre: 'Estante / librero', corto: 'Librero', emoji: '📚', descripcion: 'Repisas abiertas, sin puertas.',
     base: { ancho: 0.8, alto: 1.8, prof: 0.3, puertas: 0, puertaTipo: 'ninguna', cajones: 0, repisas: 4, divisiones: 0, colgador: false, zocalo: 0.05, fondoHdf: true } },
   { id: 'zapatera', nombre: 'Zapatera', corto: 'Zapatera', emoji: '👟', descripcion: 'Dos puertas y cuatro repisas.',
@@ -70,11 +86,20 @@ export const TIPOS: TipoInfo[] = [
     base: { ancho: 1.6, alto: 0.5, prof: 0.4, puertas: 0, puertaTipo: 'ninguna', cajones: 2, repisas: 0, divisiones: 3, colgador: false, zocalo: 0.05, fondoHdf: true } },
   { id: 'velador', nombre: 'Velador / mesa de noche', corto: 'Velador', emoji: '🛏️', descripcion: 'Dos cajones y un espacio abierto.',
     base: { ancho: 0.45, alto: 0.55, prof: 0.4, puertas: 0, puertaTipo: 'ninguna', cajones: 2, repisas: 0, divisiones: 0, colgador: false, zocalo: 0.05, fondoHdf: true } },
+  { id: 'comoda', nombre: 'Cómoda de cajones', corto: 'Cómoda', emoji: '🧺', descripcion: 'Cuatro cajones grandes para ropa.',
+    base: { ancho: 1.0, alto: 0.85, prof: 0.45, puertas: 0, puertaTipo: 'ninguna', cajones: 4, repisas: 0, divisiones: 0, colgador: false, zocalo: 0.05, fondoHdf: true } },
+  { id: 'bano', nombre: 'Mueble de baño (bajo lavatorio)', corto: 'Mueble de baño', emoji: '🚿', descripcion: 'Dos puertas bajo el lavatorio.',
+    base: { ancho: 0.8, alto: 0.55, prof: 0.45, puertas: 2, puertaTipo: 'batiente', cajones: 0, repisas: 0, divisiones: 0, colgador: false, zocalo: 0.1, fondoHdf: true },
+    nota: 'El lavatorio y la grifería no están incluidos. Usa melamina resistente a la humedad (RH).' },
+  { id: 'botiquin', nombre: 'Botiquín / espejo de baño', corto: 'Botiquín', emoji: '🪞', descripcion: 'Mueble colgado con puerta y repisas.',
+    base: { ancho: 0.6, alto: 0.7, prof: 0.15, puertas: 1, puertaTipo: 'batiente', cajones: 0, repisas: 2, divisiones: 0, colgador: false, zocalo: 0, fondoHdf: true } },
   { id: 'libre', nombre: 'Mueble libre (a medida)', corto: 'Mueble libre', emoji: '📐', descripcion: 'Tú pones todas las medidas y partes.',
     base: { ancho: 1.0, alto: 1.0, prof: 0.4, puertas: 2, puertaTipo: 'batiente', cajones: 0, repisas: 1, divisiones: 0, colgador: false, zocalo: 0, fondoHdf: true } },
 ];
+/** Color de puertas y frentes si es distinto al del casco (bicolor); si no, undefined. */
+export const colorFrente = (m: Mueble) => m.colorFrente && m.colorFrente.toLowerCase() !== (m.color || '').toLowerCase() ? m.colorFrente : undefined;
 export const tipoDe = (id: TipoMueble) => TIPOS.find(t => t.id === id) || TIPOS[TIPOS.length - 1];
-export const esAlto = (m: Mueble) => m.tipo === 'cocina_alta';
+export const esAlto = (m: Mueble) => m.tipo === 'cocina_alta' || m.tipo === 'botiquin';
 export function muebleNuevo(tipo: TipoMueble, color = 'Blanco'): Mueble {
   return { id: uid(), tipo, nombre: '', cantidad: 1, color, ...tipoDe(tipo).base };
 }
@@ -106,7 +131,7 @@ export function frenteDe(m: Mueble): FrenteMueble {
   const libreAncho = Math.max(0, Wi - nDiv * t);
   const yPiso = z + t, yTecho = H - t;
   const nCaj = entero(m.cajones, 0, 12), nRep = entero(m.repisas, 0, 40);
-  const cajonesArriba = ['cocina_baja', 'escritorio', 'velador'].includes(m.tipo);
+  const cajonesArriba = ['cocina_baja', 'isla', 'escritorio', 'velador'].includes(m.tipo);
   const corrediza = m.puertaTipo === 'corrediza';
 
   // Cajones: en el último compartimento; en el rack, uno por compartimento desde el centro.
@@ -190,6 +215,7 @@ export interface Pieza {
   largo: number; ancho: number; cant: number;              // mm (largo ≥ ancho)
   canto: { gruesoMm: number; delgadoMm: number };          // metros lineales de canto por pieza, en mm
   nota?: string;
+  color?: string;                                          // si no es el color del mueble (frentes bicolor)
 }
 
 export function piezasDe(m: Mueble): Pieza[] {
@@ -197,14 +223,17 @@ export function piezasDe(m: Mueble): Pieza[] {
   const { W, H, D, t, yPiso, yTecho, z } = f;
   const k = Math.max(1, Math.round(m.cantidad || 1));
   const lista: Pieza[] = [];
-  const add = (nombre: string, material: MaterialPieza, a: number, b: number, cant: number, grueso = 0, delgado = 0, nota?: string) => {
+  const add = (nombre: string, material: MaterialPieza, a: number, b: number, cant: number, grueso = 0, delgado = 0, nota?: string, color?: string) => {
     a = Math.round(a); b = Math.round(b);
     if (a <= 0 || b <= 0 || cant <= 0) return;
     const largo = Math.max(a, b), ancho = Math.min(a, b);
-    const igual = lista.find(p => p.nombre === nombre && p.material === material && p.largo === largo && p.ancho === ancho && p.canto.gruesoMm === Math.round(grueso) && p.canto.delgadoMm === Math.round(delgado));
+    const igual = lista.find(p => p.nombre === nombre && p.material === material && p.largo === largo && p.ancho === ancho && p.canto.gruesoMm === Math.round(grueso) && p.canto.delgadoMm === Math.round(delgado) && p.color === color);
     if (igual) { igual.cant += cant * k; return; }
-    lista.push({ id: `${m.id}-${lista.length + 1}`, mueble: m.id, nombre, material, largo, ancho, cant: cant * k, canto: { gruesoMm: Math.round(grueso), delgadoMm: Math.round(delgado) }, nota });
+    lista.push({ id: `${m.id}-${lista.length + 1}`, mueble: m.id, nombre, material, largo, ancho, cant: cant * k, canto: { gruesoMm: Math.round(grueso), delgadoMm: Math.round(delgado) }, nota: color ? [nota, `color ${color}`].filter(Boolean).join(' · ') : nota, ...(color ? { color } : {}) });
   };
+  // Frentes en otro color (bicolor) y puertas de vidrio (no llevan melamina: van en herrajes).
+  const cf = colorFrente(m);
+  const vidrio = m.estiloPuerta === 'vidrio';
   const Wi = W - 2 * t;
   const hInt = yTecho - yPiso;
   // Casco
@@ -217,9 +246,9 @@ export function piezasDe(m: Mueble): Pieza[] {
   const profRep = D - 20 - (m.fondoHdf ? 3 : 0);
   f.repisas.forEach(r => add('Repisa', 'melamina', r.x1 - r.x0 - 2, profRep, 1, r.x1 - r.x0 - 2));
   // Puertas y cajones
-  f.puertas.forEach(p => add('Puerta', 'melamina', p.h, p.w, 1, 2 * (p.w + p.h), 0, p.tipo === 'corrediza' ? 'corrediza' : undefined));
+  if (!vidrio) f.puertas.forEach(p => add('Puerta', 'melamina', p.h, p.w, 1, 2 * (p.w + p.h), 0, p.tipo === 'corrediza' ? 'corrediza' : m.estiloPuerta === 'ranurada' ? 'ranurada (CNC)' : undefined, cf));
   f.cajones.forEach(c => {
-    add('Frente de cajón', 'melamina', c.w, c.h, 1, 2 * (c.w + c.h));
+    add('Frente de cajón', 'melamina', c.w, c.h, 1, 2 * (c.w + c.h), 0, undefined, c.interior ? undefined : cf);
     const comp = f.comps[c.comp];
     const bw = comp.x1 - comp.x0 - 2 * HUELGO_CORREDERA;
     const L = f.corredera;
@@ -250,10 +279,16 @@ export function herrajesDe(m: Mueble): LineaHerraje[] {
   const batientes = f.puertas.filter(p => p.tipo === 'batiente');
   add('mel:bisagra', batientes.reduce((x, p) => x + p.bisagras, 0), '2 hasta 0.90 m · 3 hasta 1.60 m · 4 más alto');
   add(`mel:corredera_${f.corredera / 10}`, f.cajones.length, 'un par por cajón');
-  add('mel:jalador', f.puertas.length + f.cajones.length, 'uno por puerta y cajón');
+  // Tirador según el diseño (los cajones interiores de un corredizo llevan perilla).
+  const frentes = f.puertas.length + f.cajones.filter(c => !c.interior).length;
+  const tir = m.tirador || 'barra';
+  if (tir === 'gola') add('mel:perfil_gola', Math.round([...f.puertas, ...f.cajones.filter(c => !c.interior)].reduce((x, p) => x + p.w, 0)) / 1000, 'perfil a lo ancho de cada frente');
+  else add(tir === 'boton' ? 'mel:boton' : tir === 'push' ? 'mel:push' : 'mel:jalador', frentes, 'uno por puerta y cajón');
+  add('mel:boton', f.cajones.filter(c => c.interior).length, 'cajones interiores');
+  if (m.estiloPuerta === 'vidrio') add('mel:puerta_vidrio', Math.round(f.puertas.reduce((x, p) => x + p.w * p.h, 0) / 1e4) / 100, 'marco de aluminio y vidrio, m²');
   const colg = f.colgadores.reduce((x, c) => x + (c.x1 - c.x0), 0);
   if (colg > 0) { add('mel:tubo_colgador', colg / 1000, 'metros de tubo'); add('mel:soporte_tubo', f.colgadores.length * 2, '2 por tubo'); }
-  if (m.tipo === 'cocina_baja') add('mel:pata', 4, '4 por módulo bajo');
+  if (m.tipo === 'cocina_baja' || m.tipo === 'isla' || m.tipo === 'bano') add('mel:pata', m.tipo === 'isla' ? 6 : 4, 'patas niveladoras');
   if (m.puertaTipo === 'corrediza') add('mel:riel_corredizo', 1, `riel de ${(f.W / 1000).toFixed(2)} m`);
   // Uniones: 2 minifix por extremo de techo, piso y divisiones; el zócalo 2.
   const nPisos = f.comps.every(c => c.conPiso) ? 1 : f.comps.filter(c => c.conPiso).length;
@@ -323,10 +358,11 @@ export function metradoMelamina(muebles: Mueble[], op: OpcionesMetrado = {}): Me
   const lineas: LineaMelamina[] = [];
   // Tableros: una corrida del optimizador por color de melamina y otra para el HDF.
   const tableros: GrupoTableros[] = [];
-  const colores = [...new Set(muebles.map(m => colorMelamina(m.color).nombre))];
+  const colorDe = new Map(muebles.map(m => [m.id, colorMelamina(m.color).nombre]));
+  const colorPieza = (p: Pieza) => p.color ? colorMelamina(p.color).nombre : colorDe.get(p.mueble) || '';
+  const colores = [...new Set(piezas.filter(p => p.material === 'melamina').map(colorPieza))];
   colores.forEach(color => {
-    const ids = new Set(muebles.filter(m => colorMelamina(m.color).nombre === color).map(m => m.id));
-    const ps = piezas.filter(p => p.material === 'melamina' && ids.has(p.mueble));
+    const ps = piezas.filter(p => p.material === 'melamina' && colorPieza(p) === color);
     if (!ps.length) return;
     const resultado = optimizar(expandir(ps, id => etiqueta.get(id) || ''), { largo: TABLERO_L, ancho: TABLERO_A, sierra: SIERRA, refile: REFILE, respetarVeta: op.respetarVeta });
     tableros.push({ material: 'melamina', color, clave: claveTablero(color), resultado });
@@ -350,6 +386,7 @@ export function metradoMelamina(muebles: Mueble[], op: OpcionesMetrado = {}): Me
   her.forEach((v, clave) => {
     if (clave === 'mel:tubo_colgador') lineas.push(linea(clave, Math.ceil(v.cant / 3 - 1e-9), `${v.cant.toFixed(2)} m de tubo`));
     else if (UNIDAD_CIENTO.has(clave)) lineas.push(linea(clave, Math.ceil(v.cant / 100), `${Math.round(v.cant)} und · ${v.nota || ''}`));
+    else if (clave === 'mel:perfil_gola' || clave === 'mel:puerta_vidrio') lineas.push(linea(clave, Math.round(v.cant * 100) / 100, v.nota));
     else lineas.push(linea(clave, Math.round(v.cant), v.nota));
   });
   // Servicios del local

@@ -114,7 +114,7 @@ export default function MembresiaView({ isAdmin }: { isAdmin: boolean }) {
       <div id="planes-ia" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 pt-5">
           <p className="text-base font-black text-slate-900">{!comprasIAPermitidas() ? 'Cuánto cuesta cada función' : conPlan ? 'Renueva, sube de plan o recarga' : 'Elige tu plan Premium'}</p>
-          {comprasIAPermitidas() && <p className="text-xs text-slate-500">{usaGooglePlay() ? 'Pagas con Google Play y tus créditos se cargan solos.' : 'Eliges aquí y coordinas el pago con el administrador por WhatsApp; al validarlo, tus créditos se cargan solos.'}{isAdmin ? ' (Vista previa: como admin no se crea ninguna compra si no eliges.)' : ''}</p>}
+          {comprasIAPermitidas() && <p className="text-xs text-slate-500">{usaGooglePlay() ? 'Pagas con Google Play y tus créditos se cargan solos.' : 'Eliges aquí y coordinas el pago con el administrador por WhatsApp; al validarlo, tus créditos se cargan solos.'}{isAdmin ? ' (Vista previa: como administrador no compras; tu IA es ilimitada.)' : ''}</p>}
         </div>
         <PlanesIAContenido sinSaldo className="p-5 sm:p-6 space-y-4" />
       </div>

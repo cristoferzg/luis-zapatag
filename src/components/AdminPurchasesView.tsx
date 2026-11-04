@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { updateRecord, useFirestoreArraySync } from '../lib/db';
-import { Check, X, Eye, Search, Sparkles, Coins, GraduationCap, ScanLine } from 'lucide-react';
+import { updateRecord, deleteRecord, useFirestoreArraySync } from '../lib/db';
+import { Check, X, Eye, Search, Sparkles, Coins, GraduationCap, ScanLine, Trash2 } from 'lucide-react';
 import LectorComprobante from './common/LectorComprobante';
 import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -29,6 +29,18 @@ export default function AdminPurchasesView() {
   const [selectedVoucher, setSelectedVoucher] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Purchase['status']>('pendiente');
   const [busca, setBusca] = useState('');
+  const [usuario, setUsuario] = useState(''); // '' = todos
+  // Las "compras" del administrador son pruebas (él no compra): se marcan y se pueden borrar.
+  const esPrueba = (p: Purchase) => p.userId === 'admin' || p.userId === 'user_admin';
+  const borrar = async (p: Purchase) => { setOcupado(p.id); try { await deleteRecord('purchases', p.id); } finally { setOcupado(null); } };
+  const borrarRechazadas = async () => {
+    const lista = purchases.filter(p => p.status === 'rechazada' && (!usuario || p.userId === usuario));
+    if (!lista.length || !confirm(`¿Borrar ${lista.length} compra${lista.length > 1 ? 's' : ''} rechazada${lista.length > 1 ? 's' : ''}? No se puede deshacer.`)) return;
+    setOcupado('todas');
+    try { for (const p of lista) await deleteRecord('purchases', p.id); } finally { setOcupado(null); }
+  };
+  // Usuarios con compras (para ver las de uno solo).
+  const usuarios = [...new Map(purchases.map(p => [p.userId, p.userName || p.userId])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
   const [abierto, setAbierto] = useState<string | null>(null); // compra con el lector abierto
   const [ocupado, setOcupado] = useState<string | null>(null);
 
@@ -95,6 +107,7 @@ export default function AdminPurchasesView() {
   const q = busca.trim().toLowerCase();
   const lista = purchases
     .filter(p => p.status === filtro)
+    .filter(p => !usuario || p.userId === usuario)
     .filter(p => !q || [p.itemName, p.userName, p.userId, p.nroOperacion].some(v => (v || '').toLowerCase().includes(q)))
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -111,7 +124,7 @@ export default function AdminPurchasesView() {
         <p className="text-xs sm:text-sm text-slate-500 mt-0.5 titulo-pagina">Lee el comprobante, revisa el código y el monto, y valida: el plan, los créditos o el curso se habilitan solos.</p>
         <div className="mt-3 grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
           {ESTADOS.map(e => {
-            const n = purchases.filter(p => p.status === e.k).length;
+            const n = purchases.filter(p => p.status === e.k && (!usuario || p.userId === usuario)).length;
             return (
               <button key={e.k} onClick={() => setFiltro(e.k)}
                 className={`px-1 py-2 rounded-lg text-[11px] sm:text-xs font-bold whitespace-nowrap cursor-pointer ${filtro === e.k ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
@@ -119,6 +132,15 @@ export default function AdminPurchasesView() {
               </button>
             );
           })}
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <select value={usuario} onChange={e => setUsuario(e.target.value)} className="flex-1 min-w-[180px] min-h-[40px] px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 cursor-pointer outline-none">
+            <option value="">Todos los usuarios</option>
+            {usuarios.map(([id, nombre]) => <option key={id} value={id}>{nombre}{id === 'admin' ? ' (pruebas del admin)' : ''} · {purchases.filter(p => p.userId === id).length}</option>)}
+          </select>
+          {filtro === 'rechazada' && purchases.some(p => p.status === 'rechazada' && (!usuario || p.userId === usuario)) && (
+            <button onClick={borrarRechazadas} disabled={ocupado === 'todas'} className="min-h-[40px] inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100 cursor-pointer disabled:opacity-50"><Trash2 className="w-4 h-4" /> Borrar rechazadas</button>
+          )}
         </div>
         <label className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
@@ -149,6 +171,7 @@ export default function AdminPurchasesView() {
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.c}`}>{t.l}</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${BADGE[purchase.status]}`}>{purchase.status}</span>
+                  {esPrueba(purchase) && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Prueba del admin</span>}
                   {purchase.createdAt && <span className="text-[10px] text-slate-400">{fecha(purchase.createdAt)}</span>}
                   {purchase.nroOperacion && <span className="text-[10px] font-mono font-bold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">Op. {purchase.nroOperacion}{purchase.montoPagado !== undefined ? ` · S/ ${S(purchase.montoPagado)}` : ''}</span>}
                 </div>
@@ -167,6 +190,10 @@ export default function AdminPurchasesView() {
               </button>
               {purchase.voucherUrl && (
                 <button onClick={() => setSelectedVoucher(purchase.voucherUrl)} title="Ver voucher" className="p-2 rounded-xl text-blue-600 bg-white border border-slate-200 hover:bg-blue-50 cursor-pointer"><Eye className="w-4 h-4" /></button>
+              )}
+              {(purchase.status === 'rechazada' || esPrueba(purchase)) && (
+                <button disabled={ocupado === purchase.id} onClick={() => { if (confirm('¿Borrar esta compra de la lista?')) borrar(purchase); }} title="Borrar"
+                  className={`${purchase.status === 'pendiente' ? '' : 'ml-auto '}inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:text-rose-600 cursor-pointer disabled:opacity-50`}><Trash2 className="w-4 h-4" /> Borrar</button>
               )}
               {purchase.status === 'pendiente' && (<>
                 <button disabled={ocupado === purchase.id} onClick={() => handleUpdateStatus(purchase, 'rechazada')} title="Rechazar"
