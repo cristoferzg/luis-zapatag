@@ -1,6 +1,6 @@
 import { safeStorage } from './storageManager';
 import { db, auth } from './firebase';
-import { collection, doc, setDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 
 export interface SavedTechosDesign {
   id: string;
@@ -86,7 +86,10 @@ export async function fetchAllTechosDesigns(): Promise<SavedTechosDesign[]> {
   
   try {
     const colRef = collection(db, 'planos_techos');
-    const q = query(colRef, orderBy('savedAt', 'desc'));
+    // El admin trae todos; cada usuario solo los suyos (las reglas no dejan leer los ajenos).
+    // Sin orderBy en la consulta del usuario: se ordena aquí abajo (evita un índice compuesto).
+    const uid = auth.currentUser?.uid;
+    const q = !uid || uid === 'admin' ? query(colRef, orderBy('savedAt', 'desc')) : query(colRef, where('authorUid', '==', uid));
     const snapshot = await getDocs(q);
     
     if (!snapshot.empty) {

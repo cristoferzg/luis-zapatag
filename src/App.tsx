@@ -13,7 +13,7 @@ import {
   PenTool, Video, ExternalLink, ShieldCheck, FolderKanban, X, BarChart3 } from 'lucide-react';
 import { performAdminBackup } from './lib/backupService';
 import { User } from 'firebase/auth';
-import { collection, query, where, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { auth, authReady } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
@@ -1489,21 +1489,7 @@ const FinanceGenericView = ({ type, title, subtitle, icon: Icon, colorClass, fin
 // Master Administrator Email
 export const PRIMARY_ADMIN_EMAIL = 'chiwawatec@gmail.com';
 
-// SHA-256 hash of the Master Administrator PIN.
-// SECURITY NOTE: A 6-digit PIN only has 1,000,000 combinations, so this hash
-// embedded in the client bundle can be brute-forced offline in seconds. This
-// is a temporary rotation (demo PIN) — the real fix (phase 2b) is to verify the
-// admin PIN server-side and NOT ship any admin credential in the bundle.
-// Current value: SHA-256('602908').
-const MASTER_ADMIN_PIN_HASH = '60876bbe7e8f5271eaa089908ba07c0d872aa80ecfed113b0417c1afb4da9875';
-
-async function computePinSha256(pin: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(pin.trim());
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// El PIN del administrador se verifica solo en el servidor (secreto ADMIN_PIN de loginWithPin).
 
 /**
  * Validates if the user is authorized as an Administrator.
@@ -2065,124 +2051,16 @@ export default function App() {
       setIsLoggingIn(false);
       return;
     } catch (fnErr: any) {
-      // The server path failed. We intentionally fall through to the legacy
-      // client-side flow in ALL cases (not just transport errors):
-      //  - If the function is not deployed yet, legacy keeps the app working.
-      //  - If the function IS deployed but rejects (e.g. the ADMIN_PIN secret
-      //    is unset or differs from the master PIN), the legacy master-admin
-      //    hash check below still lets the administrator in, so a server
-      //    misconfiguration can never fully lock the admin out.
-      // A genuinely wrong PIN simply fails the legacy checks too and shows the
-      // normal "PIN no registrado" message.
+      // El PIN se verifica SOLO en el servidor (nunca en el navegador ni con copias
+      // guardadas en el equipo). Aquí solo se explica por qué no se pudo entrar.
       const code = String(fnErr?.code || '').toLowerCase();
-      console.warn('[pinAuth] server login unavailable, using legacy flow:', code || fnErr?.message);
-    }
-
-    try {
-      // 1. Verificación del PIN Maestro de Administrador mediante hash SHA-256
-      const enteredHash = await computePinSha256(pinInput);
-      if (enteredHash === MASTER_ADMIN_PIN_HASH) {
-        const adminSystemUser: SystemUser = {
-          id: 'admin',
-          name: 'Innova Contratistas',
-          email: PRIMARY_ADMIN_EMAIL,
-          role: 'admin',
-          pin: '',
-          isActive: true,
-          lastLogin: new Date().toLocaleDateString('es-PE') + ' ' + new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
-        };
-
-        safeStorage.setItem('savedUser', adminSystemUser);
-        safeStorage.setItem('innova_sesion_v2', true);
-        safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
-        setUser(adminSystemUser);
-        setCurrentView('dashboard');
-        return;
-      }
-
-      // 2. Consulta de usuarios registrados en 'usuarios'
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('TIMEOUT')), 7000)
-      );
-
-      const task = async () => {
-        const q = query(collection(db, 'usuarios'), where('pin', '==', pinInput));
-        return await getDocs(q);
-      };
-
-      const snapshot = await Promise.race([task(), timeoutPromise]);
-      
-      if (snapshot.empty) {
-        setPinError('PIN no registrado. Verifica la clave asignada.');
-        return;
-      }
-
-      const docSnap = snapshot.docs[0];
-      const userData = { id: docSnap.id, ...docSnap.data() } as SystemUser;
-      if (userData.isActive === false) {
-        setPinError('Este usuario ha sido desactivado. Comuníquese con el administrador.');
-        return;
-      }
-
-      // Update last login in background
-      const now = new Date();
-      const formattedNow = now.toLocaleDateString('es-PE') + ' ' + now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-      setDoc(doc(db, 'usuarios', docSnap.id), {
-        lastLogin: formattedNow,
-        lastLoginTimestamp: Date.now()
-      }, { merge: true }).catch(() => {});
-
-      setUser(userData);
-      safeStorage.setItem('savedUser', userData);
-      safeStorage.setItem('innova_sesion_v2', true);
-      setCurrentView('dashboard');
-    } catch (error: any) {
-      console.warn('Firestore PIN check error, checking local cache fallback:', error);
-      
-      // Fallback a usuarios en caché local si Firebase está en cuota excedida o sin conexión
-      const cachedUsers: SystemUser[] = 
-        safeStorage.getItem<SystemUser[]>('sync_cache_usuarios_admin', []) ||
-        safeStorage.getItem<SystemUser[]>('sync_cache_usuarios_shared', []) ||
-        safeStorage.getItem<SystemUser[]>('usuarios_backup_snapshot_data', []) || [];
-
-      const cachedUser = Array.isArray(cachedUsers) ? cachedUsers.find(u => u.pin === pinInput) : null;
-
-      if (cachedUser) {
-        if (cachedUser.isActive === false) {
-          setPinError('Este usuario ha sido desactivado. Comuníquese con el administrador.');
-          setIsLoggingIn(false);
-          return;
-        }
-
-        if (cachedUser.role === 'admin') {
-          const adminUser: SystemUser = {
-            id: 'admin_master',
-            email: cachedUser.email || PRIMARY_ADMIN_EMAIL,
-            name: cachedUser.name || 'Innova Contratistas',
-            role: 'Administrador',
-            pin: '',
-            isActive: true
-          };
-          setUser(adminUser);
-          safeStorage.setItem('savedUser', { ...cachedUser, role: 'admin' });
-        } else {
-          setUser(cachedUser);
-          safeStorage.setItem('savedUser', cachedUser);
-        }
-
-        setCurrentView('dashboard');
-        return;
-      }
-
-      const errStr = String(error?.message || error);
-      const isQuota = error?.code === 'resource-exhausted' || errStr.toLowerCase().includes('resource-exhausted') || errStr.toLowerCase().includes('quota exceeded');
-      if (isQuota) {
-        setPinError('Límite de cuota diaria de Firebase alcanzado. El Administrador puede ingresar directamente con su PIN Maestro o actualizar al Plan Blaze.');
-      } else if (error?.message === 'TIMEOUT') {
-        setPinError('Tiempo de espera agotado al consultar la base de datos. Verifique su conexión a internet.');
-      } else {
-        setPinError('Error al validar el PIN: ' + (error?.message || 'Intente nuevamente.'));
-      }
+      const msg = String(fnErr?.message || '');
+      if (code.includes('permission-denied')) setPinError(/desactivado/i.test(msg) ? 'Este usuario ha sido desactivado. Comuníquese con el administrador.' : 'PIN no válido. Verifica los 6 dígitos.');
+      else if (code.includes('resource-exhausted')) setPinError('Demasiados intentos. Espera unos minutos y vuelve a intentarlo.');
+      else if (code.includes('invalid-argument')) setPinError('El PIN debe tener exactamente 6 dígitos numéricos.');
+      else if (code.includes('unavailable') || code.includes('deadline') || code.includes('network') || !navigator.onLine) setPinError('Sin conexión con el servidor. Revisa tu internet e inténtalo de nuevo.');
+      else setPinError('No se pudo validar el PIN en este momento. Inténtalo de nuevo en unos segundos.');
+      console.warn('[pinAuth] ingreso rechazado:', code || msg);
     } finally {
       setIsLoggingIn(false);
     }

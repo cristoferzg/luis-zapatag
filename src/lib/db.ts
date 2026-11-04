@@ -1,5 +1,6 @@
 import { collection, deleteDoc, doc, onSnapshot, query, where, setDoc } from 'firebase/firestore';
-import { db, authReady } from './firebase';
+import { db, auth, authReady } from './firebase';
+import { onIdTokenChanged } from 'firebase/auth';
 import { handleFirestoreError } from './firebaseErrors';
 import { safeStorage } from './storageManager';
 import { useState, useEffect, useRef } from 'react';
@@ -25,16 +26,29 @@ export const subscribeToCollection = <T>(
     ? `sync_cache_${collectionName}_${userId || 'shared'}`
     : `sync_cache_${collectionName}_${isAdmin ? 'admin' : (isGlobal ? 'global' : (userId || 'shared'))}`;
   
+  // La lista de usuarios (con sus PIN) es solo del administrador: los demás equipos no la
+  // piden y se borra cualquier copia que haya quedado guardada de versiones anteriores.
+  if (collectionName === 'usuarios' && !isAdmin) {
+    ['sync_cache_usuarios_global', 'sync_cache_usuarios_shared', 'sync_cache_usuarios_admin', 'usuarios_backup_snapshot_data', cacheKey]
+      .forEach(k => { try { safeStorage.removeItem(k); } catch { /* nada */ } });
+    callback([]);
+    return () => {};
+  }
+
   // Try subscribing, fall back to safeStorage cache if it fails (e.g. Quota exceeded)
   try {
-    // Match multiple possible format variants for userId (e.g. 'user_123', '123', 'shared')
-    const userIdsToMatch = userId 
-      ? Array.from(new Set([userId, userId.replace(/^user_/, ''), 'user_' + userId.replace(/^user_/, ''), 'shared'])).filter(Boolean)
+    // Variantes del dueño ('user_123' o '123'). Las reglas solo dejan leer lo propio,
+    // así que un usuario no pide registros "shared" (eran de versiones antiguas).
+    const base = (userId || '').replace(/^user_/, '');
+    const userIdsToMatch = userId
+      ? Array.from(new Set([userId, base, 'user_' + base, ...(isAdmin ? ['shared'] : [])])).filter(Boolean)
       : ['shared'];
+    // Tickets y asesorías: cada usuario ve solo los suyos (el admin, todos).
+    const soloPropios = !isAdmin && (isPrivateCollection || ['tickets', 'asesorias'].includes(collectionName));
 
-    const q = (isGlobal || isAdmin)
-      ? collection(db, collectionName)
-      : query(collection(db, collectionName), where("userId", "in", userIdsToMatch));
+    const q = soloPropios || (!isGlobal && !isAdmin)
+      ? query(collection(db, collectionName), where("userId", "in", userIdsToMatch))
+      : collection(db, collectionName);
     
     return onSnapshot(q, (snapshot) => {
       const remoteItems = snapshot.docs.map(doc => ({
@@ -288,6 +302,15 @@ export const deleteRecord = async (collectionName: string, id: string) => {
   }
 };
 
+// Sesión con PIN actual ('' si no hay o es anónima). Los listeners se abren solo con
+// sesión con PIN (las reglas no dejan leer sin ella) y se reabren al entrar o salir.
+function useSesionConPin(): string {
+  const conPin = () => { const u = auth.currentUser; return u && !u.isAnonymous ? u.uid : ''; };
+  const [sesion, setSesion] = useState(conPin);
+  useEffect(() => onIdTokenChanged(auth, u => setSesion(u && !u.isAnonymous ? u.uid : '')), []);
+  return sesion;
+}
+
 export function useFirestoreArraySync<T extends {id: string}>(
   collectionName: string, 
   userId: string | undefined, 
@@ -340,6 +363,7 @@ export function useFirestoreArraySync<T extends {id: string}>(
 
   const currentDataRef = useRef<T[]>(data);
   currentDataRef.current = data;
+  const sesion = useSesionConPin();
 
   useEffect(() => {
     // If not authenticated and not global and not admin, do not leak admin data
@@ -365,6 +389,8 @@ export function useFirestoreArraySync<T extends {id: string}>(
     let cancelled = false;
     authReady.then(() => {
       if (cancelled) return;
+      // Sin PIN (pantalla de ingreso o sesión anónima antigua) se queda lo guardado en el equipo.
+      if (!sesion) return;
       unsubscribe = subscribeToCollection<T>(collectionName, userId, (freshItems) => {
         setData(freshItems);
       }, isGlobal, isAdmin);
@@ -374,7 +400,7 @@ export function useFirestoreArraySync<T extends {id: string}>(
       cancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [collectionName, userId, isGlobal, isAdmin, cacheKey]);
+  }, [collectionName, userId, isGlobal, isAdmin, cacheKey, sesion]);
 
   const updateData: React.Dispatch<React.SetStateAction<T[]>> = (action) => {
     setData((prev) => {

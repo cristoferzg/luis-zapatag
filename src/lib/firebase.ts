@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, setLogLevel, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getAuth, Auth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth, Auth, signInAnonymously, onAuthStateChanged, connectAuthEmulator } from 'firebase/auth';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 import config from '../../firebase-applet-config.json';
 
@@ -32,6 +33,14 @@ export const db: Firestore = (targetDbId && targetDbId !== '(default)')
 
 export const auth: Auth = getAuth(app);
 export const storage: FirebaseStorage = getStorage(app);
+
+// Solo en el servidor local de pruebas (`VITE_EMULADORES=1 npx vite`): todo va a los
+// emuladores de Firebase (base, ingreso y funciones). Nunca entra en la versión publicada.
+if (import.meta.env.DEV && import.meta.env.VITE_EMULADORES === '1') {
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFunctionsEmulator(getFunctions(app, 'us-central1'), '127.0.0.1', 5001);
+}
 
 /**
  * Ensures there is always a Firebase Auth session (anonymous) so that every

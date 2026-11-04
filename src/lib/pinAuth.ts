@@ -1,15 +1,7 @@
 /**
- * Client helper for Option B (server-side PIN auth).
- *
- * This IS now wired into handlePinLogin in App.tsx as the preferred login path,
- * with a safe fallback: if the Cloud Function is not deployed yet, login falls
- * back to the legacy client-side flow, so the app works before and after the
- * phase-3 rollout. See SECURITY.md.
- *
- * Why: today the browser queries the `usuarios` collection and compares PINs,
- * which requires that collection to be readable by clients and exposes every
- * PIN. With this flow the PIN is verified on the server; the client only
- * receives a signed custom token and signs in with it.
+ * Ingreso por PIN verificado en el servidor (Cloud Function `loginWithPin`).
+ * El navegador nunca lee la lista de usuarios ni compara PIN: recibe un token firmado
+ * con { role, workspace } y entra con él. Si el servidor no responde, no se entra.
  */
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { signInWithCustomToken } from 'firebase/auth';

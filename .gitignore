@@ -33,3 +33,5 @@ functions/node_modules/
 # Media artifacts (tutoriales/capturas generadas, no son código)
 *.mp4
 *.webm
+functions/.secret.local
+seguridad/node_modules

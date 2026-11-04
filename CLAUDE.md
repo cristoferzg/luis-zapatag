@@ -64,3 +64,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Flujo al publicar: desplegar hosting, subir la app nueva a Play, y luego el admin pulsa
   "Avisar a todos que actualicen" (también publica un comunicado → push).
 - Simulación solo en DEV: `window.__descargasSimuladas` (incluirlo en el grep del dist).
+
+## Seguridad (reglas por usuario)
+- `firestore.rules`: cada usuario solo lo suyo (`userId` / `authorUid`); contenido del sistema
+  solo admin; sin PIN (sesión anónima) no se lee nada. Ver `SECURITY.md`.
+- El PIN se valida SOLO en `loginWithPin` (bloqueo tras 5 fallos). No volver a poner hashes de
+  PIN ni ingresos de respaldo en el cliente. Los listeners se abren solo con sesión con PIN.
+- Pruebas: `cd seguridad && npm test` (reglas) y `npm run test:app` (app + emuladores;
+  `VITE_EMULADORES=1` solo en DEV). Correrlas antes de publicar cambios de reglas o de datos.

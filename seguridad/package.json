@@ -1,0 +1,18 @@
+{
+  "name": "innova-seguridad",
+  "version": "1.0.0",
+  "description": "Pruebas de seguridad (reglas + app contra emuladores). No tocan la base real.",
+  "scripts": {
+    "test": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy npx firebase emulators:exec --only firestore --project demo-innova \"node seguridad/reglas.test.mjs\"",
+    "test:app": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy npx firebase emulators:exec --only firestore,auth,functions --project innovacontratistas-434d2 \"bash seguridad/e2e.sh\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.10.0"
+  },
+  "private": true,
+  "type": "module"
+}

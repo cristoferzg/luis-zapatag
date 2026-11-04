@@ -56,6 +56,33 @@ const secretsEqual = (a, b) => {
  * loginWithPin({ pin }) -> { token, role, workspace, name }
  * The client then calls signInWithCustomToken(token).
  */
+// Límite de intentos: con 5 PIN equivocados seguidos desde la misma conexión, se bloquea
+// 15 minutos (un PIN de 6 dígitos no se puede adivinar probando). Se guarda en
+// `login_intentos/<huella de la IP>` (sin regla de cliente: solo lo usa el servidor).
+const MAX_FALLOS = 5;
+const BLOQUEO_MS = 15 * 60 * 1000;
+function ipDe(request) {
+  const raw = request.rawRequest || {};
+  const fwd = String(raw.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
+  return fwd || raw.ip || 'desconocida';
+}
+const refIntentos = (request) => db.collection('login_intentos').doc(createHash('sha256').update('innova:' + ipDe(request)).digest('hex').slice(0, 40));
+async function revisarBloqueo(ref) {
+  const s = await ref.get();
+  const d = s.exists ? s.data() : null;
+  if (d && d.fallos >= MAX_FALLOS && Date.now() - (d.ultimo || 0) < BLOQUEO_MS) {
+    throw new HttpsError('resource-exhausted', 'Demasiados intentos. Espera unos minutos.');
+  }
+}
+async function anotarFallo(ref) {
+  await db.runTransaction(async (tx) => {
+    const s = await tx.get(ref);
+    const d = s.exists ? s.data() : { fallos: 0, ultimo: 0 };
+    const reinicia = Date.now() - (d.ultimo || 0) >= BLOQUEO_MS;
+    tx.set(ref, { fallos: (reinicia ? 0 : d.fallos || 0) + 1, ultimo: Date.now() });
+  });
+}
+
 export const loginWithPin = onCall(
   { secrets: ['ADMIN_PIN'], region: 'us-central1', cors: true },
   async (request) => {
@@ -64,10 +91,13 @@ export const loginWithPin = onCall(
     if (!/^\d{6}$/.test(pin)) {
       throw new HttpsError('invalid-argument', 'El PIN debe tener 6 dígitos.');
     }
+    const intentos = refIntentos(request);
+    await revisarBloqueo(intentos);
 
     // 1) Master administrator PIN (stored as a server secret, never in the bundle).
     const adminPin = process.env.ADMIN_PIN || '';
     if (adminPin && secretsEqual(pin, adminPin)) {
+      await intentos.delete().catch(() => {});
       const claims = { role: 'admin', workspace: 'admin' };
       const token = await getAuth().createCustomToken('admin', claims);
       return { token, role: 'admin', workspace: 'admin', name: 'Innova Contratistas' };
@@ -77,6 +107,7 @@ export const loginWithPin = onCall(
     //    read access to this collection.
     const snap = await db.collection('usuarios').where('pin', '==', pin).limit(1).get();
     if (snap.empty) {
+      await anotarFallo(intentos).catch(() => {});
       // Generic message — do not reveal whether a PIN exists.
       throw new HttpsError('permission-denied', 'PIN no válido.');
     }
@@ -105,6 +136,7 @@ export const loginWithPin = onCall(
       );
     } catch (_) { /* ignore */ }
 
+    await intentos.delete().catch(() => {});
     const token = await getAuth().createCustomToken(uid, { role, workspace });
     return { token, role, workspace, name: data.name || 'Usuario' };
   }
