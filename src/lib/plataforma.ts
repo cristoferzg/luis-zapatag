@@ -8,7 +8,8 @@ export const esAppAndroid = (): boolean => Capacitor.isNativePlatform();
 // Interruptor del admin (config_ia/planes.comprasEnApp): la app que se reparte como APK
 // (fuera de Play Store) SÍ puede vender por WhatsApp/Yape. Si algún día la app se publica
 // en Play Store, se apaga desde Configuración → Planes y créditos, sin recompilar.
-let _comprasEnApp = true;
+// Por seguridad con Google Play: apagado salvo que el admin lo encienda explícitamente.
+let _comprasEnApp = false;
 export const fijarComprasEnApp = (v: boolean) => { _comprasEnApp = v; };
 export const comprasEnAppActivas = () => _comprasEnApp;
 export const comprasPermitidas = (): boolean => !esAppAndroid() || _comprasEnApp;

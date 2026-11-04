@@ -1710,6 +1710,8 @@ export default function App() {
   // Membresía y contador de créditos: solo si la IA está abierta a usuarios (el admin siempre).
   const conMembresia = !!user && (isAdmin || iaUsuarios);
   const { saldo: saldoIA } = useSaldoIA(conMembresia);
+  // Botón de créditos: abre Membresía y baja a los planes (también si ya se está ahí).
+  const irAPlanes = () => { setCurrentView('membresia'); setTimeout(() => document.getElementById('planes-ia')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350); };
   useEffect(() => {
     if (!user) return;
     cargarEstadoIA().then(v => {
@@ -2788,7 +2790,7 @@ export default function App() {
                       </p>
                     </div>
                     {conMembresia && saldoIA && !saldoIA.ilimitado && (
-                      <button onClick={() => { setCurrentView('membresia'); setIsMobileMenuOpen(false); }} title="Tus créditos Premium"
+                      <button onClick={() => { irAPlanes(); setIsMobileMenuOpen(false); }} title="Tus créditos Premium"
                         className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[10px] font-black cursor-pointer hover:bg-amber-400/25">
                         <Coins className="w-3 h-3" />{saldoIA.total.toLocaleString('es-PE')} créditos · {saldoIA.planId === 'gratis' ? 'Gratis' : saldoIA.planNombre}
                       </button>
@@ -2837,7 +2839,7 @@ export default function App() {
               <p className="text-[11px] leading-tight text-slate-500 truncate">{currentSettings.appName}{isAdmin ? ' · Admin' : user?.name && user.name !== currentSettings.appName ? ` · ${user.name}` : ''}</p>
             </div>
             {conMembresia && saldoIA && !saldoIA.ilimitado && (
-              <button onClick={() => { tocar(); setCurrentView('membresia'); }} title="Tus créditos Premium"
+              <button onClick={() => { tocar(); irAPlanes(); }} title="Tus créditos Premium"
                 className="shrink-0 inline-flex items-center gap-1 px-3 h-9 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-black cursor-pointer">
                 <Coins className="w-4 h-4 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')}
               </button>
@@ -2873,7 +2875,7 @@ export default function App() {
                </div>
              </div>
              {conMembresia && saldoIA && !saldoIA.ilimitado && (
-               <button onClick={() => setCurrentView('membresia')} title="Tus créditos Premium"
+               <button onClick={irAPlanes} title="Tus créditos Premium"
                  className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-black cursor-pointer">
                  <Coins className="w-3.5 h-3.5 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')}
                </button>

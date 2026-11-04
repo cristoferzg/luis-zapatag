@@ -8,6 +8,7 @@ import { Crown, Infinity as InfinityIcon, Coins, CheckCircle2, Sparkles, ScanLin
 import { useSaldoIA } from '../lib/saldoIA';
 import { COSTO_CREDITOS } from '../lib/aiAccess';
 import { comprasIAPermitidas } from '../lib/plataforma';
+import { usaGooglePlay } from '../lib/pagosPlay';
 import { PlanesIAContenido } from './PlanesIAModal';
 
 const fecha = (iso?: string) => iso ? new Date(iso).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
@@ -105,14 +106,15 @@ export default function MembresiaView({ isAdmin }: { isAdmin: boolean }) {
             </div>
           ))}
         </div>
-        {!comprasIAPermitidas() && <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5"><Zap className="w-4 h-4" />Para comprar un plan o una recarga entra desde la web (navegador). En la app ves tu saldo y lo usas igual.</p>}
+        {/* En la app de Google Play no se puede mandar a pagar fuera de Play (ni mencionarlo). */}
+        {!comprasIAPermitidas() && <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5"><Zap className="w-4 h-4" />Tu saldo se ve y se usa igual en el celular y en la computadora.</p>}
       </div>
 
       {/* Planes y recargas */}
-      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div id="planes-ia" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="px-5 sm:px-6 pt-5">
-          <p className="text-base font-black text-slate-900">{conPlan ? 'Renueva, sube de plan o recarga' : 'Elige tu plan Premium'}</p>
-          <p className="text-xs text-slate-500">Eliges aquí y coordinas el pago con el administrador por WhatsApp; al validarlo, tus créditos se cargan solos.{isAdmin ? ' (Vista previa: como admin no se crea ninguna compra si no eliges.)' : ''}</p>
+          <p className="text-base font-black text-slate-900">{!comprasIAPermitidas() ? 'Cuánto cuesta cada función' : conPlan ? 'Renueva, sube de plan o recarga' : 'Elige tu plan Premium'}</p>
+          {comprasIAPermitidas() && <p className="text-xs text-slate-500">{usaGooglePlay() ? 'Pagas con Google Play y tus créditos se cargan solos.' : 'Eliges aquí y coordinas el pago con el administrador por WhatsApp; al validarlo, tus créditos se cargan solos.'}{isAdmin ? ' (Vista previa: como admin no se crea ninguna compra si no eliges.)' : ''}</p>}
         </div>
         <PlanesIAContenido sinSaldo className="p-5 sm:p-6 space-y-4" />
       </div>

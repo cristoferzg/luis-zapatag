@@ -68,7 +68,7 @@ export async function cargarEstadoIA(): Promise<boolean> {
   try {
     const s = await getDoc(doc(db, 'config_ia', 'planes'));
     _habilitadaUsuarios = s.exists() && (s.data() as any)?.habilitadaUsuarios === true;
-    fijarComprasEnApp(!(s.exists() && (s.data() as any)?.comprasEnApp === false));
+    fijarComprasEnApp(s.exists() && (s.data() as any)?.comprasEnApp === true);
     fijarPagosPlay(s.exists() && (s.data() as any)?.pagosGooglePlay === true);
   } catch { _habilitadaUsuarios = false; }
   return _habilitadaUsuarios;
