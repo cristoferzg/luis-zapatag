@@ -1245,7 +1245,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   void histVer; // re-render al cambiar el historial
 
   return (
-    <div className="lg:w-full h-full flex flex-col bg-slate-50 max-lg:-mx-4 max-lg:pb-12">
+    <div className="w-full h-full flex flex-col bg-slate-50 max-lg:pb-12">
       {/* Estructura de Techos vinculada */}
       <div className="max-sm:hidden flex items-center gap-2 px-2 py-1.5 lg:py-2 bg-white border-b border-slate-100 max-lg:flex-nowrap max-lg:overflow-x-auto max-lg:whitespace-nowrap lg:flex-wrap [&>*]:shrink-0">
         <span className="text-[11px] font-bold text-slate-500"><span className="lg:hidden">Techo</span><span className="hidden lg:inline">Estructura (Techos Metálicos)</span></span>

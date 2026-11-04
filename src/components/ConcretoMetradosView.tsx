@@ -363,13 +363,13 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   };
 
   const ModoToggle = (
-    <div className="inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+    <div className="flex w-full lg:w-auto lg:inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
       <button onClick={() => setModo('lista')}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${modo === 'lista' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+        className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'lista' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
         <List className="w-3.5 h-3.5" /> Lista
       </button>
       <button onClick={() => setModo('cad')}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${modo === 'cad' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+        className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'cad' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
         <PenTool className="w-3.5 h-3.5 text-stone-500" /> Plano CAD
       </button>
     </div>
@@ -379,8 +379,9 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   if (modo === 'cad') {
     return (
       <div className="w-full h-full flex flex-col bg-slate-50 font-sans">
-        <div className="oculto-en-dibujo flex items-center justify-between gap-2 lg:gap-3 px-2 lg:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
-          <div className="flex items-center gap-2 lg:gap-2.5 min-w-0">
+        <div className="oculto-en-dibujo flex items-center justify-center lg:justify-between gap-2 lg:gap-3 px-2 lg:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
+          {/* En el celular el título ya está en la barra superior: solo en PC. */}
+          <div className="hidden lg:flex items-center gap-2 lg:gap-2.5 min-w-0">
             <div className="p-1.5 lg:p-2 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
               <Box className="w-4 h-4 lg:w-5 lg:h-5" />
             </div>
@@ -402,7 +403,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-5 font-sans">
       {/* Cabecera */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3 titulo-pagina">
+        <div className="hidden lg:flex items-center gap-3 titulo-pagina">
           <div className="p-2.5 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
             <Box className="w-6 h-6" />
           </div>
@@ -411,7 +412,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
             <p className="text-xs text-slate-500">Agrega elementos, pon medidas y obtén concreto, acero, encofrado y costo.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2 lg:shrink-0 flex-wrap">
           {ModoToggle}
           <button onClick={() => setShowPrecios(s => !s)} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer flex items-center gap-1.5">
             <Calculator className="w-4 h-4" /> Precios

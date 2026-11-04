@@ -70,22 +70,23 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
     { id: 'presupuesto', label: 'Presupuesto', corto: 'Presupuesto', icon: ClipboardList },
   ];
   const Cabecera = (
-    <div className="oculto-en-dibujo flex flex-row items-center justify-between gap-2 lg:gap-3 px-2 sm:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
-      <div className="flex items-center gap-2 lg:gap-2.5 min-w-0">
+    <div className="oculto-en-dibujo flex flex-row items-center justify-center lg:justify-between gap-2 lg:gap-3 px-2 sm:px-4 py-1.5 lg:py-3 bg-white border-b border-slate-200">
+      {/* En el celular el título ya está en la barra superior: solo en PC. */}
+      <div className="hidden lg:flex items-center gap-2 lg:gap-2.5 min-w-0">
         <div className="p-1.5 lg:p-2 rounded-xl bg-violet-500/10 text-violet-600"><PanelsTopLeft className="w-4 h-4 lg:w-5 lg:h-5" /></div>
         <div className="min-w-0">
           <h2 className="text-sm font-black text-slate-900 uppercase leading-tight">Drywall</h2>
           <p className="hidden lg:block text-[11px] text-slate-500">Cotiza tabiques, cielos rasos y cenefas en minutos; mira cada muro de frente con sus planchas.</p>
         </div>
       </div>
-      <div className="inline-flex p-0.5 lg:p-1 bg-slate-100 rounded-xl gap-0.5 shrink-0">
+      <div className="flex w-full lg:w-auto lg:inline-flex p-0.5 lg:p-1 bg-slate-100 rounded-xl gap-0.5 lg:shrink-0">
         {tabs.map(t => {
           const Ic = t.icon;
           return (
             <button key={t.id} onClick={() => setPestana(t.id)}
               title={t.label}
-              className={`inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold cursor-pointer ${pestana === t.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
-              <Ic className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-violet-500" /> <span className="hidden lg:inline">{t.label}</span>{pestana === t.id && <span className="lg:hidden">{t.corto}</span>}
+              className={`flex-1 lg:flex-none min-w-0 flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1.5 px-1 lg:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold cursor-pointer ${pestana === t.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
+              <Ic className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-violet-500" /> <span className="hidden lg:inline">{t.label}</span><span className="lg:hidden truncate max-w-full">{t.corto}</span>
             </button>
           );
         })}

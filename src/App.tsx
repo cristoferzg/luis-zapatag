@@ -3043,7 +3043,7 @@ export default function App() {
           </div>
         )}
         {currentView !== 'designer' && currentView !== 'calculator' && (
-          <main className={(currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : currentView === 'concreto' || currentView === 'drywall' ? "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 lg:p-0 scroll-smooth" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth") + (fabActual ? ' pb-28 xl:pb-8' : '')}>
+          <main className={(currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : currentView === 'concreto' || currentView === 'drywall' ? "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-0 scroll-smooth" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth") + (fabActual ? ' pb-28 xl:pb-8' : '')}>
             {/* Obra Civil y Drywall: lienzo a todo el ancho, como Techos Metálicos */}
             <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' || currentView === 'concreto' || currentView === 'drywall' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
               <EmpresaProvider value={empresaCtx}><Suspense fallback={cargandoModulo}>{renderView()}</Suspense></EmpresaProvider>
