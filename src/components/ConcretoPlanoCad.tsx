@@ -1597,7 +1597,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               </pattern>
             </defs>
             <g id={idDibujo}>
-            <rect width="100%" height="100%" fill="url(#pc-grid)" />
+            <rect x={0} y={0} width={dims.w || 4000} height={dims.h || 4000} fill="url(#pc-grid)" />
             {/* ejes */}
             <line x1={0} y1={cy} x2={dims.w} y2={cy} stroke="#cbd5e1" strokeWidth="1.5" />
             <line x1={cx} y1={0} x2={cx} y2={dims.h} stroke="#cbd5e1" strokeWidth="1.5" />
