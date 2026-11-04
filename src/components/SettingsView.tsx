@@ -5,7 +5,7 @@ import {
   Building2, CreditCard, Save, Download, 
   Upload, Image as ImageIcon, Trash2, 
   ShieldCheck, Phone, Mail, MapPin, Landmark,
-  Sparkles, Check, Smartphone, Monitor, Apple, ShieldAlert,
+  Sparkles, Check, Smartphone, Apple, ShieldAlert,
   CheckCircle, Bell, FileSignature, Globe, Coins
 } from 'lucide-react';
 import { WORLD_CURRENCIES, getCompanyCurrency, saveCompanyCurrency } from '../lib/currency';
@@ -19,6 +19,7 @@ import { StorageAuditPanel } from './common/StorageAuditPanel';
 import PlanesIAAdminPanel from './PlanesIAAdminPanel';
 import MisCreditosCard from './MisCreditosCard';
 import { esAppAndroid } from '../lib/plataforma';
+import DescargasAppPanel from './DescargasAppPanel';
 import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -169,18 +170,6 @@ export default function SettingsView({
   }, [firmaDatos, isAdmin, activeUid, currentUserName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [savedSuccess, setSavedSuccess] = useState(false);
-
-  const [exeUrl, setExeUrl] = useState(() => safeStorage.getItem('innova_exe_url', ''));
-  const [inputExeUrl, setInputExeUrl] = useState(exeUrl);
-  const [exeSavedSuccess, setExeSavedSuccess] = useState(false);
-
-  const handleSaveExeUrl = (e: React.FormEvent) => {
-    e.preventDefault();
-    safeStorage.setItem('innova_exe_url', inputExeUrl.trim());
-    setExeUrl(inputExeUrl.trim());
-    setExeSavedSuccess(true);
-    setTimeout(() => setExeSavedSuccess(false), 2500);
-  };
 
   const compressAndReadLogo = (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -1348,6 +1337,12 @@ export default function SettingsView({
         </div>
       </div>
 
+      {/* Descargar la app: enlaces (admin), aviso de versión nueva y recordatorios */}
+      <DescargasAppPanel isAdmin={isAdmin} onAvisar={setGlobalNotifs ? (title, message) => {
+        const ahora = Date.now();
+        setGlobalNotifs([...(globalNotifs || []), { id: `ver_${ahora}`, title, message, date: new Date(ahora).toLocaleString('es-PE'), createdAtTimestamp: ahora, priority: 'important', author: currentUserName || 'Administración', durationHours: 72, expiresAtTimestamp: ahora + 72 * 3600e3 }]);
+      } : undefined} />
+
       {/* Apartado de Aplicación Móvil y PC (.exe) — no aplica dentro de la app Android */}
       {!esAppAndroid() && (
       <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
@@ -1358,77 +1353,13 @@ export default function SettingsView({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-800">
-                Aplicación Móvil (Android / iOS) y PC (.exe)
+                Instalar desde el navegador
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Instala la plataforma de forma nativa en tu teléfono inteligente, tablet o computadora personal.
+                Sin descargar nada: agrégala a tu pantalla de inicio desde Chrome o Safari.
               </p>
             </div>
           </div>
-        </div>
-
-        {/* Direct .exe Download Card / Admin Panel */}
-        <div className="bg-white rounded-2xl p-4 sm:p-6 space-y-4 shadow-sm border border-slate-200 overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start sm:items-center space-x-3">
-              <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 shrink-0 mt-0.5 sm:mt-0">
-                <Monitor className="w-6 h-6" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-bold text-sm sm:text-base leading-snug text-slate-900">Descargar Archivo Ejecutable `.exe` para PC Windows</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Instalador directo de escritorio para ejecutar la plataforma sin navegador</p>
-              </div>
-            </div>
-            {exeUrl ? (
-              <a
-                href={exeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full sm:w-auto px-5 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-2 shrink-0"
-              >
-                <Download className="w-4 h-4" />
-                <span>Descargar Instalador .exe</span>
-              </a>
-            ) : (
-              <div className="w-full sm:w-auto text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3.5 py-2.5 rounded-xl text-center sm:text-left shrink-0">
-                {isAdmin ? '⚠️ Aún no has configurado el enlace del .exe abajo' : '⚠️ El administrador publicará el .exe próximamente'}
-              </div>
-            )}
-          </div>
-
-          {isAdmin && (
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 mt-2">
-              <div className="flex items-center gap-2 text-slate-500 font-bold text-xs uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-slate-400 shrink-0" />
-                <span>Panel de Administrador: Configurar / Subir Enlace del .exe</span>
-              </div>
-              <form onSubmit={handleSaveExeUrl} className="space-y-2">
-                <label className="block text-[11px] text-slate-500">
-                  Pega la URL de descarga directa de tu archivo `.exe` (Google Drive, OneDrive, Mega, GitHub, etc.):
-                </label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="url"
-                    value={inputExeUrl}
-                    onChange={e => setInputExeUrl(e.target.value)}
-                    placeholder="https://ejemplo.com/InnovaContratistas-Setup.exe"
-                    className="w-full sm:flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400 min-w-0"
-                  />
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shrink-0 flex items-center justify-center"
-                  >
-                    Guardar Enlace
-                  </button>
-                </div>
-              </form>
-              {exeSavedSuccess && (
-                <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                  <Check className="w-3 h-3" /> ¡Enlace del .exe guardado y listo para todos los usuarios!
-                </p>
-              )}
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -1,3 +1,4 @@
+import AvisoVersionApp from './components/AvisoVersionApp';
 import type { TechosDelProyecto } from './types';
 import { conAcuerdo } from './lib/acuerdoTechos';
 import { useCatalogo, migrarPreciosAntiguos, hidratarCatalogo, EstadoCatalogo } from './lib/catalogoPrecios';
@@ -3071,6 +3072,8 @@ export default function App() {
         <BotonMasFlotante key={currentView} label={fabActual.label} revisar={!(fabActual.ir && fabActual.ir !== currentView)}
           objetivo={() => objetivoFab(fabActual)} onClick={() => { tocar(); ejecutarFab(); }} />
       )}
+      {/* Versión nueva (actualizar al entrar) y recordatorio de instalar la app */}
+      <AvisoVersionApp sinRecordatorio={isAdmin} />
       <OfflineIndicator />
       {activeUid && <InvitacionAvisos pausado={!!(sesionLimitada && !renovar.oculto)} />}
     </div>

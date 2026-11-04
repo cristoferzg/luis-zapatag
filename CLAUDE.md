@@ -56,3 +56,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Asesorías y reportes del chat se guardan también en `asesorias` / `tickets` (sus avisos y su
   gestión siguen igual; el admin los gestiona en la pestaña "Asesorías y reportes").
 - Push del chat: `avisoSoporte` (trigger). Compras en la app: `config_ia/planes.comprasEnApp`.
+
+## Descargas de la app y versión nueva
+- `config_ia/descargas` (`src/lib/appDescargas.ts`): enlaces Android/PC/iPhone con `activo`,
+  `recordatorioDias` y `ultima {fecha (= __BUILD__), nota, obligatoria}`. Panel en Configuración
+  (`DescargasAppPanel`); aviso al entrar y recordatorio en `AvisoVersionApp` (montado en App).
+- Flujo al publicar: desplegar hosting, subir la app nueva a Play, y luego el admin pulsa
+  "Avisar a todos que actualicen" (también publica un comunicado → push).
+- Simulación solo en DEV: `window.__descargasSimuladas` (incluirlo en el grep del dist).
