@@ -69,6 +69,38 @@ console.log('\nAdministrador (PIN de prueba)');
   await s.ctx.close();
 }
 
+console.log('\nMismo equipo, otra persona: el trabajo no se comparte');
+{
+  const ctx = await b.newContext({ viewport: { width: 1280, height: 860 } });
+  const p = await ctx.newPage();
+  await p.addInitScript(() => { localStorage.setItem('innova_notif_preguntado', '1'); localStorage.setItem('innova_recordatorio_app', String(Date.now())); });
+  const entrar = async (pin) => {
+    await p.goto(URL); await p.waitForTimeout(3000);
+    await p.locator('input').first().fill(pin);
+    await p.getByRole('button', { name: /ingresar/i }).click();
+    await p.getByText('Panel Principal').first().waitFor({ timeout: 40000 }); await p.waitForTimeout(2000);
+    for (let i = 0; i < 3; i++) { const n = p.getByRole('button', { name: 'Ahora no' }); if (await n.count()) await n.first().click().catch(() => {}); await p.waitForTimeout(300); }
+  };
+  const salir = async () => { await p.locator('button[title="Cerrar Sesión"]').first().click(); await p.waitForTimeout(1500); };
+  const enTechos = async () => { await p.evaluate(() => window.dispatchEvent(new CustomEvent('innova_navigate_tab', { detail: 'techos' }))); await p.waitForTimeout(3000); return p.evaluate(() => ({ nombre: localStorage.getItem('innova_techos_nombre_actual') || '', nodos: Object.keys((JSON.parse(localStorage.getItem('innova_techos_escena_actual') || '{}').nodes) || {}).length })); };
+  await entrar('135790');
+  await p.evaluate(() => {
+    localStorage.setItem('innova_techos_nombre_actual', JSON.stringify('Techo del Admin'));
+    localStorage.setItem('innova_techos_escena_actual', JSON.stringify({ nodes: { n1: { id: 'n1', x: 0, y: 3, z: 0 }, n2: { id: 'n2', x: 6, y: 3, z: 0 } }, segments: { s1: { id: 's1', start: 'n1', end: 'n2', type: 'viga_principal' } }, coverageZones: {} }));
+  });
+  await salir();
+  await entrar('111111');
+  const a = await enTechos();
+  check('Otro usuario en el mismo equipo NO ve el techo del admin', !a.nombre.includes('Techo del Admin'), JSON.stringify(a));
+  check('El área de Techos empieza en blanco para quien entra', a.nodos === 0, JSON.stringify(a));
+  await p.screenshot({ path: `${OUT}/e2e_techos_blanco.png` });
+  await salir();
+  await entrar('135790');
+  const ad = await p.evaluate(() => localStorage.getItem('innova_techos_nombre_actual') || '');
+  check('El admin recupera su trabajo al volver a entrar', ad.includes('Techo del Admin'), ad);
+  await ctx.close();
+}
+
 console.log('\nIntentos fallidos');
 {
   const ctx = await b.newContext({ viewport: { width: 1280, height: 860 } });

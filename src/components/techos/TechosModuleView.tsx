@@ -502,7 +502,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // Estado Central del Motor CAD Paramétrico (PROJECT_MODEL)
   const engineState = useTechosCadEngineState();
 
-  const [nombreProyecto, setNombreProyecto] = useState<string>(() => safeStorage.getItem<string>('innova_techos_nombre_actual', 'Nave Industrial Estructural') || 'Nave Industrial Estructural');
+  const [nombreProyecto, setNombreProyecto] = useState<string>(() => safeStorage.getItem<string>('innova_techos_nombre_actual', 'Nuevo Techo Estructural') || 'Nuevo Techo Estructural');
   useEffect(() => { safeStorage.setItem('innova_techos_nombre_actual', nombreProyecto); }, [nombreProyecto]);
   const [activeTab, setActiveTab] = useState<TechosTab>('cad');
   const [isOpenMobileToolbox, setIsOpenMobileToolbox] = useState<boolean>(false);

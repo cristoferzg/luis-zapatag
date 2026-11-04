@@ -178,7 +178,7 @@ export interface UseTechosCadEngineReturn {
 }
 
 // Generador de estructura por defecto inicial para evitar plano 2D o 3D en blanco
-function buildDefaultInitialRoof(): { nodes: Record<string, Node3D>; segments: Record<string, Segment3D> } {
+export function buildDefaultInitialRoof(): { nodes: Record<string, Node3D>; segments: Record<string, Segment3D> } {
   const newNodes: Record<string, Node3D> = {};
   const newSegs: Record<string, Segment3D> = {};
   const luzM = 12;
@@ -333,7 +333,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   const initData = escenaGuardada && Object.keys(escenaGuardada.nodes || {}).length && (!initialNodes || Object.keys(initialNodes).length === 0)
     ? { nodes: escenaGuardada.nodes, segments: escenaGuardada.segments || {} }
     : (!initialNodes || Object.keys(initialNodes).length === 0)
-      ? buildDefaultInitialRoof()
+      ? { nodes: {} as Record<string, Node3D>, segments: {} as Record<string, Segment3D> } // empieza en blanco
       : { nodes: initialNodes, segments: initialSegments || {} };
 
   const defaultNodes: Record<string, Node3D> = initData.nodes;

@@ -17,6 +17,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 import { auth, authReady } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
+import { cambiarEspacioDeTrabajo, fijarDuenoSiFalta } from './lib/espacioUsuario';
 import { useFirestoreArraySync } from './lib/db';
 import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
 import { useSaldoIA } from './lib/saldoIA';
@@ -1577,7 +1578,9 @@ function BotonMasFlotante({ label, objetivo, revisar, onClick }: { label: string
 
 export default function App() {
   const [user, setUser] = useState<SystemUser | null>(() => {
-    return safeStorage.getItem<SystemUser | null>('savedUser', null);
+    const guardado = safeStorage.getItem<SystemUser | null>('savedUser', null);
+    fijarDuenoSiFalta(guardado?.id);
+    return guardado;
   });
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
@@ -2041,9 +2044,13 @@ export default function App() {
       const sessionUser: SystemUser = result.role === 'admin'
         ? { id: 'admin', name: result.name || 'Innova Contratistas', email: PRIMARY_ADMIN_EMAIL, role: 'admin', pin: '', isActive: true, lastLogin: nowStr }
         : { id: result.workspace.replace(/^user_/, ''), name: result.name || 'Usuario', role: 'user', pin: '', isActive: true, lastLogin: nowStr };
-      setUser(sessionUser);
+      // Si en este equipo trabajaba otra persona, su trabajo se aparta y este usuario
+      // empieza con lo suyo (o en blanco). Se recarga para abrir todo limpio.
+      const otraPersona = cambiarEspacioDeTrabajo(sessionUser.id);
       safeStorage.setItem('savedUser', sessionUser);
       safeStorage.setItem('innova_sesion_v2', true);
+      if (otraPersona) { safeStorage.setItem('innova_vista_tras_recarga', 'dashboard'); window.location.reload(); return; }
+      setUser(sessionUser);
       if (result.role === 'admin') {
         safeStorage.setItem('innova_last_authorized_admin_email', PRIMARY_ADMIN_EMAIL);
       }
