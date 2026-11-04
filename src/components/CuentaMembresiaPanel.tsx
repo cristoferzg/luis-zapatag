@@ -3,7 +3,7 @@
 //  - Usuario: "Eliminar mi cuenta" (lo exige Google Play para apps con registro).
 import { useEffect, useState } from 'react';
 import { UserPlus, Trash2, Check } from 'lucide-react';
-import { ConfigMembresia, leerConfigMembresia, guardarConfigMembresia, eliminarMiCuenta, PRODUCTO_MEMBRESIA } from '../lib/cuentas';
+import { ConfigMembresia, leerConfigMembresia, guardarConfigMembresia, eliminarMiCuenta } from '../lib/cuentas';
 import { ConfirmarBorrado } from './AccesoCuenta';
 import { auth } from '../lib/firebase';
 
@@ -34,7 +34,7 @@ function AdminMembresia() {
           className={`shrink-0 min-h-[36px] px-3 rounded-full text-[11px] font-black cursor-pointer ${abierto ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>{abierto ? 'Abierto' : 'Cerrado'}</button>
       </div>
       <div className="grid sm:grid-cols-3 gap-2">
-        <label className="grid gap-1 text-[11px] font-bold text-slate-500">PAGO ÚNICO EN LA WEB/PC (S/)
+        <label className="grid gap-1 text-[11px] font-bold text-slate-500">PAGO ÚNICO (S/)
           <input type="number" min={0} step="0.1" className={campo} value={c.precioSoles ?? ''} onChange={e => setC({ ...c, precioSoles: Number(e.target.value) })} onBlur={() => guardar(c)} /></label>
         <label className="grid gap-1 text-[11px] font-bold text-slate-500">YAPE: NÚMERO
           <input className={campo} inputMode="numeric" maxLength={9} value={c.yapeNumero || ''} onChange={e => setC({ ...c, yapeNumero: e.target.value.replace(/\D/g, '') })} onBlur={() => guardar(c)} /></label>
@@ -43,8 +43,8 @@ function AdminMembresia() {
       </div>
       <ul className="text-[11px] text-slate-500 list-disc pl-4 space-y-0.5">
         <li>Entran con <b>celular + PIN</b>. Hasta pagar solo ven la pantalla de activación (no pueden usar ni ver nada).</li>
-        <li>En la web/PC pagan por Yape y tocan "Ya pagué": lo validas en <b>Validar Compras</b> (tipo Membresía) y la cuenta se activa.</li>
-        <li>En la app de Android pagan con Google Play: crea en Play Console un <b>producto integrado</b> con ID <b className="font-mono">{PRODUCTO_MEMBRESIA}</b> (su precio lo pones allí) y activa "Cobrar con Google Play" en Planes y créditos.</li>
+        <li>En la web/PC ven cómo pagar y un botón que te escribe por WhatsApp ("ya pagué, necesito activación"); además queda en <b>Validar Compras</b> (tipo Membresía): al validarla, la cuenta se activa.</li>
+        <li>En la app de Android no se habla de pagos (regla de Google Play): ahí no aparece "Crear cuenta" y una cuenta sin activar solo ve "pendiente de activación".</li>
         <li>Los usuarios que creas tú siguen entrando con su PIN, sin pagar.</li>
       </ul>
       {msg && <p className="text-xs font-bold text-emerald-700 flex items-center gap-1"><Check className="w-4 h-4" /> {msg}</p>}

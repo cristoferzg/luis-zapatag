@@ -1,12 +1,11 @@
 // Pantallas de las cuentas creadas desde la app:
 //  - RegistroCuenta: crear cuenta (nombre, celular y PIN).
-//  - PantallaMembresia: activar la cuenta con el pago único (Google Play en Android, Yape en web/PC).
+//  - PantallaMembresia: activar la cuenta. En la web/PC: pagar y avisar por WhatsApp (un botón).
+//    En la app de Google Play no se menciona el pago (política de Google): solo "pendiente".
 import { useEffect, useState } from 'react';
-import { UserPlus, Check, ShieldCheck, Smartphone, LogOut, Trash2, RefreshCw } from 'lucide-react';
-import { ConfigMembresia, leerConfigMembresia, registrarCuenta, mensajeRegistro, solicitarMembresiaYape, eliminarMiCuenta, PRODUCTO_MEMBRESIA } from '../lib/cuentas';
-import { cargarEstadoIA } from '../lib/aiAccess';
-import { esAppAndroid, comprasPermitidas } from '../lib/plataforma';
-import { usaGooglePlay, iniciarPagosPlay, comprarEnPlay, precioPlay } from '../lib/pagosPlay';
+import { UserPlus, Check, Smartphone, LogOut, Trash2, RefreshCw } from 'lucide-react';
+import { ConfigMembresia, leerConfigMembresia, registrarCuenta, mensajeRegistro, solicitarMembresiaYape, eliminarMiCuenta } from '../lib/cuentas';
+import { esAppAndroid } from '../lib/plataforma';
 import { precioPEN } from '../lib/currency';
 
 const campo = 'w-full py-2.5 px-3 bg-slate-50 focus:bg-white border border-slate-200 focus:border-blue-600 rounded-xl outline-none text-sm text-slate-900';
@@ -54,40 +53,30 @@ export function RegistroCuenta({ onCreada, onVolver }: { onCreada: (celular: str
   );
 }
 
-export function PantallaMembresia({ uid, nombre, onActivar, onSalir }: { uid: string; nombre: string; onActivar: () => Promise<boolean>; onSalir: () => void }) {
+const WA_ACTIVACION = '51966000500'; // WhatsApp de Innova Contratistas
+
+export function PantallaMembresia({ nombre, celular, onActivar, onSalir }: { uid: string; nombre: string; celular: string; onActivar: () => Promise<boolean>; onSalir: () => void }) {
   const [cfg, setCfg] = useState<ConfigMembresia>({});
-  const [play, setPlay] = useState(false);
-  const [listoPlay, setListoPlay] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [borrar, setBorrar] = useState(false);
-  useEffect(() => {
-    leerConfigMembresia().then(setCfg);
-    cargarEstadoIA().finally(() => {
-      const p = usaGooglePlay(); setPlay(p);
-      if (p) iniciarPagosPlay(uid, [], []).then(setListoPlay);
-    });
-    const activa = () => { onActivar(); };
-    window.addEventListener('innova_membresia_activa', activa);
-    return () => window.removeEventListener('innova_membresia_activa', activa);
-  }, [uid]); // eslint-disable-line react-hooks/exhaustive-deps
-  const enAndroidSinPago = !play && esAppAndroid() && !comprasPermitidas();
-  const precio = (play && listoPlay && precioPlay(PRODUCTO_MEMBRESIA)) || (cfg.precioSoles ? precioPEN(cfg.precioSoles) : '');
+  useEffect(() => { leerConfigMembresia().then(setCfg); }, []);
+  // App de Google Play: no se habla de pagos ni se manda a pagar fuera (política de Google).
+  const enAndroid = esAppAndroid();
+  const precio = cfg.precioSoles ? precioPEN(cfg.precioSoles) : '';
 
-  const pagarPlay = async () => {
+  // Un solo botón: registra el aviso (Validar Compras) y abre WhatsApp con el mensaje listo.
+  const pedirActivacion = async () => {
     setOcupado(true); setMsg(null);
-    const r = await comprarEnPlay(PRODUCTO_MEMBRESIA);
-    if (!r.cancelado) setMsg({ ok: r.ok, t: r.mensaje });
-    if (r.ok) await onActivar();
+    const texto = `Hola Innova Contratistas, ya pagué mi cuenta de InnovApp${precio ? ` (${precio})` : ''} y necesito la activación.\n👤 ${nombre}\n📱 ${celular}`;
+    const a = document.createElement('a');
+    a.href = `https://wa.me/${WA_ACTIVACION}?text=${encodeURIComponent(texto)}`; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    document.body.appendChild(a); a.click(); a.remove();
+    try { const r = await solicitarMembresiaYape(); if (r.yaActiva) { await onActivar(); return; } } catch { /* el WhatsApp ya salió */ }
+    setMsg({ ok: true, t: 'Listo. Cuando confirmemos tu pago activaremos tu cuenta; luego toca "Ya me activaron".' });
     setOcupado(false);
   };
-  const avisarYape = async () => {
-    setOcupado(true); setMsg(null);
-    try { const r = await solicitarMembresiaYape(); if (r.yaActiva) { await onActivar(); return; } setMsg({ ok: true, t: 'Recibimos tu aviso. Cuando validemos tu pago, tu cuenta se activará y podrás entrar.' }); }
-    catch { setMsg({ ok: false, t: 'No se pudo enviar. Revisa tu conexión.' }); }
-    finally { setOcupado(false); }
-  };
-  const reintentar = async () => { setOcupado(true); const ok = await onActivar(); if (!ok) setMsg({ ok: false, t: 'Tu pago aún no está validado. Inténtalo más tarde.' }); setOcupado(false); };
+  const reintentar = async () => { setOcupado(true); const ok = await onActivar(); if (!ok) setMsg({ ok: false, t: 'Tu cuenta aún no está activada. Inténtalo más tarde.' }); setOcupado(false); };
   const confirmarBorrado = async () => { setOcupado(true); try { await eliminarMiCuenta(); onSalir(); } catch { setMsg({ ok: false, t: 'No se pudo eliminar la cuenta. Inténtalo de nuevo.' }); setOcupado(false); } };
 
   return (
@@ -95,29 +84,25 @@ export function PantallaMembresia({ uid, nombre, onActivar, onSalir }: { uid: st
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-lg max-w-[360px] w-full grid gap-3">
         <div className="flex items-center gap-3">
           <img src="/pwa-192x192.png" alt="InnovApp" className="w-11 h-11 rounded-xl border border-slate-200 p-1.5 shrink-0" />
-          <div className="min-w-0"><b className="block text-[15px] text-slate-900">Hola, {nombre}</b><span className="block text-xs text-slate-500">Activa tu cuenta para empezar</span></div>
+          <div className="min-w-0"><b className="block text-[15px] text-slate-900">Hola, {nombre}</b><span className="block text-xs text-slate-500">{enAndroid ? 'Tu cuenta está pendiente de activación' : 'Activa tu cuenta para empezar'}</span></div>
         </div>
-        <ul className="grid gap-1.5">{BENEFICIOS.map(b => <li key={b} className="flex items-start gap-2 text-[13px] text-slate-700"><Check className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />{b}</li>)}</ul>
-        <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-center">
-          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Pago único</span>
-          <span className="block text-3xl font-black text-slate-900">{precio || '—'}</span>
-          <span className="block text-[11px] text-slate-500">Las funciones inteligentes (IA) se compran aparte.</span>
-        </div>
-        {play ? (
-          <button onClick={pagarPlay} disabled={ocupado || !listoPlay} className="min-h-[48px] rounded-xl bg-emerald-600 text-white font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"><ShieldCheck className="w-4 h-4" /> {ocupado ? 'Abriendo Google Play…' : listoPlay ? 'Pagar con Google Play' : 'Cargando…'}</button>
-        ) : enAndroidSinPago ? (
-          <p className="text-xs text-amber-800 bg-amber-50 rounded-xl p-3">La activación desde la app estará disponible muy pronto.</p>
-        ) : (
-          <div className="grid gap-2">
-            <p className="text-[13px] text-slate-700 bg-violet-50 border border-violet-100 rounded-xl p-3"><Smartphone className="inline w-4 h-4 text-violet-600 mr-1" />Yapea <b>{precio}</b>{cfg.yapeNumero ? <> al <b className="font-mono">{cfg.yapeNumero}</b></> : null}{cfg.yapeNombre ? <> ({cfg.yapeNombre})</> : null} y luego toca <b>"Ya pagué"</b>.</p>
-            <button onClick={avisarYape} disabled={ocupado} className="min-h-[46px] rounded-xl bg-violet-600 text-white font-black cursor-pointer disabled:opacity-50">Ya pagué</button>
-            <button onClick={reintentar} disabled={ocupado} className="min-h-[42px] rounded-xl bg-slate-100 text-slate-700 text-sm font-bold flex items-center justify-center gap-1.5 cursor-pointer"><RefreshCw className="w-4 h-4" /> Ya me activaron: entrar</button>
+        {enAndroid ? (
+          <p className="text-[13px] text-slate-700 bg-slate-50 border border-slate-200 rounded-xl p-3">Tu cuenta aún no está activa. Cuando lo esté, toca <b>"Ya me activaron: entrar"</b>.</p>
+        ) : (<>
+          <ul className="grid gap-1.5">{BENEFICIOS.map(b => <li key={b} className="flex items-start gap-2 text-[13px] text-slate-700"><Check className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />{b}</li>)}</ul>
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 grid gap-1">
+            <b className="text-[13px] text-amber-900">Para activar tu cuenta</b>
+            <p className="text-[13px] text-amber-900">1. Paga {precio ? <b>{precio}</b> : 'la membresía'}{cfg.yapeNumero ? <> por Yape al <b className="font-mono">{cfg.yapeNumero}</b>{cfg.yapeNombre ? ` (${cfg.yapeNombre})` : ''}</> : null}.</p>
+            <p className="text-[13px] text-amber-900">2. Toca el botón y envíanos el mensaje por WhatsApp.</p>
+            <span className="text-[11px] text-amber-800">Las funciones inteligentes (IA) se compran aparte.</span>
           </div>
-        )}
+          <button onClick={pedirActivacion} disabled={ocupado} className="min-h-[50px] rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"><Smartphone className="w-5 h-5 shrink-0" /> Ya pagué: activar por WhatsApp</button>
+        </>)}
         {msg && <p className={`text-xs font-bold rounded-xl p-3 ${msg.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{msg.t}</p>}
         <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
           <button onClick={onSalir} className="text-[11px] font-bold text-slate-500 flex items-center gap-1 py-2 cursor-pointer"><LogOut className="w-3.5 h-3.5" /> Salir</button>
-          <button onClick={() => setBorrar(true)} className="text-[11px] font-bold text-rose-500 flex items-center gap-1 py-2 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /> Eliminar mi cuenta</button>
+          <button onClick={reintentar} disabled={ocupado} className="text-[11px] font-bold text-blue-600 flex items-center gap-1 py-2 cursor-pointer"><RefreshCw className="w-3.5 h-3.5" /> Ya me activaron: entrar</button>
+          <button onClick={() => setBorrar(true)} className="text-[11px] font-bold text-rose-500 flex items-center gap-1 py-2 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /> Eliminar</button>
         </div>
         {borrar && <ConfirmarBorrado ocupado={ocupado} onSi={confirmarBorrado} onNo={() => setBorrar(false)} />}
       </div>

@@ -39,6 +39,7 @@ import { notificar, debeInvitar, marcarInvitado, activarNotificaciones } from '.
 import { registrarPush, quitarPush } from './lib/pushNativo';
 import { RegistroCuenta, PantallaMembresia } from './components/AccesoCuenta';
 import { leerConfigMembresia } from './lib/cuentas';
+import { esAppAndroid } from './lib/plataforma';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol, useCompanyCurrency, getCompanyCurrency, saveCompanyCurrency, WORLD_CURRENCIES } from './lib/currency';
@@ -2146,7 +2147,7 @@ export default function App() {
   }
 
   if (!user && pendiente) {
-    return <PantallaMembresia uid={pendiente.uid} nombre={pendiente.nombre} onActivar={activarPendiente} onSalir={salirPendiente} />;
+    return <PantallaMembresia uid={pendiente.uid} nombre={pendiente.nombre} celular={pendiente.celular} onActivar={activarPendiente} onSalir={salirPendiente} />;
   }
 
   if (!isAdmin && !user) {
@@ -2232,7 +2233,7 @@ export default function App() {
           </form>
           <div className="mt-3 grid gap-1">
             <button type="button" onClick={() => { setModoCelular(!modoCelular); setPinError(''); }} className="text-[11px] font-bold text-slate-500 hover:text-slate-700 py-1 cursor-pointer">{modoCelular ? 'Entrar solo con PIN' : 'Entrar con mi celular'}</button>
-            {registroAbierto && <button type="button" onClick={() => { setRegistrando(true); setPinError(''); }} className="text-[12px] font-black text-blue-600 hover:text-blue-700 py-1 cursor-pointer">¿No tienes cuenta? Crear cuenta</button>}
+            {registroAbierto && !esAppAndroid() && <button type="button" onClick={() => { setRegistrando(true); setPinError(''); }} className="text-[12px] font-black text-blue-600 hover:text-blue-700 py-1 cursor-pointer">¿No tienes cuenta? Crear cuenta</button>}
           </div>
           </>)}
 
