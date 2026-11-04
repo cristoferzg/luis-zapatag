@@ -12,16 +12,20 @@ export const NKp = (x: number, y: number) => `${Math.round(x * 1000)}_${Math.rou
 // ---------------------------------------------------------------------------
 // Aberturas (puertas / ventanas / vanos)
 // ---------------------------------------------------------------------------
-export type TipoAbertura = 'puerta' | 'puerta_doble' | 'puerta_bano' | 'puerta_corrediza' | 'porton' | 'ventana' | 'ventana_corrediza' | 'ventana_cocina' | 'ventanal' | 'ventana_alta' | 'mampara' | 'vano';
+export type TipoAbertura = 'puerta' | 'puerta_doble' | 'puerta_bano' | 'puerta_corrediza' | 'puerta_plegable' | 'puerta_vidrio' | 'puerta_metalica' | 'porton' | 'ventana' | 'ventana_corrediza' | 'ventana_proyectante' | 'ventana_cocina' | 'ventanal' | 'ventana_alta' | 'mampara' | 'vano';
 
 export const PRESETS_ABERTURA: Record<TipoAbertura, { nombre: string; w: number; h: number; sill: number }> = {
   puerta: { nombre: 'Puerta', w: 0.9, h: 2.1, sill: 0 },
   puerta_doble: { nombre: 'Puerta doble', w: 1.6, h: 2.1, sill: 0 },
   puerta_bano: { nombre: 'Puerta de baño', w: 0.7, h: 2.1, sill: 0 },
   puerta_corrediza: { nombre: 'Puerta corrediza', w: 1.8, h: 2.1, sill: 0 },
+  puerta_plegable: { nombre: 'Puerta plegable (acordeón)', w: 2.4, h: 2.1, sill: 0 },
+  puerta_vidrio: { nombre: 'Puerta de vidrio', w: 0.9, h: 2.1, sill: 0 },
+  puerta_metalica: { nombre: 'Puerta metálica (calle)', w: 1.0, h: 2.2, sill: 0 },
   porton: { nombre: 'Portón / cochera', w: 2.6, h: 2.4, sill: 0 },
   ventana: { nombre: 'Ventana', w: 1.2, h: 1.2, sill: 0.9 },
   ventana_corrediza: { nombre: 'Ventana corrediza', w: 1.5, h: 1.2, sill: 0.9 },
+  ventana_proyectante: { nombre: 'Ventana proyectante', w: 0.8, h: 0.6, sill: 1.4 },
   ventana_cocina: { nombre: 'Ventana de cocina', w: 1.0, h: 0.8, sill: 1.1 },
   ventanal: { nombre: 'Ventanal (piso a techo)', w: 2.4, h: 2.2, sill: 0 },
   ventana_alta: { nombre: 'Ventana alta (baño)', w: 0.6, h: 0.5, sill: 1.6 },
@@ -39,10 +43,25 @@ export interface Abertura {
   carpiNombre?: string;
   incluir?: boolean;     // el diseño de CarpiMetal suma a la cotización (por defecto sí)
   obs?: string;          // observación que sale en la cotización
+  // Diseño (solo se ve en el plano y el 3D; no cambia el metrado del muro)
+  estilo?: EstiloPuertaObra;   // puertas
+  color?: string;              // color de la hoja (puertas) o del marco (ventanas), hex
+  abre?: 'izq' | 'der';        // lado de las bisagras
+  hacia?: 'dentro' | 'fuera';  // hacia dónde abre
+  apertura?: AperturaVentana;  // ventanas
 }
+export type EstiloPuertaObra = 'contraplacada' | 'tablero' | 'vidrio' | 'metalica';
+export type AperturaVentana = 'corrediza' | 'batiente' | 'proyectante' | 'fija';
+export const ESTILOS_PUERTA: Record<EstiloPuertaObra, string> = { contraplacada: 'Contraplacada (lisa)', tablero: 'De tableros', vidrio: 'Con vidrio', metalica: 'Metálica' };
+export const APERTURAS_VENTANA: Record<AperturaVentana, string> = { corrediza: 'Corrediza', batiente: 'Batiente (abre como puerta)', proyectante: 'Proyectante (abre hacia afuera)', fija: 'Fija' };
+export const COLORES_PUERTA = [['#caa47c', 'Cedro'], ['#8b5a2b', 'Caoba'], ['#f8fafc', 'Blanco'], ['#475569', 'Gris'], ['#1f2937', 'Negro']] as const;
+export const COLORES_MARCO = [['#c0c4c8', 'Aluminio natural'], ['#1f2937', 'Negro'], ['#f8fafc', 'Blanco'], ['#8b5a2b', 'Madera']] as const;
+/** Estilo y apertura por defecto según el tipo (si el usuario no eligió). */
+export const estiloDe = (a: Abertura): EstiloPuertaObra => a.estilo || (a.tipo === 'puerta_vidrio' ? 'vidrio' : a.tipo === 'puerta_metalica' || a.tipo === 'porton' ? 'metalica' : 'contraplacada');
+export const aperturaDe = (a: Abertura): AperturaVentana => a.apertura || (a.tipo === 'ventana_alta' || a.tipo === 'ventana_proyectante' ? 'proyectante' : a.tipo === 'ventana' || a.tipo === 'ventana_cocina' ? 'batiente' : 'corrediza');
 
-export const esPuerta = (t: TipoAbertura) => t === 'puerta' || t === 'puerta_doble' || t === 'puerta_bano' || t === 'puerta_corrediza' || t === 'porton';
-export const esVidrio = (t: TipoAbertura) => t === 'ventana' || t === 'ventana_alta' || t === 'mampara' || t === 'ventana_corrediza' || t === 'ventana_cocina' || t === 'ventanal';
+export const esPuerta = (t: TipoAbertura) => t === 'puerta' || t === 'puerta_doble' || t === 'puerta_bano' || t === 'puerta_corrediza' || t === 'puerta_plegable' || t === 'puerta_vidrio' || t === 'puerta_metalica' || t === 'porton';
+export const esVidrio = (t: TipoAbertura) => t === 'ventana' || t === 'ventana_alta' || t === 'mampara' || t === 'ventana_corrediza' || t === 'ventana_proyectante' || t === 'ventana_cocina' || t === 'ventanal';
 
 export const largoMuro = (e: PlanoElem) => (e.x2 !== undefined && e.y2 !== undefined ? Math.hypot(e.x2 - e.x1, e.y2 - e.y1) : 0);
 

@@ -17,7 +17,7 @@ import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { fijarComprasEnApp, fijarPagosPlay } from './plataforma';
 
-export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2, melamina: 5 } as const;
+export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2, melamina: 5, obra: 8, drywall: 5 } as const;
 /** Regalo de bienvenida: créditos extra (no vencen) que cada cuenta recibe una sola vez,
  *  cuando se crea su saldo. Igual que CREDITOS_BIENVENIDA en functions/index.js. */
 export const CREDITOS_BIENVENIDA = 5;

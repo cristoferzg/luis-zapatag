@@ -11,12 +11,12 @@
 // =============================================================================
 import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Calidad3D } from '../lib/calidad3d';
 import { useEffect, useRef, useState } from 'react';
-import { Video, Square as StopIcon } from 'lucide-react';
+import { Video, Square as StopIcon, DoorOpen, DoorClosed } from 'lucide-react';
 import * as THREE from 'three';
 import type { PlanoElem } from './ConcretoPlanoCad';
 import { EstructuraTechos, contextosObra, cotaLosa } from './concreto/obraPisos';
 import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, MallaCielo, esNodoTanque,
-  CapaEstructura, capaDeRol, CAPAS, Sobrepecho } from './concreto/geometriaObra';
+  CapaEstructura, capaDeRol, CAPAS, Sobrepecho, estiloDe, aperturaDe } from './concreto/geometriaObra';
 import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
 import { coberturaDesdeCorreas, panoUnaAgua } from './techos/coberturaAuto';
 import { planchaDetallada } from './concreto/coberturaDetallada';
@@ -158,6 +158,10 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
   const mountRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const girar = useRef(false); // giro lento automático mientras se graba
+  // Puertas y ventanas abiertas (se conserva al remontar el visor).
+  const [abierto, setAbierto] = useState(false);
+  const abiertoRef = useRef(false); abiertoRef.current = abierto;
+  const abrirTodoRef = useRef<(v: boolean) => void>(() => {});
   const grabacion = useRef<{ detener: () => void } | null>(null);
   const [grabando, setGrabando] = useState(false);
   // Calidad del 3D (celular): cambia los píxeles del render sin rearmar la escena.
@@ -231,7 +235,17 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       e.position.copy(mesh.position); e.quaternion.copy(mesh.quaternion);
       padre.add(e);
     };
+    // Puertas y ventanas que se abren: cada una se mueve entre 0 (cerrada) y 1 (abierta).
+    const moviles: { valor: number; objetivo: number; aplicar: (v: number) => void; obj: THREE.Object3D[] }[] = [];
+    const registrar = (obj: THREE.Object3D, aplicar: (v: number) => void, extra: THREE.Object3D[] = []) => {
+      const mv = { valor: abiertoRef.current ? 1 : 0, objetivo: abiertoRef.current ? 1 : 0, aplicar, obj: [obj, ...extra] };
+      [obj, ...extra].forEach(o => { o.userData.movil = mv; });
+      aplicar(mv.valor); moviles.push(mv);
+    };
+    const matsColor = new Map<string, THREE.Material>();
+    const mat = (hex: string) => { let m = matsColor.get(hex); if (!m) { m = new THREE.MeshLambertMaterial({ color: new THREE.Color(hex) }); matsColor.set(hex, m); } return m; };
     const M2 = {
+      marco: new THREE.MeshLambertMaterial({ color: 0xc0c4c8 }),
       puerta: new THREE.MeshLambertMaterial({ color: 0xcaa47c }),
       vidrio: new THREE.MeshLambertMaterial({ color: 0xa9d8ee, transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide }),
       cielo: new THREE.MeshLambertMaterial({ color: 0xf6f6f2, side: THREE.DoubleSide, transparent: true, opacity: 0.92, polygonOffset: true, polygonOffsetFactor: 1 }),
@@ -302,28 +316,85 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           carpi3d(gv, gr);
           return;
         }
-        // Hoja de puerta entreabierta / vidrio
-        const matHoja = a.carpiId ? M2.metal : M2.puerta; // diseño de CarpiMetal: hoja metálica
+        // Puertas y ventanas: cerradas; se abren con el botón "Abrir puertas" o tocándolas.
+        const ancho = d - i, alto = top - pie;
         if (esPuerta(a.tipo)) {
-          // Corrediza: dos hojas cerradas, una delante de la otra. Doble / portón: dos hojas abiertas.
-          const corre = a.tipo === 'puerta_corrediza';
-          const hojas = corre ? [[i, (d - i) * 0.55, 0, 0.02], [d - (d - i) * 0.55, (d - i) * 0.55, 0, -0.04]]
-            : a.tipo === 'puerta_doble' || a.tipo === 'porton' ? [[i, (d - i) / 2, -0.55, 0], [d, -(d - i) / 2, 0.55, 0]] : [[i, d - i, -0.55, 0]];
-          hojas.forEach(([x0, ancho, giro, dz]) => {
-            const piv = new THREE.Group(); piv.position.set(x0, 0, (corre ? 0 : esp / 2) + dz); piv.rotation.y = giro; grupo.add(piv);
-            const hoja = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(ancho), top - 0.01, 0.04), matHoja);
-            hoja.position.set(ancho / 2, (top - 0.01) / 2, 0.02);
-            conBordes(hoja, false, piv);
-          });
+          const est = estiloDe(a);
+          const matHoja = a.carpiId || est === 'metalica' ? (a.color ? mat(a.color) : M2.metal) : (a.color ? mat(a.color) : M2.puerta);
+          const derecha = a.abre === 'der', fuera = a.hacia === 'fuera';
+          const sentido = fuera ? 1 : -1;
+          // Hoja: un panel con su diseño, dibujado desde su bisagra (x = 0) hacia +x.
+          const hoja = (padre: THREE.Group, w: number, h: number, invertido = false) => {
+            const g = new THREE.Group(); padre.add(g);
+            if (invertido) g.position.x = -w; // bisagra a la derecha: la hoja va de -w a 0
+            if (est === 'vidrio') {
+              const m = Math.min(0.08, w / 6);
+              [[w / 2, m / 2, w, m], [w / 2, h - m / 2, w, m], [m / 2, h / 2, m, h], [w - m / 2, h / 2, m, h]].forEach(([x, y, ww, hh]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(ww, hh, 0.045), matHoja); b.position.set(x, y, 0.0225); conBordes(b, true, g); });
+              const v = new THREE.Mesh(new THREE.BoxGeometry(w - 2 * m, h - 2 * m, 0.01), M2.vidrio); v.position.set(w / 2, h / 2, 0.0225); g.add(v);
+            } else {
+              const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), matHoja); b.position.set(w / 2, h / 2, 0.02); conBordes(b, false, g);
+              if (est === 'tablero') [[0.27, 0.72], [0.73, 0.72], [0.27, 0.28], [0.73, 0.28]].forEach(([fx, fy]) => { const pz = new THREE.Mesh(new THREE.BoxGeometry(w * 0.34, h * 0.36, 0.012), matHoja); pz.position.set(w * fx, h * fy, 0.046); conBordes(pz, true, g); });
+            }
+            const manija = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.025, 0.05), M2.metal); manija.position.set(invertido ? 0.08 : w - 0.08, Math.min(1.0, h * 0.48), 0.06); g.add(manija);
+            return g;
+          };
+          const corre = a.tipo === 'puerta_corrediza', plegable = a.tipo === 'puerta_plegable';
+          const doble = a.tipo === 'puerta_doble' || a.tipo === 'porton';
+          if (corre) {
+            // Dos hojas en riel, una delante de la otra: la de adelante se desliza.
+            const w = ancho * 0.52;
+            const fija = new THREE.Group(); fija.position.set(d - w, 0, -0.03); grupo.add(fija); hoja(fija, w, alto - 0.01);
+            const movil = new THREE.Group(); movil.position.set(i, 0, 0.02); grupo.add(movil); hoja(movil, w, alto - 0.01);
+            registrar(movil, v => { movil.position.x = i + v * (ancho - w - 0.02); });
+          } else if (plegable) {
+            // Acordeón: paneles angostos que se pliegan hacia un lado.
+            const n = Math.max(4, Math.round(ancho / 0.4)); const w = ancho / n;
+            const paneles: THREE.Group[] = [];
+            for (let k = 0; k < n; k++) { const pg = new THREE.Group(); grupo.add(pg); hoja(pg, w, alto - 0.01, k % 2 === 1); paneles.push(pg); }
+            // Zigzag: los pares giran sobre su borde izquierdo y los impares sobre el derecho.
+            const aplicar = (v: number) => { const ang = v * 1.25, c = w * Math.cos(ang); paneles.forEach((pg, k) => {
+              pg.position.set(i + (k % 2 ? k + 1 : k) * c, 0, 0); pg.rotation.y = k % 2 ? ang : -ang;
+            }); };
+            aplicar(0); registrar(paneles[0], aplicar, paneles);
+          } else {
+            // Batiente (una o dos hojas): gira sobre su bisagra hasta ~80°.
+            const hojas: [number, number, number][] = doble ? [[i, ancho / 2, 1], [d, ancho / 2, -1]] : [[derecha ? d : i, ancho, derecha ? -1 : 1]];
+            hojas.forEach(([x0, w, lado]) => {
+              const piv = new THREE.Group(); piv.position.set(x0, 0, esp / 2); grupo.add(piv);
+              hoja(piv, w, alto - 0.01, lado < 0);
+              registrar(piv, v => { piv.rotation.y = -lado * sentido * v * 1.4; });
+            });
+          }
         } else if (esVidrio(a.tipo)) {
-          const v = new THREE.Mesh(new THREE.BoxGeometry(d - i, top - pie, 0.02), M2.vidrio);
-          v.position.set((i + d) / 2, (pie + top) / 2, 0);
-          conBordes(v, true, grupo);
-          // Reja / ventana de CarpiMetal: marco y barrotes metálicos.
+          const ap = aperturaDe(a);
+          const matMarco = a.color ? mat(a.color) : M2.marco;
+          // Hoja de ventana: marco + vidrio, desde su esquina (0,0) hacia +x, +y.
+          const hojaV = (padre: THREE.Group, w: number, h: number) => {
+            const g = new THREE.Group(); padre.add(g);
+            const m = Math.min(0.045, w / 8, h / 8);
+            [[w / 2, m / 2, w, m], [w / 2, h - m / 2, w, m], [m / 2, h / 2, m, h], [w - m / 2, h / 2, m, h]].forEach(([x, y, ww, hh]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(ww, hh, 0.035), matMarco); b.position.set(x, y, 0); g.add(b); });
+            const v = new THREE.Mesh(new THREE.BoxGeometry(w - 2 * m, h - 2 * m, 0.008), M2.vidrio); v.position.set(w / 2, h / 2, 0); g.add(v);
+            return g;
+          };
           if (a.carpiId) {
-            const n = Math.max(2, Math.round((d - i) / 0.12));
-            for (let k = 1; k < n; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, top - pie, 0.02), M2.metal); b.position.set(i + ((d - i) * k) / n, (pie + top) / 2, 0.03); grupo.add(b); }
-            [[ (i + d) / 2, pie, d - i, 0.04 ], [ (i + d) / 2, top, d - i, 0.04 ]].forEach(([x, y, w, h]) => { const r = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), M2.metal); r.position.set(x, y, 0.03); grupo.add(r); });
+            const v = new THREE.Mesh(new THREE.BoxGeometry(ancho, alto, 0.02), M2.vidrio); v.position.set((i + d) / 2, (pie + top) / 2, 0); conBordes(v, true, grupo);
+            const n = Math.max(2, Math.round(ancho / 0.12));
+            for (let k = 1; k < n; k++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.02, alto, 0.02), M2.metal); b.position.set(i + (ancho * k) / n, (pie + top) / 2, 0.03); grupo.add(b); }
+          } else if (ap === 'corrediza') {
+            const w = ancho * 0.52;
+            const fija = new THREE.Group(); fija.position.set(d - w, pie, -0.02); grupo.add(fija); hojaV(fija, w, alto);
+            const movil = new THREE.Group(); movil.position.set(i, pie, 0.02); grupo.add(movil); hojaV(movil, w, alto);
+            registrar(movil, v => { movil.position.x = i + v * (ancho - w - 0.02); });
+          } else if (ap === 'batiente') {
+            const piv = new THREE.Group(); piv.position.set(i, pie, esp / 2); grupo.add(piv); hojaV(piv, ancho, alto);
+            registrar(piv, v => { piv.rotation.y = -v * 1.2; });
+          } else if (ap === 'proyectante') {
+            // Bisagra arriba: la hoja se proyecta hacia afuera por abajo.
+            const piv = new THREE.Group(); piv.position.set(i, top, -esp / 2); grupo.add(piv);
+            const c = hojaV(piv, ancho, alto); c.position.y = -alto;
+            registrar(piv, v => { piv.rotation.x = -v * 0.55; });
+          } else {
+            const g = new THREE.Group(); g.position.set(i, pie, 0); grupo.add(g); hojaV(g, ancho, alto);
           }
         }
       });
@@ -698,9 +769,14 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     const rayo = new THREE.Raycaster();
     const elegir = (e: PointerEvent) => {
       const pick = datos.current.onPick;
-      if (!pick) return;
       const r = renderer.domElement.getBoundingClientRect();
       rayo.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
+      // Tocar una puerta o una ventana la abre o la cierra.
+      const toque = rayo.intersectObject(modelo, true).find(h => (h.object as THREE.Mesh).isMesh);
+      let o: THREE.Object3D | null = toque?.object || null;
+      while (o && !o.userData.movil) o = o.parent;
+      if (o) { const mv = o.userData.movil as typeof moviles[number]; mv.objetivo = mv.objetivo > 0.5 ? 0 : 1; return; }
+      if (!pick) return;
       const hit = rayo.intersectObject(modelo, true).find(h => (h.object as THREE.Mesh).isMesh && h.object.userData.uid);
       pick(hit?.object.userData.uid ?? null, e.ctrlKey || e.metaKey);
     };
@@ -725,7 +801,12 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
 
     setVerModelo(v => v + 1);
     let raf = 0;
-    const loop = () => { if (girar.current) { az += (2 * Math.PI) / (14 * 60); actualizar(); } renderer.render(scene, camera); raf = requestAnimationFrame(loop); };
+    abrirTodoRef.current = (v: boolean) => moviles.forEach(mv => { mv.objetivo = v ? 1 : 0; });
+    const loop = () => {
+      if (girar.current) { az += (2 * Math.PI) / (14 * 60); actualizar(); }
+      moviles.forEach(mv => { if (mv.valor !== mv.objetivo) { const dd = mv.objetivo - mv.valor; mv.valor = Math.abs(dd) <= 0.06 ? mv.objetivo : mv.valor + Math.sign(dd) * 0.06; mv.aplicar(mv.valor); } });
+      renderer.render(scene, camera); raf = requestAnimationFrame(loop);
+    };
     loop();
 
     return () => {
@@ -779,6 +860,10 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       <button type="button" onClick={() => setCalidad3d(calidad === 'alta' ? 'ahorro' : 'alta')} title="Alta: nítido como en la PC · Ahorro: más fluido y menos batería"
         className="lg:hidden absolute top-14 right-3 z-10 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-black shadow border cursor-pointer bg-white text-slate-700 border-slate-200">
         Calidad: <span className={calidad === 'alta' ? 'text-emerald-600' : 'text-amber-600'}>{calidad === 'alta' ? 'Alta' : 'Ahorro'}</span>
+      </button>
+      <button type="button" onClick={() => { const v = !abierto; setAbierto(v); abrirTodoRef.current(v); }} title={abierto ? 'Cerrar puertas y ventanas' : 'Abrir puertas y ventanas (o toca una)'}
+        className={`absolute bottom-[3.25rem] right-3 z-10 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg cursor-pointer border ${abierto ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>
+        {abierto ? <DoorClosed className="w-3.5 h-3.5" /> : <DoorOpen className="w-3.5 h-3.5" />}{abierto ? 'Cerrar puertas' : 'Abrir puertas'}
       </button>
       <button onClick={grabar} title={grabando ? 'Detener y descargar el video' : 'Grabar un video MP4 girando el modelo'}
         className={`absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-lg cursor-pointer border ${grabando ? 'bg-rose-600 text-white border-rose-600 animate-pulse' : 'bg-white text-rose-600 border-rose-200 hover:bg-rose-50'}`}>

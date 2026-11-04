@@ -18,6 +18,7 @@
 // formato plano (interoperable con el visor 3D, el metrado y el puente de Techos).
 // =============================================================================
 import CampoNumero from './CampoNumero';
+import DisenoIAObra, { PlantaIA } from './concreto/DisenoIAObra';
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, Minimize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon, ChevronsUp, Zap, ChevronDown, ChevronRight, PanelLeft } from 'lucide-react';
 import AtajosTeclado from './common/AtajosTeclado';
@@ -35,7 +36,7 @@ import { ESTILO_LADRILLO, tipoLadrillo } from './concreto/texturasObra';
 import { Bloque, KEY_BLOQUES, MUEBLES, muebleDe, geometriaCarpi, plantaCarpi, dentroBloque, Prim2D, SUELTOS } from './concreto/bloques';
 import { NOMBRE_TIPO_CARPI } from './concreto/carpiObra';
 import {
-  Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
+  Abertura, TipoAbertura, PRESETS_ABERTURA, esPuerta, esVidrio, ESTILOS_PUERTA, APERTURAS_VENTANA, COLORES_PUERTA, COLORES_MARCO, estiloDe, aperturaDe, EstiloPuertaObra, AperturaVentana, ajustarAbertura, largoMuro, perfilMuro, detectarAmbientes,
   regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, CieloRaso, cieloDefault, KEY_CIELOS, KEY_AMBIENTES,
   CAPAS, CapaEstructura, capaDeRol, esNodoTanque, poligonosTecho, KEY_SOBREPECHOS, Sobrepecho, sobrepechoDefault, perimetroSobrepecho,
 } from './concreto/geometriaObra';
@@ -1311,6 +1312,17 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
             {(pisos.length ? pisos : ['Piso 1']).map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
+        {modo === 'obra' && <DisenoIAObra piso={nivelMuro} onAplicar={(p: PlantaIA, reemplazar: boolean) => {
+          const id = () => `pc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+          const muros: PlanoElem[] = p.muros.map(m => {
+            const e: PlanoElem = { uid: id(), tipo: 'muro', x1: m.x1, y1: m.y1, x2: m.x2, y2: m.y2, a: m.espesor, H: m.alto, nivel: nivelMuro, material: 'ladrillo' };
+            const L = largoMuro(e);
+            e.aberturas = m.aberturas.map(ab => ajustarAbertura({ id: id(), tipo: ab.tipo, t: ab.t, w: ab.w, h: ab.h, sill: ab.sill }, L));
+            return e;
+          });
+          const cols: PlanoElem[] = p.columnas.map(c => ({ uid: id(), tipo: 'columna', x1: c.x, y1: c.y, a: c.a, b: c.b, H: 3.0 }));
+          commit(prev => [...(reemplazar ? prev.filter(e => !(e.tipo === 'muro' && (e.nivel || 'Piso 1') === nivelMuro) && e.tipo !== 'columna') : prev), ...muros, ...cols]);
+        }} />}
         {tool === 'instalacion' && (
           <select value={tipoInst} onChange={e => setTipoInst(e.target.value as TipoInstalacion)}
             className="px-2 py-1.5 rounded-xl bg-yellow-50 text-xs font-bold text-yellow-900 cursor-pointer focus:outline-none">
@@ -1715,7 +1727,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                         <g key={a.id} style={{ pointerEvents: 'none' }}>
                           {/* jambas */}
                           {[A, B].map((q, k) => <line key={k} x1={q.x - uy * wPx / 2} y1={q.y + ux * wPx / 2} x2={q.x + uy * wPx / 2} y2={q.y - ux * wPx / 2} stroke="#475569" strokeWidth={1.2} />)}
-                          {(a.tipo === 'puerta' || a.tipo === 'puerta_bano') && (() => { const H = ext(iz, a.w); return (<>
+                          {(a.tipo === 'puerta' || a.tipo === 'puerta_bano' || a.tipo === 'puerta_vidrio' || a.tipo === 'puerta_metalica') && (() => { const H = ext(iz, a.w); return (<>
                             <line x1={A.x} y1={A.y} x2={H.x} y2={H.y} stroke="#334155" strokeWidth={2} />
                             <path d={`M ${H.x} ${H.y} A ${r} ${r} 0 0 0 ${B.x} ${B.y}`} fill="none" stroke="#64748b" strokeWidth={1} strokeDasharray="4 3" />
                           </>); })()}
@@ -2357,6 +2369,48 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                     {(Object.keys(PRESETS_ABERTURA) as TipoAbertura[]).map(k => <option key={k} value={k}>{PRESETS_ABERTURA[k].nombre}</option>)}
                   </select>
                 </label>
+                {/* Diseño de la puerta o ventana (se ve en el plano y en el 3D) */}
+                {!a.carpiId && esPuerta(a.tipo) && a.tipo !== 'puerta_plegable' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="col-span-2 block text-[10px] font-bold text-slate-600">Estilo de la puerta
+                      <select value={estiloDe(a)} onChange={e => updateAbertura(muro.uid, a.id, { estilo: e.target.value as EstiloPuertaObra })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                        {(Object.keys(ESTILOS_PUERTA) as EstiloPuertaObra[]).map(k => <option key={k} value={k}>{ESTILOS_PUERTA[k]}</option>)}
+                      </select>
+                    </label>
+                    {a.tipo !== 'puerta_corrediza' && a.tipo !== 'puerta_doble' && a.tipo !== 'porton' && (
+                      <label className="block text-[10px] font-bold text-slate-600">Bisagras
+                        <select value={a.abre || 'izq'} onChange={e => updateAbertura(muro.uid, a.id, { abre: e.target.value as 'izq' | 'der' })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                          <option value="izq">A la izquierda</option><option value="der">A la derecha</option>
+                        </select>
+                      </label>
+                    )}
+                    {a.tipo !== 'puerta_corrediza' && (
+                      <label className="block text-[10px] font-bold text-slate-600">Abre hacia
+                        <select value={a.hacia || 'dentro'} onChange={e => updateAbertura(muro.uid, a.id, { hacia: e.target.value as 'dentro' | 'fuera' })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                          <option value="dentro">Un lado</option><option value="fuera">El otro lado</option>
+                        </select>
+                      </label>
+                    )}
+                  </div>
+                )}
+                {!a.carpiId && esVidrio(a.tipo) && (
+                  <label className="block text-[10px] font-bold text-slate-600">Cómo abre la ventana
+                    <select value={aperturaDe(a)} onChange={e => updateAbertura(muro.uid, a.id, { apertura: e.target.value as AperturaVentana })} className="mt-0.5 w-full px-2 py-1 rounded-lg bg-white text-xs focus:outline-none">
+                      {(Object.keys(APERTURAS_VENTANA) as AperturaVentana[]).map(k => <option key={k} value={k}>{APERTURAS_VENTANA[k]}</option>)}
+                    </select>
+                  </label>
+                )}
+                {!a.carpiId && (esPuerta(a.tipo) || esVidrio(a.tipo)) && (
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-600">{esPuerta(a.tipo) ? 'Color de la puerta' : 'Color del marco'}</p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {(esPuerta(a.tipo) ? COLORES_PUERTA : COLORES_MARCO).map(([hex, nombre]) => (
+                        <button key={hex} type="button" title={nombre} onClick={() => updateAbertura(muro.uid, a.id, { color: hex })}
+                          className={`w-8 h-8 rounded-lg border-2 cursor-pointer ${(a.color || (esPuerta(a.tipo) ? '#caa47c' : '#c0c4c8')) === hex ? 'border-sky-600 ring-2 ring-sky-200' : 'border-slate-200'}`} style={{ background: hex }} />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <label className="block text-[10px] font-bold text-slate-600">Diseño de Carpintería Metálica
                   <select value={a.carpiId || ''} onChange={e => {
                     const d = disenosCarpi.find(x => x.id === e.target.value);
