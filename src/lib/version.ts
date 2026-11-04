@@ -3,3 +3,6 @@
 export const fechaCompilacion = new Date(__BUILD__)
   .toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
   .replace(',', '');
+
+// Versión única del sistema (la misma en la web, la PC y la app Android). Ej. "2026.11.05.1432".
+export const versionApp: string = __VERSION__;

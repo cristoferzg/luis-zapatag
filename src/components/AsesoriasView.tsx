@@ -308,14 +308,14 @@ export default function AsesoriasView({
         </div>
       )}
 
-      <header className="mb-8">
+      <header className="mb-3 xl:mb-8">
         <div className="flex items-center space-x-3 mb-2">
-          <div className="p-3 rounded-xl bg-white shadow-sm border border-slate-100 text-blue-500">
+          <div className="p-2 xl:p-3 rounded-xl bg-white shadow-sm border border-slate-100 text-blue-500 shrink-0">
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Asesorías Técnicas & Clases</h1>
-            <p className="text-slate-500 mt-0.5">
+            <h1 className="text-lg xl:text-3xl font-bold text-slate-800 leading-tight">Asesorías Técnicas & Clases</h1>
+            <p className="text-slate-500 text-xs xl:text-base mt-0.5">
               {isAdmin 
                 ? 'Programa clases, genera enlaces de Google Meet / Zoom, asigna horarios a usuarios y gestiona solicitudes.' 
                 : 'Solicita asesorías especializadas para resolver dudas técnicas, presupuestos o contratos.'}

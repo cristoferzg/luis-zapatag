@@ -5,8 +5,12 @@ apply plugin: 'com.android.application'
 def propsFirma = new Properties()
 def archivoFirma = rootProject.file('keystore.properties')
 if (archivoFirma.exists()) { archivoFirma.withInputStream { propsFirma.load(it) } }
-// Cada compilación lleva un número de versión mayor (Google Play lo exige): AAMMDDHH.
-def versionAuto = Integer.parseInt(new Date().format('yyMMddHH'))
+// Versión única: la misma de la web (dist/version.txt, copiada por `npx cap sync`), p. ej.
+// 2026.11.05.1432. versionCode = AAMMDDHHmm/10 → siempre mayor en cada compilación (Play lo exige).
+def archivoVersion = file('src/main/assets/public/version.txt')
+def versionWeb = archivoVersion.exists() ? archivoVersion.text.trim() : new Date().format('yyyy.MM.dd.HHmm')
+def partes = versionWeb.tokenize('.')
+def versionAuto = Integer.parseInt((partes[0].substring(2) + partes[1] + partes[2] + partes[3].substring(0, 3)))
 
 android {
     namespace = "pe.innovacontratistas.app"
@@ -16,7 +20,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode versionAuto
-        versionName new Date().format('yyyy.MM.dd')
+        versionName versionWeb
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

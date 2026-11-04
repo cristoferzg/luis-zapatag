@@ -18,10 +18,11 @@ import { db } from './lib/firebase';
 import { auth, authReady } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { cambiarEspacioDeTrabajo, fijarDuenoSiFalta } from './lib/espacioUsuario';
+import { quitarComunicado } from './lib/comunicados';
 import { useFirestoreArraySync } from './lib/db';
 import { setAICtx, cargarEstadoIA } from './lib/aiAccess';
 import { useSaldoIA } from './lib/saldoIA';
-import { fechaCompilacion } from './lib/version';
+import { versionApp } from './lib/version';
 import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
 import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, SlidersHorizontal, Armchair } from 'lucide-react';
@@ -103,9 +104,7 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
   const handleDelete = (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (confirm('¿Eliminar este comunicado para todos los usuarios?')) {
-      if (setNotifications) {
-        setNotifications(notifications.filter(n => n.id !== id));
-      }
+      quitarComunicado(id); // directo en la base (no reescribe la lista)
     }
   };
 
@@ -2741,7 +2740,7 @@ export default function App() {
           <div className="px-5 py-2.5 border-t border-slate-800/80 bg-slate-950/70 flex items-center justify-between text-[11px]">
             <div className="flex items-center space-x-1.5 text-slate-400 min-w-0">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-              <span className="font-mono font-bold text-slate-300 truncate" title="Versión del sistema · fecha de esta compilación">{currentSettings.softwareVersion || 'v3.9.5 Pro'} <span className="font-semibold text-slate-500">· {fechaCompilacion}</span></span>
+              <span className="font-mono font-bold text-slate-300 truncate" title="Versión del sistema (la misma en la web, la PC y la app Android)">v{versionApp}</span>
             </div>
             <button type="button" onClick={() => { if (window.confirm('¿Buscar la versión más nueva y recargar?\n\nSe borra solo la copia guardada del programa; tus proyectos, diseños y sesión no se tocan.')) forzarActualizacion(); }}
               title="Trae la versión más nueva del sistema (borra la copia guardada del programa, no tus datos)"

@@ -94,14 +94,14 @@ export default function TicketsView({
 
   return (
     <div className="space-y-6">
-      <header className="mb-8">
+      <header className="mb-3 xl:mb-8">
         <div className="flex items-center space-x-3 mb-2">
-          <div className="p-3 rounded-xl bg-white shadow-sm border border-slate-100 text-rose-500">
+          <div className="p-2 xl:p-3 rounded-xl bg-white shadow-sm border border-slate-100 text-rose-500 shrink-0">
             <MessageSquare className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Mesa de Ayuda y Reportes</h1>
-            <p className="text-slate-500 text-sm mt-0.5">
+            <h1 className="text-lg xl:text-3xl font-bold text-slate-800 leading-tight">Mesa de Ayuda y Reportes</h1>
+            <p className="text-slate-500 text-xs xl:text-sm mt-0.5">
               {isAdmin 
                 ? 'Monitorea las consultas, revisa quién envió cada ticket y marca como resuelto con respuestas inmediatas.' 
                 : 'Envía tus dudas o problemas técnicos. El administrador atenderá tu reporte y verás su respuesta aquí.'}

@@ -45,9 +45,9 @@ export default function SoporteYAsesoriasView({
   const pendingAsesoriasCount = asesorias.filter(a => a.status === 'Pendiente' || a.status === 'Programada').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 xl:space-y-6">
       {/* HEADER SECTION */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-3xs">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 xl:bg-white xl:p-6 xl:rounded-3xl xl:border xl:border-slate-200/80 xl:shadow-3xs">
         <div className="titulo-pagina">
           <div className="flex items-center gap-2 mb-1">
             <span className="p-2 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100">
@@ -63,17 +63,17 @@ export default function SoporteYAsesoriasView({
         </div>
 
         {/* UNIFIED TABS SWITCHER */}
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shrink-0 self-start md:self-auto">
+        <div className="flex w-full xl:w-auto bg-white xl:bg-slate-100 p-1 xl:p-1.5 rounded-xl xl:rounded-2xl border border-slate-200 shrink-0 self-start md:self-auto">
           <button
             onClick={() => setActiveTab('tickets')}
-            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 xl:flex-none min-h-[40px] px-2 xl:px-4 py-2 xl:py-2.5 rounded-lg xl:rounded-xl font-extrabold text-xs flex flex-row flex-nowrap items-center justify-center gap-1.5 xl:gap-2 [white-space:nowrap] transition-all cursor-pointer ${
               activeTab === 'tickets'
                 ? 'bg-slate-900 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <MessageSquare className="w-4 h-4 text-blue-400" />
-            <span>Reportes & Soporte</span>
+            <span><span className="xl:hidden">Reportes</span><span className="hidden xl:inline">Reportes & Soporte</span></span>
             {openTicketsCount > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                 activeTab === 'tickets' ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700'
@@ -85,14 +85,14 @@ export default function SoporteYAsesoriasView({
 
           <button
             onClick={() => setActiveTab('asesorias')}
-            className={`px-4 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            className={`flex-1 xl:flex-none min-h-[40px] px-2 xl:px-4 py-2 xl:py-2.5 rounded-lg xl:rounded-xl font-extrabold text-xs flex flex-row flex-nowrap items-center justify-center gap-1.5 xl:gap-2 [white-space:nowrap] transition-all cursor-pointer ${
               activeTab === 'asesorias'
                 ? 'bg-slate-900 text-white shadow-sm'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <BookOpen className="w-4 h-4 text-emerald-400" />
-            <span>Asesorías Técnicas</span>
+            <span><span className="xl:hidden">Asesorías</span><span className="hidden xl:inline">Asesorías Técnicas</span></span>
             {pendingAsesoriasCount > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
                 activeTab === 'asesorias' ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-800'

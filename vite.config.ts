@@ -2,10 +2,16 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Versión única del sistema: sale de la fecha y hora (Lima) de cada compilación y es la misma
+// en la web, el programa de PC y la app Android (Gradle lee dist/version.txt). Ej. 2026.11.05.1432
+const BUILD = new Date();
+const lima = new Date(BUILD.getTime() - 5 * 3600e3); // Perú: UTC-5 todo el año
+const dd = (n: number) => String(n).padStart(2, '0');
+const VERSION = `${lima.getUTCFullYear()}.${dd(lima.getUTCMonth() + 1)}.${dd(lima.getUTCDate())}.${dd(lima.getUTCHours())}${dd(lima.getUTCMinutes())}`;
+
 // https://vite.dev/config/
 export default defineConfig({
-  // Fecha de compilación: se muestra en el menú para saber qué versión tiene cada equipo.
-  define: { __BUILD__: JSON.stringify(new Date().toISOString()) },
+  define: { __BUILD__: JSON.stringify(BUILD.toISOString()), __VERSION__: JSON.stringify(VERSION) },
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
@@ -16,6 +22,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    { name: 'version-app', generateBundle() { this.emitFile({ type: 'asset', fileName: 'version.txt', source: VERSION }); } },
     react(),
     VitePWA({
       registerType: 'autoUpdate',

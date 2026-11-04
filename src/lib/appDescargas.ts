@@ -18,7 +18,7 @@ export interface ConfigDescargas {
   android?: EnlaceApp;
   pc?: EnlaceApp;
   iphone?: EnlaceApp;
-  ultima?: { fecha: string; nota?: string; obligatoria?: boolean; publicadoEl?: string };
+  ultima?: { fecha: string; version?: string; nota?: string; obligatoria?: boolean; publicadoEl?: string };
   recordatorioDias?: number; // 0 = sin recordatorios
 }
 export type Plataforma = 'android' | 'ios' | 'pc' | 'web';

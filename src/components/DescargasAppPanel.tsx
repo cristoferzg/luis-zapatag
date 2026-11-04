@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { Smartphone, Monitor, Download, RefreshCw, Check, Bell } from 'lucide-react';
 import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace } from '../lib/appDescargas';
-import { fechaCompilacion } from '../lib/version';
+import { versionApp } from '../lib/version';
 
 const fechaBonita = (iso?: string) => { try { return iso ? new Date(iso).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '') : ''; } catch { return ''; } };
 const FILAS: { id: 'android' | 'pc' | 'iphone'; nombre: string; ayuda: string; ph: string; Ic: any }[] = [
@@ -26,7 +26,7 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
   const aviso = (t: string) => { setMsg(t); setTimeout(() => setMsg(''), 3000); };
   const guardar = async () => { try { await guardarDescargas(d); setBorrador(null); aviso('Guardado. Ya lo ven todos los usuarios.'); } catch { aviso('No se pudo guardar. Revisa tu conexión.'); } };
   const publicar = async () => {
-    const ultima = { fecha: BUILD_ACTUAL, nota: nota.trim(), obligatoria, publicadoEl: new Date().toISOString() };
+    const ultima = { fecha: BUILD_ACTUAL, version: versionApp, nota: nota.trim(), obligatoria, publicadoEl: new Date().toISOString() };
     try {
       await guardarDescargas({ ...d, ultima });
       setBorrador(null);
@@ -91,7 +91,7 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
         <div className="border-t border-slate-100 pt-4 grid gap-2">
           <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500"><RefreshCw className="w-4 h-4" /> Avisar de versión nueva</span>
           <p className="text-xs text-slate-600">Primero publica la web y sube la app nueva a Google Play. Luego pulsa el botón: quien tenga una versión anterior verá un aviso al entrar y se le enviará una notificación.</p>
-          <p className="text-[11px] text-slate-500">Versión de esta compilación: <b className="font-mono">{fechaCompilacion}</b>{cfg.ultima?.fecha ? <> · última avisada: <b className="font-mono">{fechaBonita(cfg.ultima.fecha)}</b>{cfg.ultima.obligatoria ? ' (obligatoria)' : ''}</> : ''}</p>
+          <p className="text-[11px] text-slate-500">Versión de esta compilación: <b className="font-mono">v{versionApp}</b>{cfg.ultima?.fecha ? <> · última avisada: <b className="font-mono">{cfg.ultima.version ? `v${cfg.ultima.version}` : fechaBonita(cfg.ultima.fecha)}</b>{cfg.ultima.obligatoria ? ' (obligatoria)' : ''}</> : ''}</p>
           <textarea value={nota} onChange={e => setNota(e.target.value)} placeholder="¿Qué trae de nuevo? (opcional, lo verán en el aviso)" className="w-full min-h-[64px] rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-800 resize-none" />
           <label className="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={obligatoria} onChange={e => setObligatoria(e.target.checked)} className="w-4 h-4" /> Obligatoria (no podrán seguir sin actualizar)</label>
           <button onClick={publicar} className="w-full min-h-[44px] rounded-xl bg-orange-500 text-white text-sm font-black cursor-pointer">Avisar a todos que actualicen</button>

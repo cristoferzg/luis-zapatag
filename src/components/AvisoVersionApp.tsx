@@ -7,6 +7,7 @@ import {
   ConfigDescargas, escucharDescargas, desactualizado, plataforma, abrirEnlace, recargarUltimaVersion,
   avisoPospuesto, posponerAviso, toca, marcarRecordado, programarRecordatorioNativo, esCelularWeb,
 } from '../lib/appDescargas';
+import { versionApp } from '../lib/version';
 
 export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecordatorio?: boolean }) {
   const [cfg, setCfg] = useState<ConfigDescargas | null>(null);
@@ -29,7 +30,8 @@ export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecord
           <div className="flex items-center gap-3">
             <span className="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 grid place-items-center shrink-0"><RefreshCw className="w-5 h-5" /></span>
             <div className="min-w-0">
-              <b className="block text-[15px] text-slate-900">Hay una versión nueva</b>
+              <b className="block text-[15px] text-slate-900">Hay una versión nueva{cfg.ultima?.version ? ` (v${cfg.ultima.version})` : ''}</b>
+              <span className="block text-[11px] text-slate-400">Tienes la v{versionApp}</span>
               <span className="block text-xs text-slate-500">{obligatoria ? 'Debes actualizar para seguir usando la app.' : 'Actualiza para recibir las mejoras.'}</span>
             </div>
           </div>

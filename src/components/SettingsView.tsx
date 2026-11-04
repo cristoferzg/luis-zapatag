@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { activarNotificaciones, notificacionesDisponibles, notificacionesPermitidas, notificar } from '../lib/notificaciones';
-import { fechaCompilacion } from '../lib/version';
+import { versionApp } from '../lib/version';
 import { 
   Building2, CreditCard, Save, Download, 
   Upload, Image as ImageIcon, Trash2, 
@@ -20,6 +20,7 @@ import PlanesIAAdminPanel from './PlanesIAAdminPanel';
 import MisCreditosCard from './MisCreditosCard';
 import { esAppAndroid } from '../lib/plataforma';
 import DescargasAppPanel from './DescargasAppPanel';
+import { publicarComunicado, quitarComunicado } from '../lib/comunicados';
 import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -1289,23 +1290,9 @@ export default function SettingsView({
               </h3>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">
-                  Versión del Software (Visible para todos los usuarios)
-                </label>
-                <input
-                  value={softwareVersion}
-                  onChange={e => setSoftwareVersion(e.target.value)}
-                  type="text"
-                  disabled={!isAdmin}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-800 outline-none focus:border-slate-400 transition-all disabled:opacity-60"
-                  placeholder="Ej. v3.9.5 Pro (RNE-2026)"
-                />
-                <p className="text-[11px] text-slate-400 mt-1">
-                  {isAdmin
-                    ? 'Define la versión que se mostrará en el menú lateral y estado del sistema de los usuarios.'
-                    : 'Versión actual del sistema configurada por el Administrador.'}
-                </p>
-                <p className="text-[11px] font-bold text-slate-600 mt-1">Compilación de esta app: <span className="font-mono">{fechaCompilacion}</span> <span className="font-normal text-slate-400">(se pone sola al publicar; en el menú se ve junto a la versión)</span></p>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Versión del sistema</label>
+                <p className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-mono font-bold text-slate-800">v{versionApp}</p>
+                <p className="text-[11px] text-slate-400 mt-1">Se pone sola en cada actualización y es la misma en la web, el programa de PC y la app Android (también la que ve Google Play). Si un equipo muestra un número menor, tiene una versión anterior.</p>
               </div>
 
               {/* Almacenamiento Cloud Nativo */}
@@ -1346,7 +1333,7 @@ export default function SettingsView({
 
       <DescargasAppPanel isAdmin={isAdmin} onAvisar={setGlobalNotifs ? (title, message) => {
         const ahora = Date.now();
-        setGlobalNotifs([...(globalNotifs || []), { id: `ver_${ahora}`, title, message, date: new Date(ahora).toLocaleString('es-PE'), createdAtTimestamp: ahora, priority: 'important', author: currentUserName || 'Administración', durationHours: 72, expiresAtTimestamp: ahora + 72 * 3600e3 }]);
+        publicarComunicado({ id: `ver_${ahora}`, title, message, date: new Date(ahora).toLocaleString('es-PE'), createdAtTimestamp: ahora, priority: 'important', author: currentUserName || 'Administración', durationHours: 72, expiresAtTimestamp: ahora + 72 * 3600e3 });
       } : undefined} />
 
       {/* Apartado de Aplicación Móvil y PC (.exe) — no aplica dentro de la app Android */}
@@ -1575,19 +1562,21 @@ export default function SettingsView({
   );
 }
 
-const AdminAnnouncementPanel = ({ notifications, setNotifications, authorName }: { notifications: GlobalNotification[], setNotifications: (notifs: GlobalNotification[]) => void, authorName: string }) => {
+const AdminAnnouncementPanel = ({ notifications, authorName }: { notifications: GlobalNotification[], setNotifications: (notifs: GlobalNotification[]) => void, authorName: string }) => {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [priority, setPriority] = useState<'info' | 'important' | 'alert'>('info');
   const [duration, setDuration] = useState<number>(24);
   const [success, setSuccess] = useState(false);
+  const [verTodos, setVerTodos] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !message.trim()) return;
 
     const now = Date.now();
-    const expiresAt = now + duration * 60 * 60 * 1000;
+    // 0 = permanente: queda fijo hasta que lo quites.
+    const expiresAt = duration > 0 ? now + duration * 60 * 60 * 1000 : now + 10 * 365 * 24 * 3600e3;
     
     const newNotif: GlobalNotification = {
       id: 'announcement_' + now,
@@ -1601,7 +1590,7 @@ const AdminAnnouncementPanel = ({ notifications, setNotifications, authorName }:
       date: new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
     };
 
-    setNotifications([newNotif, ...notifications]);
+    publicarComunicado(newNotif); // directo a la base: no reescribe la lista (nada se borra)
     setTitle('');
     setMessage('');
     setSuccess(true);
@@ -1609,12 +1598,12 @@ const AdminAnnouncementPanel = ({ notifications, setNotifications, authorName }:
   };
 
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 animate-fadeIn">
-      <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-        <div className="p-2 bg-slate-50 text-slate-500 rounded-xl border border-slate-100">
+    <div className="bg-white p-4 xl:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 animate-fadeIn">
+      <div className="flex flex-nowrap items-center gap-2 border-b border-slate-100 pb-3">
+        <div className="p-2 bg-slate-50 text-slate-500 rounded-xl border border-slate-100 shrink-0">
           <Bell className="w-4.5 h-4.5" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Publicar Comunicado / Notificación</h3>
           <p className="text-[11px] text-slate-400">Se mostrará con cuenta regresiva en la parte superior del panel de control de todos los usuarios.</p>
         </div>
@@ -1655,6 +1644,7 @@ const AdminAnnouncementPanel = ({ notifications, setNotifications, authorName }:
                 onChange={e => setDuration(Number(e.target.value))}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2 py-2 text-xs text-slate-700 font-semibold outline-none focus:border-slate-300 cursor-pointer"
               >
+                <option value={0}>Permanente (hasta quitarlo)</option>
                 <option value={1}>1 Hora</option>
                 <option value={6}>6 Horas</option>
                 <option value={12}>12 Horas</option>
@@ -1696,6 +1686,35 @@ const AdminAnnouncementPanel = ({ notifications, setNotifications, authorName }:
           </button>
         </div>
       </form>
+
+      {/* Historial: todos los comunicados quedan guardados (vigentes y vencidos). */}
+      {notifications.length > 0 && (
+        <div className="border-t border-slate-100 pt-3 space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Comunicados publicados ({notifications.length})</p>
+          {[...notifications].sort((a, b) => (b.createdAtTimestamp || 0) - (a.createdAtTimestamp || 0)).slice(0, verTodos ? undefined : 5).map(n => {
+            const vence = n.expiresAtTimestamp || ((n.createdAtTimestamp || 0) + 24 * 3600e3);
+            const vigente = vence > Date.now();
+            const permanente = vence - (n.createdAtTimestamp || 0) > 5 * 365 * 24 * 3600e3;
+            return (
+              <div key={n.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 space-y-1.5">
+                <div className="flex flex-nowrap items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-800 truncate">{n.title}</p>
+                    <p className="text-[11px] text-slate-500 line-clamp-2">{n.message}</p>
+                  </div>
+                  <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${vigente ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>{vigente ? (permanente ? 'Fijo' : 'Vigente') : 'Vencido'}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400">
+                  <span className="flex-1 min-w-[120px]">{new Date(n.createdAtTimestamp || 0).toLocaleString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}{vigente && !permanente ? ` · vence ${new Date(vence).toLocaleString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+                  {!vigente && <button type="button" onClick={() => { const t = Date.now(); publicarComunicado({ ...n, id: 'announcement_' + t, createdAtTimestamp: t, expiresAtTimestamp: t + (n.durationHours || 24) * 3600e3, date: new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) }); }} className="min-h-[32px] px-2.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold cursor-pointer">Volver a publicar</button>}
+                  <button type="button" onClick={() => { if (window.confirm('¿Quitar este comunicado para todos?')) quitarComunicado(n.id); }} className="min-h-[32px] px-2.5 rounded-lg bg-white border border-rose-200 text-rose-600 font-bold cursor-pointer">Quitar</button>
+                </div>
+              </div>
+            );
+          })}
+          {notifications.length > 5 && <button type="button" onClick={() => setVerTodos(v => !v)} className="text-xs font-bold text-slate-500 cursor-pointer">{verTodos ? 'Ver menos' : `Ver los ${notifications.length}`}</button>}
+        </div>
+      )}
     </div>
   );
 };
