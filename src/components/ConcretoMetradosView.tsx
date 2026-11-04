@@ -402,7 +402,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   return (
     <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-5 font-sans">
       {/* Cabecera */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="xl:bg-white xl:border xl:border-slate-200 xl:rounded-2xl xl:p-5 xl:shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 xl:gap-3">
         <div className="hidden lg:flex items-center gap-3 titulo-pagina">
           <div className="p-2.5 rounded-xl bg-stone-500/10 text-stone-600 border border-stone-500/20">
             <Box className="w-6 h-6" />

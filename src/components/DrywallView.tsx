@@ -86,7 +86,7 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
             <button key={t.id} onClick={() => setPestana(t.id)}
               title={t.label}
               className={`flex-1 lg:flex-none min-w-0 flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1.5 px-1 lg:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold cursor-pointer ${pestana === t.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
-              <Ic className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-violet-500" /> <span className="hidden lg:inline">{t.label}</span><span className="lg:hidden truncate max-w-full">{t.corto}</span>
+              <Ic className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-violet-500" /> <span className="hidden lg:inline">{t.label}</span><span className="lg:hidden truncate max-w-full">{t.id === 'presupuesto' ? <><span className="max-[359px]:hidden">{t.corto}</span><span className="hidden max-[359px]:inline">Presup.</span></> : t.corto}</span>
             </button>
           );
         })}
