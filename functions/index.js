@@ -83,8 +83,7 @@ async function anotarFallo(ref) {
   });
 }
 
-export const loginWithPin = onCall(
-  { secrets: ['ADMIN_PIN'], region: 'us-central1', cors: true },
+export const loginWithPin = onCall({ secrets: ['ADMIN_PIN'], region: 'us-central1', cors: true, invoker: 'public' },
   async (request) => {
     const pin = String(request.data?.pin || '').trim();
 
@@ -269,7 +268,7 @@ const RECEIPT_MODEL = 'claude-haiku-5-5';
 
 // Canjear con créditos (del plan mensual o de recarga) un curso de Academia o un
 // recurso técnico de pago. data: { cursoId } (curso) o { tipo: 'recurso', itemId }.
-export const canjearCurso = onCall({ region: 'us-central1', cors: true }, async (request) => {
+export const canjearCurso = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
   const token = request.auth?.token || {};
   if (token.role === 'admin') throw new HttpsError('failed-precondition', 'El administrador ya tiene acceso a todo el contenido.');
   const ws = String(token.workspace || '').replace(/^user_/, '');
@@ -299,8 +298,7 @@ export const canjearCurso = onCall({ region: 'us-central1', cors: true }, async 
   return { ok: true, creditos };
 });
 
-export const scanReceipt = onCall(
-  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 120 },
+export const scanReceipt = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 120, invoker: 'public' },
   async (request) => {
     // Solo sesiones autenticadas (anónimo o por PIN) pueden usarlo.
     if (!request.auth) {
@@ -425,8 +423,7 @@ export const scanReceipt = onCall(
 // Para más precisión en planos difíciles, cambia a 'claude-sonnet-5-5'.
 const ROOFPLAN_MODEL = 'claude-haiku-5-5';
 
-export const analyzeRoofPlan = onCall(
-  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 300 },
+export const analyzeRoofPlan = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '512MiB', timeoutSeconds: 300, invoker: 'public' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Inicia sesión para leer planos con IA.');
@@ -633,8 +630,7 @@ export const analyzeRoofPlan = onCall(
  * Cuesta 2 créditos (el admin no paga). Reutiliza ANTHROPIC_API_KEY.
  */
 const REDACCION_MODEL = 'claude-haiku-5-5';
-export const redactarDocumento = onCall(
-  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '256MiB', timeoutSeconds: 120 },
+export const redactarDocumento = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '256MiB', timeoutSeconds: 120, invoker: 'public' },
   async (request) => {
     if (!request.auth) throw new HttpsError('unauthenticated', 'Inicia sesión para redactar con IA.');
     const tipo = request.data?.tipo === 'contrato' ? 'contrato' : 'propuesta';
@@ -791,8 +787,7 @@ Apartados (nombre → id):
 - Configuración (settings): datos de la empresa y logo (salen en presupuestos), moneda, notificaciones.
 PIN y acceso: el PIN lo entrega el administrador; si lo perdió, debe hablar con Innova.`;
 
-export const asistenteSoporte = onCall(
-  { secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '256MiB', timeoutSeconds: 60 },
+export const asistenteSoporte = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 'us-central1', cors: true, memory: '256MiB', timeoutSeconds: 60, invoker: 'public' },
   async (request) => {
     const token = request.auth?.token || {};
     const ws = String(token.workspace || '').replace(/^user_/, '');
