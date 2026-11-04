@@ -72,3 +72,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   PIN ni ingresos de respaldo en el cliente. Los listeners se abren solo con sesión con PIN.
 - Pruebas: `cd seguridad && npm test` (reglas) y `npm run test:app` (app + emuladores;
   `VITE_EMULADORES=1` solo en DEV). Correrlas antes de publicar cambios de reglas o de datos.
+
+## Versión y comunicados
+- Versión única automática `AAAA.MM.DD.HHmm` (Lima) generada por Vite (`__VERSION__`, `dist/version.txt`);
+  Gradle la lee de `android/app/src/main/assets/public/version.txt` (tras `npx cap sync`) para
+  versionName/versionCode. Ya no hay campo manual de versión.
+- Comunicados: `src/lib/comunicados.ts` (publicar/quitar uno por uno). No reescribir la lista
+  `notificaciones` con el setter del hook (borraba los que faltaban en la copia local).
+- Google Play: `cd android && gradle bundleRelease` firma con `android/keystore.properties` (fuera del repo).
