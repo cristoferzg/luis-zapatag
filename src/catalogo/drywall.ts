@@ -15,3 +15,20 @@ export const DRYWALL_DEFAULTS: DrywallItem[] = [
   { id: 'drywall_fuego_159', tipo: 'Drywall Resistente al Fuego (RF)', espesor: 15.9, precioM2: 0, pesoM2: 10.2 },
   { id: 'fibrocemento_8', tipo: 'Placa de Fibrocemento (exterior)', espesor: 8, precioM2: 0, pesoM2: 11.5 },
 ];
+
+// Acabados, puertas y ventanas del cotizador de Drywall, con precios de referencia
+// en soles (Lima). Cada usuario los cambia en Precios.
+// [clave, nombre, unidad, precio de referencia S/, grupo del catálogo]
+export const DRYWALL_ITEMS_EXTRA: [string, string, string, number, string][] = [
+  ['dw:placa_flex', 'Placa de drywall flexible 6.4 mm (para curvas)', 'plancha 1.22 × 2.44', 42, 'Drywall y OSB'],
+  ['dw:empaste', 'Empaste para interiores (bolsa 25 kg)', 'bolsa', 30, 'Consumibles y pintura'],
+  ['dw:imprimante', 'Imprimante / sellador para muros', 'galón', 28, 'Consumibles y pintura'],
+  ['dw:pintura_latex', 'Pintura látex lavable para interiores', 'galón', 58, 'Consumibles y pintura'],
+  ['dw:lija', 'Lija para pared N.º 120', 'pliego', 1.5, 'Consumibles y pintura'],
+  ['dw:puerta_lisa', 'Puerta contraplacada lisa con marco, bisagras y chapa', 'unidad', 380, 'Acabados e instalaciones'],
+  ['dw:puerta_vidrio', 'Puerta con vidrio (marco, bisagras y chapa)', 'unidad', 620, 'Acabados e instalaciones'],
+  ['dw:puerta_corrediza', 'Puerta corrediza con riel, garruchas y jalador', 'unidad', 650, 'Acabados e instalaciones'],
+  ['dw:ventana_corrediza', 'Ventana corrediza de aluminio y vidrio', 'm²', 230, 'Acabados e instalaciones'],
+  ['dw:ventana_fija', 'Ventana fija de aluminio y vidrio', 'm²', 170, 'Acabados e instalaciones'],
+  ['dw:ventana_batiente', 'Ventana batiente de aluminio y vidrio', 'm²', 280, 'Acabados e instalaciones'],
+];

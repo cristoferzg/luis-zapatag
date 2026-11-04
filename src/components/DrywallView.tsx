@@ -3,14 +3,16 @@
 //   1. Cotizar: el usuario elige el sistema (tabique, cielo raso, cenefa, muro
 //      de TV…), pone medidas y obtiene metrado y presupuesto al instante.
 //   2. Muro en elevación: cada tabique se ve de frente con sus parantes, vanos
-//      y las planchas numeradas (despiece y cortes).
+//      y las planchas numeradas (despiece y cortes). Las puertas y ventanas se
+//      arrastran con el dedo o el mouse.
+//   2b. 3D: cada partida (o todas juntas) con sus puertas y ventanas que se abren.
 //   3. Plano con Techos (opcional): el plano compartido con Obra Civil sobre la
 //      estructura de Techos Metálicos; los tabiques llegan al techo.
 //   4. Presupuesto: todo junto, para imprimir o enviar por WhatsApp.
 // Las partidas con piso asignado y lo dibujado en el plano se suman a Obra Civil.
 // =============================================================================
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { PanelsTopLeft, PenTool, ClipboardList, Tag, Calculator, Ruler, Plus, Trash2, Copy, ChevronDown, ChevronUp, FilePlus2, FolderOpen, Save, Send, DoorOpen, AppWindow } from 'lucide-react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { PanelsTopLeft, PenTool, ClipboardList, Tag, Calculator, Ruler, Plus, Trash2, Copy, ChevronDown, ChevronUp, FilePlus2, FolderOpen, Save, Send, DoorOpen, AppWindow, Box, Paintbrush } from 'lucide-react';
 import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
 import { metradoDrywall } from './concreto/metradoDrywall';
 import { KEY_OBRA_TECHOS_ID, EstructuraTechos, sinOcultos } from './concreto/obraPisos';
@@ -22,10 +24,14 @@ import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from 
 import BotonImprimir from './common/BotonImprimir';
 import {
   SISTEMAS, Sistema, SistemaId, Partida, PRESET_VANO, TipoVano, partidaNueva, sistemaDe, medidaPartida, metradoPartidas,
-  despiecePartida, posicionParantes, uid, PLANCHA_W, PLANCHA_H, LineaDrywall,
+  despiecePartida, posicionParantes, uid, PLANCHA_W, PLANCHA_H, LineaDrywall, VanoPartida, ESTILOS_PUERTA, TIPOS_VENTANA,
+  COLORES_PINTURA, colorPintura, conPintura, contornoColumna,
 } from './drywall/calculoDrywall';
+import DisenoIADrywall from './drywall/DisenoIADrywall';
 import { CotizacionDrywall, KEY_COT_ACTUAL, KEY_COT_LISTA, cotizacionVacia, leerCotizacionActual, leerCotizaciones } from './drywall/cotizacionDrywall';
 import { simb } from '../lib/currency';
+
+const Drywall3D = lazy(() => import('./drywall/Drywall3D'));
 
 // Lo dibujado en el plano / 3D (compartido con Obra Civil), metrado como drywall por piso.
 function usePlanoDrywall() {
@@ -45,12 +51,12 @@ function usePlanoDrywall() {
 
 const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const f2 = (n: number) => n.toLocaleString('es-PE', { maximumFractionDigits: 2 });
-type Pestana = 'cotizar' | 'elevacion' | 'plano' | 'presupuesto';
+type Pestana = 'cotizar' | 'elevacion' | '3d' | 'plano' | 'presupuesto';
 
 export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos?: () => void; onIrAPrecios?: () => void }) {
   const [pestana, setPestana] = useState<Pestana>(() => {
     const p = safeStorage.getItem<string>('drywall_pestana', 'cotizar');
-    return (['cotizar', 'elevacion', 'plano', 'presupuesto'].includes(p || '') ? p : 'cotizar') as Pestana;
+    return (['cotizar', 'elevacion', '3d', 'plano', 'presupuesto'].includes(p || '') ? p : 'cotizar') as Pestana;
   });
   useEffect(() => { safeStorage.setItem('drywall_pestana', pestana); }, [pestana]);
   const [cot, setCot] = useState<CotizacionDrywall>(leerCotizacionActual);
@@ -66,6 +72,7 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
   const tabs: { id: Pestana; label: string; corto: string; icon: any }[] = [
     { id: 'cotizar', label: 'Cotizar', corto: 'Cotizar', icon: Calculator },
     { id: 'elevacion', label: 'Muro en elevación', corto: 'Elevación', icon: Ruler },
+    { id: '3d', label: 'Vista 3D', corto: '3D', icon: Box },
     { id: 'plano', label: 'Plano con Techos', corto: 'Plano', icon: PenTool },
     { id: 'presupuesto', label: 'Presupuesto', corto: 'Presupuesto', icon: ClipboardList },
   ];
@@ -86,7 +93,7 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
             <button key={t.id} onClick={() => setPestana(t.id)}
               title={t.label}
               className={`flex-1 lg:flex-none min-w-0 flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1.5 px-1 lg:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold cursor-pointer ${pestana === t.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
-              <Ic className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-violet-500" /> <span className="hidden lg:inline">{t.label}</span><span className="lg:hidden truncate max-w-full">{t.id === 'presupuesto' ? <><span className="max-[359px]:hidden">{t.corto}</span><span className="hidden max-[359px]:inline">Presup.</span></> : t.corto}</span>
+              <Ic className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-violet-500" /> <span className="hidden lg:inline">{t.label}</span><span className="lg:hidden truncate max-w-full">{t.id === 'presupuesto' ? <><span className="max-[429px]:hidden">{t.corto}</span><span className="hidden max-[429px]:inline">Presup.</span></> : t.corto}</span>
             </button>
           );
         })}
@@ -101,11 +108,15 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
         <div className="flex-1 min-h-0">
           <ConcretoPlanoCad modo="drywall" onEditarEnTechos={d => { setActiveTechosDesignToLoad(d); onIrATechos?.(); }} />
         </div>
+      ) : pestana === '3d' ? (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <Vista3D cot={cot} sel={muroSel} setSel={setMuroSel} onCotizar={() => setPestana('cotizar')} />
+        </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto">
           {pestana === 'cotizar' && <Cotizar cot={cot} setCot={setCot} total={(resultado.total + directoPlano) * (1 + (cot.gg + cot.util) / 100)}
             plano={plano} onVerPlano={() => setPestana('plano')}
-            onVerMuro={id => { setMuroSel(id); setPestana('elevacion'); }} onPresupuesto={() => setPestana('presupuesto')} />}
+            onVerMuro={id => { setMuroSel(id); setPestana('elevacion'); }} onVer3D={id => { setMuroSel(id); setPestana('3d'); }} onPresupuesto={() => setPestana('presupuesto')} />}
           {pestana === 'elevacion' && <Elevacion cot={cot} setCot={setCot} sel={muroSel} setSel={setMuroSel} onCotizar={() => setPestana('cotizar')} />}
           {pestana === 'presupuesto' && <Presupuesto cot={cot} setCot={setCot} onIrAPrecios={onIrAPrecios} />}
         </div>
@@ -130,16 +141,87 @@ function Num({ label, value, onChange, step = 0.05, min = 0, sufijo = 'm' }: { l
   );
 }
 
-const FAMILIAS: { id: Sistema['familia'] | 'deco'; titulo: string; ids: SistemaId[] }[] = [
-  { id: 'tabique', titulo: 'Tabiques y muros', ids: ['tabique_2c', 'tabique_1c', 'tabique_rh', 'tabique_rf', 'tabique_acustico', 'muro_exterior'] },
-  { id: 'cielo', titulo: 'Cielos rasos', ids: ['cielo_plano', 'cielo_desnivel', 'cielo_modular'] },
-  { id: 'deco', titulo: 'Decorativo', ids: ['muro_tv', 'cenefa'] },
+const FAMILIAS: { id: Sistema['familia'] | 'deco' | 'forro'; titulo: string; ids: SistemaId[] }[] = [
+  { id: 'tabique', titulo: 'Tabiques y muros', ids: ['tabique_2c', 'tabique_1c', 'tabique_rh', 'tabique_rf', 'tabique_acustico', 'muro_exterior', 'murete', 'nicho_bano'] },
+  { id: 'cielo', titulo: 'Cielos rasos', ids: ['cielo_plano', 'cielo_desnivel', 'cielo_modular', 'cielo_curvo'] },
+  { id: 'forro', titulo: 'Forros', ids: ['forro_columna', 'forro_viga'] },
+  { id: 'deco', titulo: 'Decorativo', ids: ['muro_tv', 'cenefa', 'cabecera', 'repisa'] },
 ];
+// Rótulos del cajón según el sistema (cenefa, forro de viga, repisa).
+const ROTULO_CAJON: Partial<Record<SistemaId, [string, string, string]>> = {
+  forro_viga: ['Ancho de la viga', 'Alto de la viga', 'Viga a forrar (por abajo y los costados)'],
+  repisa: ['Fondo', 'Grosor', 'Medidas de cada repisa'],
+};
+
+// ── Puertas y ventanas: medidas, estilo y si se suman al presupuesto ────────
+function VanoEditor({ v, onChange, onQuitar }: { v: VanoPartida; onChange: (patch: Partial<VanoPartida>) => void; onQuitar: () => void }) {
+  const puerta = v.tipo === 'puerta';
+  const opciones = puerta ? ESTILOS_PUERTA : TIPOS_VENTANA;
+  const actual = puerta ? (v.estilo || 'lisa') : (v.ventana || 'corrediza');
+  const corre = puerta ? v.estilo === 'corrediza' : (v.ventana || 'corrediza') === 'corrediza';
+  return (
+    <div className="rounded-xl bg-sky-50/60 p-2 space-y-2">
+      <div className="grid grid-cols-[auto_1fr_1fr_1fr_auto] gap-2 items-end">
+        <span className="text-[11px] font-bold text-sky-800 pb-2">{PRESET_VANO[v.tipo].nombre}</span>
+        <Num label="Ancho" value={v.w} onChange={x => onChange({ w: x })} />
+        <Num label="Alto" value={v.h} onChange={x => onChange({ h: x })} />
+        <Num label="Del piso" value={v.sill} onChange={x => onChange({ sill: x })} />
+        <button onClick={onQuitar} aria-label="Quitar" className="p-2 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="inline-flex p-0.5 bg-white rounded-lg border border-sky-100">
+          {opciones.map(o => (
+            <button key={o.id} onClick={() => onChange(puerta ? { estilo: o.id as VanoPartida['estilo'] } : { ventana: o.id as VanoPartida['ventana'] })}
+              className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${actual === o.id ? 'bg-sky-600 text-white' : 'text-slate-600'}`}>{o.nombre}</button>
+          ))}
+        </div>
+        {(puerta || v.ventana === 'batiente' || corre) && (
+          <label className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600">{corre ? 'Corre a la' : 'Bisagras a la'}
+            <select value={v.abre || 'izq'} onChange={e => onChange({ abre: e.target.value as 'izq' | 'der' })} className="px-1.5 py-1 rounded-lg bg-white border border-sky-100 text-[11px] font-bold cursor-pointer focus:outline-none">
+              <option value="izq">izquierda</option><option value="der">derecha</option>
+            </select>
+          </label>
+        )}
+        <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer ml-auto">
+          <input type="checkbox" className="w-4 h-4 accent-sky-600" checked={!!v.cotizar} onChange={e => onChange({ cotizar: e.target.checked })} /> Sumar {puerta ? 'la puerta' : 'la ventana'} al precio
+        </label>
+      </div>
+    </div>
+  );
+}
+
+// ── Acabado: sin acabado o empastado y pintado (con su color) ───────────────
+function AcabadoEditor({ p, onChange }: { p: Partida; onChange: (patch: Partial<Partida>) => void }) {
+  const pint = conPintura(p);
+  return (
+    <div className="rounded-xl bg-amber-50/60 p-2.5 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-[11px] font-bold text-amber-900 inline-flex items-center gap-1"><Paintbrush className="w-3.5 h-3.5" /> Acabado</p>
+        <div className="inline-flex p-0.5 bg-white rounded-lg border border-amber-100">
+          <button onClick={() => onChange({ acabado: { tipo: 'ninguno' } })} className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${!pint ? 'bg-amber-600 text-white' : 'text-slate-600'}`}>Sin acabado</button>
+          <button onClick={() => onChange({ acabado: { tipo: 'pintura', color: p.acabado?.color || COLORES_PINTURA[0].nombre } })} className={`px-2 py-1 rounded-md text-[11px] font-bold cursor-pointer ${pint ? 'bg-amber-600 text-white' : 'text-slate-600'}`}>Empastado y pintado</button>
+        </div>
+      </div>
+      {pint && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {COLORES_PINTURA.map(c => {
+            const activo = colorPintura(p.acabado?.color).nombre === c.nombre;
+            return (
+              <button key={c.nombre} onClick={() => onChange({ acabado: { tipo: 'pintura', color: c.nombre } })} title={c.nombre} aria-label={c.nombre}
+                className={`w-8 h-8 rounded-full border-2 cursor-pointer ${activo ? 'border-amber-600 ring-2 ring-amber-200' : 'border-white shadow'}`} style={{ background: c.hex }} />
+            );
+          })}
+          <span className="text-[11px] font-bold text-slate-600 ml-1">{colorPintura(p.acabado?.color).nombre}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── 1. Cotizar ──────────────────────────────────────────────────────────────
-function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPlano }: {
+function Cotizar({ cot, setCot, total, onVerMuro, onVer3D, onPresupuesto, plano, onVerPlano }: {
   cot: CotizacionDrywall; setCot: (f: (c: CotizacionDrywall) => CotizacionDrywall) => void; total: number;
-  onVerMuro: (id: string) => void; onPresupuesto: () => void;
+  onVerMuro: (id: string) => void; onVer3D: (id: string) => void; onPresupuesto: () => void;
   plano: ReturnType<typeof usePlanoDrywall>['plano']; onVerPlano: () => void;
 }) {
   const [abierta, setAbierta] = useState<string | null>(cot.partidas[cot.partidas.length - 1]?.id || null);
@@ -216,13 +298,19 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPla
         )}
       </div>
 
+      {/* Diseñar con IA */}
+      <DisenoIADrywall onAplicar={(nuevas, reemplazar) => {
+        setCot(c => ({ ...c, partidas: [...(reemplazar ? [] : c.partidas), ...nuevas] }));
+        if (nuevas.length) setAbierta(nuevas[0].id);
+      }} />
+
       {/* Agregar partida */}
       <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
         <p className="text-xs font-black text-slate-800">¿Qué vas a construir? <span className="font-semibold text-slate-400">Toca para agregar</span></p>
         {FAMILIAS.map(f => (
           <div key={f.id}>
             <p className="text-[10px] font-black text-slate-400 uppercase mb-1.5">{f.titulo}</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-8 gap-2">
               {f.ids.map(id => { const s = sistemaDe(id); return (
                 <button key={id} onClick={() => agregar(id)} title={s.descripcion}
                   className="text-left rounded-xl border border-slate-200 bg-white px-2.5 py-2 cursor-pointer hover:border-violet-400 hover:bg-violet-50 transition-colors">
@@ -266,18 +354,22 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPla
                         className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-100 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300" />
                     </label>
                     <label className="col-span-2 block text-[10px] font-bold text-slate-500 uppercase">Sistema
-                      <select value={p.sistema} onChange={e => { const n = partidaNueva(e.target.value as SistemaId); upd(p.id, { sistema: n.sistema, nicho: n.nicho, cajon: n.cajon }); }}
+                      <select value={p.sistema} onChange={e => { const n = partidaNueva(e.target.value as SistemaId); upd(p.id, { sistema: n.sistema, nicho: n.nicho, cajon: n.cajon, seccion: n.seccion, flecha: n.flecha, ...(n.seccion || sistemaDe(n.sistema).familia !== s.familia ? { largo: n.largo, alto: n.alto } : {}), ...(n.seccion ? { vanos: [] } : {}) }); }}
                         className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-100 text-sm font-bold text-slate-800 focus:outline-none cursor-pointer">
                         {SISTEMAS.map(x => <option key={x.id} value={x.id}>{x.emoji} {x.nombre}</option>)}
                       </select>
                     </label>
-                    <Num label={s.familia === 'cenefa' ? 'Largo' : 'Largo'} value={p.largo} onChange={v => upd(p.id, { largo: v })} />
+                    {s.forro && p.seccion ? <>
+                      <Num label="Lado A columna" value={p.seccion.a} onChange={v => { const sec = { ...p.seccion!, a: v }; upd(p.id, { seccion: sec, largo: contornoColumna(sec) }); }} />
+                      <Num label="Lado B columna" value={p.seccion.b} onChange={v => { const sec = { ...p.seccion!, b: v }; upd(p.id, { seccion: sec, largo: contornoColumna(sec) }); }} />
+                    </> : <Num label={s.repisa ? 'Largo de cada repisa' : s.id === 'forro_viga' ? 'Largo de la viga' : 'Largo'} value={p.largo} onChange={v => upd(p.id, { largo: v })} />}
                     {s.familia !== 'cenefa' && <Num label={s.familia === 'cielo' ? 'Ancho' : 'Alto'} value={p.alto} onChange={v => upd(p.id, { alto: v })} />}
+                    {s.curvo && <Num label="Subida del arco" value={p.flecha ?? 0.5} onChange={v => upd(p.id, { flecha: Math.min(v, p.alto / 2) })} />}
                     {s.familia === 'cenefa' && p.cajon && <>
-                      <Num label="Ancho del cajón" value={p.cajon.ancho} onChange={v => upd(p.id, { cajon: { ...p.cajon!, ancho: v } })} />
-                      <Num label="Alto del cajón" value={p.cajon.alto} onChange={v => upd(p.id, { cajon: { ...p.cajon!, alto: v } })} />
+                      <Num label={ROTULO_CAJON[s.id]?.[0] || 'Ancho del cajón'} value={p.cajon.ancho} onChange={v => upd(p.id, { cajon: { ...p.cajon!, ancho: v } })} />
+                      <Num label={ROTULO_CAJON[s.id]?.[1] || 'Alto del cajón'} value={p.cajon.alto} onChange={v => upd(p.id, { cajon: { ...p.cajon!, alto: v } })} />
                     </>}
-                    <Num label="Cantidad" value={p.cantidad} step={1} min={1} sufijo="×" onChange={v => upd(p.id, { cantidad: Math.max(1, Math.round(v)) })} />
+                    <Num label={s.repisa ? 'Repisas' : 'Cantidad'} value={p.cantidad} step={1} min={1} sufijo="×" onChange={v => upd(p.id, { cantidad: Math.max(1, Math.round(v)) })} />
                   </div>
 
                   {s.desnivel && p.cajon && (
@@ -289,7 +381,7 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPla
                   )}
                   {s.nicho && p.nicho && (
                     <div className="rounded-xl bg-violet-50/60 p-2.5 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <p className="col-span-2 sm:col-span-4 text-[11px] font-bold text-violet-800">Nicho para el TV (centrado)</p>
+                      <p className="col-span-2 sm:col-span-4 text-[11px] font-bold text-violet-800">{s.id === 'nicho_bano' ? 'Nicho para la ducha (centrado)' : 'Nicho para el TV (centrado)'}</p>
                       <Num label="Ancho" value={p.nicho.w} onChange={v => upd(p.id, { nicho: { ...p.nicho!, w: v } })} />
                       <Num label="Alto" value={p.nicho.h} onChange={v => upd(p.id, { nicho: { ...p.nicho!, h: v } })} />
                       <Num label="Fondo" value={p.nicho.prof} onChange={v => upd(p.id, { nicho: { ...p.nicho!, prof: v } })} />
@@ -297,7 +389,8 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPla
                     </div>
                   )}
 
-                  {s.familia === 'tabique' && (
+                  {s.forro && <p className="text-[11px] text-slate-500 -mt-1">Contorno a forrar: <b>{f2(p.largo)} m</b> (se suman 2.5 cm por lado para el perfil).</p>}
+                  {s.familia === 'tabique' && !s.forro && (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-[10px] font-black text-slate-400 uppercase">Puertas y ventanas</p>
@@ -309,16 +402,12 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPla
                         ))}
                       </div>
                       {p.vanos.map(v => (
-                        <div key={v.id} className="grid grid-cols-[auto_1fr_1fr_1fr_auto] gap-2 items-end rounded-xl bg-sky-50/50 p-2">
-                          <span className="text-[11px] font-bold text-sky-800 pb-2">{PRESET_VANO[v.tipo].nombre}</span>
-                          <Num label="Ancho" value={v.w} onChange={x => upd(p.id, { vanos: p.vanos.map(o => o.id === v.id ? { ...o, w: x } : o) })} />
-                          <Num label="Alto" value={v.h} onChange={x => upd(p.id, { vanos: p.vanos.map(o => o.id === v.id ? { ...o, h: x } : o) })} />
-                          <Num label="Del piso" value={v.sill} onChange={x => upd(p.id, { vanos: p.vanos.map(o => o.id === v.id ? { ...o, sill: x } : o) })} />
-                          <button onClick={() => upd(p.id, { vanos: p.vanos.filter(o => o.id !== v.id) })} className="p-2 rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
-                        </div>
+                        <VanoEditor key={v.id} v={v} onChange={patch => upd(p.id, { vanos: p.vanos.map(o => o.id === v.id ? { ...o, ...patch } : o) })}
+                          onQuitar={() => upd(p.id, { vanos: p.vanos.filter(o => o.id !== v.id) })} />
                       ))}
                     </div>
                   )}
+                  {!s.modular && <AcabadoEditor p={p} onChange={patch => upd(p.id, patch)} />}
 
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     {niveles.length > 0 && (
@@ -333,6 +422,7 @@ function Cotizar({ cot, setCot, total, onVerMuro, onPresupuesto, plano, onVerPla
                     {s.familia === 'tabique' && (
                       <button onClick={() => onVerMuro(p.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-xs font-bold cursor-pointer hover:bg-violet-100"><Ruler className="w-3.5 h-3.5" /> Ver muro y planchas</button>
                     )}
+                    <button onClick={() => onVer3D(p.id)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-50 text-violet-700 text-xs font-bold cursor-pointer hover:bg-violet-100"><Box className="w-3.5 h-3.5" /> Ver en 3D</button>
                     <button onClick={() => setCot(c => ({ ...c, partidas: [...c.partidas.slice(0, i + 1), { ...p, id: uid(), vanos: p.vanos.map(v => ({ ...v, id: uid() })) }, ...c.partidas.slice(i + 1)] }))} title="Duplicar"
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-bold cursor-pointer hover:bg-slate-200"><Copy className="w-3.5 h-3.5" /> Duplicar</button>
                     <button onClick={() => setCot(c => ({ ...c, partidas: c.partidas.filter(x => x.id !== p.id) }))} title="Quitar"
@@ -411,6 +501,18 @@ function Elevacion({ cot, setCot, sel, setSel, onCotizar }: {
   const p = muros.find(m => m.id === sel) || muros[0];
   const [cara, setCara] = useState(0);
   const [ver, setVer] = useState<{ planchas: boolean; parantes: boolean }>({ planchas: true, parantes: true });
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [arrastre, setArrastre] = useState<{ id: string; dx: number; x: number } | null>(null);
+  // En el celular (Android) el dedo sobre una puerta o ventana movía la página y cortaba el
+  // arrastre: se bloquea el desplazamiento solo cuando el toque empieza sobre un vano.
+  useEffect(() => {
+    const svg = svgRef.current; if (!svg) return;
+    const sobreVano = (e: TouchEvent) => !!(e.target as Element | null)?.closest?.('[data-vano]');
+    const bloquear = (e: TouchEvent) => { if (sobreVano(e)) e.preventDefault(); };
+    svg.addEventListener('touchstart', bloquear, { passive: false });
+    svg.addEventListener('touchmove', bloquear, { passive: false });
+    return () => { svg.removeEventListener('touchstart', bloquear); svg.removeEventListener('touchmove', bloquear); };
+  }, [p?.id]);
   if (!p) return (
     <div className="p-6 max-w-xl mx-auto text-center space-y-3">
       <p className="text-sm text-slate-500">Primero agrega un tabique o muro en <b>Cotizar</b>. Aquí lo verás de frente con sus parantes y planchas.</p>
@@ -418,7 +520,8 @@ function Elevacion({ cot, setCot, sel, setSel, onCotizar }: {
     </div>
   );
   const s = sistemaDe(p.sistema);
-  const { caras, vanos } = despiecePartida(p);
+  const { caras, vanos: vanosBase } = despiecePartida(p);
+  const vanos = vanosBase.map(v => arrastre?.id === v.id ? { ...v, x: arrastre.x } : v);
   const c = caras[Math.min(cara, caras.length - 1)];
   const nicho = p.nicho && cara === 0 ? { x: (p.largo - p.nicho.w) / 2, ...p.nicho } : null;
   const parantes = posicionParantes(p.largo, vanos);
@@ -426,12 +529,25 @@ function Elevacion({ cot, setCot, sel, setSel, onCotizar }: {
   const Y = (y: number) => H - y;
   const fs = Math.max(0.09, Math.min(0.16, L / 40));
   const cortes = c.piezas.filter(x => x.corte).length;
-  const moverVano = (id: string, x: number) => setCot(cc => ({ ...cc, partidas: cc.partidas.map(q => q.id === p.id ? { ...q, vanos: q.vanos.map(v => v.id === id ? { ...v, x: Math.max(0, Math.min(q.largo - v.w, x)) } : v) } : q) }));
+  const pint = conPintura(p);
+  const colorMuro = pint ? colorPintura(p.acabado?.color).hex : '#ffffff';
+  const vbW = L + pad * 2, vbH = H + pad * 2 + 0.2;
+  // Visto desde la cara B, la izquierda y la derecha se invierten.
+  const izqVista = (v: VanoPartida) => ((v.abre || 'izq') === 'izq') !== (cara === 1);
+  const moverVano = (id: string, x: number) => setCot(cc => ({ ...cc, partidas: cc.partidas.map(q => q.id === p.id ? { ...q, vanos: q.vanos.map(v => v.id === id ? { ...v, x: Math.round(Math.max(0, Math.min(q.largo - v.w, x)) * 100) / 100 } : v) } : q) }));
+  const aSvg = (e: React.PointerEvent) => {
+    const m = svgRef.current?.getScreenCTM(); if (!m) return 0;
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+    return pt.x;
+  };
+  // x del puntero medida desde el borde izquierdo de la cara A (en la cara B el dibujo está espejado).
+  const xReal = (e: React.PointerEvent) => { const xs = aSvg(e); return cara === 1 ? L - xs : xs; };
+  const limitarX = (v: VanoPartida, x: number) => Math.round(Math.max(0, Math.min(L - v.w, x)) * 100) / 100;
 
   return (
-    <div className="p-3 sm:p-5 space-y-3 max-w-6xl mx-auto">
-      <div className="bg-white rounded-2xl p-3 shadow-xs flex flex-wrap items-center gap-2">
-        <select value={p.id} onChange={e => { setSel(e.target.value); setCara(0); }} className="px-2.5 py-2 rounded-xl bg-slate-100 text-sm font-bold text-slate-800 cursor-pointer focus:outline-none max-w-full">
+    <div className="p-2 sm:p-4 space-y-2 sm:space-y-3 max-w-6xl mx-auto">
+      <div className="bg-white rounded-2xl p-2 sm:p-3 shadow-xs flex flex-wrap items-center gap-2">
+        <select value={p.id} onChange={e => { setSel(e.target.value); setCara(0); }} className="w-full sm:w-auto min-w-0 min-h-[40px] px-2.5 rounded-xl bg-slate-100 text-sm font-bold text-slate-800 cursor-pointer focus:outline-none max-w-full">
           {muros.map(m => <option key={m.id} value={m.id}>{cot.partidas.indexOf(m) + 1}. {m.nombre || sistemaDe(m.sistema).corto} · {f2(m.largo)} × {f2(m.alto)} m</option>)}
         </select>
         {caras.length > 1 && (
@@ -441,75 +557,143 @@ function Elevacion({ cot, setCot, sel, setSel, onCotizar }: {
         )}
         <label className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 cursor-pointer"><input type="checkbox" checked={ver.planchas} onChange={e => setVer(v => ({ ...v, planchas: e.target.checked }))} /> Planchas</label>
         <label className="inline-flex items-center gap-1 text-xs font-bold text-slate-600 cursor-pointer"><input type="checkbox" checked={ver.parantes} onChange={e => setVer(v => ({ ...v, parantes: e.target.checked }))} /> Parantes</label>
-        <div className="flex-1" />
+        <div className="flex-1 hidden sm:block" />
         <BotonImprimir objetivo={() => document.getElementById('dw-elevacion')} titulo={`Muro ${p.nombre || s.corto}`} orientacion="landscape" unaHoja etiqueta="Imprimir muro" />
       </div>
 
-      <div id="dw-elevacion" className="zona-impresion imprimir-claro bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div id="dw-elevacion" className="zona-impresion imprimir-claro bg-white rounded-2xl p-2.5 sm:p-4 shadow-xs space-y-2.5">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
           <h3 className="text-sm font-black text-slate-900">{s.emoji} {p.nombre || s.corto} · {s.nombre} · Cara {cara === 0 ? 'A' : 'B'}</h3>
-          <p className="text-[11px] font-bold text-slate-500">{f2(L)} × {f2(H)} m · {parantes.length} parantes · <span className="text-violet-700">{c.planchas} planchas</span> ({cortes} trozos con corte)</p>
+          <p className="text-[11px] font-bold text-slate-500">{f2(L)} × {f2(H)} m · {parantes.length} parantes · <span className="text-violet-700">{c.planchas} planchas</span> ({cortes} trozos con corte){pint ? <> · <span className="inline-block w-2.5 h-2.5 rounded-full align-middle border border-slate-300" style={{ background: colorMuro }} /> pintado {colorPintura(p.acabado?.color).nombre.toLowerCase()}</> : ''}</p>
         </div>
-        <svg viewBox={`${-pad} ${-pad} ${L + pad * 2} ${H + pad * 2 + 0.2}`} className="w-full h-auto max-h-[60vh] bg-slate-50 rounded-xl" style={{ fontFamily: 'system-ui' }}>
-          <defs>
-            <pattern id="dw-corte" width="0.08" height="0.08" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="0.08" stroke="#a78bfa" strokeWidth="0.015" /></pattern>
-          </defs>
-          {/* Planchas */}
-          {ver.planchas && c.piezas.map((pz, i) => (
-            <g key={i}>
-              <rect x={pz.x} y={Y(pz.y + pz.h)} width={pz.w} height={pz.h} fill={COLORES_PLANCHA[(pz.plancha - 1) % COLORES_PLANCHA.length]} stroke="#7c3aed" strokeWidth={0.012} />
-              {pz.corte && <rect x={pz.x} y={Y(pz.y + pz.h)} width={pz.w} height={pz.h} fill="url(#dw-corte)" />}
-              {pz.w > 0.3 && pz.h > 0.3 && <text x={pz.x + pz.w / 2} y={Y(pz.y + pz.h / 2)} fontSize={fs * 1.4} fontWeight={900} fill="#5b21b6" textAnchor="middle" dominantBaseline="middle">P{pz.plancha}</text>}
-              {pz.w > 0.3 && pz.h > 0.5 && <text x={pz.x + pz.w / 2} y={Y(pz.y + pz.h / 2) + fs * 1.3} fontSize={fs * 0.8} fill="#6d28d9" textAnchor="middle">{f2(pz.w)}×{f2(pz.h)}</text>}
-            </g>
-          ))}
-          {/* Parantes y rieles */}
-          {ver.parantes && <>
-            {parantes.map((x, i) => {
-              const v = vanos.find(o => x > o.x + 0.001 && x < o.x + o.w - 0.001);
-              const segs = v ? [[0, v.sill], [v.sill + v.h, H]] : [[0, H]];
-              return segs.filter(([a, b]) => b - a > 0.01).map(([a, b], j) => <rect key={`${i}-${j}`} x={x - 0.02} y={Y(b)} width={0.04} height={b - a} fill="#475569" opacity={0.85} />);
+        <div className="flex justify-center">
+          {/* El ancho se ajusta a la proporción del muro: sin franjas vacías a los costados. */}
+          <svg ref={svgRef} viewBox={`${-pad} ${-pad} ${vbW} ${vbH}`} className="block h-auto select-none bg-slate-50 rounded-xl" style={{ fontFamily: 'system-ui', width: `min(100%, calc(62vh * ${(vbW / vbH).toFixed(3)}))` }}
+            onPointerMove={e => { if (!arrastre) return; const v = p.vanos.find(o => o.id === arrastre.id); if (v) setArrastre({ ...arrastre, x: limitarX(v, xReal(e) - arrastre.dx) }); }}
+            onPointerUp={() => { if (arrastre) { moverVano(arrastre.id, arrastre.x); setArrastre(null); } }}
+            onPointerCancel={() => setArrastre(null)}>
+            <defs>
+              <pattern id="dw-corte" width="0.08" height="0.08" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="0.08" stroke="#a78bfa" strokeWidth="0.015" /></pattern>
+            </defs>
+            <rect x={0} y={0} width={L} height={H} fill={colorMuro} />
+            {/* Planchas */}
+            {ver.planchas && c.piezas.map((pz, i) => (
+              <g key={i}>
+                <rect x={pz.x} y={Y(pz.y + pz.h)} width={pz.w} height={pz.h} fill={COLORES_PLANCHA[(pz.plancha - 1) % COLORES_PLANCHA.length]} stroke="#7c3aed" strokeWidth={0.012} />
+                {pz.corte && <rect x={pz.x} y={Y(pz.y + pz.h)} width={pz.w} height={pz.h} fill="url(#dw-corte)" />}
+                {pz.w > 0.3 && pz.h > 0.3 && <text x={pz.x + pz.w / 2} y={Y(pz.y + pz.h / 2)} fontSize={fs * 1.4} fontWeight={900} fill="#5b21b6" textAnchor="middle" dominantBaseline="middle">P{pz.plancha}</text>}
+                {pz.w > 0.3 && pz.h > 0.5 && <text x={pz.x + pz.w / 2} y={Y(pz.y + pz.h / 2) + fs * 1.3} fontSize={fs * 0.8} fill="#6d28d9" textAnchor="middle">{f2(pz.w)}×{f2(pz.h)}</text>}
+              </g>
+            ))}
+            {/* Parantes y rieles */}
+            {ver.parantes && <>
+              {parantes.map((x, i) => {
+                const v = vanos.find(o => x > o.x + 0.001 && x < o.x + o.w - 0.001);
+                const segs = v ? [[0, v.sill], [v.sill + v.h, H]] : [[0, H]];
+                return segs.filter(([a, b]) => b - a > 0.01).map(([a, b], j) => <rect key={`${i}-${j}`} x={x - 0.02} y={Y(b)} width={0.04} height={b - a} fill="#475569" opacity={0.85} />);
+              })}
+              <rect x={0} y={Y(0.04)} width={L} height={0.04} fill="#334155" />
+              <rect x={0} y={Y(H)} width={L} height={0.04} fill="#334155" />
+            </>}
+            {/* Vanos (se arrastran) y nicho */}
+            {vanos.map(v => {
+              // En la cara B el muro se ve al revés: el vano queda espejado.
+              const vx = cara === 1 ? L - v.x - v.w : v.x;
+              const top = Y(v.sill + v.h), bot = Y(v.sill);
+              const izq = izqVista(v);
+              const xh = izq ? vx : vx + v.w, xl = izq ? vx + v.w : vx; // lado de bisagras / lado libre
+              const puerta = v.tipo === 'puerta';
+              const estilo = v.estilo || 'lisa', tv = v.ventana || 'corrediza';
+              const sw = 0.012;
+              return (
+                <g key={v.id} data-vano={v.id} style={{ cursor: arrastre?.id === v.id ? 'grabbing' : 'grab', touchAction: 'none' }}
+                  onPointerDown={e => { e.preventDefault(); svgRef.current?.setPointerCapture?.(e.pointerId); setArrastre({ id: v.id, dx: xReal(e) - v.x, x: v.x }); }}>
+                  <rect x={vx} y={top} width={v.w} height={v.h} fill={puerta ? (estilo === 'corrediza' ? '#ecd9bf' : '#e7d3b8') : '#e0f2fe'} stroke={puerta ? '#8b6b4a' : '#0284c7'} strokeWidth={0.025} />
+                  {puerta && estilo === 'vidrio' && <rect x={vx + v.w * 0.18} y={top + v.h * 0.1} width={v.w * 0.64} height={v.h * 0.5} fill="#bfdbfe" stroke="#60a5fa" strokeWidth={sw} />}
+                  {puerta && estilo !== 'corrediza' && <>
+                    {/* La punta del triángulo indica el lado de las bisagras. */}
+                    <polyline points={`${xl},${top} ${xh},${top + v.h / 2} ${xl},${bot}`} fill="none" stroke="#8b6b4a" strokeWidth={sw} strokeDasharray="0.06 0.04" />
+                    <circle cx={xl + (izq ? -0.08 : 0.08)} cy={Y(1.0)} r={0.035} fill="#b45309" />
+                  </>}
+                  {puerta && estilo === 'corrediza' && <>
+                    <rect x={Math.min(vx, izq ? vx - v.w : vx) - 0.05} y={top - 0.06} width={v.w * 2 + 0.1} height={0.04} fill="#94a3b8" />
+                    <line x1={vx + v.w * 0.7} y1={Y(1.0)} x2={vx + v.w * 0.3} y2={Y(1.0)} stroke="#8b6b4a" strokeWidth={0.02} />
+                    <polygon points={izq ? `${vx + v.w * 0.3},${Y(1.0)} ${vx + v.w * 0.38},${Y(1.0) - 0.05} ${vx + v.w * 0.38},${Y(1.0) + 0.05}` : `${vx + v.w * 0.7},${Y(1.0)} ${vx + v.w * 0.62},${Y(1.0) - 0.05} ${vx + v.w * 0.62},${Y(1.0) + 0.05}`} fill="#8b6b4a" />
+                  </>}
+                  {!puerta && tv === 'corrediza' && <>
+                    <line x1={vx + v.w / 2} y1={top} x2={vx + v.w / 2} y2={bot} stroke="#0284c7" strokeWidth={0.02} />
+                    <polygon points={`${vx + v.w * 0.32},${top + v.h * 0.55} ${vx + v.w * 0.4},${top + v.h * 0.5} ${vx + v.w * 0.4},${top + v.h * 0.6}`} fill="#0284c7" />
+                    <polygon points={`${vx + v.w * 0.68},${top + v.h * 0.55} ${vx + v.w * 0.6},${top + v.h * 0.5} ${vx + v.w * 0.6},${top + v.h * 0.6}`} fill="#0284c7" />
+                  </>}
+                  {!puerta && tv === 'batiente' && <polyline points={`${xl},${top} ${xh},${top + v.h / 2} ${xl},${bot}`} fill="none" stroke="#0284c7" strokeWidth={sw} strokeDasharray="0.06 0.04" />}
+                  <text x={vx + v.w / 2} y={top + fs * 1.3} fontSize={fs * 0.9} fontWeight={800} fill={puerta ? '#78350f' : '#0369a1'} textAnchor="middle" dominantBaseline="middle" pointerEvents="none">{PRESET_VANO[v.tipo].nombre} {f2(v.w)}×{f2(v.h)}</text>
+                </g>
+              );
             })}
-            <rect x={0} y={Y(0.04)} width={L} height={0.04} fill="#334155" />
-            <rect x={0} y={Y(H)} width={L} height={0.04} fill="#334155" />
-          </>}
-          {/* Vanos y nicho */}
-          {vanos.map(v => (
-            <g key={v.id}>
-              <rect x={v.x} y={Y(v.sill + v.h)} width={v.w} height={v.h} fill="#fff" stroke="#0284c7" strokeWidth={0.025} />
-              <text x={v.x + v.w / 2} y={Y(v.sill + v.h / 2)} fontSize={fs} fontWeight={800} fill="#0369a1" textAnchor="middle" dominantBaseline="middle">{PRESET_VANO[v.tipo].nombre} {f2(v.w)}×{f2(v.h)}</text>
-            </g>
-          ))}
-          {nicho && (
-            <g>
-              <rect x={nicho.x} y={Y(nicho.sill + nicho.h)} width={nicho.w} height={nicho.h} fill="#1e1b4b" opacity={0.85} stroke="#f59e0b" strokeWidth={0.03} />
-              <text x={nicho.x + nicho.w / 2} y={Y(nicho.sill + nicho.h / 2)} fontSize={fs} fontWeight={800} fill="#fde68a" textAnchor="middle" dominantBaseline="middle">Nicho TV {f2(nicho.w)}×{f2(nicho.h)}</text>
-            </g>
-          )}
-          <rect x={0} y={0} width={L} height={H} fill="none" stroke="#0f172a" strokeWidth={0.03} />
-          {/* Cotas */}
-          <line x1={0} y1={H + 0.22} x2={L} y2={H + 0.22} stroke="#64748b" strokeWidth={0.01} />
-          <text x={L / 2} y={H + 0.38} fontSize={fs * 1.1} fontWeight={800} fill="#334155" textAnchor="middle">{f2(L)} m</text>
-          <line x1={-0.22} y1={0} x2={-0.22} y2={H} stroke="#64748b" strokeWidth={0.01} />
-          <text x={-0.3} y={H / 2} fontSize={fs * 1.1} fontWeight={800} fill="#334155" textAnchor="middle" transform={`rotate(-90 ${-0.3} ${H / 2})`}>{f2(H)} m</text>
-        </svg>
-        <div className="flex flex-wrap gap-3 text-[11px] font-bold text-slate-600">
+            {nicho && (
+              <g>
+                <rect x={nicho.x} y={Y(nicho.sill + nicho.h)} width={nicho.w} height={nicho.h} fill="#1e1b4b" opacity={0.85} stroke={s.sinLed ? '#64748b' : '#f59e0b'} strokeWidth={0.03} />
+                <text x={nicho.x + nicho.w / 2} y={Y(nicho.sill + nicho.h / 2)} fontSize={fs * 0.9} fontWeight={800} fill="#fde68a" textAnchor="middle" dominantBaseline="middle">Nicho {f2(nicho.w)}×{f2(nicho.h)}</text>
+              </g>
+            )}
+            <rect x={0} y={0} width={L} height={H} fill="none" stroke="#0f172a" strokeWidth={0.03} />
+            {/* Cotas */}
+            <line x1={0} y1={H + 0.22} x2={L} y2={H + 0.22} stroke="#64748b" strokeWidth={0.01} />
+            <text x={L / 2} y={H + 0.38} fontSize={fs * 1.1} fontWeight={800} fill="#334155" textAnchor="middle">{f2(L)} m</text>
+            <line x1={-0.22} y1={0} x2={-0.22} y2={H} stroke="#64748b" strokeWidth={0.01} />
+            <text x={-0.3} y={H / 2} fontSize={fs * 1.1} fontWeight={800} fill="#334155" textAnchor="middle" transform={`rotate(-90 ${-0.3} ${H / 2})`}>{f2(H)} m</text>
+          </svg>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-bold text-slate-600">
           <span className="inline-flex items-center gap-1.5"><span className="w-4 h-3 rounded-sm bg-violet-100 border border-violet-500" /> Plancha {PLANCHA_W} × {PLANCHA_H} m (P1, P2…)</span>
           <span className="inline-flex items-center gap-1.5"><span className="w-4 h-3 rounded-sm border border-violet-500" style={{ background: 'repeating-linear-gradient(45deg,#ede9fe,#ede9fe 2px,#a78bfa 2px,#a78bfa 3px)' }} /> Trozo con corte (los retazos con el mismo número salen de la misma plancha)</span>
           <span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-4 bg-slate-600" /> Parante cada 0.61 m y jambas</span>
+          {vanos.some(v => v.tipo === 'puerta' && v.estilo !== 'corrediza') && <span className="inline-flex items-center gap-1.5 text-amber-800">▷ La punta del triángulo marca el lado de las bisagras</span>}
         </div>
         {vanos.length > 0 && (
           <div className="no-imprimir rounded-xl bg-sky-50/60 p-2.5 space-y-2">
-            <p className="text-[11px] font-bold text-sky-800">Ubica las puertas y ventanas (distancia desde el borde izquierdo)</p>
+            <p className="text-[11px] font-bold text-sky-800">Arrastra las puertas y ventanas en el dibujo, o ubícalas aquí (distancia desde el borde izquierdo de la cara A)</p>
             {vanos.map(v => (
               <label key={v.id} className="flex items-center gap-2 text-[11px] font-bold text-slate-600">
                 <span className="w-24 shrink-0">{PRESET_VANO[v.tipo].nombre} {f2(v.w)} m</span>
-                <input type="range" min={0} max={Math.max(0, L - v.w)} step={0.01} value={v.x} onChange={e => moverVano(v.id, parseFloat(e.target.value))} className="flex-1 accent-sky-600" />
+                <input type="range" min={0} max={Math.max(0, L - v.w)} step={0.01} value={v.x} onChange={e => moverVano(v.id, parseFloat(e.target.value))} className="flex-1 min-w-0 accent-sky-600" />
                 <span className="w-14 text-right font-mono">{f2(v.x)} m</span>
               </label>
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ── 3. Vista 3D ─────────────────────────────────────────────────────────────
+function Vista3D({ cot, sel, setSel, onCotizar }: { cot: CotizacionDrywall; sel: string | null; setSel: (id: string) => void; onCotizar: () => void }) {
+  const [todas, setTodas] = useState(false);
+  const [porDentro, setPorDentro] = useState(false);
+  if (!cot.partidas.length) return (
+    <div className="p-6 max-w-xl mx-auto text-center space-y-3">
+      <p className="text-sm text-slate-500">Agrega un tabique, cielo raso o cenefa en <b>Cotizar</b> para verlo en 3D, con sus puertas y ventanas que se abren.</p>
+      <button onClick={onCotizar} className="px-4 py-2 rounded-xl bg-violet-600 text-white text-sm font-bold cursor-pointer">Ir a Cotizar</button>
+    </div>
+  );
+  const p = cot.partidas.find(x => x.id === sel) || cot.partidas[0];
+  return (
+    <div className="h-full min-h-[460px] flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
+      <div className="bg-white rounded-2xl p-2 sm:p-3 shadow-xs flex flex-wrap items-center gap-2 shrink-0">
+        <select value={p.id} disabled={todas} onChange={e => setSel(e.target.value)} className="flex-1 sm:flex-none min-w-0 min-h-[40px] px-2.5 rounded-xl bg-slate-100 text-sm font-bold text-slate-800 cursor-pointer focus:outline-none max-w-full disabled:opacity-50">
+          {cot.partidas.map((m, i) => <option key={m.id} value={m.id}>{i + 1}. {m.nombre || sistemaDe(m.sistema).corto} · {f2(m.largo)} × {f2(m.alto)} m</option>)}
+        </select>
+        <div className="inline-flex p-1 bg-slate-100 rounded-xl">
+          <button onClick={() => setTodas(false)} className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${!todas ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'}`}>Solo esta</button>
+          <button onClick={() => setTodas(true)} className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${todas ? 'bg-white shadow-xs text-slate-900' : 'text-slate-500'}`}>Todas ({cot.partidas.length})</button>
+        </div>
+        <label className="inline-flex items-center gap-1.5 min-h-[40px] text-xs font-bold text-slate-600 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-violet-600" checked={porDentro} onChange={e => setPorDentro(e.target.checked)} /> Ver por dentro (parantes)</label>
+      </div>
+      <div className="flex-1 min-h-[360px]">
+        <Suspense fallback={<div className="w-full h-full rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">Cargando 3D…</div>}>
+          <Drywall3D partidas={cot.partidas} selId={p.id} todas={todas} porDentro={porDentro} />
+        </Suspense>
       </div>
     </div>
   );
@@ -543,7 +727,7 @@ function TablaLineas({ lineas, dias, manoObra }: { lineas: LineaDrywall[]; dias:
           ))}
           <tr className="border-b border-slate-100">
             <td className="py-1.5 font-bold text-slate-700">Instalación (instalador de drywall)</td>
-            <td className="py-1.5 text-slate-400">tabique 12 · cielo 15 · modular 25 m²/día</td>
+            <td className="py-1.5 text-slate-400">tabique 12 · cielo 15 · modular 25 · pintura 25 m²/día</td>
             <td className="py-1.5 text-right font-mono font-bold text-slate-800">{dias}</td>
             <td className="py-1.5 pl-2 text-slate-500">día</td>
             <td className={`py-1.5 text-right font-mono ${manoObra ? 'text-slate-600' : 'text-amber-600'}`}>{dias ? (manoObra / dias).toFixed(2) : '0.00'}</td>

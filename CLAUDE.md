@@ -108,3 +108,10 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   centro) y columnas; se cargan en el piso activo con `commit` (se puede deshacer). UI: `src/components/concreto/DisenoIAObra.tsx`.
 - Aberturas con diseño: `estilo`, `color`, `abre`, `hacia`, `apertura` (geometriaObra: `estiloDe`, `aperturaDe`).
   3D (ConcretoViewer3D): puertas/ventanas cerradas; `registrar()` las anima en el loop; tocar = abrir/cerrar; botón "Abrir puertas".
+
+## Drywall (extras)
+- `disenarDrywall` (functions/drywallIA.js, fábrica `crearDisenarDrywall`, exportada en index.js; 5 créditos): texto/foto → partidas.
+  UI: `src/components/drywall/DisenoIADrywall.tsx` (pestaña Cotizar).
+- Pestaña 3D (`drywall/Drywall3D.tsx`): puertas y ventanas que se abren; "Ver por dentro (parantes)".
+- Vanos con estilo/lado/tipo de ventana y "sumar al precio"; acabado por partida (empastado y pintado, colores).
+  Catálogo extra: `DRYWALL_ITEMS_EXTRA` (src/catalogo/drywall.ts). 7 sistemas nuevos (murete, nicho, forros, cabecera, repisa, cielo curvo).

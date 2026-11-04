@@ -38,6 +38,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleAuth } from 'google-auth-library';
+import { crearDisenarDrywall } from './drywallIA.js';
 
 initializeApp();
 const db = getFirestore();
@@ -1028,6 +1029,9 @@ export const disenarObra = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 'us-
     return { muros, columnas, notas: String(datos?.notas || '').slice(0, 400) };
   }
 );
+
+// Drywall → "Diseñar con IA" (functions/drywallIA.js): partidas desde texto o foto. 5 créditos.
+export const disenarDrywall = crearDisenarDrywall({ onCall, HttpsError, Anthropic, cobrarUsoIA, errorDeIA, modelo: RECEIPT_MODEL });
 
 // =============================================================================
 // AVISOS PUSH (Firebase Cloud Messaging): llegan al celular aunque la app esté

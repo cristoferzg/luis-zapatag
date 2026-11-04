@@ -13,7 +13,10 @@
 //            ángulo perimetral = perímetro.
 //   modular: baldosa 0.61 × 0.61, T principal cada 1.22 m, T secundarios.
 //   rendimiento (m²/día por instalador): tabique 12, cielo 15, modular 25;
-//            cenefa 6 m/día.
+//            cenefa 6 m/día; empaste y pintura 25 m²/día.
+//   empaste y pintura (2 manos): empaste ≈ 0.5 kg/m², imprimante 35 m²/galón,
+//            látex 18 m²/galón, 1 pliego de lija cada 10 m².
+//   cielo curvo: placa flexible sobre el arco, omegas cada 0.40 m.
 // =============================================================================
 import { precio, claveDrywall, claveJornal, AREA_PLANCHA_M2, itemCatalogo } from '../../lib/catalogoPrecios';
 
@@ -24,13 +27,20 @@ export interface LineaDrywall { clave: string; nombre: string; unidad: string; c
 // ── Sistemas ────────────────────────────────────────────────────────────────
 export type SistemaId =
   | 'tabique_1c' | 'tabique_2c' | 'tabique_rh' | 'tabique_rf' | 'tabique_acustico' | 'muro_exterior' | 'muro_tv'
-  | 'cielo_plano' | 'cielo_desnivel' | 'cielo_modular' | 'cenefa';
+  | 'cielo_plano' | 'cielo_desnivel' | 'cielo_modular' | 'cenefa'
+  | 'murete' | 'nicho_bano' | 'forro_columna' | 'forro_viga' | 'cabecera' | 'repisa' | 'cielo_curvo';
 export type FamiliaSistema = 'tabique' | 'cielo' | 'cenefa';
 export interface Sistema {
   id: SistemaId; familia: FamiliaSistema; nombre: string; corto: string; emoji: string; descripcion: string;
   placas: string[];       // id de placa por cara (tabiques) o de la placa del cielo
   parante?: '64' | '89';
   lana?: boolean; modular?: boolean; nicho?: boolean; desnivel?: boolean;
+  remate?: boolean;        // tapa de arriba (murete, cabecera): placa + esquineros
+  led?: boolean;           // cinta LED a lo largo (cabecera)
+  sinLed?: boolean;        // cajón o nicho sin luz LED (forro de viga, repisa, nicho de baño)
+  forro?: 'columna';       // forro de columna: el largo es el contorno de la columna
+  repisa?: boolean;        // repisa: placa arriba, abajo y al frente
+  curvo?: boolean;         // cielo en bóveda: placa flexible sobre el arco
 }
 export const SISTEMAS: Sistema[] = [
   { id: 'tabique_2c', familia: 'tabique', nombre: 'Tabique divisorio (2 caras)', corto: 'Tabique 2 caras', emoji: '🧱', descripcion: 'Divide ambientes: placa estándar por ambos lados.', placas: ['drywall_standard_125', 'drywall_standard_125'], parante: '64' },
@@ -44,12 +54,42 @@ export const SISTEMAS: Sistema[] = [
   { id: 'cielo_desnivel', familia: 'cielo', nombre: 'Cielo raso con desnivel', corto: 'Cielo con desnivel', emoji: '🔲', descripcion: 'Cielo con cajón perimetral (para luz indirecta).', placas: ['drywall_standard_125'], desnivel: true },
   { id: 'cielo_modular', familia: 'cielo', nombre: 'Cielo raso modular 60 × 60', corto: 'Cielo modular', emoji: '▦', descripcion: 'Baldosas desmontables sobre perfiles T (oficinas, locales).', placas: [], modular: true },
   { id: 'cenefa', familia: 'cenefa', nombre: 'Cenefa / cajón de luz LED', corto: 'Cenefa LED', emoji: '💡', descripcion: 'Cajón lineal para cortinas o luz LED.', placas: ['drywall_standard_125'] },
+  { id: 'murete', familia: 'tabique', nombre: 'Muro bajo / murete', corto: 'Murete', emoji: '▬', descripcion: 'Muro bajo para separar ambientes o de barra, con tapa arriba.', placas: ['drywall_standard_125', 'drywall_standard_125'], parante: '64', remate: true },
+  { id: 'nicho_bano', familia: 'tabique', nombre: 'Muro de baño con nicho', corto: 'Nicho de baño', emoji: '🧴', descripcion: 'Tabique verde (RH) con nicho para shampoo en la ducha.', placas: ['drywall_humedad_125', 'drywall_humedad_125'], parante: '64', nicho: true, sinLed: true },
+  { id: 'forro_columna', familia: 'tabique', nombre: 'Forro de columna', corto: 'Forro de columna', emoji: '🏛️', descripcion: 'Cubre una columna o tubería por sus 4 lados.', placas: ['drywall_standard_125'], parante: '64', forro: 'columna' },
+  { id: 'forro_viga', familia: 'cenefa', nombre: 'Forro de viga', corto: 'Forro de viga', emoji: '📏', descripcion: 'Cubre una viga o un ducto por abajo y por los costados.', placas: ['drywall_standard_125'], sinLed: true },
+  { id: 'cabecera', familia: 'tabique', nombre: 'Cabecera de cama', corto: 'Cabecera', emoji: '🛏️', descripcion: 'Panel decorativo detrás de la cama, con luz LED arriba.', placas: ['drywall_standard_125'], parante: '64', remate: true, led: true },
+  { id: 'repisa', familia: 'cenefa', nombre: 'Repisas de drywall', corto: 'Repisas', emoji: '📚', descripcion: 'Repisas o estantes fijos de drywall (cantidad = número de repisas).', placas: ['drywall_standard_125'], sinLed: true, repisa: true },
+  { id: 'cielo_curvo', familia: 'cielo', nombre: 'Cielo curvo (bóveda)', corto: 'Cielo curvo', emoji: '🌙', descripcion: 'Cielo en arco con placa flexible.', placas: ['dw:placa_flex'], curvo: true },
 ];
 export const sistemaDe = (id: SistemaId) => SISTEMAS.find(s => s.id === id) || SISTEMAS[0];
 
 // ── Partidas del cotizador ──────────────────────────────────────────────────
 export type TipoVano = 'puerta' | 'ventana';
-export interface VanoPartida { id: string; tipo: TipoVano; w: number; h: number; sill: number; x?: number }
+export type EstiloPuerta = 'lisa' | 'vidrio' | 'corrediza';
+export type TipoVentana = 'corrediza' | 'fija' | 'batiente';
+export interface VanoPartida {
+  id: string; tipo: TipoVano; w: number; h: number; sill: number; x?: number;
+  estilo?: EstiloPuerta;      // puerta (por defecto: contraplacada lisa)
+  abre?: 'izq' | 'der';       // lado de las bisagras / hacia donde corre (por defecto: izquierda)
+  ventana?: TipoVentana;      // ventana (por defecto: corrediza)
+  cotizar?: boolean;          // sumar la puerta o ventana al presupuesto
+}
+export const ESTILOS_PUERTA: { id: EstiloPuerta; nombre: string }[] = [
+  { id: 'lisa', nombre: 'Contraplacada lisa' }, { id: 'vidrio', nombre: 'Con vidrio' }, { id: 'corrediza', nombre: 'Corrediza' },
+];
+export const TIPOS_VENTANA: { id: TipoVentana; nombre: string }[] = [
+  { id: 'corrediza', nombre: 'Corrediza' }, { id: 'fija', nombre: 'Fija' }, { id: 'batiente', nombre: 'Batiente' },
+];
+// Acabado de la partida: empastado y pintado (con su color) o sin acabado.
+export interface Acabado { tipo: 'ninguno' | 'pintura'; color?: string }
+export const COLORES_PINTURA: { nombre: string; hex: string }[] = [
+  { nombre: 'Blanco', hex: '#f7f6f2' }, { nombre: 'Hueso', hex: '#ede4cf' }, { nombre: 'Gris perla', hex: '#d5d7d9' },
+  { nombre: 'Gris oscuro', hex: '#6b7078' }, { nombre: 'Beige arena', hex: '#d9c4a3' }, { nombre: 'Verde salvia', hex: '#a9b9a0' },
+  { nombre: 'Celeste', hex: '#bcd4e6' }, { nombre: 'Terracota', hex: '#c9785b' },
+];
+export const colorPintura = (nombre?: string) => COLORES_PINTURA.find(c => c.nombre === nombre) || COLORES_PINTURA[0];
+export const conPintura = (p: { acabado?: Acabado }) => p.acabado?.tipo === 'pintura';
 export interface Partida {
   id: string;
   sistema: SistemaId;
@@ -61,6 +101,9 @@ export interface Partida {
   nicho?: { w: number; h: number; prof: number; sill: number };
   cajon?: { ancho: number; alto: number }; // desnivel del cielo / sección de la cenefa
   nivel?: string;          // piso de Obra Civil al que se suma (opcional)
+  acabado?: Acabado;       // sin dato = sin acabado (cotizaciones antiguas)
+  seccion?: { a: number; b: number }; // forro de columna: lados de la columna (m)
+  flecha?: number;         // cielo curvo: cuánto sube el arco al centro (m)
 }
 export const PRESET_VANO: Record<TipoVano, { w: number; h: number; sill: number; nombre: string }> = {
   puerta: { w: 0.9, h: 2.1, sill: 0, nombre: 'Puerta' },
@@ -68,19 +111,38 @@ export const PRESET_VANO: Record<TipoVano, { w: number; h: number; sill: number;
 };
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
+// Contorno a forrar de una columna de lados a × b (el perfil va 2.5 cm separado de cada cara).
+export const contornoColumna = (sec: { a: number; b: number }) => Math.round((2 * (sec.a + sec.b) + 0.2) * 100) / 100;
+// Largo del arco de un cielo curvo: cuerda c (ancho del ambiente) y flecha f.
+export function largoArco(c: number, f: number): number {
+  if (!(f > 0.01) || !(c > 0)) return c;
+  const r = (c * c / 4 + f * f) / (2 * f);
+  return 2 * r * Math.asin(Math.min(1, c / (2 * r)));
+}
+
 export function partidaNueva(sistema: SistemaId): Partida {
   const s = sistemaDe(sistema);
-  if (s.familia === 'cielo') return { id: uid(), sistema, nombre: '', largo: 4, alto: 3, cantidad: 1, vanos: [], ...(s.desnivel ? { cajon: { ancho: 0.4, alto: 0.25 } } : {}) };
-  if (s.familia === 'cenefa') return { id: uid(), sistema, nombre: '', largo: 3, alto: 0.25, cantidad: 1, vanos: [], cajon: { ancho: 0.3, alto: 0.25 } };
-  return { id: uid(), sistema, nombre: '', largo: 3, alto: 2.6, cantidad: 1, vanos: [], ...(s.nicho ? { nicho: { w: 1.6, h: 0.9, prof: 0.15, sill: 0.9 } } : {}) };
+  const base = { id: uid(), sistema, nombre: '', cantidad: 1, vanos: [] as VanoPartida[] };
+  if (s.curvo) return { ...base, largo: 4, alto: 3, flecha: 0.5 };
+  if (s.familia === 'cielo') return { ...base, largo: 4, alto: 3, ...(s.desnivel ? { cajon: { ancho: 0.4, alto: 0.25 } } : {}) };
+  if (s.repisa) return { ...base, largo: 1.2, alto: 0.1, cantidad: 3, cajon: { ancho: 0.3, alto: 0.1 } };
+  if (s.id === 'forro_viga') return { ...base, largo: 4, alto: 0.45, cajon: { ancho: 0.3, alto: 0.45 } };
+  if (s.familia === 'cenefa') return { ...base, largo: 3, alto: 0.25, cajon: { ancho: 0.3, alto: 0.25 } };
+  if (s.forro) { const seccion = { a: 0.3, b: 0.3 }; return { ...base, largo: contornoColumna(seccion), alto: 2.6, seccion }; }
+  if (s.id === 'murete') return { ...base, largo: 2, alto: 1.0 };
+  if (s.id === 'cabecera') return { ...base, largo: 2.0, alto: 1.4 };
+  if (s.id === 'nicho_bano') return { ...base, largo: 1.5, alto: 2.6, nicho: { w: 0.6, h: 0.35, prof: 0.1, sill: 1.1 } };
+  return { ...base, largo: 3, alto: 2.6, ...(s.nicho ? { nicho: { w: 1.6, h: 0.9, prof: 0.15, sill: 0.9 } } : {}) };
 }
 
 export const areaVanos = (p: Partida) => p.vanos.reduce((x, v) => x + v.w * v.h, 0);
+// Ancho real del cielo (en el cielo curvo, el arco).
+export const anchoCielo = (p: Partida) => sistemaDe(p.sistema).curvo ? largoArco(p.alto, p.flecha ?? 0.5) : p.alto;
 // m² que se muestran de la partida: muro neto, cielo o metros de cenefa.
 export function medidaPartida(p: Partida): { valor: number; unidad: string } {
   const s = sistemaDe(p.sistema);
   if (s.familia === 'cenefa') return { valor: p.largo * p.cantidad, unidad: 'm' };
-  if (s.familia === 'cielo') return { valor: p.largo * p.alto * p.cantidad, unidad: 'm²' };
+  if (s.familia === 'cielo') return { valor: p.largo * anchoCielo(p) * p.cantidad, unidad: 'm²' };
   return { valor: Math.max(0, p.largo * p.alto - areaVanos(p)) * p.cantidad, unidad: 'm²' };
 }
 
@@ -157,19 +219,24 @@ export interface Acumulado {
   modularM2: number; modularPerim: number;
   cenefaM: number; ledM: number;
   tabiqueM2: number;
+  pinturaM2?: number;              // m² a empastar y pintar
+  colores?: Set<string>;
+  carpinteria?: Map<string, number>; // puertas (und) y ventanas (m²) que se cotizan
 }
 export const acumuladoVacio = (): Acumulado => ({
   planchas: new Map(), placaM2: new Map(), placaAcabadoM2: 0, parantes: { '64': 0, '89': 0 }, rielM: { '64': 0, '89': 0 }, parantesCuenta: 0,
   vanosPerimetro: 0, esquineroExtraM: 0, cieloM2: 0, omegaM: 0, primarioM: 0, anguloM: 0, colgadores: 0, lanaM2: 0, modularM2: 0, modularPerim: 0, cenefaM: 0, ledM: 0, tabiqueM2: 0,
 });
 const sumar = (m: Map<string, number>, k: string, v: number) => m.set(k, (m.get(k) || 0) + v);
+// Placa: id del catálogo de drywall, o una clave completa del catálogo ("dw:placa_flex").
+const clavePlaca = (id: string) => id.includes(':') ? id : claveDrywall(id);
 
 // Tabique con su alto (hMax para piezas de parante), placas por cara y vanos.
 // planchasPorCara: si se conoce el despiece exacto, en vez de m² + 5%.
 export function agregarTabique(a: Acumulado, o: { L: number; areaNeta: number; hMax: number; placas: string[]; vanos: { w: number; h: number; sill: number }[]; parante: '64' | '89'; lana?: boolean; planchasPorCara?: number[]; veces?: number }) {
   const k = o.veces ?? 1;
   o.placas.forEach((id, i) => {
-    const clave = claveDrywall(id);
+    const clave = clavePlaca(id);
     if (o.planchasPorCara) sumar(a.planchas, clave, o.planchasPorCara[i] * k);
     else sumar(a.placaM2, clave, o.areaNeta * k);
   });
@@ -182,10 +249,10 @@ export function agregarTabique(a: Acumulado, o: { L: number; areaNeta: number; h
   a.vanosPerimetro += o.vanos.reduce((x, v) => x + 2 * v.h + v.w * (v.sill > 0 ? 2 : 1), 0) * k;
   if (o.lana) a.lanaM2 += o.areaNeta * k;
 }
-export function agregarCielo(a: Acumulado, area: number, perimetro: number, placaId: string) {
-  sumar(a.placaM2, claveDrywall(placaId), area);
+export function agregarCielo(a: Acumulado, area: number, perimetro: number, placaId: string, sepOmega = 0.61) {
+  sumar(a.placaM2, clavePlaca(placaId), area);
   a.placaAcabadoM2 += area; a.cieloM2 += area;
-  a.omegaM += area / 0.61; a.primarioM += area / 1.22; a.anguloM += perimetro; a.colgadores += area / 1.2;
+  a.omegaM += area / sepOmega; a.primarioM += area / 1.22; a.anguloM += perimetro; a.colgadores += area / 1.2;
 }
 export function agregarCieloModular(a: Acumulado, area: number, perimetro: number) {
   a.modularM2 += area; a.modularPerim += perimetro; a.colgadores += area / 1.2;
@@ -193,11 +260,19 @@ export function agregarCieloModular(a: Acumulado, area: number, perimetro: numbe
 // Cajón: dos caras verticales (alto) y una horizontal (ancho) por metro.
 export function agregarCenefa(a: Acumulado, L: number, ancho: number, alto: number, placaId: string, led: boolean) {
   const area = L * (2 * alto + ancho);
-  sumar(a.placaM2, claveDrywall(placaId), area);
+  sumar(a.placaM2, clavePlaca(placaId), area);
   a.placaAcabadoM2 += area; a.cenefaM += L;
   a.omegaM += L * 2; a.rielM['64'] += L * 2; a.esquineroExtraM += L * 2;
   a.parantes['64'] += Math.ceil(L / 0.61) * ((alto + ancho) / PIEZA_M); a.parantesCuenta += Math.ceil(L / 0.61);
   if (led) a.ledM += L;
+}
+// Repisa fija: placa arriba, abajo y al frente; esquineros en los dos cantos.
+function agregarRepisa(a: Acumulado, L: number, fondo: number, grosor: number, placaId: string) {
+  const area = L * (2 * fondo + grosor);
+  sumar(a.placaM2, clavePlaca(placaId), area);
+  a.placaAcabadoM2 += area; a.cenefaM += L;
+  a.rielM['64'] += L * 2 + fondo * 4; a.esquineroExtraM += L * 2;
+  a.parantes['64'] += (Math.ceil(L / 0.4) + 1) * fondo / PIEZA_M; a.parantesCuenta += Math.ceil(L / 0.4) + 1;
 }
 
 const linea = (clave: string, cantidad: number, nota?: string): LineaDrywall => {
@@ -239,13 +314,26 @@ export function lineasDe(a: Acumulado): ResultadoDrywall {
     lineas.push(linea('dw:t_sec_061', Math.ceil(a.modularM2 / (1.22 * 1.22)), 'cierra el módulo 0.61'));
   }
   if (a.ledM > 0) lineas.push(linea('dw:cinta_led', Math.ceil(a.ledM / 5), `${a.ledM.toFixed(1)} m de cajón`));
+  a.carpinteria?.forEach((cant, clave) => {
+    if (cant <= 0) return;
+    const m2 = clave.startsWith('dw:ventana');
+    lineas.push(linea(clave, m2 ? Math.round(cant * 100) / 100 : cant, m2 ? 'por m² de ventana' : 'con marco y accesorios'));
+  });
   if (a.placaAcabadoM2 > 0) {
     lineas.push(linea('dw:tornillo_placa', Math.ceil((a.placaAcabadoM2 * 25) / 100), '≈ 25 por m² de placa'));
     lineas.push(linea('dw:masilla', Math.ceil((a.placaAcabadoM2 * 0.9) / 28), '≈ 0.9 kg/m², balde 28 kg'));
     lineas.push(linea('dw:cinta', Math.ceil((a.placaAcabadoM2 * 1.5) / 75), '≈ 1.5 m/m², rollo 75 m'));
   }
+  const pint = a.pinturaM2 || 0;
+  if (pint > 0) {
+    const colores = a.colores?.size ? ` · ${[...a.colores].join(', ')}` : '';
+    lineas.push(linea('dw:empaste', Math.ceil((pint * 0.5) / 25), `${pint.toFixed(1)} m² · ≈ 0.5 kg/m², 2 manos`));
+    lineas.push(linea('dw:imprimante', Math.ceil(pint / 35), '≈ 35 m² por galón'));
+    lineas.push(linea('dw:pintura_latex', Math.ceil(pint / 18), `2 manos, ≈ 18 m² por galón${colores}`));
+    lineas.push(linea('dw:lija', Math.ceil(pint / 10), '1 pliego cada 10 m²'));
+  }
   const materiales = lineas.reduce((x, l) => x + l.subtotal, 0);
-  const dias = Math.round((a.tabiqueM2 / 12 + a.cieloM2 / 15 + a.modularM2 / 25 + a.cenefaM / 6) * 10) / 10;
+  const dias = Math.round((a.tabiqueM2 / 12 + a.cieloM2 / 15 + a.modularM2 / 25 + a.cenefaM / 6 + pint / 25) * 10) / 10;
   const manoObra = dias * precio(claveJornal('Instalador de drywall'));
   return { lineas, materiales, dias, manoObra, total: materiales + manoObra };
 }
@@ -260,31 +348,58 @@ export function despiecePartida(p: Partida): { caras: DespieceCara[]; vanos: (Va
   return { caras: s.placas.map((_, i) => despieceCara(p.largo, p.alto, i === 0 ? cara0 : vs)), vanos };
 }
 
+// Clave del catálogo de una puerta o ventana (según su estilo).
+export const claveVano = (v: VanoPartida) => v.tipo === 'puerta' ? `dw:puerta_${v.estilo || 'lisa'}` : `dw:ventana_${v.ventana || 'corrediza'}`;
+
 export function agregarPartida(a: Acumulado, p: Partida) {
   const s = sistemaDe(p.sistema);
   const k = Math.max(1, p.cantidad || 1);
+  const acabadoAntes = a.placaAcabadoM2;
   if (s.familia === 'tabique') {
     const { caras } = despiecePartida(p);
     const areaNeta = Math.max(0, p.largo * p.alto - areaVanos(p));
     agregarTabique(a, { L: p.largo, areaNeta, hMax: p.alto, placas: s.placas, vanos: p.vanos, parante: s.parante || '64', lana: s.lana, planchasPorCara: caras.map(c => c.planchas), veces: k });
     if (p.nicho) {
-      // Fondo y costados del nicho, con su esquinero y luz LED.
+      // Fondo y costados del nicho, con su esquinero (y luz LED en el muro de TV).
       const n = p.nicho;
       const extra = (2 * (n.w + n.h) * n.prof) * k;
-      sumar(a.placaM2, claveDrywall(s.placas[0]), extra);
-      a.placaAcabadoM2 += extra; a.esquineroExtraM += 2 * (n.w + n.h) * k; a.ledM += n.w * k;
+      sumar(a.placaM2, clavePlaca(s.placas[0]), extra);
+      a.placaAcabadoM2 += extra; a.esquineroExtraM += 2 * (n.w + n.h) * k;
+      if (!s.sinLed) a.ledM += n.w * k;
       a.rielM[s.parante || '64'] += 2 * (n.w + n.h) * k;
     }
+    if (s.remate) {
+      // Tapa de arriba (ancho del tabique ≈ 0.10 m) y esquineros en sus dos cantos; los costados también.
+      const ancho = (s.parante === '89' ? 0.09 : 0.065) + 0.025 * s.placas.length;
+      const extra = (p.largo + 2 * p.alto) * ancho * k;
+      sumar(a.placaM2, clavePlaca(s.placas[0]), extra);
+      a.placaAcabadoM2 += extra; a.esquineroExtraM += (2 * p.largo + 2 * p.alto) * k;
+    }
+    if (s.led) a.ledM += p.largo * k;
+    if (s.forro) a.esquineroExtraM += 4 * p.alto * k; // las 4 esquinas de la columna
+    p.vanos.forEach(v => {
+      if (!v.cotizar) return;
+      a.carpinteria = a.carpinteria || new Map();
+      sumar(a.carpinteria, claveVano(v), (v.tipo === 'puerta' ? 1 : v.w * v.h) * k);
+    });
   } else if (s.familia === 'cielo') {
     for (let i = 0; i < k; i++) {
-      const area = p.largo * p.alto, per = 2 * (p.largo + p.alto);
+      const ancho = anchoCielo(p);
+      const area = p.largo * ancho, per = 2 * (p.largo + p.alto);
       if (s.modular) agregarCieloModular(a, area, per);
-      else agregarCielo(a, area, per, s.placas[0]);
+      else agregarCielo(a, area, per, s.placas[0], s.curvo ? 0.4 : 0.61);
       if (s.desnivel && p.cajon) agregarCenefa(a, per, p.cajon.ancho, p.cajon.alto, s.placas[0], true);
     }
   } else {
     const c = p.cajon || { ancho: 0.3, alto: 0.25 };
-    for (let i = 0; i < k; i++) agregarCenefa(a, p.largo, c.ancho, c.alto, s.placas[0], true);
+    for (let i = 0; i < k; i++) {
+      if (s.repisa) agregarRepisa(a, p.largo, c.ancho, c.alto, s.placas[0]);
+      else agregarCenefa(a, p.largo, c.ancho, c.alto, s.placas[0], !s.sinLed);
+    }
+  }
+  if (conPintura(p) && !s.modular) {
+    a.pinturaM2 = (a.pinturaM2 || 0) + (a.placaAcabadoM2 - acabadoAntes);
+    (a.colores = a.colores || new Set()).add(colorPintura(p.acabado?.color).nombre);
   }
 }
 

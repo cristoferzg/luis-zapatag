@@ -14,7 +14,7 @@ import { useSyncExternalStore } from 'react';
 import { safeStorage } from './storageManager';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR, SOLDADURA_AWS_E6011 } from '../components/techos/techosCadCatalog';
 import { PERFILES_CATALOGO, ACCESORIOS_CATALOGO } from '../components/herreria/herreriaCatalog';
-import { DRYWALL_DEFAULTS } from '../catalogo/drywall';
+import { DRYWALL_DEFAULTS, DRYWALL_ITEMS_EXTRA } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS } from '../catalogo/ladrillo';
 import { OSB_DEFAULTS } from '../catalogo/osb';
 import { COLORES_MELAMINA, MELAMINA_ITEMS } from '../catalogo/melamina';
@@ -187,6 +187,8 @@ function construirItems(): ItemCatalogo[] {
     ['dw:t_principal', 'Perfil T principal × 3.66 m', 'pieza'], ['dw:t_sec_122', 'Perfil T secundario × 1.22 m', 'pieza'],
     ['dw:t_sec_061', 'Perfil T secundario × 0.61 m', 'pieza'], ['dw:cinta_led', 'Cinta LED (rollo 5 m)', 'rollo'],
   ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de drywall', nombre, unidad, ref: 0, usadoEn: ['Drywall', 'Obra Civil'] }));
+  // Drywall: placa flexible, empaste y pintura, puertas y ventanas (con precio de referencia).
+  DRYWALL_ITEMS_EXTRA.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Drywall'] }));
   // Melamina: tableros 18 mm por color (2.44 × 2.15 m) y herrajes.
   COLORES_MELAMINA.forEach(c => add({ clave: `mel:tablero:${c.id}`, grupo: 'Melamina y herrajes', nombre: `Melamina 18 mm ${c.nombre} (2.44 × 2.15 m)`, unidad: 'tablero', ref: c.ref, usadoEn: ['Melamina'] }));
   add({ clave: 'mel:tablero:otro', grupo: 'Melamina y herrajes', nombre: 'Melamina 18 mm otro color (2.44 × 2.15 m)', unidad: 'tablero', ref: 240, usadoEn: ['Melamina'] });
