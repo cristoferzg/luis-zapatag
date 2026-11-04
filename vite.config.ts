@@ -55,6 +55,8 @@ export default defineConfig({
       workbox: {
         maximumFileSizeToCacheInBytes: 16 * 1024 * 1024,
         cleanupOutdatedCaches: true,
+        // Páginas fijas que no son la app (política de privacidad, enlaces de Android).
+        navigateFallbackDenylist: [/^\/privacidad/, /^\/\.well-known\//],
         clientsClaim: true,
         skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],

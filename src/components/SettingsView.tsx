@@ -1338,6 +1338,12 @@ export default function SettingsView({
       </div>
 
       {/* Descargar la app: enlaces (admin), aviso de versión nueva y recordatorios */}
+      <a href="/privacidad.html" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:bg-slate-50">
+        <span className="p-2 bg-slate-100 text-slate-600 rounded-xl shrink-0"><ShieldAlert className="w-5 h-5" /></span>
+        <span className="min-w-0 flex-1"><b className="block text-sm text-slate-800">Política de privacidad</b><span className="block text-xs text-slate-500">Qué datos guarda la app, con quién se comparten y cómo pedir que se borren.</span></span>
+        <span className="text-slate-400 text-lg shrink-0">›</span>
+      </a>
+
       <DescargasAppPanel isAdmin={isAdmin} onAvisar={setGlobalNotifs ? (title, message) => {
         const ahora = Date.now();
         setGlobalNotifs([...(globalNotifs || []), { id: `ver_${ahora}`, title, message, date: new Date(ahora).toLocaleString('es-PE'), createdAtTimestamp: ahora, priority: 'important', author: currentUserName || 'Administración', durationHours: 72, expiresAtTimestamp: ahora + 72 * 3600e3 }]);

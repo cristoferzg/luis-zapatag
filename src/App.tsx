@@ -2177,7 +2177,7 @@ export default function App() {
           </form>
 
           <p className="mt-4 text-[9px] text-slate-400 font-medium">
-            Innova Contratistas Cloud
+            Innova Contratistas Cloud · <a href="/privacidad.html" target="_blank" rel="noopener noreferrer" className="underline hover:text-slate-600">Política de privacidad</a>
           </p>
         </div>
       </div>
