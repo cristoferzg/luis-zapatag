@@ -1211,11 +1211,11 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
       >
         {/* CELULAR: 4 secciones grandes (como Proyectos & Clientes); dentro, sus partes. */}
         {(() => {
-          const SECC: { id: string; label: string; tabs: { id: TechosTab; label: string }[] }[] = [
+          const SECC: { id: string; label: string; corto?: string; tabs: { id: TechosTab; label: string }[] }[] = [
             { id: 'disenar', label: 'Diseñar', tabs: [{ id: 'cad', label: 'Plano 2D / 3D' }] },
             { id: 'materiales', label: 'Materiales', tabs: [{ id: 'despiece', label: 'Despiece y cortes' }, { id: 'materiales', label: 'Agrupados' }] },
             { id: 'presupuesto', label: 'Presupuesto', tabs: [{ id: 'costos', label: 'Costos' }, { id: 'presupuesto', label: 'Presupuesto formal' }, { id: 'resumen', label: 'Resumen' }] },
-            { id: 'calculo', label: 'Plano y cálculo', tabs: [{ id: 'plano', label: 'Plano CM-02' }, { id: 'estructural', label: 'Análisis RNE' }] },
+            { id: 'calculo', label: 'Plano y cálculo', corto: 'Cálculo', tabs: [{ id: 'plano', label: 'Plano CM-02' }, { id: 'estructural', label: 'Análisis RNE' }] },
           ];
           const actual = SECC.find(x => x.tabs.some(t => t.id === activeTab)) || SECC[0];
           return (
@@ -1223,7 +1223,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
               <div className="flex bg-slate-100 rounded-xl p-0.5">
                 {SECC.map(x => (
                   <button key={x.id} onClick={() => setActiveTab(x.tabs[0].id)}
-                    className={`flex-1 py-1.5 rounded-lg text-[11px] font-black cursor-pointer ${actual.id === x.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>{x.label}</button>
+                    className={`flex-1 min-w-0 py-1.5 rounded-lg text-[11px] font-black cursor-pointer [white-space:nowrap] ${actual.id === x.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>{x.corto ? <><span className="max-[359px]:hidden">{x.label}</span><span className="hidden max-[359px]:inline">{x.corto}</span></> : x.label}</button>
                 ))}
               </div>
               {actual.tabs.length > 1 && (

@@ -1735,7 +1735,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
                 }`}
                 title="Perfil comercial de acero y Vistas CAD"
               >
-                <span className="p-1 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                <span className="max-[359px]:hidden p-1 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
                   <Layers className="w-3.5 h-3.5" />
                 </span>
                 <div className={`flex items-center gap-1 text-left ${esCelular ? 'shrink-0' : 'min-w-0 sm:max-w-[200px] truncate'}`}>
