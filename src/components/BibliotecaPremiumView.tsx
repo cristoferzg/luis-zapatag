@@ -23,8 +23,7 @@ import {
   Star,
   GalleryHorizontal,
   Paperclip,
-  LayoutTemplate
-} from 'lucide-react';
+  LayoutTemplate, Coins } from 'lucide-react';
 import { SystemUser } from '../types';
 import { deleteRecord, useFirestoreArraySync, updateRecord } from '../lib/db';
 import AsistenteSubida, { BorradorSubida, borradorVacio } from './common/AsistenteSubida';
@@ -763,7 +762,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                         {!isAdmin && !hasAccess(item) && iaHabilitadaUsuarios() && (
                           <button onClick={() => setCanjeRecurso(item)}
                             className="w-full mt-1.5 py-2.5 px-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer active:scale-95">
-                            🪙 <span className="truncate">Desbloquear con {creditosDeRecurso(item)} créditos</span>
+                            <Coins className="w-4 h-4 shrink-0" /> <span className="truncate">Desbloquear con {creditosDeRecurso(item)} créditos</span>
                           </button>
                         )}
                       </div>

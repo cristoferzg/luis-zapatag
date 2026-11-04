@@ -3,6 +3,7 @@
 // funciones inteligentes del sistema (si se acaban, hay que recargar).
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Coins } from 'lucide-react';
 import { useSaldoIA, avisarSaldoIA } from '../lib/saldoIA';
 
 interface Props {
@@ -47,7 +48,7 @@ export default function ConfirmarCanjeCreditos({ tipo, nombre, creditos, onCanje
         ) : (
           <>
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center text-2xl shrink-0">🪙</div>
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0"><Coins className="w-6 h-6" /></div>
               <div className="min-w-0">
                 <h3 className="text-base font-black text-slate-900 leading-tight">Desbloquear {cosa} con créditos</h3>
                 <p className="text-sm text-slate-600 mt-0.5 break-words">{nombre}</p>
@@ -67,7 +68,7 @@ export default function ConfirmarCanjeCreditos({ tipo, nombre, creditos, onCanje
 
             <div className="mt-3 rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-[13px] text-amber-900 leading-relaxed">
               <b>⚠️ Importante:</b> estos son los <b>mismos créditos</b> que usas para las <b>funciones de inteligencia artificial</b> del sistema (leer boletas sin QR, leer planos a mano).
-              Si los gastas y se te acaban, para seguir usando esas funciones tendrás que <b>recargar</b>{saldo?.renuevaEl ? <> o esperar la recarga de tu plan el <b>{fecha(saldo.renuevaEl)}</b></> : null}.
+              Si los gastas y se te acaban, para seguir usando esas funciones tendrás que <b>recargar</b>{saldo?.renuevaEl && (saldo.delMes || 0) > 0 ? <> o esperar la recarga de tu plan el <b>{fecha(saldo.renuevaEl)}</b></> : null}.
             </div>
 
             {estado === 'error' && <div className="mt-3 rounded-xl bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
