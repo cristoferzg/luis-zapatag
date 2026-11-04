@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// Llave de subida a Google Play: se lee de android/keystore.properties (NO va al repositorio).
+// Ese archivo dice dónde está el .jks y sus contraseñas. Sin él, se compila sin firmar.
+def propsFirma = new Properties()
+def archivoFirma = rootProject.file('keystore.properties')
+if (archivoFirma.exists()) { archivoFirma.withInputStream { propsFirma.load(it) } }
+// Cada compilación lleva un número de versión mayor (Google Play lo exige): AAMMDDHH.
+def versionAuto = Integer.parseInt(new Date().format('yyMMddHH'))
+
 android {
     namespace = "pe.innovacontratistas.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +15,8 @@ android {
         applicationId "pe.innovacontratistas.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode versionAuto
+        versionName new Date().format('yyyy.MM.dd')
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +24,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (archivoFirma.exists()) {
+                storeFile file(propsFirma['storeFile'])
+                storePassword propsFirma['storePassword']
+                keyAlias propsFirma['keyAlias']
+                keyPassword propsFirma['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (archivoFirma.exists()) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
