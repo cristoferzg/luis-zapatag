@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// Reglas de Storage (fotos, videos, archivos y respaldos) de Innova Contratistas.
+// Publicar: pegar en Firebase Console → Storage → Reglas, o `firebase deploy --only storage`.
+// Los enlaces de descarga que guarda la app (con token) siguen funcionando para mostrar
+// videos e imágenes; estas reglas cuidan quién puede subir, listar y borrar.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function conPin() { return request.auth != null && request.auth.token.role in ['admin', 'user']; }
+    function isAdmin() { return request.auth != null && request.auth.token.role == 'admin'; }
+
+    // Respaldos completos de la base: solo el administrador.
+    match /backups/{ruta=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Todo lo demás (videos y archivos de Academia/Recursos, carpeta privada, fotos):
+    // lo ven y suben usuarios con PIN (hasta 300 MB por archivo); borrar, solo el admin.
+    match /{ruta=**} {
+      allow read: if conPin();
+      allow create, update: if conPin() && request.resource.size < 300 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+  }
+}
