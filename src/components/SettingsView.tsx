@@ -1331,10 +1331,10 @@ export default function SettingsView({
         <span className="text-slate-400 text-lg shrink-0">›</span>
       </a>
 
-      <DescargasAppPanel isAdmin={isAdmin} onAvisar={setGlobalNotifs ? (title, message) => {
+      {(isAdmin || !esAppAndroid()) && <DescargasAppPanel isAdmin={isAdmin} onAvisar={setGlobalNotifs ? (title, message) => {
         const ahora = Date.now();
         publicarComunicado({ id: `ver_${ahora}`, title, message, date: new Date(ahora).toLocaleString('es-PE'), createdAtTimestamp: ahora, priority: 'important', author: currentUserName || 'Administración', durationHours: 72, expiresAtTimestamp: ahora + 72 * 3600e3 });
-      } : undefined} />
+      } : undefined} />}
 
       {/* Apartado de Aplicación Móvil y PC (.exe) — no aplica dentro de la app Android */}
       {!esAppAndroid() && (

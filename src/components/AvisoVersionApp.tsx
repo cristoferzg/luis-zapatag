@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Download, RefreshCw, Smartphone, Monitor, X } from 'lucide-react';
 import {
   ConfigDescargas, escucharDescargas, desactualizado, plataforma, abrirEnlace, recargarUltimaVersion,
-  avisoPospuesto, posponerAviso, toca, marcarRecordado, programarRecordatorioNativo, esCelularWeb,
+  avisoPospuesto, posponerAviso, enlacePlaySeguro, toca, marcarRecordado, programarRecordatorioNativo, esCelularWeb,
 } from '../lib/appDescargas';
 import { versionApp } from '../lib/version';
 
@@ -22,7 +22,7 @@ export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecord
   const fecha = cfg.ultima?.fecha || '';
   const obligatoria = !!cfg.ultima?.obligatoria;
   if (viejo && !cerrado && (obligatoria || !avisoPospuesto(fecha))) {
-    const enlaceAndroid = cfg.android?.activo && cfg.android.url ? cfg.android.url : '';
+    const enlaceAndroid = enlacePlaySeguro(cfg.android?.url); // en la app de Play: solo la ficha de Play
     const necesitaDescarga = plat === 'android';
     return (
       <div className="fixed inset-0 z-[90] bg-slate-950/60 flex items-end sm:items-center justify-center p-3" role="dialog" aria-modal="true">

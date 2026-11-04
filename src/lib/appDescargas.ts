@@ -13,7 +13,7 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { db } from './firebase';
 import { safeStorage } from './storageManager';
 
-export interface EnlaceApp { url: string; activo: boolean }
+export interface EnlaceApp { url: string; activo: boolean; nombre?: string; tamanoMb?: number; subidoEl?: string }
 export interface ConfigDescargas {
   android?: EnlaceApp;
   pc?: EnlaceApp;
@@ -95,3 +95,9 @@ export async function programarRecordatorioNativo(dias: number, pendienteActuali
     }] });
   } catch { /* sin permiso o sin plugin */ }
 }
+
+/** Google Play: en la app de Play solo se puede llevar a la ficha de Play (no a un APK ni a otros
+ *  instaladores). Si el enlace guardado no es de Play, se usa la ficha oficial de la app. */
+export const ID_APP_ANDROID = 'pe.innovacontratistas.app';
+export const esEnlacePlay = (url?: string) => !!url && /^https:\/\/play\.google\.com\//.test(url);
+export const enlacePlaySeguro = (url?: string) => esEnlacePlay(url) ? url! : `https://play.google.com/store/apps/details?id=${ID_APP_ANDROID}`;

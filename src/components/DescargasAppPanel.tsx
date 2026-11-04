@@ -1,15 +1,16 @@
 // Configuración → "Descargar la app": el admin pone los enlaces (Google Play, programa de
 // PC, iPhone), los activa o desactiva, elige cada cuánto recordar y avisa de versión nueva.
 // Los usuarios ven solo los botones de descarga activos.
-import { useEffect, useState } from 'react';
-import { Smartphone, Monitor, Download, RefreshCw, Check, Bell } from 'lucide-react';
-import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace } from '../lib/appDescargas';
+import { useEffect, useRef, useState } from 'react';
+import { Smartphone, Monitor, Download, RefreshCw, Check, Bell, Upload } from 'lucide-react';
+import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay } from '../lib/appDescargas';
+import { uploadFileToFirebaseStorage } from '../lib/storage';
 import { versionApp } from '../lib/version';
 
 const fechaBonita = (iso?: string) => { try { return iso ? new Date(iso).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '') : ''; } catch { return ''; } };
 const FILAS: { id: 'android' | 'pc' | 'iphone'; nombre: string; ayuda: string; ph: string; Ic: any }[] = [
-  { id: 'android', nombre: 'Android (Google Play)', ayuda: 'Enlace de la ficha en Google Play (o del APK).', ph: 'https://play.google.com/store/apps/details?id=…', Ic: Smartphone },
-  { id: 'pc', nombre: 'Computadora (Windows)', ayuda: 'Enlace del instalador .exe (Drive, OneDrive, GitHub…).', ph: 'https://…/InnovApp-Setup.exe', Ic: Monitor },
+  { id: 'android', nombre: 'Android (Google Play)', ayuda: 'Enlace de la ficha en Google Play (no un APK: Play no lo permite dentro de su app).', ph: 'https://play.google.com/store/apps/details?id=…', Ic: Smartphone },
+  { id: 'pc', nombre: 'Computadora (Windows)', ayuda: 'Sube el instalador .exe aquí (o pega un enlace de Drive, OneDrive, GitHub…).', ph: 'https://…/InnovApp-Setup.exe', Ic: Monitor },
   { id: 'iphone', nombre: 'iPhone (App Store)', ayuda: 'Déjalo desactivado hasta que la app esté publicada.', ph: 'https://apps.apple.com/…', Ic: Smartphone },
 ];
 
@@ -34,7 +35,24 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
       setNota(''); aviso('Listo: los equipos con una versión anterior verán el aviso al entrar.');
     } catch { aviso('No se pudo publicar. Revisa tu conexión.'); }
   };
-  const activos = FILAS.filter(f => enlace(f.id).activo && enlace(f.id).url);
+  // En la app de Android (Google Play) no se ofrecen descargas de otros instaladores: Play solo
+  // permite llevar a su propia ficha. Ahí este panel solo lo ve el admin, y sin botones de descarga.
+  const enAndroid = plataforma() === 'android';
+  const activos = enAndroid ? [] : FILAS.filter(f => enlace(f.id).activo && enlace(f.id).url);
+  // Subir el instalador de PC directo a la nube (solo admin, desde la web o la PC).
+  const refExe = useRef<HTMLInputElement>(null);
+  const [subiendo, setSubiendo] = useState<number | null>(null);
+  const subirExe = async (file: File) => {
+    if (!/\.(exe|msi)$/i.test(file.name)) { aviso('Elige el instalador de Windows (.exe o .msi).'); return; }
+    setSubiendo(0);
+    try {
+      const url = await uploadFileToFirebaseStorage(file, 'descargas/pc', pct => setSubiendo(pct));
+      const nuevo: ConfigDescargas = { ...d, pc: { url, activo: true, nombre: file.name, tamanoMb: Math.round(file.size / 1048576 * 10) / 10, subidoEl: new Date().toISOString() } };
+      await guardarDescargas(nuevo); setBorrador(null);
+      aviso('Instalador subido y activado. Ya lo pueden descargar.');
+    } catch { aviso('No se pudo subir. Revisa tu conexión e inténtalo otra vez.'); }
+    finally { setSubiendo(null); }
+  };
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -71,6 +89,15 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
                 <input type="url" value={e.url} onChange={ev => cambiar(f.id, { url: ev.target.value.trim() })} placeholder={f.ph}
                   className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400" />
                 <span className="text-[11px] text-slate-500">{f.ayuda}{e.activo && !e.url ? ' · Falta el enlace: no se mostrará.' : ''}</span>
+                {f.id === 'android' && e.url && !esEnlacePlay(e.url) && <span className="text-[11px] font-bold text-amber-700">Este enlace no es de Google Play: en la app de Android se usará la ficha de Play.</span>}
+                {f.id === 'pc' && !enAndroid && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input ref={refExe} type="file" accept=".exe,.msi" className="hidden" onChange={ev => { const fl = ev.target.files?.[0]; if (fl) subirExe(fl); ev.target.value = ''; }} />
+                    <button type="button" disabled={subiendo !== null} onClick={() => refExe.current?.click()} className="min-h-[40px] px-3 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"><Upload className="w-4 h-4" /> {subiendo !== null ? `Subiendo… ${subiendo}%` : 'Subir instalador (.exe)'}</button>
+                    {e.nombre && <span className="text-[11px] text-slate-500 min-w-0 truncate">{e.nombre}{e.tamanoMb ? ` · ${e.tamanoMb} MB` : ''}{e.subidoEl ? ` · ${fechaBonita(e.subidoEl)}` : ''}</span>}
+                  </div>
+                )}
+                {f.id === 'pc' && subiendo !== null && <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-emerald-500 transition-all" style={{ width: `${subiendo}%` }} /></div>}
               </div>
             );
           })}

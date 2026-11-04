@@ -14,11 +14,21 @@ service firebase.storage {
       allow read, write: if isAdmin();
     }
 
+    // Instaladores de la app (programa de PC): los descarga cualquiera con el enlace; solo el
+    // administrador los sube (hasta 1 GB).
+    match /descargas/{ruta=**} {
+      allow read: if true;
+      allow write: if isAdmin() && (request.resource == null || request.resource.size < 1024 * 1024 * 1024);
+    }
+
     // Todo lo demás (videos y archivos de Academia/Recursos, carpeta privada, fotos):
     // lo ven y suben usuarios con PIN (hasta 300 MB por archivo); borrar, solo el admin.
-    match /{ruta=**} {
-      allow read: if conPin();
-      allow create, update: if conPin() && request.resource.size < 300 * 1024 * 1024;
+    // (En Storage, si alguna regla permite, se concede: por eso esta excluye los respaldos y
+    // los instaladores, que tienen sus propias reglas arriba.)
+    match /{carpeta}/{resto=**} {
+      function general() { return carpeta != 'backups' && carpeta != 'descargas'; }
+      allow read: if conPin() && general();
+      allow create, update: if conPin() && general() && request.resource.size < 300 * 1024 * 1024;
       allow delete: if isAdmin();
     }
   }
