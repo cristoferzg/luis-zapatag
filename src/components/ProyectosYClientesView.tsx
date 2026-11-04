@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import { Briefcase, Users, DollarSign, FileText, Edit2, Trash2, Plus, UserPlus, FolderKanban, Box, Search, Eye, Download, Image as ImageIcon, StickyNote, FileArchive, ArrowLeft, EyeOff } from 'lucide-react';
 import { Project, Client, ClientFile, FinanceRecord, SystemUser } from '../types';
+import PestanasMovil from './common/PestanasMovil';
 import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, deleteTechosDesign } from '../lib/techosDesignsRepo';
 import { safeStorage } from '../lib/storageManager';
 import { sincronizarAceptadas, datosDiseno, fechaCorta, opcionesDesdePrecio } from '../lib/acuerdoTechos';
@@ -406,7 +407,8 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
           </div>
 
           {/* Pestanas de Navegación Exclusivas de Proyectos & Clientes */}
-          <div className="flex border-b border-slate-200 mt-6 space-x-2 sm:space-x-4">
+          <PestanasMovil activa={activeTab as any} onCambio={(t: any) => setActiveTab(t)} pestanas={[{ id: 'projects', label: `Proyectos (${projects.length})`, icon: Briefcase }, { id: 'clients', label: `Clientes (${clients.length})`, icon: Users }]} />
+          <div className="hidden xl:flex border-b border-slate-200 mt-6 space-x-2 sm:space-x-4">
             <button
               onClick={() => setActiveTab('projects')}
               className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px ${

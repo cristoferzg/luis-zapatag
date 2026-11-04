@@ -21,6 +21,7 @@ import { scanReceipt } from '../lib/receiptScan';
 import { checkAIAccess } from '../lib/aiAccess';
 import PlanesIAModal from './PlanesIAModal';
 import { simb, dinero } from '../lib/currency';
+import PestanasMovil from './common/PestanasMovil';
 
 interface MaterialesYGastosViewProps {
   projects: Project[];
@@ -372,7 +373,8 @@ export default function MaterialesYGastosView({
         </div>
 
         {/* Pestanas de Navegación */}
-        <div className="flex border-b border-slate-200 mt-6 space-x-2 sm:space-x-4">
+        <PestanasMovil activa={activeTab as any} onCambio={(t: any) => setActiveTab(t)} pestanas={[{ id: 'materials', label: 'Materiales', icon: Package }, { id: 'gastos', label: 'Gastos', icon: TrendingDown }]} />
+        <div className="hidden xl:flex border-b border-slate-200 mt-6 space-x-2 sm:space-x-4">
           <button
             onClick={() => setActiveTab('materials')}
             className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px cursor-pointer ${

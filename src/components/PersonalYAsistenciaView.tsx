@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Project, AsistenciaRecord } from '../types';
 import { simb, dinero } from '../lib/currency';
+import PestanasMovil from './common/PestanasMovil';
 
 interface PersonalYAsistenciaViewProps {
   projects: Project[];
@@ -234,7 +235,8 @@ export default function PersonalYAsistenciaView({
         </div>
 
         {/* Pestanas de Navegación */}
-        <div className="flex border-b border-slate-200 mt-6 space-x-2 sm:space-x-4">
+        <PestanasMovil activa={activeTab as any} onCambio={(t: any) => setActiveTab(t)} pestanas={[{ id: 'personal', label: 'Personal', icon: UserCheck }, { id: 'asistencia', label: 'Asistencia', icon: ClipboardCheck }]} />
+        <div className="hidden xl:flex border-b border-slate-200 mt-6 space-x-2 sm:space-x-4">
           <button
             onClick={() => setActiveTab('personal')}
             className={`flex items-center space-x-2 py-3 px-4 font-bold text-sm transition-all border-b-2 -mb-px ${

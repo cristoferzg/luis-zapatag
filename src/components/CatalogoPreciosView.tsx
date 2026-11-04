@@ -82,7 +82,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
 
   return (
     <div className="space-y-4 pb-24">
-      <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="xl:bg-white xl:rounded-2xl xl:p-5 xl:shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3 titulo-pagina">
           <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600"><Tag className="w-6 h-6" /></div>
           <div>
@@ -90,9 +90,9 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
             <p className="text-xs text-slate-500">Un solo precio por producto para Techos, Carpintería Metálica, Obra Civil y Drywall.</p>
           </div>
         </div>
-        <div className="inline-flex p-1 bg-slate-100 rounded-xl self-start">
-          <button onClick={() => setPestana('mios')} className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${pestana === 'mios' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>Mis precios</button>
-          <button onClick={() => setPestana('mercado')} className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${pestana === 'mercado' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>Referencia de mercado</button>
+        <div className="flex w-full xl:w-auto xl:inline-flex p-1 gap-1 xl:gap-0 bg-white xl:bg-slate-100 border border-slate-200 xl:border-0 rounded-xl self-start">
+          <button onClick={() => setPestana('mios')} className={`flex-1 xl:flex-none min-h-[40px] xl:min-h-0 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer [white-space:nowrap] ${pestana === 'mios' ? 'bg-slate-900 text-white xl:bg-white xl:text-slate-900 shadow-xs' : 'text-slate-500'}`}>Mis precios</button>
+          <button onClick={() => setPestana('mercado')} className={`flex-1 xl:flex-none min-h-[40px] xl:min-h-0 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer [white-space:nowrap] ${pestana === 'mercado' ? 'bg-slate-900 text-white xl:bg-white xl:text-slate-900 shadow-xs' : 'text-slate-500'}`}>Referencia de mercado</button>
         </div>
       </div>
 

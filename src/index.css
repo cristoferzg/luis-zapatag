@@ -153,3 +153,12 @@ html.modo-dibujo .sube-sin-nav-2 { bottom: calc(48px + env(safe-area-inset-botto
    hasta su opción más larga — p. ej. un nombre de proyecto largo — y corría la página). */
 select, input, textarea { max-width: 100%; }
 select { text-overflow: ellipsis; }
+
+/* Configuración en el celular/tablet: tarjetas dentro de tarjetas con menos relleno y
+   menos redondeo (en PC se ve como siempre). */
+@media (max-width: 1279.98px) {
+  .ajustes-compactos :is(.rounded-3xl, .rounded-\[2rem\]) { border-radius: 1rem !important; }
+  .ajustes-compactos :is(.p-6, .p-8, .sm\:p-6, .sm\:p-8) { padding: 1rem !important; }
+  .ajustes-compactos :is(.rounded-2xl, .rounded-3xl, .rounded-xl) :is(.rounded-2xl, .rounded-3xl) { border-radius: .75rem !important; }
+  .ajustes-compactos :is(.rounded-2xl, .rounded-3xl) :is(.rounded-2xl, .rounded-3xl):is(.p-4, .p-5, .p-6, .p-8, .sm\:p-5, .sm\:p-6) { padding: .75rem !important; }
+}
