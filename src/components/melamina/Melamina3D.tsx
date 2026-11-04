@@ -94,11 +94,14 @@ function muebleObj(m: Mueble): THREE.Group {
     }
     // Batiente: gira sobre el lado de las bisagras (opuesto al tirador).
     const bisagraIzq = p.lado === 'izq';
-    const piv = new THREE.Group(); piv.position.set(bisagraIzq ? px : px + pw, 0, D + 0.002);
+    // El eje va en la cara de adelante: al abrir, el grosor de la puerta queda sobre su propio
+    // espacio y no choca con el cajón o la puerta vecina. Abre hasta 90° (como una bisagra real).
+    const piv = new THREE.Group(); piv.position.set(bisagraIzq ? px : px + pw, 0, D + 0.002 + t);
+    const cuerpo = new THREE.Group(); cuerpo.position.z = -t; piv.add(cuerpo);
     const x0 = bisagraIzq ? 0 : -pw;
-    hoja(piv, pw, ph, x0, py, true);
-    tirador(piv, bisagraIzq ? x0 + pw - 0.045 : x0 + 0.035, tir === 'gola' ? py + ph / 2 : hy, t, true, ph - 0.1);
-    piv.userData.movil = { valor: 0, objetivo: 0, aplicar: (v: number) => { piv.rotation.y = (bisagraIzq ? -1 : 1) * v * (Math.PI * 0.58); } } as Movil;
+    hoja(cuerpo, pw, ph, x0, py, true);
+    tirador(cuerpo, bisagraIzq ? x0 + pw - 0.045 : x0 + 0.035, tir === 'gola' ? py + ph / 2 : hy, t, true, ph - 0.1);
+    piv.userData.movil = { valor: 0, objetivo: 0, aplicar: (v: number) => { piv.rotation.y = (bisagraIzq ? -1 : 1) * v * (Math.PI * 0.5); } } as Movil;
     g.add(piv);
   });
 
