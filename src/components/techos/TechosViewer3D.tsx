@@ -75,6 +75,7 @@ export function modeloDesdeCobertura(coberturaId?: string): string | null {
   if (id.includes('eternit')) return 'eternit_p4';
   if (id.includes('tr5')) return id.includes('060') ? 'tr5_060' : 'tr5_050';
   if (id.includes('calamina')) return 'ondulada_025';
+  if (id.includes('policarbonato_8mm') || id.includes('opal')) return 'tr5_poly_opal';
   if (id.includes('policarbonato')) return 'tr4_poly_trans';
   if (id.includes('sandwich')) return id.includes('50') ? 'sandwich_pur_50' : 'st1000_sand';
   if (id.includes('upvc') || id.includes('termo')) return 'st1000_sand';

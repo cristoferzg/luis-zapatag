@@ -11,6 +11,7 @@ export function perfilDeCobertura(id: string): Perfil {
   if (s.includes('malla')) return { tipo: 'liso', paso: 1, alto: 0, color: 0x166534, metal: 0, rugoso: 0.95, opacidad: 0.6 };
   if (s.includes('lona')) return { tipo: 'liso', paso: 1, alto: 0, color: 0xf1f5f9, metal: 0, rugoso: 0.9 };
   if (s.includes('compacto')) return { tipo: 'liso', paso: 1, alto: 0, color: 0xbae6fd, metal: 0.05, rugoso: 0.2, opacidad: 0.45 };
+  if (s.includes('policarbonato_8mm') || s.includes('opal')) return { tipo: 'trapecio', paso: 0.19, alto: 0.04, color: 0xdbe4ee, metal: 0.05, rugoso: 0.3, opacidad: 0.72 };
   if (s.includes('policarbonato')) return { tipo: 'trapecio', paso: 0.25, alto: 0.035, color: 0x7dd3fc, metal: 0.05, rugoso: 0.2, opacidad: 0.55 };
   if (s.includes('eternit')) return { tipo: 'seno', paso: 0.177, alto: 0.05, color: 0xd9d6cf, metal: 0, rugoso: 0.85 };
   if (s.includes('calamina')) return { tipo: 'seno', paso: 0.12, alto: 0.02, color: 0xc3cad1, metal: 0.5, rugoso: 0.45 };
