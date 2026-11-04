@@ -19,6 +19,7 @@ import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes
   CapaEstructura, capaDeRol, CAPAS, Sobrepecho } from './concreto/geometriaObra';
 import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
 import { coberturaDesdeCorreas, panoUnaAgua } from './techos/coberturaAuto';
+import { planchaDetallada } from './concreto/coberturaDetallada';
 import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
 import { grabarCanvas, puedeGrabar } from '../lib/grabarVideo';
 import { perfilTechos } from './techos/tensores';
@@ -438,6 +439,9 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
           const extra = z.pts && datos.current.resaltarPerfiles ? 0.14 : 0;
           const pts = nodos.map(n => new THREE.Vector3(n.x, n.y + 0.06 + extra, n.z));
           if (pts.length < 3) return;
+          // Plancha con relieve (ondas, tejas, tela) como en Techos Metálicos.
+          const det = planchaDetallada(pts, z.mat);
+          if (det) { modelo.add(det); modelo.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), bordes)); return; }
           const pos: number[] = [], uv: number[] = [];
           // Triangulación del contorno en planta: sirve también para zonas en L o con
           // entrantes (el abanico desde una esquina dejaba partes sin plancha).
