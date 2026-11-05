@@ -33,6 +33,7 @@ import {
 import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
 import { AdminCatalogosMateriales } from './concreto/AdminCatalogosMateriales';
 import { simb } from '../lib/currency';
+import BotonElectricidad from './electricidad/BotonElectricidad';
 
 interface CampoDef { key: string; label: string; def: number; }
 interface ResultadoCalc { concretoM3: number; aceroKg: number; encofradoM2: number; nota?: string; }
@@ -391,6 +392,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
             </div>
           </div>
           {ModoToggle}
+          <BotonElectricidad origen="obra" />
         </div>
         <div className="flex-1 min-h-0">
           <ConcretoPlanoCad onEditarEnTechos={d => { setActiveTechosDesignToLoad(d); onIrATechos?.(); }} />

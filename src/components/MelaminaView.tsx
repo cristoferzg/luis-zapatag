@@ -21,6 +21,7 @@ import {
 import { CotizacionMelamina, KEY_COT_ACTUAL, KEY_COT_LISTA, KEY_PESTANA, cotizacionVacia, leerCotizacionActual, leerCotizaciones, paredNueva } from './melamina/cotizacionMelamina';
 import DibujoMueble, { FrenteSvg } from './melamina/DibujoMueble';
 import DisenoIA, { mueblesDePropuesta } from './melamina/DisenoIA';
+import BotonElectricidad from './electricidad/BotonElectricidad';
 
 const Melamina3D = lazy(() => import('./melamina/Melamina3D'));
 
@@ -80,6 +81,7 @@ export default function MelaminaView({ onIrAPrecios }: { onIrAPrecios?: () => vo
             );
           })}
         </div>
+        <BotonElectricidad origen="melamina" />
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {pestana === 'muebles' && <Muebles cot={cot} setCot={setCot} r={r} sel={sel} setSel={setSel} onPresupuesto={() => setPestana('presupuesto')} onDisenar={() => setPestana('disenador')} />}

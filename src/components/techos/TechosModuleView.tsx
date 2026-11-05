@@ -66,6 +66,7 @@ import {
 } from '../../lib/techosDesignsRepo';
 import type { TechosDelProyecto } from '../../types';
 import { simb } from '../../lib/currency';
+import BotonElectricidad from '../electricidad/BotonElectricidad';
 
 interface ProjectOption {
   id: string;
@@ -1058,6 +1059,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
         {/* Botones de Acción Principal. En móvil solo "Guardar" + menú "⋯";
             el resto se oculta para dejar la barra limpia (solo lo esencial). */}
         <div ref={accionesDeslizables} className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5 relative">
+          <BotonElectricidad origen="techos" compacto />
           {/* [ SUBIR ARCHIVO / AUTOCAD ] — solo escritorio */}
           <button
             onClick={() => setShowUploadModal(true)}

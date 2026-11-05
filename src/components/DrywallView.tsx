@@ -30,6 +30,7 @@ import {
 import DisenoIADrywall from './drywall/DisenoIADrywall';
 import { CotizacionDrywall, KEY_COT_ACTUAL, KEY_COT_LISTA, cotizacionVacia, leerCotizacionActual, leerCotizaciones } from './drywall/cotizacionDrywall';
 import { simb } from '../lib/currency';
+import BotonElectricidad from './electricidad/BotonElectricidad';
 
 const Drywall3D = lazy(() => import('./drywall/Drywall3D'));
 
@@ -98,6 +99,7 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
           );
         })}
       </div>
+      <BotonElectricidad origen="drywall" />
     </div>
   );
 

@@ -55,7 +55,7 @@ function puntaje(nombre: string, extra: string, tokens: string[], cerca: boolean
 }
 
 const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const COLOR_APARTADO: Record<string, string> = { 'Mis materiales': 'bg-amber-100 text-amber-900', Techos: 'bg-amber-50 text-amber-800', CarpiMetal: 'bg-sky-50 text-sky-800', 'Obra Civil': 'bg-stone-100 text-stone-700', Drywall: 'bg-violet-50 text-violet-800', Melamina: 'bg-teal-50 text-teal-800', 'Gasfitería': 'bg-sky-50 text-sky-800', Personal: 'bg-emerald-50 text-emerald-800' };
+const COLOR_APARTADO: Record<string, string> = { 'Mis materiales': 'bg-amber-100 text-amber-900', Techos: 'bg-amber-50 text-amber-800', CarpiMetal: 'bg-sky-50 text-sky-800', 'Obra Civil': 'bg-stone-100 text-stone-700', Drywall: 'bg-violet-50 text-violet-800', Melamina: 'bg-teal-50 text-teal-800', 'Gasfitería': 'bg-sky-50 text-sky-800', Electricidad: 'bg-yellow-50 text-yellow-800', Personal: 'bg-emerald-50 text-emerald-800' };
 
 export default function CatalogoPreciosView({ projects = [] }: { projects?: any[] }) {
   const [pestana, setPestana] = useState<'mios' | 'mercado'>('mios');
@@ -87,7 +87,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
           <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600"><Tag className="w-6 h-6" /></div>
           <div>
             <h2 className="text-lg font-black text-slate-900">Catálogo de precios</h2>
-            <p className="text-xs text-slate-500">Un solo precio por producto para Techos, Carpintería Metálica, Obra Civil, Drywall, Melamina y Gasfitería.</p>
+            <p className="text-xs text-slate-500">Un solo precio por producto para Techos, Carpintería Metálica, Obra Civil, Drywall, Melamina, Gasfitería y Electricidad.</p>
           </div>
         </div>
         <div className="flex w-full xl:w-auto xl:inline-flex p-1 gap-1 xl:gap-0 bg-white xl:bg-slate-100 border border-slate-200 xl:border-0 rounded-xl self-start">
@@ -135,7 +135,7 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
               </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-600">
                 Se usa en:
-                {['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall', 'Melamina', 'Gasfitería'].map(u => (
+                {['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall', 'Melamina', 'Gasfitería', 'Electricidad'].map(u => (
                   <label key={u} className="inline-flex items-center gap-1 cursor-pointer">
                     <input type="checkbox" checked={nuevo.usadoEn.includes(u)} onChange={e => setNuevo({ ...nuevo, usadoEn: e.target.checked ? [...nuevo.usadoEn, u] : nuevo.usadoEn.filter(x => x !== u) })} /> {u === 'CarpiMetal' ? 'Carpintería Metálica' : u}
                   </label>

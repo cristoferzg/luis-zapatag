@@ -17,6 +17,7 @@ import { metradoGas, MetradoGas, totalCon, GRUPOS_LINEA, GrupoLinea, LineaGas, t
 import PlanoGas from './gasfiteria/PlanoGas';
 import type { Visibles } from './gasfiteria/Gasfiteria3D';
 import { IconoAparato } from './gasfiteria/SimboloAparato';
+import BotonElectricidad from './electricidad/BotonElectricidad';
 
 const Gasfiteria3D = lazy(() => import('./gasfiteria/Gasfiteria3D'));
 
@@ -75,6 +76,7 @@ export default function GasfiteriaView({ onIrAPrecios }: { onIrAPrecios?: () => 
             );
           })}
         </div>
+        <BotonElectricidad origen="gasfiteria" />
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {pestana === 'plano' && <PlanoGas cot={cot} setCot={setCot} r={r} onPresupuesto={() => setPestana('presupuesto')} onMateriales={() => setPestana('materiales')} />}
