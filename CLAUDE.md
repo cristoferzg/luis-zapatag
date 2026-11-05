@@ -38,6 +38,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   de los cambios. Después de mandarlas, **compilar todo (ZIP, APK y el Manual de usuario
   actualizado con los cambios: `docs/Manual_de_usuario_Innova_Contratistas.pdf`) sin esperar** su
   aprobación (indicación del dueño). No reconstruir ni reenviar si no hubo cambios.
+- El Manual SOLO se rehace y se envía si los cambios afectan lo que explica (pasos, textos, preguntas
+  frecuentes). Si no cambia nada en el Manual, no se crea ni se manda.
 
 ## Avisos push (FCM)
 - App Android con `@capacitor/push-notifications` + `android/app/google-services.json`.
