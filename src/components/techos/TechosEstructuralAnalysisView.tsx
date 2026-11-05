@@ -148,7 +148,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-slate-500">Son los mismos perfiles que recomienda la memoria de cálculo (sección 6): en cada grupo, el de menor precio por metro de tu Catálogo de precios que cumple la esbeltez máxima de la E.090, la carga axial (columnas y tijerales) o la flecha L/240 (vigas; correas L/180) con su luz libre entre apoyos, y los espesores mínimos para soldar (columnas 2 mm y 50 mm de lado, vigas y tijerales 1.5 mm). Es un prediseño: valídalo con un ingeniero.</p>
+            <p className="text-[11px] text-slate-500">Son los mismos perfiles que recomienda la memoria de cálculo (sección 6): en cada grupo, el de menor precio por metro de tu Catálogo de precios que cumple la esbeltez máxima de la E.090, la carga axial (columnas y tijerales) o la flecha L/240 (vigas; correas L/180) con su luz libre entre apoyos, y los mínimos de obra (columnas de 3" × 3" × 3 mm; vigas y tijerales 1.5 mm). Si tu perfil ya cumple, solo se sugiere cambiarlo cuando ahorras al menos 8 % (y S/ 1 por metro). Es un prediseño: valídalo con un ingeniero.</p>
             <button onClick={aplicarAhorro} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer">{ahorro.total <= 0 ? `Aplicar y ahorrar ${simb()} ${(-ahorro.total).toFixed(2)}` : 'Aplicar los perfiles que cumplen'}</button>
           </>)}
           {ahorro.sinOpcion > 0 && <p className="text-[11px] font-bold text-rose-700">{textoSinOpcion(ahorro.sinOpcion).trim()}</p>}

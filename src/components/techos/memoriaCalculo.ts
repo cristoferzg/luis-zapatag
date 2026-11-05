@@ -176,6 +176,15 @@ export function perfilOptimo(actual: PerfilTubularItem | undefined, rol: string,
   return perfilMasEconomico(INVENTARIO_PERFILES_TUBULARES, actual, rol as RolEstructuralSegmento, Lc, precioMetroPerfil, cargas);
 }
 
+/**
+ * Ahorro mínimo para sugerir cambiar un perfil que YA cumple: 8 % del precio por metro
+ * y al menos S/ 1.00 por metro. Por debajo de eso no compensa (otro tubo que comprar,
+ * cortar y soldar distinto, y la diferencia se va en desperdicio de barras).
+ * Si el perfil NO cumple, siempre se cambia por el más barato que cumple.
+ */
+export const AHORRO_MIN = { pct: 8, solesPorMetro: 1 };
+export const ahorroVale = (actual: number, nuevo: number) => actual - nuevo >= Math.max(AHORRO_MIN.solesPorMetro, actual * AHORRO_MIN.pct / 100) - 1e-9;
+
 /** Cada pieza con su esbeltez, carga crítica y riesgo (para el 3D y el detalle). */
 export function analizarPiezas(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, inputs: EntradasCargas): PiezaAnalizada[] {
   const { cargasDe } = contextoCargas(nodes, segments, inputs);
@@ -200,7 +209,8 @@ export function analizarPiezas(nodes: Record<string, Node3D>, segments: Record<s
       : cumple ? 'BAJO' : 'MEDIO';
     // Perfil a usar: el más barato que cumple; si el actual cumple y nada es más barato, se queda.
     const opt = perfilOptimo(p, s.rolEstructural, Lc, c);
-    const optimoId = cumple && p && (!opt || precioMetroPerfil(opt) >= precioMetroPerfil(p) - 1e-6) ? p.id : (opt?.id ?? null);
+    // Si el actual ya cumple, solo se sugiere cambiar cuando el ahorro vale la pena (ver AHORRO_MIN).
+    const optimoId = cumple && p && (!opt || !ahorroVale(precioMetroPerfil(p), precioMetroPerfil(opt))) ? p.id : (opt?.id ?? null);
     lista.push({ id: s.id, rol: s.rolEstructural, nombre: '', perfilId: s.profileId, perfil: p?.nombre || s.profileId, L, Lc, lambda, limite: lim.maximo, PcrkN, ratio, riesgo, optimoId });
   });
   // Nombres legibles: "Columna 3 (x 0.00 · z 5.00)", numeradas por posición.
@@ -302,7 +312,7 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
     let estado: EstadoMemoria = 'CUMPLE', motivo = 'Cumple esbeltez' + (v ? (v.tipo === 'axial' ? ' y carga axial' : ' y flecha') : '');
     if (lambdaMax > lim.maximo) { estado = 'NO_CUMPLE'; motivo = `Esbeltez ${lambdaMax.toFixed(0)} > ${lim.maximo}`; }
     else if (v && v.ratio > 1) { estado = 'NO_CUMPLE'; motivo = v.tipo === 'axial' ? `Carga ${v.demanda.toFixed(1)} kN > admisible ${v.capacidad.toFixed(1)} kN` : `Flecha ${v.demanda.toFixed(0)} mm > ${v.capacidad.toFixed(0)} mm`; }
-    else if (p && !cumpleTramo(p, rol as RolEstructuralSegmento, Lmax, cargas)) { estado = 'OBSERVACION'; motivo = rol === 'columna' ? 'Espesor o lado menor al mínimo de obra (2 mm · 50 mm)' : 'Espesor menor al mínimo de obra'; }
+    else if (p && !cumpleTramo(p, rol as RolEstructuralSegmento, Lmax, cargas)) { estado = 'OBSERVACION'; motivo = rol === 'columna' ? 'Columna menor al mínimo de obra (3" × 3" × 3 mm)' : 'Espesor menor al mínimo de obra'; }
     else if (lambdaMax > lim.bajo) { motivo += ' · esbeltez cerca del límite'; }
     const rec = optimoId && optimoId !== perfilId ? perfilDe(optimoId) : undefined;
     let verifRec: GrupoMemoria['verifRec'];

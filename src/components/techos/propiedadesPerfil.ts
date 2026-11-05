@@ -39,6 +39,8 @@ export interface CargasGrupo {
   qNm?: number;   // vigas y correas: carga repartida sobre el tramo (N/m)
 }
 const E_ACERO = 200e9; // Pa
+/** Columna mínima de obra: tubo de 3" × 3" × 3 mm. Si la carga pide más, se elige uno mayor. */
+export const COLUMNA_MIN = { ladoMm: 75, espesorMm: 3 };
 
 /**
  * ¿El perfil cumple para este tramo? Además de la esbeltez máxima de la E.090
@@ -52,9 +54,9 @@ export function cumpleTramo(p: PerfilTubularItem, rol: RolEstructuralSegmento, L
   if (!pr) return false;
   const lambda = (factorK(rol) * L * 100) / pr.rMinCm;
   if (!cargas) return lambda <= limitesLambda(rol).bajo;
-  // Mínimos de obra (para soldar bien): columnas 2.0 mm y 50 mm por lado; vigas 1.5 mm; correas y arriostres 1.2 mm.
+  // Mínimos de obra: columnas 3" × 3" (75 mm por lado) y 3 mm de espesor (regla del dueño); vigas 1.5 mm; correas y arriostres 1.2 mm.
   const ladoMin = Math.min(p.anchoMm, p.altoMm || p.anchoMm);
-  if (rol === 'columna' && (p.espesorMm < 2.0 || ladoMin < 50)) return false;
+  if (rol === 'columna' && (p.espesorMm < COLUMNA_MIN.espesorMm - 1e-6 || ladoMin < COLUMNA_MIN.ladoMm - 1e-6)) return false;
   if (!SECUNDARIOS.includes(rol) && rol !== 'columna' && p.espesorMm < 1.5) return false;
   if (lambda > limitesLambda(rol).maximo) return false;
   if (cargas.PkN) {

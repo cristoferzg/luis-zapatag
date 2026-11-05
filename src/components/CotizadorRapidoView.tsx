@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Calculator, TrendingUp, DollarSign, PieChart, Box, Layers, Scissors, Package, FileText } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, SOLDADURA_AWS_E6011, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR } from './techos/techosCadCatalog';
+import { perfilMasEconomico, type CargasGrupo } from './techos/propiedadesPerfil';
 import { precio, clavePerfilDe, claveCobertura, useCatalogo } from '../lib/catalogoPrecios';
 import { simb, dinero } from '../lib/currency';
 
@@ -60,13 +61,21 @@ function despiece(piezas: number[], barra: number) {
 }
 
 const CLAVE = 'innova_cotizador_rapido_data';
+/** "Automático": el perfil más barato del catálogo que cumple (misma regla que la memoria de cálculo). */
+const AUTO = 'auto';
+const FAMILIA_AUTO = ['tubo_cuadrado', 'tubo_rectangular'];
+function perfilAuto(rol: 'columna' | 'correa', L: number, cargas: CargasGrupo) {
+  const lista = INVENTARIO_PERFILES_TUBULARES.filter(p => FAMILIA_AUTO.includes(p.categoria) && !p.id.includes('galv'));
+  return perfilMasEconomico(lista, lista[0], rol, L, x => precioMetro(x.id), cargas)?.id
+    || (rol === 'columna' ? 'perfil_sq_4x4_30' : 'perfil_rec_6x2_25');
+}
 const GANANCIA_MAX = 20; // % máximo de ganancia del contratista sobre el precio
 const inicial = {
   calcLargo: '', calcAncho: '', calcAlero: '0', calcBarLength: '6', calcAlturaColumnas: '3', calcNumColumnas: '',
   margenGananciaPct: '20', v: 4,
   forma: 'dos_aguas' as Forma, pendiente: '15', flecha: '',
   conTijerales: true, numTijerales: '', sepPorticos: '5', tipoTijeral: 'pratt' as TipoTij, peralte: '',
-  perfilCordon: 'perfil_sq_2x2_20', perfilCelosia: 'perfil_sq_1x1_15', perfilViga: 'perfil_rec_100x50_20', perfilColumna: 'perfil_sq_4x4_20', perfilCorrea: 'perfil_rec_2x1_15',
+  perfilCordon: 'perfil_sq_2x2_20', perfilCelosia: 'perfil_sq_1x1_15', perfilViga: 'perfil_rec_100x50_20', perfilColumna: AUTO, perfilCorrea: AUTO,
   cobertura: 'cob_aluzinc_tr4_035', sepCorrea: '', canaletas: false, placas: false,
 };
 
@@ -118,13 +127,17 @@ export function calcularCotizacionRapida(f: typeof inicial) {
   // Columnas: 2 por pórtico (o lo que diga el usuario)
   const nCol = n(f.calcNumColumnas) > 0 ? Math.round(n(f.calcNumColumnas)) : nP * 2;
   const altCol = forma === 'una_agua' ? [H, H + A * p] : [H, H];
-  for (let i = 0; i < nCol; i++) add(f.perfilColumna, altCol[i % 2]);
+  // Cargas de servicio del techo (las mismas de la memoria): 15 kg/m² muerta + 30 kg/m² viva.
+  const qArea = (15 + 30) * 9.81; // N/m²
+  const idColumna = f.perfilColumna === AUTO ? perfilAuto('columna', Math.max(...altCol), { PkN: (areaPlanta * qArea / 1000 / Math.max(1, nCol)) * 1.5 }) : f.perfilColumna;
+  for (let i = 0; i < nCol; i++) add(idColumna, altCol[i % 2]);
   // Vigas de amarre longitudinales (cabeza de columnas)
   add(f.perfilViga, L, 2);
   // Correas
   const sepC = n(f.sepCorrea) > 0 ? n(f.sepCorrea) : sepCorreas(f.cobertura);
   const lineasCorrea = faldonesAlero.reduce((s, fl) => s + Math.ceil(fl / sepC) + 1, 0);
-  add(f.perfilCorrea, largoCob, lineasCorrea);
+  const idCorrea = f.perfilCorrea === AUTO ? perfilAuto('correa', sepReal, { qNm: qArea * sepC }) : f.perfilCorrea;
+  add(idCorrea, largoCob, lineasCorrea);
 
   const barra = n(f.calcBarLength, 6);
   const despieces = [...piezasPorPerfil.entries()].map(([id, piezas]) => {
@@ -163,12 +176,13 @@ export function calcularCotizacionRapida(f: typeof inicial) {
   // Sin partidas de mano de obra, gastos generales ni otros porcentajes.
   const materiales = costoAcero + costoCob;
   const gananciaPct = Math.min(GANANCIA_MAX, Math.max(0, n(String(f.margenGananciaPct), GANANCIA_MAX)));
-  const ganancia = materiales * gananciaPct / 100;
-  const total = materiales + ganancia;
+  // La ganancia es como máximo el 20 % del PRECIO al cliente: el otro 80 % paga los materiales.
+  const total = materiales / (1 - gananciaPct / 100);
+  const ganancia = total - materiales;
   const porM2 = areaCobro > 0 ? total / areaCobro : 0;
   const kgAcero = despieces.reduce((s, d) => s + d.metros * (perfil(d.id).pesoLinealKgM || 0), 0);
 
-  return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaCobro, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, kgAcero, costoAcero, planchas, items, costoCob, materiales, gananciaPct, ganancia, total, porM2 };
+  return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaCobro, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, kgAcero, costoAcero, planchas, items, costoCob, materiales, gananciaPct, ganancia, total, porM2, idColumna, idCorrea };
 }
 
 interface Props {
@@ -183,12 +197,14 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
   const [f, setF] = useState(() => {
     const d = safeStorage.getItem<any>(CLAVE, null) || {};
     const cob = INVENTARIO_COBERTURAS.some(c => c.id === d.cobertura) ? d.cobertura : (INVENTARIO_COBERTURAS.find(c => /tr4/i.test(c.id))?.id || INVENTARIO_COBERTURAS[0].id);
-    const g = (d.v ?? 0) >= 2 ? d.margenGananciaPct : '20'; // antes venía en 25 %
+    const g = (d.v ?? 0) >= 2 && d.margenGananciaPct != null && d.margenGananciaPct !== '' ? d.margenGananciaPct : '20'; // antes venía en 25 %
     // v3: cálculo clásico por m² sin adicionales (alero, canaletas, placas apagados al empezar)
     const sinAdicionales = (d.v ?? 0) < 3 ? { calcAlero: '0', canaletas: false, placas: false } : {};
     // v4: la cotización rápida es solo materiales + ganancia (se quitan mano de obra, gastos y "por m²").
     const { modo: _m, manoObraPct: _mo, gastosPct: _g, precioPorM2: _p, ...resto } = d;
-    return { ...inicial, ...resto, ...sinAdicionales, cobertura: cob, margenGananciaPct: g, v: 4 };
+    // v5: columnas y correas en "Automático" (el más barato que cumple) si tenían los perfiles de antes.
+    const autos = (d.v ?? 0) < 5 ? { ...(!d.perfilColumna || d.perfilColumna === 'perfil_sq_4x4_20' ? { perfilColumna: AUTO } : {}), ...(!d.perfilCorrea || d.perfilCorrea === 'perfil_rec_2x1_15' ? { perfilCorrea: AUTO } : {}) } : {};
+    return { ...inicial, ...resto, ...sinAdicionales, ...autos, cobertura: cob, margenGananciaPct: g, v: 5 };
   });
   const set = <K extends keyof typeof inicial>(k: K, v: (typeof inicial)[K]) => setF((x: typeof inicial) => ({ ...x, [k]: v }));
   useEffect(() => { safeStorage.setItem(CLAVE, f); }, [f]);
@@ -236,6 +252,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
     <div>
       <label className="block text-[11px] font-semibold text-slate-500 mb-1">{t}</label>
       <select value={f[k]} onChange={e => set(k, e.target.value)} className={inp + ' text-xs'}>
+        {(k === 'perfilColumna' || k === 'perfilCorrea') && <option value={AUTO}>Automático: el más barato que cumple{r && f[k] === AUTO ? ` (${perfil(k === 'perfilColumna' ? r.idColumna : r.idCorrea).nombre})` : ''}</option>}
         {PERFILES_OPC.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
       </select>
     </div>
@@ -439,7 +456,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-indigo-800/60">
                 <h4 className="font-bold text-indigo-300 text-sm uppercase tracking-wider flex items-center gap-2"><PieChart className="w-4 h-4 text-emerald-400" /> Presupuesto al cliente</h4>
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-300">Ganancia
-                  <span className="flex items-center text-emerald-300"><input type="number" min={0} max={GANANCIA_MAX} value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', String(Math.min(GANANCIA_MAX, Math.max(0, Number(e.target.value) || 0))))} className="w-14 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-white text-right" /><span className="ml-1">%</span></span>
+                  <span className="flex items-center text-emerald-300"><input type="number" min={0} max={GANANCIA_MAX} value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', String(Math.min(GANANCIA_MAX, Math.max(0, Number(e.target.value) || 0))))} className="w-14 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-white text-right" /><span className="ml-1">% <span className="text-slate-500 font-normal">(máx. {GANANCIA_MAX})</span></span></span>
                 </label>
               </div>
               {avisoUnidades && <p className="mb-3 text-xs font-bold text-amber-200 bg-amber-950/60 border border-amber-500/50 rounded-lg px-3 py-2">{avisoUnidades}</p>}
@@ -447,7 +464,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
                 <div className="flex justify-between gap-3"><span className="text-slate-300">Estructura de acero <span className="text-slate-500 text-xs">({r.kgAcero.toFixed(0)} kg)</span></span><span className="font-mono whitespace-nowrap shrink-0">{formatCurrency(r.costoAcero)}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-slate-300">Cobertura, accesorios y fijaciones</span><span className="font-mono whitespace-nowrap shrink-0">{formatCurrency(r.costoCob)}</span></div>
                 <div className="flex justify-between gap-3 pt-1.5 border-t border-slate-700/70 font-bold"><span>Materiales</span><span className="font-mono whitespace-nowrap shrink-0">{formatCurrency(r.materiales)}</span></div>
-                <div className="flex justify-between gap-3 text-emerald-300 font-bold"><span>Ganancia del contratista ({r.gananciaPct} %)</span><span className="font-mono whitespace-nowrap shrink-0">+ {formatCurrency(r.ganancia)}</span></div>
+                <div className="flex justify-between gap-3 text-emerald-300 font-bold"><span>Ganancia del contratista ({r.gananciaPct} % del precio)</span><span className="font-mono whitespace-nowrap shrink-0">+ {formatCurrency(r.ganancia)}</span></div>
               </div>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-indigo-600/30 p-4 rounded-xl border border-indigo-500/40 text-center">
@@ -457,15 +474,15 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
                 <div className="bg-emerald-950/50 p-4 rounded-xl border border-emerald-500/50 text-center">
                   <h5 className="text-emerald-300 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Tu ganancia</h5>
                   <p className="text-2xl xl:text-3xl font-bold text-emerald-300 whitespace-nowrap">{formatCurrency(r.ganancia)}</p>
-                  <p className="text-[11px] text-emerald-200/70 mt-0.5">{r.gananciaPct} % sobre los materiales</p>
+                  <p className="text-[11px] text-emerald-200/70 mt-0.5">{r.gananciaPct} % del precio al cliente (tope {GANANCIA_MAX} %)</p>
                 </div>
                 <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-center">
-                  <h5 className="text-slate-300 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Por m²</h5>
-                  <p className="text-2xl xl:text-3xl font-bold whitespace-nowrap">{simb()} {r.porM2.toFixed(2)}</p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{r.areaCobro.toFixed(1)} m² (largo × ancho)</p>
+                  <h5 className="text-slate-300 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><Package className="w-3.5 h-3.5" /> {100 - r.gananciaPct} % del cliente</h5>
+                  <p className="text-2xl xl:text-3xl font-bold whitespace-nowrap">{formatCurrency(r.materiales)}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">lo que paga los materiales</p>
                 </div>
               </div>
-              <p className="mt-3 text-[11px] text-slate-400 flex items-start gap-1.5"><Package className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Cotización rápida: materiales con los precios de tu catálogo + tu ganancia. Para mano de obra, gastos generales e IGV usa el Presupuesto formal de Techos.</p>
+              <p className="mt-3 text-[11px] text-slate-400 flex items-start gap-1.5"><Package className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Cotización rápida: del total al cliente, el {100 - r.gananciaPct} % paga los materiales (precios de tu catálogo) y el {r.gananciaPct} % es tu ganancia (máximo {GANANCIA_MAX} %). Para mano de obra, gastos generales e IGV usa el Presupuesto formal de Techos.</p>
             </div>
           </>
         )}
