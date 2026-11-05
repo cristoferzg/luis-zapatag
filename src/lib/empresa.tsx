@@ -119,7 +119,7 @@ export function BandaMarca() {
 const PALETA_MARCA = ['#f59e0b', '#ea580c', '#dc2626', '#16a34a', '#0d9488', '#2563eb', '#4f46e5', '#7c3aed', '#0f172a'];
 
 /** Condiciones comerciales: adelanto y saldo, validez, garantía y notas. Editables (se guardan en Configuración). */
-export function CondicionesComerciales({ total, moneda = getCompanyCurrency().symbol }: { total: number; moneda?: string }) {
+export function CondicionesComerciales({ total, moneda = getCompanyCurrency().symbol, ocultarPagos = false }: { total: number; moneda?: string; ocultarPagos?: boolean }) {
   const { datos, guardar } = useEmpresa();
   const c = condicionesDe(datos);
   const [editando, setEditando] = useState(false);
@@ -156,10 +156,10 @@ export function CondicionesComerciales({ total, moneda = getCompanyCurrency().sy
         </div>
       ) : (
         <>
-          <div className="grid sm:grid-cols-2 gap-2">
+          {!ocultarPagos && <div className="grid sm:grid-cols-2 gap-2">
             <div className="rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-500">Adelanto para empezar ({c.adelantoPct}%)</span><b className="block font-mono text-sm">{S(adelanto)}</b></div>
             <div className="rounded-lg bg-slate-50 px-3 py-2"><span className="text-slate-500">Saldo al terminar ({100 - c.adelantoPct}%)</span><b className="block font-mono text-sm">{S(total - adelanto)}</b></div>
-          </div>
+          </div>}
           <ul className="space-y-0.5 text-[11px] text-slate-600">
             <li>· Validez de la cotización: <b>{c.validezDias} días</b> (hasta el {new Date(Date.now() + c.validezDias * 86400000).toLocaleDateString('es-PE')}).</li>
             <li>· Garantía: {c.garantia}</li>

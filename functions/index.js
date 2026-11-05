@@ -39,6 +39,8 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleAuth } from 'google-auth-library';
 import { crearDisenarDrywall } from './drywallIA.js';
+import { crearDisenarGasfiteria } from './gasfiteriaIA.js';
+import { crearDisenarElectricidad } from './electricidadIA.js';
 
 initializeApp();
 const db = getFirestore();
@@ -155,7 +157,7 @@ export const loginWithPin = onCall({ secrets: ['ADMIN_PIN'], region: 'us-central
 // Las reglas de Firestore impiden que el cliente escriba ai_access, por eso el
 // descuento se hace AQUÍ, dentro de una transacción.
 // =============================================================================
-const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2, melamina: 5, obra: 8, drywall: 5 };
+const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2, melamina: 5, obra: 8, drywall: 5, gasfiteria: 6, electricidad: 6 };
 
 // Traduce un error de la API de IA a un mensaje claro y lo deja en el registro
 // (firebase functions:log) para poder diagnosticarlo.
@@ -1032,6 +1034,12 @@ export const disenarObra = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 'us-
 
 // Drywall → "Diseñar con IA" (functions/drywallIA.js): partidas desde texto o foto. 5 créditos.
 export const disenarDrywall = crearDisenarDrywall({ onCall, HttpsError, Anthropic, cobrarUsoIA, errorDeIA, modelo: RECEIPT_MODEL });
+
+// Gasfitería → "Diseñar con IA" (functions/gasfiteriaIA.js): ambientes y aparatos sanitarios. 6 créditos.
+export const disenarGasfiteria = crearDisenarGasfiteria({ onCall, HttpsError, Anthropic, cobrarUsoIA, errorDeIA, modelo: RECEIPT_MODEL });
+
+// Electricidad → "Diseñar con IA" (functions/electricidadIA.js): ambientes y puntos eléctricos. 6 créditos.
+export const disenarElectricidad = crearDisenarElectricidad({ onCall, HttpsError, Anthropic, cobrarUsoIA, errorDeIA, modelo: RECEIPT_MODEL });
 
 // =============================================================================
 // AVISOS PUSH (Firebase Cloud Messaging): llegan al celular aunque la app esté

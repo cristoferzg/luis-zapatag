@@ -31,7 +31,7 @@ interface Props {
 }
 
 const NOMBRE_VISTA: Record<string, string> = {
-  dashboard: 'Panel', projects: 'Proyectos', techos: 'Techos', concreto: 'Obra Civil', drywall: 'Drywall', melamina: 'Melamina', gasfiteria: 'Gasfitería', electricidad: 'Electricidad', carpinteria: 'Carpintería',
+  dashboard: 'Panel', projects: 'Proyectos', techos: 'Techos', concreto: 'Obra Civil', drywall: 'Drywall', melamina: 'Melamina', gasfiteria: 'Gasfitería', electricidad: 'Electricidad', madera: 'Carpintería de madera', vidrios: 'Vidrios y aluminio', acabados: 'Acabados', carpinteria: 'Carpintería',
   calculator: 'Calculadora', gastos: 'Gastos', materials: 'Gastos', precios: 'Precios', contracts: 'Contratos', reporte: 'Reporte',
   usabilidad: 'Academia', biblioteca: 'Recursos', membresia: 'Membresía', settings: 'Configuración',
 };

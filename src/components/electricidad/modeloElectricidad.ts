@@ -7,7 +7,7 @@
 // =============================================================================
 import { safeStorage } from '../../lib/storageManager';
 import type { TipoCable, TipoTubo } from '../../catalogo/electricidad';
-import { murosDeObra, pisosObra, murosAmbiente, rotar, defAparato, type MuroRef, type Pt, type TipoAparato } from '../gasfiteria/modeloGasfiteria';
+import { murosDeObra, pisosObra, murosAmbiente, rotar, defAparato, type MuroRef, type Pt, type TipoAparato, type AmbientePlano } from '../gasfiteria/modeloGasfiteria';
 
 export type { MuroRef, Pt };
 export { murosDeObra, pisosObra, murosAmbiente };
@@ -100,7 +100,7 @@ export const PALETA_CIRCUITOS = ['#f59e0b', '#2563eb', '#dc2626', '#16a34a', '#9
 
 export interface RefFondo { tipo: 'aparato' | 'mueble' | 'columna' | 'area'; x: number; y: number; w: number; d: number; rot: number; etiqueta?: string; gas?: TipoAparato; alto?: boolean }
 export type TipoFondo = 'blanco' | 'obra' | 'gasfiteria' | 'melamina' | 'techos';
-export interface FondoEle { tipo: TipoFondo; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; refs: RefFondo[] }
+export interface FondoEle { tipo: TipoFondo; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; refs: RefFondo[]; ambientes?: AmbientePlano[] }
 
 export interface CotizacionEle {
   id: string; nombre: string; cliente: string;

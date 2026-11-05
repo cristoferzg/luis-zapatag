@@ -13,10 +13,27 @@ import { safeStorage } from '../../lib/storageManager';
 import { simb } from '../../lib/currency';
 import {
   APARATOS, Aparato, CotizacionGas, KEY_COT_LISTA, Pt, Red, REDES, ORDEN_REDES, TipoAparato, Tramo, conexion, cotizacionEjemplo, cotizacionVacia,
-  defAparato, esAgua, leerCotizaciones, limites, murosAmbiente, murosDeObra, nombreAparato, pendienteDefecto, pisosObra, pulg, redesDe, uid, MuroRef,
+  defAparato, esAgua, leerCotizaciones, limites, murosAmbiente, murosDeObra, nombreAparato, pendienteDefecto, pisosObra, pulg, redesDe, uid, MuroRef, FondoGas,
 } from './modeloGasfiteria';
 import { MetradoGas, NOMBRE_EMPALME, avisosGas, largoTramo, proyectar, totalCon, trazarAutomatico, Empalme } from './calculoGasfiteria';
 import { IconoAparato, SimboloAparato } from './SimboloAparato';
+import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from './DisenoIAInstalacion';
+
+/** Respuesta de disenarGasfiteria (ya revisada en el servidor). */
+export interface PropuestaGasIA extends PlantaIABase { aparatos: { tipo: TipoAparato; x: number; y: number; rot: number; nombre?: string }[] }
+const EJEMPLOS_IA = [
+  'Casa: baño completo con terma, cocina y lavandería con lavadora',
+  'Baño de 1.60 × 2.20 m con ducha, inodoro y lavatorio; agua caliente con terma',
+  'Departamento: 2 baños, cocina y lavandería; medidor en la fachada',
+];
+/** Si faltan, agrega el medidor (afuera, en la fachada) y la caja de registro para poder trazar. */
+export function completarAparatosGas(aparatos: Aparato[], fondo: FondoGas): Aparato[] {
+  const b = limites({ aparatos: [], tramos: [], fondo: fondo.muros.length ? fondo : { ...fondo, muros: [] } });
+  const out = [...aparatos];
+  if (out.some(a => defAparato(a.tipo).fria) && !out.some(a => a.tipo === 'medidor' || a.tipo === 'tanque')) out.push({ id: uid(), tipo: 'medidor', x: r3(b.x0 + 0.5), y: r3(b.y0 - 0.6), rot: 0 });
+  if (out.some(a => defAparato(a.tipo).desague) && !out.some(a => a.tipo === 'caja_registro')) out.push({ id: uid(), tipo: 'caja_registro', x: r3(b.x1 - 0.45), y: r3(b.y1 - 0.5), rot: 0 });
+  return out;
+}
 
 type SetCot = (f: (c: CotizacionGas) => CotizacionGas) => void;
 type Herr = 'mover' | 'mano' | 'aparato' | 'tubo';
@@ -45,7 +62,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   const [dibujo, setDibujo] = useState<Pt[]>([]);
   const [hover, setHover] = useState<Snap | null>(null);
   const [aviso, setAviso] = useState('');
-  const avisar = (t: string) => { setAviso(t); window.setTimeout(() => setAviso(''), 3200); };
+  const avisar = (t: string, ms = 3200) => { setAviso(t); window.setTimeout(() => setAviso(a => (a === t ? '' : a)), ms); };
   // Deshacer / rehacer (aparatos, tuberías y fondo).
   const pasado = useRef<CotizacionGas[]>([]), futuro = useRef<CotizacionGas[]>([]);
   const [, setVer] = useState(0);
@@ -282,6 +299,21 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
     const lleno = { ...ej, tramos: trazarAutomatico(ej.aparatos).tramos };
     commit(() => lleno); setSel(null); setHerr('mover'); encuadrar(lleno);
   };
+  // "Diseñar con IA": distribución nueva (o el fondo actual) + aparatos; luego el trazado automático.
+  const aplicarIA = (p: PropuestaGasIA, o: OpcionesIA) => {
+    const nuevos: Aparato[] = (p.aparatos || []).filter(a => APARATOS.some(d => d.id === a.tipo))
+      .map(a => ({ id: uid(), tipo: a.tipo, x: r3(a.x), y: r3(a.y), rot: a.rot || 0, ...(a.nombre ? { nombre: a.nombre } : {}) }));
+    const fondo: FondoGas = p.usaFondo || !p.muros?.length ? cot.fondo : { tipo: 'ambiente', ancho: p.ancho, largo: p.largo, muros: p.muros, ambientes: p.ambientes };
+    const aparatos = completarAparatosGas(o.reemplazar ? nuevos : [...cot.aparatos, ...nuevos], fondo);
+    const t = trazarAutomatico(aparatos);
+    const lleno = { ...cot, fondo, aparatos, tramos: t.tramos };
+    commit(() => lleno); setSel(null); setHerr('mover'); setDibujo([]); encuadrar(lleno);
+    avisar(`✓ ${nuevos.length} aparatos${p.usaFondo ? '' : ` en ${p.ambientes.length} ambientes`} y ${t.tramos.length} tuberías trazadas. ${t.notas.join(' ')} ${p.notas || ''}`.trim(), 9000);
+  };
+  const datosFondoIA = () => ({
+    muros: cot.fondo.muros, ambientes: (cot.fondo.ambientes || []).map(a => ({ nombre: a.nombre, x: r3(a.x + a.ancho / 2), y: r3(a.y + a.largo / 2) })),
+    items: cot.aparatos.map(a => ({ tipo: a.tipo, x: a.x, y: a.y, nombre: a.nombre })),
+  });
 
   const avisos = useMemo(() => avisosGas(cot.tramos, cot.aparatos), [cot.tramos, cot.aparatos]);
   const selAp = sel?.tipo === 'ap' ? cot.aparatos.find(a => a.id === sel.id) : undefined;
@@ -503,7 +535,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
       <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><Layers className="w-4 h-4 text-slate-400" /> Fondo del plano</p>
       <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
         {([['ambiente', 'Ambiente'], ['obra', 'Obra Civil'], ['ninguno', 'Sin fondo']] as const).map(([v, l]) => (
-          <button key={v} onClick={() => commit(c => ({ ...c, fondo: v === 'ambiente' ? { ...c.fondo, tipo: v, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo) } : v === 'obra' ? { ...c.fondo, tipo: v, nivel: c.fondo.nivel || pisos[0], muros: murosDeObra(c.fondo.nivel || pisos[0]) } : { ...c.fondo, tipo: v, muros: [] } }))}
+          <button key={v} onClick={() => commit(c => ({ ...c, fondo: v === 'ambiente' ? { ...c.fondo, tipo: v, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), ambientes: undefined } : v === 'obra' ? { ...c.fondo, tipo: v, nivel: c.fondo.nivel || pisos[0], muros: murosDeObra(c.fondo.nivel || pisos[0]), ambientes: undefined } : { ...c.fondo, tipo: v, muros: [], ambientes: undefined } }))}
             className={`min-h-[36px] min-w-0 rounded-lg text-[11px] font-bold cursor-pointer truncate px-1 ${cot.fondo.tipo === v ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>{l}</button>
         ))}
       </div>
@@ -512,7 +544,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
           {(['ancho', 'largo'] as const).map(k => (
             <label key={k} className="block text-[10px] font-bold text-slate-500 uppercase">{k === 'ancho' ? 'Ancho' : 'Largo'}
               <div className="mt-0.5 flex items-center min-h-[40px] rounded-lg bg-slate-100">
-                <input type="number" min={1} max={40} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(40, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo) } }; }); }}
+                <input type="number" min={1} max={40} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(40, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo), ambientes: undefined } }; }); }}
                   className="w-full min-w-0 bg-transparent px-2 py-2 text-sm font-mono font-bold text-slate-800 focus:outline-none" />
                 <span className="pr-2 text-[11px] font-bold text-slate-400">m</span>
               </div>
@@ -582,6 +614,11 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
               <button onClick={() => zoom(1.3)} title="Alejar" className="w-10 h-10 inline-flex items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"><ZoomOut className="w-4 h-4" /></button>
             </div>
             <div className="flex-1" />
+            <DisenoIAInstalacion<PropuestaGasIA> accion="gasfiteria" funcion="disenarGasfiteria" titulo="Diseñar la instalación con IA"
+              subtitulo="Ambientes y aparatos sanitarios desde tu descripción, un croquis o un plano; luego se trazan las tuberías"
+              placeholder="Ej. Casa de 8 × 10 m: baño completo con ducha y terma, baño de visita, cocina y lavandería; medidor en la fachada"
+              ejemplos={EJEMPLOS_IA} onAplicar={aplicarIA}
+              fondo={cot.fondo.muros.length && cot.fondo.tipo !== 'ninguno' ? { etiqueta: cot.fondo.tipo === 'obra' ? 'Usar el plano de Obra Civil' : 'Usar el plano actual', porDefecto: cot.fondo.tipo === 'obra' || !!cot.fondo.ambientes?.length, datos: datosFondoIA } : null} />
             <button onClick={trazar} title="Trazar automáticamente" className={`${btn} px-2.5 sm:px-3 bg-teal-600 text-white hover:bg-teal-700 shadow-xs`}><WandSparkles className="w-4 h-4" /> <span className="hidden sm:inline">Trazar automáticamente</span><span className="sm:hidden">Trazar</span></button>
           </div>
 
@@ -611,6 +648,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
               {herr === 'mano' && <rect data-arrastre="1" x={V.x} y={V.y} width={V.w} height={VH} fill="transparent" />}
               {grid}
               {cot.fondo.muros.map(muro)}
+              <EtiquetasAmbientes ambientes={cot.fondo.ambientes} fs={fs} />
               {cot.fondo.tipo === 'ambiente' && cot.fondo.muros.length > 0 && (() => {
                 const b = limites({ aparatos: [], tramos: [], fondo: cot.fondo }), y = b.y0 - fs * 2.2, x = b.x0 - fs * 2.2;
                 return <g pointerEvents="none" fill="#64748b" fontSize={fs * 0.9} fontWeight={800}>
@@ -691,7 +729,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
                   </div>
                   <div className="flex flex-wrap justify-center gap-2">
                     <button onClick={cargarEjemplo} className={`${btn} bg-teal-600 text-white hover:bg-teal-700`}><Sparkles className="w-4 h-4" /> Cargar ejemplo</button>
-                    {obraMuros > 0 && <button onClick={() => commit(c => ({ ...c, fondo: { ...c.fondo, tipo: 'obra', nivel: pisos[0], muros: murosDeObra(pisos[0]) } }))} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><Layers className="w-4 h-4" /> Usar plano de Obra Civil</button>}
+                    {obraMuros > 0 && <button onClick={() => commit(c => ({ ...c, fondo: { ...c.fondo, tipo: 'obra', nivel: pisos[0], muros: murosDeObra(pisos[0]), ambientes: undefined } }))} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><Layers className="w-4 h-4" /> Usar plano de Obra Civil</button>}
                     <button onClick={() => { setHerr('aparato'); setTipoAp('inodoro'); }} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><Plus className="w-4 h-4" /> Empezar en blanco</button>
                   </div>
                 </div>

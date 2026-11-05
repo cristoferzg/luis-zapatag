@@ -20,12 +20,15 @@ import { OSB_DEFAULTS } from '../catalogo/osb';
 import { COLORES_MELAMINA, MELAMINA_ITEMS } from '../catalogo/melamina';
 import { GASFITERIA_ITEMS } from '../catalogo/gasfiteria';
 import { ELECTRICIDAD_ITEMS } from '../catalogo/electricidad';
+import { MADERA_ITEMS } from '../catalogo/madera';
+import { VIDRIOS_ITEMS } from '../catalogo/vidrios';
+import { ACABADOS_ITEMS } from '../catalogo/acabados';
 
 export const AREA_PLANCHA_M2 = 1.22 * 2.44; // plancha estándar de drywall / OSB
 
 export type GrupoCatalogo =
   | 'Perfiles de acero' | 'Coberturas' | 'Accesorios de techos' | 'Accesorios de CarpiMetal' | 'Planchas, vidrio y malla'
-  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Acabados e instalaciones' | 'Melamina y herrajes' | 'Gasfitería' | 'Aparatos sanitarios' | 'Electricidad' | 'Mano de obra (jornal por día)' | 'Mis materiales';
+  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Acabados e instalaciones' | 'Melamina y herrajes' | 'Gasfitería' | 'Aparatos sanitarios' | 'Electricidad' | 'Carpintería de madera' | 'Vidrios y aluminio' | 'Mano de obra (jornal por día)' | 'Mis materiales';
 
 export interface ItemCatalogo {
   clave: string;
@@ -199,8 +202,13 @@ function construirItems(): ItemCatalogo[] {
   GASFITERIA_ITEMS.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Gasfitería'] }));
   // Electricidad: conductores, tubos, cajas, dispositivos, tablero, pozo a tierra y mano de obra por punto.
   ELECTRICIDAD_ITEMS.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Electricidad'] }));
-  ['Ingeniero residente', 'Maestro de obra', 'Soldador homologado', 'Armador / montajista', 'Operario', 'Oficial', 'Ayudante', 'Instalador de drywall', 'Albañil', 'Carpintero de melamina', 'Gasfitero', 'Electricista']
-    .forEach(c => add({ clave: claveJornal(c), grupo: 'Mano de obra (jornal por día)', nombre: c, unidad: 'día', ref: 0, usadoEn: ['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall', 'Melamina', 'Gasfitería', 'Electricidad'] }));
+  // Carpintería de madera (pies tablares, tableros, herrajes, acabado) y Vidrios y aluminio (perfiles, vidrios, accesorios).
+  MADERA_ITEMS.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Madera'] }));
+  VIDRIOS_ITEMS.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Vidrios'] }));
+  // Acabados: pintura, pisos, enchapes, pegamento, fragua y mano de obra por m².
+  ACABADOS_ITEMS.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Acabados'] }));
+  ['Ingeniero residente', 'Maestro de obra', 'Soldador homologado', 'Armador / montajista', 'Operario', 'Oficial', 'Ayudante', 'Instalador de drywall', 'Albañil', 'Carpintero de melamina', 'Gasfitero', 'Electricista', 'Pintor', 'Enchapador']
+    .forEach(c => add({ clave: claveJornal(c), grupo: 'Mano de obra (jornal por día)', nombre: c, unidad: 'día', ref: 0, usadoEn: ['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall', 'Melamina', 'Gasfitería', 'Electricidad', 'Acabados'] }));
   // Jornal de referencia del carpintero de melamina (Lima): se puede cambiar en Precios.
   const carpintero = items.get(claveJornal('Carpintero de melamina'));
   if (carpintero) carpintero.ref = 110;
@@ -208,6 +216,10 @@ function construirItems(): ItemCatalogo[] {
   if (gasfitero) gasfitero.ref = 120;
   const electricista = items.get(claveJornal('Electricista'));
   if (electricista) electricista.ref = 130;
+  const pintor = items.get(claveJornal('Pintor'));
+  if (pintor) pintor.ref = 100;
+  const enchapador = items.get(claveJornal('Enchapador'));
+  if (enchapador) enchapador.ref = 120;
   return [...items.values()];
 }
 

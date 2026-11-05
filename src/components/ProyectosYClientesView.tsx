@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import JSZip from 'jszip';
-import { Briefcase, Users, DollarSign, FileText, Edit2, Trash2, Plus, UserPlus, FolderKanban, Box, Search, Eye, Download, Image as ImageIcon, StickyNote, FileArchive, ArrowLeft, EyeOff } from 'lucide-react';
+import { TrendingUp, Briefcase, Users, DollarSign, FileText, Edit2, Trash2, Plus, UserPlus, FolderKanban, Box, Search, Eye, Download, Image as ImageIcon, StickyNote, FileArchive, ArrowLeft, EyeOff } from 'lucide-react';
 import { Project, Client, ClientFile, FinanceRecord, SystemUser } from '../types';
 import PestanasMovil from './common/PestanasMovil';
 import { SavedTechosDesign, fetchAllTechosDesigns, setActiveTechosDesignToLoad, deleteTechosDesign } from '../lib/techosDesignsRepo';
@@ -8,6 +8,8 @@ import { safeStorage } from '../lib/storageManager';
 import { sincronizarAceptadas, datosDiseno, fechaCorta, opcionesDesdePrecio } from '../lib/acuerdoTechos';
 import { prepararArchivoCarpeta, migrarArchivosPesados } from '../lib/carpetaArchivos';
 import { simb, dinero } from '../lib/currency';
+import AvanceObraPanel, { SincronizadorFotosAvance, BarraAvance } from './avance/AvanceObraPanel';
+import { avanceGlobal } from '../lib/avanceObra';
 
 interface ProyectosYClientesViewProps {
   projects: Project[];
@@ -213,6 +215,7 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
   const [cobroMethod, setCobroMethod] = useState('Transferencia');
 
   const [editingSpecsId, setEditingSpecsId] = useState<string | null>(null);
+  const [avanceId, setAvanceId] = useState<string | null>(null);
   const [specsText, setSpecsText] = useState('');
 
   // --- CLIENTES STATE ---
@@ -568,6 +571,13 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     );
                   })()}
 
+                  {!!p.avance?.partidas?.length && (
+                    <button onClick={() => setAvanceId(p.id)} className="mx-5 mt-4 text-left rounded-xl border border-emerald-100 bg-emerald-50/50 px-3 py-2 cursor-pointer hover:bg-emerald-50">
+                      <span className="flex items-center justify-between text-xs font-bold text-emerald-800 mb-1"><span>Avance de obra · {p.avance.partes?.length || 0} partes</span><span className="font-black">{Math.round(avanceGlobal(p.avance.partidas))}%</span></span>
+                      <BarraAvance pct={avanceGlobal(p.avance.partidas)} />
+                    </button>
+                  )}
+
                   {/* Card Body - Stats Grid */}
                   <div className="p-5 grid grid-cols-2 gap-4 flex-1">
                     <div>
@@ -618,6 +628,14 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                       >
                         <DollarSign className="w-4 h-4" />
                         <span>Cobros</span>
+                      </button>
+                      <button
+                        onClick={() => setAvanceId(p.id)}
+                        className="flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-white border border-slate-200 text-emerald-700 hover:bg-emerald-50 cursor-pointer"
+                        title="Avance de obra con fotos"
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                        <span>Avance</span>
                       </button>
                       <button 
                         onClick={() => { 
@@ -1465,6 +1483,14 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
           </div>
         </div>
       )}
+      <SincronizadorFotosAvance setProjects={setProjects} />
+      {avanceId && (() => {
+        const pa = projects.find(x => x.id === avanceId);
+        return pa ? (
+          <AvanceObraPanel project={pa} setProjects={setProjects} onClose={() => setAvanceId(null)}
+            ws={isAdmin ? 'admin' : currentUser ? `user_${currentUser.id}` : 'user'} autor={currentUser?.name} />
+        ) : null;
+      })()}
     </div>
   );
 }

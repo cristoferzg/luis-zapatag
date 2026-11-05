@@ -12,7 +12,7 @@ const K_CAJON = (dueno: string) => `innova_espacio__${dueno}`;
 // Claves que son trabajo o datos de un usuario. Las preferencias del equipo (sesión,
 // avisos, calidad del 3D…) no se tocan.
 const PREFIJOS = [
-  'innova_techos_', 'techos', 'concreto_', 'drywall_', 'melamina_', 'gasfiteria_', 'electricidad_', 'obra_', 'catalogo_', 'carpi_',
+  'innova_techos_', 'techos', 'concreto_', 'drywall_', 'melamina_', 'gasfiteria_', 'electricidad_', 'madera_', 'vidrios_', 'acabados_', 'obra_', 'obra_integral_', 'catalogo_', 'carpi_',
   'innova_herreria_', 'innova_catalogo', 'innova_costs_catalog', 'innova_precios_mercado',
   'innova_client_', 'innova_cotizador_a_techos', 'innova_propuesta', 'innova_foto_propuesta',
   'innova_prop_', 'innova_ultima_impresion', 'innova_archivo_compartido', 'innova_vista_',

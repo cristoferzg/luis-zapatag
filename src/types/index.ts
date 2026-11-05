@@ -1,4 +1,4 @@
-export type ViewType = 'dashboard' | 'projects' | 'clients' | 'portafolio' | 'materials' | 'personal' | 'finances' | 'contracts' | 'settings' | 'gastos' | 'familia' | 'inversion' | 'deuda' | 'precios' | 'asistencia' | 'epp' | 'calculator' | 'designer' | 'carpinteria' | 'herreria' | 'techos' | 'usuarios' | 'tickets' | 'asesorias' | 'biblioteca' | 'soporte' | 'usabilidad' | 'admin_purchases' | 'concreto' | 'drywall' | 'melamina' | 'gasfiteria' | 'electricidad' | 'supervision' | 'reporte' | 'membresia';
+export type ViewType = 'dashboard' | 'projects' | 'clients' | 'portafolio' | 'materials' | 'personal' | 'finances' | 'contracts' | 'settings' | 'gastos' | 'familia' | 'inversion' | 'deuda' | 'precios' | 'asistencia' | 'epp' | 'calculator' | 'designer' | 'carpinteria' | 'herreria' | 'techos' | 'usuarios' | 'tickets' | 'asesorias' | 'biblioteca' | 'soporte' | 'usabilidad' | 'admin_purchases' | 'concreto' | 'drywall' | 'melamina' | 'gasfiteria' | 'electricidad' | 'madera' | 'vidrios' | 'acabados' | 'obra_integral' | 'supervision' | 'reporte' | 'membresia';
 
 export interface Cobro { 
   id: string; 
@@ -60,7 +60,19 @@ export interface Project {
   techos?: TechosDelProyecto;   // propuesta de Techos Metálicos y lo acordado con el cliente (opcional)
   /** "No se dio": el trabajo no se concretó; sus números no cuentan en liquidez ni balance. */
   excluidoBalance?: boolean;
+  avance?: AvanceObra;          // avance de obra con partes diarios y fotos (src/lib/avanceObra.ts)
 }
+
+/** Avance de obra: partidas con % y partes diarios con fotos (guardado dentro del proyecto). */
+export interface PartidaAvance { id: string; nombre: string; avance: number; peso?: number; origen?: 'manual' | 'materiales' | 'techos' }
+export interface FotoAvance { id: string; url: string; path: string; w: number; h: number }
+export interface AvanceEnParte { partidaId: string; de: number; a: number }
+export interface ParteDiario {
+  id: string; fecha: string; avances: AvanceEnParte[]; nota?: string;
+  personal?: number; clima?: 'soleado' | 'nublado' | 'lluvia' | 'viento' | 'calor';
+  fotos: FotoAvance[]; creadoEn: string; autor?: string;
+}
+export interface AvanceObra { partidas: PartidaAvance[]; partes: ParteDiario[]; fechaInicio?: string; plazoDias?: number; actualizado?: string }
 
 /** Enlace del proyecto con su diseño de Techos: propuesta A/B/C enviada y lo acordado. */
 export interface TechosDelProyecto {

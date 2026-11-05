@@ -65,7 +65,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   "Avisar a todos que actualicen" (también publica un comunicado → push).
 - Programa de PC 2.0 (`desktop/`, `npm run dist`): manda su versión en el agente (`InnovaContratistasPC/x.y.z`); si el instalador subido (versión tomada del nombre `InnovApp-Setup-x.y.z.exe`) es más nuevo, `AvisoVersionApp` invita a descargarlo.
 - Instalador de PC: el admin lo sube desde el panel (web/PC) a `descargas/pc` (Storage: lectura pública, escritura admin). En la app Android no se ofrecen otros instaladores; el aviso de actualización solo lleva a la ficha de Play (`enlacePlaySeguro`).
-- Simulación solo en DEV: `window.__descargasSimuladas` (incluirlo en el grep del dist).
+- Simulación solo en DEV: `window.__descargasSimuladas`, `__avanceSimulado`, `__iaSimulada` (incluirlos en el grep del dist).
 
 ## Seguridad (reglas por usuario)
 - `firestore.rules`: cada usuario solo lo suyo (`userId` / `authorUid`); contenido del sistema
@@ -122,3 +122,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Electricidad (`ElectricidadView`, `src/components/electricidad/*`, catálogo `ele:*`): puntos, circuitos, trazado, cuadro de cargas
   y unifilar, avisos CNE, 3D, materiales y presupuesto. Fondo desde Obra Civil/Gasfitería/Melamina/Techos; botón
   `BotonElectricidad` en esos apartados (guarda `electricidad_origen`). Clave `electricidad_`.
+
+## Presupuesto de obra, Acabados, Madera, Vidrios, Avance e IA de instalaciones
+- Presupuesto de obra (`ObraIntegralView`, `obraIntegral/fuentes.ts`: un lector por apartado; cronograma Gantt). Clave `obra_integral_`.
+- Acabados (`AcabadosView`, `acabados/*`, `acab:*`), Carpintería de madera (`MaderaView`, `madera/*`, `mad:*`),
+  Vidrios y aluminio (`VidriosView`, `vidrios/*`, `vid:*`); comunes en `carpinteria/comun/`. Cada uno guarda `*_cotizacion_actual.total`.
+- Avance de obra con fotos: dentro de Proyectos (`avance/AvanceObraPanel.tsx`, `lib/avanceObra.ts`), datos en `project.avance`,
+  fotos en Storage `obras/<ws>/<proyecto>/`.
+- IA: `disenarGasfiteria` / `disenarElectricidad` (functions/gasfiteriaIA.js, electricidadIA.js, plantaIA.js; 6 créditos cada uno).

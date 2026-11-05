@@ -13,13 +13,32 @@ import {
 import { safeStorage } from '../../lib/storageManager';
 import { simb } from '../../lib/currency';
 import {
-  CATS, PUNTOS, ALIM, PT, COLOR_ALIM, COLOR_PT, CotizacionEle, Circuito, KEY_COT_LISTA, KEY_ORIGEN, Pt, Punto, Ruta, TipoFondo, TipoPunto, UsoCircuito, USOS, MuroRef, RefFondo,
+  CATS, PUNTOS, ALIM, PT, COLOR_ALIM, COLOR_PT, CotizacionEle, Circuito, KEY_COT_LISTA, KEY_ORIGEN, Pt, Punto, Ruta, TipoFondo, TipoPunto, UsoCircuito, USOS, MuroRef, RefFondo, FondoEle,
   circuitoDe, colorCircuito, cotizacionEjemplo, cotizacionVacia, defPunto, esEspecial, esInterruptor, esLuz, importarFondo, leerCotizaciones, limites, murosAmbiente,
   nombreCircuito, nombrePunto, normalizar, nuevoCircuito, pisosObra, potencia, renumerar, uid, PALETA_CIRCUITOS,
 } from './modeloElectricidad';
 import { desplazar, offsetCircuito, MetradoEle, avisosCNE, circuitoParaPunto, cargaCircuito, largoRuta, proyectar, puntosCircuito, sugerirCircuitos, totalCon, trazarAutomatico, TOL_PUNTO } from './calculoElectricidad';
 import { SimboloElectrico, IconoPunto } from './SimboloElectrico';
 import { SimboloAparato } from '../gasfiteria/SimboloAparato';
+import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from '../gasfiteria/DisenoIAInstalacion';
+
+/** Respuesta de disenarElectricidad (ya revisada en el servidor). */
+export interface PropuestaEleIA extends PlantaIABase { puntos: { tipo: TipoPunto; x: number; y: number; rot: number; nombre?: string; w?: number }[] }
+const EJEMPLOS_IA = [
+  'Casa de un piso: sala-comedor, cocina, 2 dormitorios y baño; terma y aire en el dormitorio principal',
+  'Departamento de 3 dormitorios con TV y datos en la sala y en cada dormitorio',
+  'Local comercial de 5 × 10 m con luces LED, tomas cada 3 m y un baño',
+];
+const UNICOS: TipoPunto[] = ['tablero', 'medidor', 'pozo_tierra'];
+/** Si faltan, agrega el tablero (en la primera esquina), el medidor (afuera) y el pozo a tierra para poder trazar. */
+export function completarPuntosEle(puntos: Punto[], fondo: FondoEle): Punto[] {
+  const b = limites({ puntos: [], rutas: [], fondo });
+  const out = [...puntos];
+  if (!out.some(p => p.tipo === 'tablero')) out.push({ id: uid(), tipo: 'tablero', x: r3(b.x0 + 0.5), y: r3(b.y0 + 0.12), rot: 0, nombre: 'TD' });
+  if (!out.some(p => p.tipo === 'medidor')) out.push({ id: uid(), tipo: 'medidor', x: r3(b.x0 + 0.5), y: r3(b.y0 - 0.7), rot: 180, nombre: 'Medidor' });
+  if (!out.some(p => p.tipo === 'pozo_tierra')) out.push({ id: uid(), tipo: 'pozo_tierra', x: r3(b.x0 - 0.8), y: r3(b.y0 + 0.8), rot: 0 });
+  return out;
+}
 
 type SetCot = (f: (c: CotizacionEle) => CotizacionEle) => void;
 type Herr = 'mover' | 'mano' | 'punto' | 'ruta';
@@ -52,7 +71,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
   const [dibujo, setDibujo] = useState<Pt[]>([]);
   const [hover, setHover] = useState<Snap | null>(null);
   const [aviso, setAviso] = useState('');
-  const avisar = (t: string) => { setAviso(t); window.setTimeout(() => setAviso(''), 3600); };
+  const avisar = (t: string, ms = 3600) => { setAviso(t); window.setTimeout(() => setAviso(a => (a === t ? '' : a)), ms); };
   // Deshacer / rehacer.
   const pasado = useRef<CotizacionEle[]>([]), futuro = useRef<CotizacionEle[]>([]);
   const [, setVer] = useState(0);
@@ -113,7 +132,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
   const elegirFondo = (tipo: TipoFondo, nivel?: string, silencioso = false) => {
     const f = importarFondo(tipo, nivel);
     setImp(f);
-    commit(c => ({ ...c, fondo: tipo === 'blanco' ? { ...c.fondo, tipo, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), refs: [] } : { ...c.fondo, tipo, nivel: tipo === 'obra' ? (nivel || c.fondo.nivel || pisos[0]) : undefined, muros: f.muros, refs: f.refs } }));
+    commit(c => ({ ...c, fondo: tipo === 'blanco' ? { ...c.fondo, tipo, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), refs: [], ambientes: undefined } : { ...c.fondo, tipo, nivel: tipo === 'obra' ? (nivel || c.fondo.nivel || pisos[0]) : undefined, muros: f.muros, refs: f.refs, ambientes: undefined } }));
     if (!silencioso && tipo !== 'blanco') avisar(f.vacio ? f.texto : `✓ ${f.texto}${f.sugerencias.length ? ` Toca "Agregar puntos sugeridos".` : ''}`);
     window.setTimeout(() => setVb(null), 0);
   };
@@ -334,6 +353,28 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
     setImp(importarFondo('blanco'));
     commit(() => lleno); setSel(null); setHerr('mover'); setFoco(null); encuadrar(lleno);
   };
+  // "Diseñar con IA": distribución nueva (o el fondo actual) + puntos; luego "Sugerir circuitos" y "Trazar".
+  const aplicarIA = (p: PropuestaEleIA, o: OpcionesIA) => {
+    let nuevos: Punto[] = (p.puntos || []).filter(q => PUNTOS.some(d => d.id === q.tipo))
+      .map(q => ({ id: uid(), tipo: q.tipo, x: r3(q.x), y: r3(q.y), rot: q.rot || 0, ...(q.nombre ? { nombre: q.nombre } : {}), ...(q.w ? { w: q.w } : {}) }));
+    if (!o.reemplazar) nuevos = nuevos.filter(q => !UNICOS.includes(q.tipo) || !cot.puntos.some(x => x.tipo === q.tipo));
+    const nuevoFondo = !p.usaFondo && !!p.muros?.length;
+    const fondo: FondoEle = nuevoFondo ? { tipo: 'blanco', ancho: p.ancho, largo: p.largo, nivel: undefined, muros: p.muros, refs: [], ambientes: p.ambientes } : cot.fondo;
+    const puntos = completarPuntosEle(o.reemplazar ? nuevos : [...cot.puntos, ...nuevos], fondo);
+    let b: CotizacionEle = { ...cot, fondo, puntos, circuitos: o.reemplazar ? [] : cot.circuitos, rutas: [] };
+    b = { ...b, ...sugerirCircuitos(b) };
+    const t = trazarAutomatico(b);
+    const lleno = { ...b, rutas: t.rutas, puntos: t.puntos };
+    if (nuevoFondo) setImp(importarFondo('blanco'));
+    commit(() => lleno); setSel(null); setHerr('mover'); setFoco(null); setDibujo([]); encuadrar(lleno);
+    avisar(`✓ ${nuevos.length} puntos${nuevoFondo ? ` en ${p.ambientes.length} ambientes` : ''}, ${b.circuitos.length} circuitos y ${t.rutas.length} tuberías trazadas. ${t.notas.join(' ')} ${p.notas || ''}`.trim(), 9000);
+  };
+  const datosFondoIA = () => ({
+    muros: cot.fondo.muros, ambientes: (cot.fondo.ambientes || []).map(a => ({ nombre: a.nombre, x: r3(a.x + a.ancho / 2), y: r3(a.y + a.largo / 2) })),
+    refs: cot.fondo.refs.map(f => ({ etiqueta: f.etiqueta || f.tipo, x: f.x, y: f.y, w: f.w, d: f.d })),
+    items: cot.puntos.map(q => ({ tipo: q.tipo, x: q.x, y: q.y, nombre: q.nombre })),
+  });
+  const etiquetaFondoIA = cot.fondo.tipo === 'obra' ? 'Usar el plano de Obra Civil' : cot.fondo.tipo === 'gasfiteria' ? 'Usar el plano de Gasfitería' : cot.fondo.tipo === 'melamina' ? 'Usar los muebles de Melamina' : cot.fondo.tipo === 'techos' ? 'Usar el área de Techos' : 'Usar el plano actual';
 
   const avisos = useMemo(() => avisosCNE(cot, duchas), [cot, duchas]);
   const selP = sel?.tipo === 'p' ? cot.puntos.find(a => a.id === sel.id) : undefined;
@@ -656,7 +697,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
       <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
         {cot.fondo.tipo === 'blanco' && (['ancho', 'largo'] as const).map(k => (
           <label key={k} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">{k === 'ancho' ? 'Ancho' : 'Largo'}
-            <input type="number" min={1} max={60} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(60, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo) } }; }); }}
+            <input type="number" min={1} max={60} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(60, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo), ambientes: undefined } }; }); }}
               className="w-16 min-h-[34px] px-2 rounded-lg bg-slate-100 font-mono text-xs text-right" /> m
           </label>
         ))}
@@ -696,6 +737,11 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
               <button onClick={() => zoom(1.3)} title="Alejar" className="w-10 h-10 inline-flex items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 cursor-pointer"><ZoomOut className="w-4 h-4" /></button>
             </div>
             <div className="flex-1" />
+            <DisenoIAInstalacion<PropuestaEleIA> accion="electricidad" funcion="disenarElectricidad" titulo="Diseñar la instalación eléctrica con IA"
+              subtitulo="Ambientes, luces, interruptores, tomas, tablero y pozo a tierra desde tu descripción o un plano; luego se arman los circuitos"
+              placeholder="Ej. Casa de 8 × 9 m: sala-comedor, cocina, 2 dormitorios y baño; terma de 1500 W, aire en el dormitorio principal, TV en la sala"
+              ejemplos={EJEMPLOS_IA} onAplicar={aplicarIA}
+              fondo={cot.fondo.muros.length || cot.fondo.refs.length ? { etiqueta: etiquetaFondoIA, porDefecto: cot.fondo.tipo !== 'blanco' || !!cot.fondo.ambientes?.length, datos: datosFondoIA } : null} />
             <button onClick={sugerir} title="Sugerir circuitos" className={`${btn} hidden md:inline-flex bg-amber-50 text-amber-800 hover:bg-amber-100`}><ListTree className="w-4 h-4" /> Sugerir<span className="hidden 2xl:inline"> circuitos</span></button>
             <button onClick={() => trazar()} title="Trazar automáticamente" className={`${btn} px-2.5 sm:px-3 bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-xs`}><WandSparkles className="w-4 h-4" /> <span className="hidden sm:inline xl:hidden 2xl:inline">Trazar automáticamente</span><span className="sm:hidden xl:inline 2xl:hidden">Trazar</span></button>
           </div>
@@ -736,6 +782,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
               {grid}
               {cot.fondo.refs.filter(x => x.tipo === 'area').map(refFondo)}
               {cot.fondo.muros.map(muro)}
+              <EtiquetasAmbientes ambientes={cot.fondo.ambientes} fs={fs} />
               {cot.fondo.refs.filter(x => x.tipo !== 'area').map(refFondo)}
               {cot.fondo.tipo === 'blanco' && cot.fondo.muros.length === 4 && (() => {
                 const b = limites({ puntos: [], rutas: [], fondo: cot.fondo }), y = b.y0 - fs * 2.2, x = b.x0 - fs * 2.2;

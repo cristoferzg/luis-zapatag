@@ -67,7 +67,9 @@ export interface Aparato { id: string; tipo: TipoAparato; x: number; y: number; 
 export interface Tramo { id: string; red: Red; diam: string; pts: Pt[]; pendiente?: number; llave?: boolean; auto?: boolean }
 export interface VanoRef { t: number; w: number; puerta: boolean }
 export interface MuroRef { x1: number; y1: number; x2: number; y2: number; a: number; vanos?: VanoRef[] }
-export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra'; ancho: number; largo: number; nivel?: string; muros: MuroRef[] }
+/** Ambiente con nombre (rectángulo, m) de una distribución hecha con "Diseñar con IA"; solo se usa para rotular el plano. */
+export interface AmbientePlano { nombre: string; x: number; y: number; ancho: number; largo: number }
+export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra'; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; ambientes?: AmbientePlano[] }
 
 export interface CotizacionGas {
   id: string; nombre: string; cliente: string;
