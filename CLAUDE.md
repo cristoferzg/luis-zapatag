@@ -115,3 +115,10 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Pestaña 3D (`drywall/Drywall3D.tsx`): puertas y ventanas que se abren; "Ver por dentro (parantes)".
 - Vanos con estilo/lado/tipo de ventana y "sumar al precio"; acabado por partida (empastado y pintado, colores).
   Catálogo extra: `DRYWALL_ITEMS_EXTRA` (src/catalogo/drywall.ts). 7 sistemas nuevos (murete, nicho, forros, cabecera, repisa, cielo curvo).
+
+## Gasfitería y Electricidad
+- Gasfitería (`GasfiteriaView`, `src/components/gasfiteria/*`, catálogo `gas:*`): aparatos, redes (fría/caliente/desagüe/ventilación),
+  trazado automático, empalmes calculados, avisos IS.010, 3D, materiales y presupuesto. Clave `gasfiteria_`.
+- Electricidad (`ElectricidadView`, `src/components/electricidad/*`, catálogo `ele:*`): puntos, circuitos, trazado, cuadro de cargas
+  y unifilar, avisos CNE, 3D, materiales y presupuesto. Fondo desde Obra Civil/Gasfitería/Melamina/Techos; botón
+  `BotonElectricidad` en esos apartados (guarda `electricidad_origen`). Clave `electricidad_`.
