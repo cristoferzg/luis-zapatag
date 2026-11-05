@@ -6,7 +6,7 @@ import { LadrilloItem } from '../../catalogo/ladrillo';
 import { OsbItem, OSB_DEFAULTS } from '../../catalogo/osb';
 import { safeStorage } from '../../lib/storageManager';
 import { leerDisenosCarpi, costoDisenoCarpi } from './carpiObra';
-import { precio, precioPlanchaAM2, precioBarraPerfil, claveDrywall, claveOsb, claveLadrillo } from '../../lib/catalogoPrecios';
+import { precio, precioPlanchaAM2, precioBarraPerfil, claveDrywall, claveOsb, claveLadrillo, PRECIOS_CONCRETO_REF as R } from '../../lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import type { PlanoElem } from '../ConcretoPlanoCad';
 import { metradoDrywall } from './metradoDrywall';
@@ -393,6 +393,6 @@ export const drywallConCatalogo = (l: DrywallItem[]) => l.map(d => ({ ...d, prec
 export const osbConCatalogo = (l: OsbItem[]) => l.map(d => ({ ...d, precioM2: precioPlanchaAM2(claveOsb(d.id), d.precioM2) }));
 export const ladrilloConCatalogo = (l: LadrilloItem[]) => l.map(d => ({ ...d, precioxMil: precio(claveLadrillo(d.id), d.precioxMil) }));
 export const preciosConcretoCatalogo = () => ({
-  cementoBolsa: precio('concreto:cemento', 28), arenaM3: precio('concreto:arena', 55), piedraM3: precio('concreto:piedra', 60),
-  aceroKg: precio('concreto:acero', 4.2), encofradoM2: precio('concreto:encofrado', 25),
+  cementoBolsa: precio('concreto:cemento', R.cemento), arenaM3: precio('concreto:arena', R.arena), piedraM3: precio('concreto:piedra', R.piedra),
+  aceroKg: precio('concreto:acero', R.acero), encofradoM2: precio('concreto:encofrado', R.encofrado),
 });

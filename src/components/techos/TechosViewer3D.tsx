@@ -24,9 +24,6 @@ import {
   Wrench,
   Compass,
   Search,
-  ArrowLeft,
-  ArrowRight,
-  Minimize2,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
@@ -45,7 +42,7 @@ import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { perfilTechos } from './tensores';
 import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
-import { movilDe, TIPOS_MOVIL } from './mecanismoMovil';
+import { movilDe, TIPOS_MOVIL, zonaPrincipal } from './mecanismoMovil';
 import { canaletaActiva, posicionesBajadas, cfgCanaleta, tramosCanaleta, NOMBRE_FORMA, NOMBRE_LADOS, NOMBRE_BAJADA } from './canaletas';
 import { safeStorage } from '../../lib/storageManager';
 import { guardarFotoPropuesta, fotoPropuesta } from './fotoPropuesta';
@@ -302,6 +299,36 @@ function getSplashTexture(): THREE.CanvasTexture {
 }
 
 // Etiquetas y colores descriptivos por rol estructural
+/**
+ * Panel acoplado del visor 3D (canaletas, techo movible, colores y perfil del tubo).
+ * PC: tarjeta compacta a la izquierda, debajo de la barra del 3D (no tapa el centro).
+ * Celular: hoja inferior de máx. 45 % de alto con asa (deslizar hacia abajo cierra) y X.
+ * Se cierra con la X, con Esc (PC) o tocando otra vez su botón de la barra.
+ */
+function PanelDock3D({ titulo, icono, tono = 'text-slate-700', oscuro = false, top, onClose, children }: {
+  titulo: string; icono?: React.ReactNode; tono?: string; oscuro?: boolean; top: number; onClose: () => void; children: React.ReactNode;
+}) {
+  const inicioY = useRef<number | null>(null);
+  return (
+    <div role="dialog" aria-label={titulo}
+      style={{ ['--top3d' as string]: `${top}px` } as React.CSSProperties}
+      className={`absolute z-50 sm:z-30 inset-x-0 bottom-0 max-h-[45%] rounded-t-2xl border-t sm:border sm:inset-x-auto sm:bottom-auto sm:left-3 sm:top-[var(--top3d)] sm:w-[330px] sm:max-h-[calc(100%_-_var(--top3d)_-_12px)] sm:rounded-2xl shadow-2xl flex flex-col ${oscuro ? 'bg-slate-900 text-white border-cyan-500/50' : 'bg-white text-slate-800 border-slate-200'}`}
+      onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onWheel={e => e.stopPropagation()}>
+      <div className={`shrink-0 px-3 pt-1.5 pb-2 border-b touch-none ${oscuro ? 'border-slate-800' : 'border-slate-100'}`}
+        onPointerDown={e => { inicioY.current = e.clientY; }}
+        onPointerUp={e => { if (inicioY.current !== null && e.clientY - inicioY.current > 50) onClose(); inicioY.current = null; }}>
+        <div className={`sm:hidden w-10 h-1.5 rounded-full mx-auto mb-1.5 ${oscuro ? 'bg-slate-600' : 'bg-slate-300'}`} />
+        <div className="flex items-center justify-between gap-2">
+          <p className={`min-w-0 truncate text-xs font-black uppercase tracking-wide flex items-center gap-1.5 ${tono}`}>{icono}{titulo}</p>
+          <button onClick={onClose} aria-label="Cerrar" title="Cerrar (Esc)"
+            className={`shrink-0 p-1.5 rounded-lg cursor-pointer ${oscuro ? 'text-slate-400 hover:bg-slate-800 hover:text-white' : 'text-slate-500 hover:bg-slate-100'}`}><X className="w-4 h-4" /></button>
+        </div>
+      </div>
+      <div className="overflow-y-auto overscroll-contain p-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
 const ROL_LABELS: Record<string, { label: string; badgeBg: string }> = {
   columna: { label: 'Columna Principal', badgeBg: 'bg-blue-900/60 text-blue-300 border-blue-500/50' },
   cordon_superior: { label: 'Cordón Superior (Arco/Cumbrera)', badgeBg: 'bg-purple-900/60 text-purple-300 border-purple-500/50' },
@@ -336,7 +363,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const [colorEstructura, setColorEstructuraSt] = useState<number>(() => Number(safeStorage.getItem<number>('innova_techos_color_estructura', 0x64748b)) || 0x64748b);
   const colorEstructuraRef = useRef(colorEstructura);
   const setColorEstructura = (c: number) => { colorEstructuraRef.current = c; setColorEstructuraSt(c); safeStorage.setItem('innova_techos_color_estructura', c); };
-  const [panelColores, setPanelColores] = useState(false);
+  // Un solo panel abierto a la vez (antes cada uno tenía su estado y se encimaban).
+  const [panel3d, setPanel3d] = useState<'movil' | 'canaleta' | 'colores' | 'perfil' | null>(null);
+  const panelColores = panel3d === 'colores';
   // Foto real de fondo (el patio del cliente) para mostrar el techo encima.
   const [fotoFondo, setFotoFondo] = useState<string | null>(null);
   const fotoFondoInputRef = useRef<HTMLInputElement>(null);
@@ -402,8 +431,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const [movilPrueba, setMovilPrueba] = useState<TechoMovil | null>(null);
   const movil = movilGuardado || movilPrueba;
   const movilClave = movil ? `${movil.tipo}|${movil.panos}|${movil.accionamiento}|${movil.abreHacia || 'inicio'}` : '';
-  const [panelMovil, setPanelMovil] = useState(false);
-  const [panelCanaleta, setPanelCanaleta] = useState(false);
+  const panelMovil = panel3d === 'movil';
+  const panelCanaleta = panel3d === 'canaleta';
   const [apertura, setApertura] = useState(0);
   const aperturaRef = useRef(0);
   const panosRef = useRef<{ g: THREE.Group; k: number; zPiv: number; yPiv: number }[]>([]);
@@ -451,24 +480,28 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     if (m) setMostrarCobertura(true);
     if (!m) setApertura(0);
   };
+  // Cerrar un panel no deja estado suelto: la "vista de prueba" del techo movible
+  // (sin guardar en el diseño) se descarta al cerrarlo.
+  const cerrarPanel3d = () => {
+    if (panel3d === 'movil' && movilPrueba) { cancelAnimationFrame(animRef.current); setMovilPrueba(null); setApertura(0); }
+    setPanel3d(null);
+  };
+  // El mismo botón abre y cierra; abrir uno cierra el otro. En el celular se pliega la barra.
+  const alternarPanel3d = (k: 'movil' | 'canaleta' | 'colores' | 'perfil') => {
+    if (panel3d === k) { cerrarPanel3d(); return; }
+    if (panel3d === 'movil' && movilPrueba) { cancelAnimationFrame(animRef.current); setMovilPrueba(null); setApertura(0); }
+    setPanel3d(k);
+    if (typeof window !== 'undefined' && window.innerWidth < 640) setBarra3dAbierta(false);
+  };
 
   // Estado para Selección e Inspección 3D Interactiva de Perfiles
   const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const [tempChosenProfileId, setTempChosenProfileId] = useState<string>('');
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
-  // Soporte de gesto Swipe-Down en móvil para el Inspector 3D
-  // Soporte de arrastre libre y reposicionamiento del Inspector 3D (PC, tablet y móvil)
-  const [panelPos, setPanelPos] = useState<{ x: number, y: number } | null>(null);
-  const [isDraggingPanel, setIsDraggingPanel] = useState(false);
-  const isDraggingPanelRef = useRef(false);
-  const panelDragStartRef = useRef<{ clientX: number; clientY: number; posX: number; posY: number }>({ clientX: 0, clientY: 0, posX: 0, posY: 0 });
-  const panelContainerRef = useRef<HTMLDivElement | null>(null);
   // Minimizado se recuerda: si el usuario lo achicó, la próxima selección también sale chica.
   // Celular: barra de opciones del 3D plegada (se abre con "Opciones 3D").
   const [barra3dAbierta, setBarra3dAbierta] = useState(false);
-  const [isPanelCollapsed, setIsPanelCollapsedEstado] = useState<boolean>(() => { try { return localStorage.getItem('innova_inspector3d_min') === '1'; } catch { return false; } });
-  const setIsPanelCollapsed = (v: boolean) => { setIsPanelCollapsedEstado(v); try { localStorage.setItem('innova_inspector3d_min', v ? '1' : '0'); } catch { /* sin almacenamiento */ } };
   // Pista de uso del 3D: unos segundos y solo las primeras 3 veces (después estorbaba).
   const [verPista3D, setVerPista3D] = useState<boolean>(() => { try { return Number(localStorage.getItem('innova_pista3d_vista') || '0') < 3; } catch { return true; } });
   useEffect(() => {
@@ -478,65 +511,28 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handlePanelPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('select') || target.closest('input')) return;
-
-    e.preventDefault();
-    isDraggingPanelRef.current = true;
-    setIsDraggingPanel(true);
-
-    const defaultX = typeof window !== 'undefined' && window.innerWidth >= 640 ? Math.max(20, window.innerWidth - 410) : 12;
-    const currentX = panelPos?.x ?? defaultX;
-    const currentY = panelPos?.y ?? 70;
-
-    panelDragStartRef.current = {
-      clientX: e.clientX,
-      clientY: e.clientY,
-      posX: currentX,
-      posY: currentY
-    };
-
-    const handlePointerMoveWindow = (moveEvent: PointerEvent) => {
-      if (!isDraggingPanelRef.current) return;
-      const deltaX = moveEvent.clientX - panelDragStartRef.current.clientX;
-      const deltaY = moveEvent.clientY - panelDragStartRef.current.clientY;
-
-      const panelWidth = panelContainerRef.current?.offsetWidth || 380;
-      const panelHeight = panelContainerRef.current?.offsetHeight || 300;
-
-      const maxX = Math.max(10, window.innerWidth - panelWidth - 10);
-      const maxY = Math.max(10, window.innerHeight - Math.min(panelHeight, 150));
-
-      const newX = Math.max(10, Math.min(maxX, panelDragStartRef.current.posX + deltaX));
-      const newY = Math.max(10, Math.min(maxY, panelDragStartRef.current.posY + deltaY));
-
-      setPanelPos({ x: newX, y: newY });
-    };
-
-    const handlePointerUpWindow = () => {
-      isDraggingPanelRef.current = false;
-      setIsDraggingPanel(false);
-      window.removeEventListener('pointermove', handlePointerMoveWindow);
-      window.removeEventListener('pointerup', handlePointerUpWindow);
-    };
-
-    window.addEventListener('pointermove', handlePointerMoveWindow);
-    window.addEventListener('pointerup', handlePointerUpWindow);
-  };
-
-  const handleDockLeft = () => {
-    setPanelPos({ x: 20, y: 70 });
-  };
-
-  const handleDockRight = () => {
-    if (typeof window !== 'undefined') {
-      setPanelPos({ x: Math.max(20, window.innerWidth - 350), y: 70 });
-    }
-  };
+  // Alto de la barra del 3D (el panel acoplado de PC va justo debajo).
+  const barra3dRef = useRef<HTMLDivElement | null>(null);
+  const [altoBarra3d, setAltoBarra3d] = useState(110);
+  useEffect(() => {
+    const el = barra3dRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setAltoBarra3d(Math.round(el.getBoundingClientRect().height) + 20));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const activeSelectedSegId = selectedSegmentId || (engineState?.selectedElementIds?.[0] || selectedElementId || null);
+  // Sin tubo seleccionado no queda abierto el panel del perfil.
+  useEffect(() => { if (!activeSelectedSegId && panel3d === 'perfil') setPanel3d(null); }, [activeSelectedSegId, panel3d]);
+  // Esc cierra el panel abierto (PC).
+  const cerrarPanelRef = useRef<(() => void) | null>(null);
+  cerrarPanelRef.current = panel3d ? cerrarPanel3d : null;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && cerrarPanelRef.current) cerrarPanelRef.current(); };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
 
   // Sincronizar el perfil temporal con el perfil del elemento seleccionado
   useEffect(() => {
@@ -3768,12 +3764,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
       {/* COLORES Y ACABADOS */}
       {panelColores && (
-        <div className="absolute left-2 right-16 sm:left-3 sm:right-auto sm:w-[320px] bottom-2 sm:bottom-14 z-30 bg-white/97 border border-slate-200 rounded-2xl shadow-2xl p-3 space-y-2.5 text-slate-800"
-          onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-700 flex items-center gap-1.5"><Palette className="w-4 h-4" /> Colores y acabados</p>
-            <button onClick={() => setPanelColores(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-4 h-4" /></button>
-          </div>
+        <PanelDock3D titulo="Colores y acabados" icono={<Palette className="w-4 h-4" />} top={altoBarra3d} onClose={cerrarPanel3d}>
           {engineState?.setLedVigas && (
             <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
               <input type="checkbox" checked={Object.values(segmentsTodos).some(sg => (sg as any).led)} onChange={e => engineState.setLedVigas(e.target.checked)} />
@@ -3792,25 +3783,22 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             </div>
           </div>
           <p className="text-[10px] text-slate-500">El color y el modelo de la plancha se eligen arriba (TR-4, TR-5, teja andina, policarbonato…). Con el botón de la luna ves el techo <b>de noche con luminarias</b>.</p>
-        </div>
+        </PanelDock3D>
       )}
 
       {/* PANEL TECHO MOVIBLE */}
       {panelCanaleta && (() => {
         const cfg = cfgCanaleta(zonasCob);
         const guardar = (p: Partial<typeof cfg>) => {
+          // Quitar las canaletas de un techo sin cobertura: no hay nada que guardar (antes creaba la cobertura o avisaba un error).
+          if (p.activa === false && !zonaPrincipal(zonasCob)) return;
           const ok = engineState?.setCanaleta?.({ ...cfg, ...p });
           if (!ok) alert('Este diseño no tiene correas para colocar la cobertura: agrégalas o usa el Asistente.');
           else setMostrarCobertura(true);
         };
         const chip = (activo: boolean) => `px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${activo ? 'bg-sky-600 text-white border-sky-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`;
         return (
-          <div className="absolute left-2 right-16 sm:left-3 sm:right-auto sm:w-[340px] bottom-2 sm:bottom-14 z-30 max-h-[58%] overflow-y-auto bg-white/97 backdrop-blur border border-slate-200 rounded-2xl shadow-2xl p-2.5 sm:p-3 space-y-2.5 text-slate-800"
-            onPointerDown={e => e.stopPropagation()} onWheel={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-black text-sky-800 uppercase flex items-center gap-1.5"><Droplets className="w-4 h-4" /> Canaletas y bajadas</p>
-              <button onClick={() => setPanelCanaleta(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 cursor-pointer"><X className="w-4 h-4" /></button>
-            </div>
+          <PanelDock3D titulo="Canaletas y bajadas" icono={<Droplets className="w-4 h-4" />} tono="text-sky-800" top={altoBarra3d} onClose={cerrarPanel3d}>
             <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
               <input type="checkbox" checked={cfg.activa} onChange={e => guardar({ activa: e.target.checked })} className="w-4 h-4 accent-sky-600" /> El techo lleva canaletas
             </label>
@@ -3839,7 +3827,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               </div>
             </>)}
             <p className="text-[10px] text-slate-500 bg-sky-50 rounded-lg p-2">Se guarda con el diseño y suma canaleta, soportes, esquineros, bajadas o gárgolas al presupuesto (precios en Catálogo de precios).</p>
-          </div>
+          </PanelDock3D>
         );
       })()}
 
@@ -3849,12 +3837,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const conCobertura = !!Object.values(zonasCob).some(z => !/^tq[0-9a-z]+_/.test(z.id));
         const chip = (activo: boolean) => `px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`;
         return (
-          <div className="absolute left-2 right-16 sm:left-3 sm:right-auto sm:w-[340px] bottom-2 sm:bottom-14 z-30 max-h-[58%] overflow-y-auto bg-white/97 backdrop-blur border border-slate-200 rounded-2xl shadow-2xl p-2.5 sm:p-3 space-y-2 sm:space-y-2.5 text-slate-800"
-            onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onWheel={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-black uppercase tracking-wide text-teal-800 flex items-center gap-1.5"><Blinds className="w-4 h-4" /> Techo movible</p>
-              <button onClick={() => setPanelMovil(false)} className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-4 h-4" /></button>
-            </div>
+          <PanelDock3D titulo="Techo movible" icono={<Blinds className="w-4 h-4" />} tono="text-teal-800" top={altoBarra3d} onClose={cerrarPanel3d}>
             <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
               <input type="checkbox" checked={!!movil} onChange={e => guardarMovil(e.target.checked ? base : null)} className="w-4 h-4 accent-teal-600" />
               El techo se abre (mecanismo movible)
@@ -3896,7 +3879,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                 {conCobertura ? 'Se guarda con el diseño y suma rieles, ruedas y el motor o manivela al presupuesto (precios en Catálogo de precios).' : 'Vista de prueba: cubre el techo en "Cobertura" para guardarlo con el diseño y sumarlo al presupuesto.'}
               </p>
             </>)}
-          </div>
+          </PanelDock3D>
         );
       })()}
 
@@ -3913,7 +3896,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       </div>
 
       {/* BARRA SUPERIOR ELEGANTE Y COMPLETA */}
-      <div className="absolute top-2 sm:top-3 inset-x-2 sm:inset-x-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-20 max-w-[calc(100vw-16px)]">
+      <div ref={barra3dRef} className="absolute top-2 sm:top-3 inset-x-2 sm:inset-x-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-20 max-w-[calc(100vw-16px)]">
         
         {/* Celular: la barra del 3D va plegada en un botón para que se vea el techo */}
         <button type="button" onClick={() => setBarra3dAbierta(v => !v)} aria-expanded={barra3dAbierta}
@@ -4054,9 +4037,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
           {/* Techo movible (corredizo, plegable o de lamas) */}
           <button
-            onClick={() => { setPanelMovil(v => !v); setPanelCanaleta(false); }}
+            onClick={() => alternarPanel3d('movil')} aria-pressed={panelMovil}
             className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${
-              panelMovil || movil ? 'bg-teal-600 text-white border-teal-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+              panelMovil ? 'bg-teal-600 text-white border-teal-500 font-bold' : movilGuardado ? 'bg-teal-50 text-teal-800 border-teal-300 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
             }`}
             title="Techo movible: corredizo, plegable o de lamas"
           >
@@ -4068,8 +4051,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           {/* Canaletas y bajadas de agua */}
           {(() => { const activa = canaletaActiva(zonasCob); return (
             <button
-              onClick={() => { setPanelCanaleta(v => !v); setPanelMovil(false); }}
-              className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${activa ? 'bg-sky-600 text-white border-sky-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+              onClick={() => alternarPanel3d('canaleta')} aria-pressed={panelCanaleta}
+              className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${panelCanaleta ? 'bg-sky-600 text-white border-sky-500 font-bold' : activa ? 'bg-sky-50 text-sky-800 border-sky-300 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
               title="Canaletas y bajadas: modelo, dónde van y cómo baja el agua"
             >
               <Droplets className="w-4 h-4" />
@@ -4079,7 +4062,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
 </>)}
           {/* Colores y acabados */}
-          <button onClick={() => setPanelColores(v => !v)}
+          <button onClick={() => alternarPanel3d('colores')} aria-pressed={panelColores}
             className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${panelColores ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
             title="Colores y acabados de la estructura">
             <Palette className="w-4 h-4" />
@@ -4466,89 +4449,22 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           setTimeout(() => setFeedbackMsg(null), 3500);
         };
 
-        const currentPos = panelPos ?? {
-          x: typeof window !== 'undefined' && window.innerWidth >= 640 ? Math.max(20, window.innerWidth - 350) : 12,
-          y: 70
-        };
+        const tipoCorto = currentProf.categoria === 'tubo_redondo' ? `Tubo Ø ${currentProf.anchoMm}` : currentProf.categoria === 'perfil_c' ? `Perfil C ${currentProf.anchoMm}×${currentProf.altoMm}` : currentProf.categoria === 'perfil_z' ? `Perfil Z ${currentProf.anchoMm}×${currentProf.altoMm}` : `Tubo ${currentProf.anchoMm}×${currentProf.altoMm}`;
+
+        // Al tocar un tubo solo aparece una etiqueta pequeña; el panel se abre con "Cambiar".
+        if (panel3d !== 'perfil') return (
+          <div className="absolute z-30 bottom-3 left-2 sm:left-1/2 sm:-translate-x-1/2 max-w-[calc(100%-5rem)] sm:max-w-[min(520px,calc(100%-14rem))] flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full bg-slate-900 text-white border border-cyan-500/60 shadow-xl pointer-events-auto"
+            onPointerDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+            <Wrench className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="min-w-0 truncate text-[11px] font-bold">Perfil: {tipoCorto}×{currentProf.espesorMm} mm<span className="text-slate-400 font-semibold"> · {rolInfo.label} · {lengthM.toFixed(2)} m{isMultiSelected ? ` · ${selectedMultiIds.length} sel.` : ''}</span></span>
+            <button onClick={() => alternarPanel3d('perfil')} className="shrink-0 px-2.5 py-1 rounded-full bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-[11px] font-black cursor-pointer">Cambiar</button>
+            <button onClick={() => { setSelectedSegmentId(null); if (engineState?.setSelectedElementIds) engineState.setSelectedElementIds([]); }}
+              aria-label="Quitar selección" title="Quitar selección" className="shrink-0 p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        );
 
         return (
-          <div 
-            ref={panelContainerRef}
-            style={{
-              left: `${currentPos.x}px`,
-              top: `${currentPos.y}px`,
-              transition: isDraggingPanel ? 'none' : 'box-shadow 0.2s',
-            }}
-            className={`fixed z-40 w-[calc(100vw-24px)] sm:w-80 max-w-[340px] max-h-[70vh] bg-slate-900/95 text-white border-2 border-cyan-500/80 rounded-2xl p-3 shadow-2xl backdrop-blur-md pointer-events-auto flex flex-col transition-opacity sm:opacity-60 sm:hover:opacity-100 sm:focus-within:opacity-100 ${
-              isDraggingPanel ? 'ring-2 ring-cyan-400 select-none cursor-grabbing opacity-95 shadow-cyan-900/50' : ''
-            }`}
-          >
-            {/* Cabecera / Drag handle universal para mover en cualquier dirección */}
-            <div 
-              onPointerDown={handlePanelPointerDown}
-              className="flex flex-col select-none touch-none pb-2 border-b border-slate-800 cursor-grab active:cursor-grabbing hover:bg-slate-800/40 rounded-xl px-1 -mx-1 transition-colors"
-              title="Haz clic y arrastra para mover el inspector a cualquier parte de la pantalla"
-            >
-              {/* Barra de agarre visual (Grip) */}
-              <div className="w-16 h-1 bg-slate-600 hover:bg-cyan-400 rounded-full mx-auto mb-2 transition-colors cursor-grab" />
-
-              <div className="flex items-center justify-between gap-1">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">
-                    <Wrench className="w-4 h-4" />
-                  </span>
-                  <div className="truncate">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="text-xs font-black text-white tracking-wide truncate">Inspector 3D de Perfil</h3>
-                      <span className="text-[9px] font-bold text-cyan-400/90 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-800/60 hidden sm:inline shrink-0">
-                        ✥ Arrastrable
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-cyan-300/80 truncate">Seleccionado directamente en 3D</p>
-                  </div>
-                </div>
-
-                {/* Botones de acople rápido y cierre */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button 
-                    onClick={handleDockLeft}
-                    className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer hidden sm:flex items-center"
-                    title="Mover a la izquierda"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={handleDockRight}
-                    className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer hidden sm:flex items-center"
-                    title="Mover a la derecha"
-                  >
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-                    className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-                    title={isPanelCollapsed ? "Expandir panel" : "Minimizar panel"}
-                  >
-                    <Minimize2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setSelectedSegmentId(null);
-                      if (engineState?.setSelectedElementIds) engineState.setSelectedElementIds([]);
-                    }}
-                    className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer ml-0.5"
-                    title="Cerrar inspector"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Contenido scrolleable (si no está minimizado) */}
-            {!isPanelCollapsed && (
-              <div className="overflow-y-auto flex-1 overscroll-contain pr-1 pb-4">
-
+          <PanelDock3D oscuro titulo="Perfil del tubo" icono={<Wrench className="w-4 h-4" />} tono="text-cyan-300" top={altoBarra3d} onClose={cerrarPanel3d}>
             {/* Datos del Tubo */}
             <div className="py-2.5 space-y-2 text-xs">
               <div className="flex items-center justify-between gap-1">
@@ -4687,9 +4603,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                 )}
               </div>
             </div>
-          </div>
-            )}
-          </div>
+          </PanelDock3D>
         );
       })()}
 

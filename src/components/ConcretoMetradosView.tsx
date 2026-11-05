@@ -15,7 +15,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Box, Plus, Trash2, Calculator, Download } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
-import { useCatalogo, fijarPrecio } from '../lib/catalogoPrecios';
+import { useCatalogo, fijarPrecio, PRECIOS_CONCRETO_REF as R } from '../lib/catalogoPrecios';
 import ConcretoElementoSVG from './ConcretoElementoSVG';
 import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
 import { List, PenTool } from 'lucide-react';
@@ -41,7 +41,7 @@ import type { Instancia } from './concreto/elementosConcreto';
 const NIVELES_DEFAULT = ['Cimentación', 'Piso 1'];
 
 // Precios unitarios referenciales por defecto (S/). Editables.
-const PRECIOS_DEFAULT = { cementoBolsa: 28, arenaM3: 55, piedraM3: 60, aceroKg: 4.2, encofradoM2: 25 };
+const PRECIOS_DEFAULT = { cementoBolsa: R.cemento, arenaM3: R.arena, piedraM3: R.piedra, aceroKg: R.acero, encofradoM2: R.encofrado };
 
 export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: () => void } = {}) {
   const [niveles, setNiveles] = useState<string[]>(() =>

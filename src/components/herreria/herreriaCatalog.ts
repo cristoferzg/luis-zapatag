@@ -1268,7 +1268,7 @@ export const PERFILES_CATALOGO: PerfilCatalogo[] = [
     altoMm: 114,
     espesorMm: 3.0,
     pesoKgPorMetro: 8.23,
-    precioPorBarra6m: 0,
+    precioPorBarra6m: 260.00,
     descripcion: 'Poste central de escalera caracol y columnas'
   },
   {
@@ -1281,7 +1281,7 @@ export const PERFILES_CATALOGO: PerfilCatalogo[] = [
     altoMm: 25,
     espesorMm: 1.5,
     pesoKgPorMetro: 0.88,
-    precioPorBarra6m: 0,
+    precioPorBarra6m: 30.00,
     descripcion: 'Parantes (balaustres) de barandas'
   },
   {
@@ -1490,12 +1490,12 @@ export const PERFILES_CATALOGO: PerfilCatalogo[] = [
     nombre: 'Cobertura Aluzinc TR-4 e=0.40mm (M2)',
     familia: 'acero',
     categoria: 'cobertura',
-    dimensiones: 'Ancho Útil 1.00m x Largo Variable',
+    dimensiones: 'Se compra por tira de 1.00 × 6 m (6 m²); el precio es por tira',
     anchoMm: 1000,
     altoMm: 38,
     espesorMm: 0.40,
     pesoKgPorMetro: 3.80,
-    precioPorBarra6m: 198.00,
+    precioPorBarra6m: 240.00, // 6 m² × S/ 40 por m² (mismo precio que Techos)
     descripcion: 'Panel trapezoidal de alta resistencia anticorrosiva TR-4'
   },
   {
@@ -1503,12 +1503,12 @@ export const PERFILES_CATALOGO: PerfilCatalogo[] = [
     nombre: 'Policarbonato Alveolar 6mm Traslúcido (M2)',
     familia: 'especial',
     categoria: 'cobertura',
-    dimensiones: 'Planos Alveolares con Protección UV',
+    dimensiones: 'Plancha 2.10 × 6 m (12.6 m²) con protección UV; el precio es por plancha',
     anchoMm: 2100,
     altoMm: 6,
     espesorMm: 6.0,
     pesoKgPorMetro: 1.30,
-    precioPorBarra6m: 240.00,
+    precioPorBarra6m: 378.00, // 12.6 m² × S/ 30 por m²
     descripcion: 'Cobertura traslúcida solar de alta iluminación natural'
   },
   {
@@ -1516,12 +1516,12 @@ export const PERFILES_CATALOGO: PerfilCatalogo[] = [
     nombre: 'Cobertura Termoacústica UPVC 2.5mm 3 Capas (M2)',
     familia: 'especial',
     categoria: 'cobertura',
-    dimensiones: 'Ancho 1.08m x Largo Variable',
+    dimensiones: 'Plancha 1.08 × 6 m (6.5 m²); el precio es por plancha',
     anchoMm: 1080,
     altoMm: 40,
     espesorMm: 2.5,
     pesoKgPorMetro: 3.20,
-    precioPorBarra6m: 220.00,
+    precioPorBarra6m: 311.00, // 6.48 m² × S/ 48 por m²
     descripcion: 'Aislamiento térmico y acústico superior para lluvias e intemperie'
   },
   {

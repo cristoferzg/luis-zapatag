@@ -23,7 +23,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 1.08,
     longitudComercialM: 6.0,
-    costoMetroSol: 6.00,
+    costoMetroSol: 6.25,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -36,7 +36,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 1.33,
     longitudComercialM: 6.0,
-    costoMetroSol: 7.30,
+    costoMetroSol: 7.3333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -49,7 +49,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 1.74,
     longitudComercialM: 6.0,
-    costoMetroSol: 9.50,
+    costoMetroSol: 9.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -62,7 +62,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 2.12,
     longitudComercialM: 6.0,
-    costoMetroSol: 11.50,
+    costoMetroSol: 11,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -75,7 +75,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 1.57,
     longitudComercialM: 6.0,
-    costoMetroSol: 8.50,
+    costoMetroSol: 8.6667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -88,7 +88,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.06,
     longitudComercialM: 6.0,
-    costoMetroSol: 11.30,
+    costoMetroSol: 10.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -101,7 +101,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 2.52,
     longitudComercialM: 6.0,
-    costoMetroSol: 13.60,
+    costoMetroSol: 13.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -114,7 +114,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 1.81,
     longitudComercialM: 6.0,
-    costoMetroSol: 9.80,
+    costoMetroSol: 9.9167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -127,7 +127,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.38,
     longitudComercialM: 6.0,
-    costoMetroSol: 12.60,
+    costoMetroSol: 12.4167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -140,7 +140,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 2.92,
     longitudComercialM: 6.0,
-    costoMetroSol: 15.60,
+    costoMetroSol: 15.1667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -153,7 +153,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 3.38,
     longitudComercialM: 6.0,
-    costoMetroSol: 18.00,
+    costoMetroSol: 17.5833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -166,7 +166,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 0.88,
     longitudComercialM: 6.0,
-    costoMetroSol: 5.50,
+    costoMetroSol: 5.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -179,7 +179,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 1.08,
     longitudComercialM: 6.0,
-    costoMetroSol: 6.80,
+    costoMetroSol: 5.9167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -192,7 +192,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 1.38,
     longitudComercialM: 6.0,
-    costoMetroSol: 8.50,
+    costoMetroSol: 7.1667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -205,7 +205,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 1.68,
     longitudComercialM: 6.0,
-    costoMetroSol: 9.80,
+    costoMetroSol: 9.25,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -218,7 +218,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 12.80,
+    costoMetroSol: 11.4167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -231,7 +231,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 1.82,
     longitudComercialM: 6.0,
-    costoMetroSol: 10.20,
+    costoMetroSol: 10.5833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -244,7 +244,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.25,
     longitudComercialM: 6.0,
-    costoMetroSol: 12.50,
+    costoMetroSol: 12.3333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -257,7 +257,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.98,
     longitudComercialM: 6.0,
-    costoMetroSol: 16.80,
+    costoMetroSol: 15.5,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -270,7 +270,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 3.65,
     longitudComercialM: 6.0,
-    costoMetroSol: 20.50,
+    costoMetroSol: 19,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -283,7 +283,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 4.30,
     longitudComercialM: 6.0,
-    costoMetroSol: 24.00,
+    costoMetroSol: 22.3333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -296,7 +296,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 3.88,
     longitudComercialM: 6.0,
-    costoMetroSol: 21.50,
+    costoMetroSol: 20.1667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -309,7 +309,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 4.78,
     longitudComercialM: 6.0,
-    costoMetroSol: 26.50,
+    costoMetroSol: 24.8333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -322,7 +322,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 4.52,
     longitudComercialM: 6.0,
-    costoMetroSol: 24.50,
+    costoMetroSol: 23.5,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -335,7 +335,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 5.60,
     longitudComercialM: 6.0,
-    costoMetroSol: 30.50,
+    costoMetroSol: 29.0833,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -348,7 +348,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 6.65,
     longitudComercialM: 6.0,
-    costoMetroSol: 36.50,
+    costoMetroSol: 34.5833,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -361,7 +361,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 9.60,
     longitudComercialM: 6.0,
-    costoMetroSol: 52.00,
+    costoMetroSol: 49.9167,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -374,7 +374,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 6.10,
     longitudComercialM: 6.0,
-    costoMetroSol: 33.50,
+    costoMetroSol: 31.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -387,7 +387,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 7.55,
     longitudComercialM: 6.0,
-    costoMetroSol: 41.50,
+    costoMetroSol: 39.25,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -400,7 +400,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 8.96,
     longitudComercialM: 6.0,
-    costoMetroSol: 48.00,
+    costoMetroSol: 46.5833,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -413,7 +413,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.2,
     pesoLinealKgM: 9.55,
     longitudComercialM: 6.0,
-    costoMetroSol: 52.50,
+    costoMetroSol: 49.6667,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -426,7 +426,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 13.10,
     longitudComercialM: 6.0,
-    costoMetroSol: 72.00,
+    costoMetroSol: 68.0833,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -439,7 +439,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 6.0,
     pesoLinealKgM: 17.00,
     longitudComercialM: 6.0,
-    costoMetroSol: 92.00,
+    costoMetroSol: 88.4167,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -452,7 +452,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 11.35,
     longitudComercialM: 6.0,
-    costoMetroSol: 62.00,
+    costoMetroSol: 59,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -465,7 +465,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 16.70,
     longitudComercialM: 6.0,
-    costoMetroSol: 89.00,
+    costoMetroSol: 86.8333,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -478,7 +478,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 13.70,
     longitudComercialM: 6.0,
-    costoMetroSol: 74.00,
+    costoMetroSol: 71.25,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -491,7 +491,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.0,
     pesoLinealKgM: 17.85,
     longitudComercialM: 6.0,
-    costoMetroSol: 92.00,
+    costoMetroSol: 92.8333,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -504,7 +504,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 20.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 108.00,
+    costoMetroSol: 105,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -517,7 +517,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 6.0,
     pesoLinealKgM: 26.50,
     longitudComercialM: 6.0,
-    costoMetroSol: 142.00,
+    costoMetroSol: 137.833,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -530,7 +530,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 27.25,
     longitudComercialM: 6.0,
-    costoMetroSol: 148.00,
+    costoMetroSol: 141.667,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -543,7 +543,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 6.0,
     pesoLinealKgM: 36.00,
     longitudComercialM: 6.0,
-    costoMetroSol: 195.00,
+    costoMetroSol: 187.167,
     resistenciaFluenciaFyMpa: 345
   },
 
@@ -560,7 +560,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 1.68,
     longitudComercialM: 6.0,
-    costoMetroSol: 9.80,
+    costoMetroSol: 9.25,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -573,7 +573,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 12.50,
+    costoMetroSol: 11.4167,
     resistenciaFluenciaFyMpa: 250
   },
   // 60x40 Rectangulares (LAC / LAF / Galvanizado ASTM A500)
@@ -588,7 +588,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 1.82,
     longitudComercialM: 6.0,
-    costoMetroSol: 10.50,
+    costoMetroSol: 10.5833,
     resistenciaFluenciaFyMpa: 230
   },
   {
@@ -602,7 +602,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.25,
     longitudComercialM: 6.0,
-    costoMetroSol: 13.20,
+    costoMetroSol: 12.3333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -616,7 +616,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.8,
     pesoLinealKgM: 2.68,
     longitudComercialM: 6.0,
-    costoMetroSol: 15.50,
+    costoMetroSol: 14.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -630,7 +630,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.98,
     longitudComercialM: 6.0,
-    costoMetroSol: 17.20,
+    costoMetroSol: 15.5,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -644,7 +644,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 3.65,
     longitudComercialM: 6.0,
-    costoMetroSol: 21.00,
+    costoMetroSol: 19,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -658,7 +658,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 4.30,
     longitudComercialM: 6.0,
-    costoMetroSol: 24.80,
+    costoMetroSol: 22.3333,
     resistenciaFluenciaFyMpa: 250
   },
   // 60x40 Galvanizados (Anticorrosivo ASTM A500 Galv)
@@ -673,7 +673,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.35,
     longitudComercialM: 6.0,
-    costoMetroSol: 15.50,
+    costoMetroSol: 15.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -687,7 +687,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 3.10,
     longitudComercialM: 6.0,
-    costoMetroSol: 19.80,
+    costoMetroSol: 19.6667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -701,7 +701,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 3.80,
     longitudComercialM: 6.0,
-    costoMetroSol: 24.20,
+    costoMetroSol: 24.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -715,7 +715,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 4.50,
     longitudComercialM: 6.0,
-    costoMetroSol: 28.50,
+    costoMetroSol: 28.5833,
     resistenciaFluenciaFyMpa: 250
   },
   // 60x30 Rectangulares (LAC / LAF / Galvanizado)
@@ -730,7 +730,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 1.62,
     longitudComercialM: 6.0,
-    costoMetroSol: 9.50,
+    costoMetroSol: 9.4167,
     resistenciaFluenciaFyMpa: 230
   },
   {
@@ -744,7 +744,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.00,
     longitudComercialM: 6.0,
-    costoMetroSol: 11.80,
+    costoMetroSol: 11,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -758,7 +758,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.8,
     pesoLinealKgM: 2.38,
     longitudComercialM: 6.0,
-    costoMetroSol: 13.90,
+    costoMetroSol: 13.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -772,7 +772,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.62,
     longitudComercialM: 6.0,
-    costoMetroSol: 15.20,
+    costoMetroSol: 13.5833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -786,7 +786,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 3.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 18.50,
+    costoMetroSol: 16.6667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -800,7 +800,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 3.75,
     longitudComercialM: 6.0,
-    costoMetroSol: 21.80,
+    costoMetroSol: 19.5,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -814,7 +814,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.08,
     longitudComercialM: 6.0,
-    costoMetroSol: 13.80,
+    costoMetroSol: 13.9167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -828,7 +828,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.74,
     longitudComercialM: 6.0,
-    costoMetroSol: 17.50,
+    costoMetroSol: 17.4167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -842,7 +842,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 3.32,
     longitudComercialM: 6.0,
-    costoMetroSol: 21.50,
+    costoMetroSol: 21.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -856,7 +856,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 3.90,
     longitudComercialM: 6.0,
-    costoMetroSol: 25.00,
+    costoMetroSol: 24.75,
     resistenciaFluenciaFyMpa: 250
   },
   // 80x40 Rectangulares
@@ -870,7 +870,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.75,
     longitudComercialM: 6.0,
-    costoMetroSol: 16.00,
+    costoMetroSol: 15.1667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -883,7 +883,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.8,
     pesoLinealKgM: 3.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 18.50,
+    costoMetroSol: 17.5833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -896,7 +896,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 3.57,
     longitudComercialM: 6.0,
-    costoMetroSol: 20.50,
+    costoMetroSol: 18.5833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -909,7 +909,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 4.41,
     longitudComercialM: 6.0,
-    costoMetroSol: 25.20,
+    costoMetroSol: 22.9167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -922,7 +922,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 5.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 29.80,
+    costoMetroSol: 27,
     resistenciaFluenciaFyMpa: 250
   },
   // 100x40 and 100x50 Rectangulares
@@ -936,7 +936,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 4.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 24.00,
+    costoMetroSol: 21.8333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -949,7 +949,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 5.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 29.50,
+    costoMetroSol: 27,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -962,7 +962,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 4.52,
     longitudComercialM: 6.0,
-    costoMetroSol: 26.00,
+    costoMetroSol: 23.5,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -975,7 +975,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 5.60,
     longitudComercialM: 6.0,
-    costoMetroSol: 32.00,
+    costoMetroSol: 29.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -988,7 +988,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 6.65,
     longitudComercialM: 6.0,
-    costoMetroSol: 38.00,
+    costoMetroSol: 34.5833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1001,7 +1001,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 6.75,
     longitudComercialM: 6.0,
-    costoMetroSol: 38.50,
+    costoMetroSol: 35.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1014,7 +1014,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 8.05,
     longitudComercialM: 6.0,
-    costoMetroSol: 45.80,
+    costoMetroSol: 41.8333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1027,7 +1027,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 3.35,
     longitudComercialM: 6.0,
-    costoMetroSol: 18.80,
+    costoMetroSol: 17.4167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1040,7 +1040,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 2.28,
     longitudComercialM: 6.0,
-    costoMetroSol: 14.80,
+    costoMetroSol: 13.25,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1053,7 +1053,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.85,
     longitudComercialM: 6.0,
-    costoMetroSol: 16.50,
+    costoMetroSol: 15.6667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1066,7 +1066,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 3.75,
     longitudComercialM: 6.0,
-    costoMetroSol: 21.00,
+    costoMetroSol: 19.5,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1079,7 +1079,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 4.65,
     longitudComercialM: 6.0,
-    costoMetroSol: 25.50,
+    costoMetroSol: 24.1667,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1092,7 +1092,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 2.76,
     longitudComercialM: 6.0,
-    costoMetroSol: 17.90,
+    costoMetroSol: 16,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1105,7 +1105,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 3.42,
     longitudComercialM: 6.0,
-    costoMetroSol: 19.80,
+    costoMetroSol: 18.8333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1118,7 +1118,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 4.52,
     longitudComercialM: 6.0,
-    costoMetroSol: 25.50,
+    costoMetroSol: 23.5,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1131,7 +1131,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 5.60,
     longitudComercialM: 6.0,
-    costoMetroSol: 31.00,
+    costoMetroSol: 29.0833,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1144,7 +1144,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 6.65,
     longitudComercialM: 6.0,
-    costoMetroSol: 37.00,
+    costoMetroSol: 34.5833,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -1157,7 +1157,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 9.60,
     longitudComercialM: 6.0,
-    costoMetroSol: 53.00,
+    costoMetroSol: 49.9167,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -1170,7 +1170,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 6.10,
     longitudComercialM: 6.0,
-    costoMetroSol: 34.00,
+    costoMetroSol: 31.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1183,7 +1183,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 7.55,
     longitudComercialM: 6.0,
-    costoMetroSol: 42.00,
+    costoMetroSol: 39.25,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1196,7 +1196,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 8.96,
     longitudComercialM: 6.0,
-    costoMetroSol: 49.00,
+    costoMetroSol: 46.5833,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -1209,7 +1209,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 11.35,
     longitudComercialM: 6.0,
-    costoMetroSol: 62.00,
+    costoMetroSol: 59,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -1222,7 +1222,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 16.70,
     longitudComercialM: 6.0,
-    costoMetroSol: 89.00,
+    costoMetroSol: 86.8333,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -1235,7 +1235,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 20.20,
     longitudComercialM: 6.0,
-    costoMetroSol: 109.00,
+    costoMetroSol: 105,
     resistenciaFluenciaFyMpa: 345
   },
 
@@ -1252,7 +1252,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 0.93,
     longitudComercialM: 6.0,
-    costoMetroSol: 6.20,
+    costoMetroSol: 5.25,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1265,7 +1265,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 1.18,
     longitudComercialM: 6.0,
-    costoMetroSol: 7.80,
+    costoMetroSol: 6.6667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1278,7 +1278,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 1.55,
     longitudComercialM: 6.0,
-    costoMetroSol: 9.80,
+    costoMetroSol: 8.3333,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1291,7 +1291,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.28,
     longitudComercialM: 6.0,
-    costoMetroSol: 13.50,
+    costoMetroSol: 12.1667,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1304,7 +1304,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 2.82,
     longitudComercialM: 6.0,
-    costoMetroSol: 16.50,
+    costoMetroSol: 15.0833,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1317,7 +1317,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 2.88,
     longitudComercialM: 6.0,
-    costoMetroSol: 17.50,
+    costoMetroSol: 15.4167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1330,7 +1330,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 3.56,
     longitudComercialM: 6.0,
-    costoMetroSol: 21.00,
+    costoMetroSol: 19.0833,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1343,7 +1343,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.9,
     pesoLinealKgM: 5.44,
     longitudComercialM: 6.0,
-    costoMetroSol: 33.50,
+    costoMetroSol: 33.75,
     resistenciaFluenciaFyMpa: 240
   },
   {
@@ -1356,7 +1356,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 3.50,
     longitudComercialM: 6.0,
-    costoMetroSol: 21.50,
+    costoMetroSol: 18.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1369,7 +1369,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 4.35,
     longitudComercialM: 6.0,
-    costoMetroSol: 26.50,
+    costoMetroSol: 23.25,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1382,7 +1382,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 5.33,
     longitudComercialM: 6.0,
-    costoMetroSol: 32.00,
+    costoMetroSol: 28.5,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1395,7 +1395,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 6.36,
     longitudComercialM: 6.0,
-    costoMetroSol: 38.00,
+    costoMetroSol: 34,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1408,7 +1408,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 5.5,
     pesoLinealKgM: 11.29,
     longitudComercialM: 6.0,
-    costoMetroSol: 68.00,
+    costoMetroSol: 70,
     resistenciaFluenciaFyMpa: 240
   },
   {
@@ -1421,7 +1421,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 3.0,
     pesoLinealKgM: 8.23,
     longitudComercialM: 6.0,
-    costoMetroSol: 49.00,
+    costoMetroSol: 44,
     resistenciaFluenciaFyMpa: 290
   },
   {
@@ -1434,7 +1434,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.5,
     pesoLinealKgM: 12.18,
     longitudComercialM: 6.0,
-    costoMetroSol: 72.00,
+    costoMetroSol: 65.1667,
     resistenciaFluenciaFyMpa: 315
   },
   {
@@ -1447,7 +1447,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 6.0,
     pesoLinealKgM: 16.07,
     longitudComercialM: 6.0,
-    costoMetroSol: 95.00,
+    costoMetroSol: 99.6667,
     resistenciaFluenciaFyMpa: 240
   },
   {
@@ -1460,7 +1460,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 7.1,
     pesoLinealKgM: 28.26,
     longitudComercialM: 6.0,
-    costoMetroSol: 165.00,
+    costoMetroSol: 175.25,
     resistenciaFluenciaFyMpa: 240
   },
 
@@ -1477,7 +1477,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 1.55,
     longitudComercialM: 6.0,
-    costoMetroSol: 9.80,
+    costoMetroSol: 9.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1490,7 +1490,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.2,
     pesoLinealKgM: 2.10,
     longitudComercialM: 6.0,
-    costoMetroSol: 12.80,
+    costoMetroSol: 13.25,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1503,7 +1503,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 2.60,
     longitudComercialM: 6.0,
-    costoMetroSol: 15.50,
+    costoMetroSol: 16.4167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1516,7 +1516,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 3.40,
     longitudComercialM: 6.0,
-    costoMetroSol: 19.50,
+    costoMetroSol: 21.4167,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1529,7 +1529,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 4.25,
     longitudComercialM: 6.0,
-    costoMetroSol: 23.80,
+    costoMetroSol: 26.75,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1542,7 +1542,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.5,
     pesoLinealKgM: 5.30,
     longitudComercialM: 6.0,
-    costoMetroSol: 29.50,
+    costoMetroSol: 33.4167,
     resistenciaFluenciaFyMpa: 290
   },
 
@@ -1559,7 +1559,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 1.5,
     pesoLinealKgM: 3.50,
     longitudComercialM: 6.0,
-    costoMetroSol: 20.50,
+    costoMetroSol: 22.0833,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -1572,7 +1572,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 4.60,
     longitudComercialM: 6.0,
-    costoMetroSol: 26.50,
+    costoMetroSol: 29,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -1585,7 +1585,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 2.0,
     pesoLinealKgM: 5.40,
     longitudComercialM: 6.0,
-    costoMetroSol: 31.00,
+    costoMetroSol: 34,
     resistenciaFluenciaFyMpa: 345
   },
 
@@ -1602,7 +1602,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 6.0,
     pesoLinealKgM: 22.50,
     longitudComercialM: 6.0,
-    costoMetroSol: 125.00,
+    costoMetroSol: 135,
     resistenciaFluenciaFyMpa: 250
   },
   {
@@ -1615,7 +1615,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 8.0,
     pesoLinealKgM: 26.80,
     longitudComercialM: 6.0,
-    costoMetroSol: 148.00,
+    costoMetroSol: 160.833,
     resistenciaFluenciaFyMpa: 345
   },
   {
@@ -1628,7 +1628,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     espesorMm: 4.7,
     pesoLinealKgM: 12.90,
     longitudComercialM: 6.0,
-    costoMetroSol: 75.00,
+    costoMetroSol: 77.4167,
     resistenciaFluenciaFyMpa: 250
   }
 ];
@@ -1645,7 +1645,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Trapezoidal TR-4 (4 Crestas)',
     longitudComercialM: 3.0,
     pesoM2Kg: 2.45,
-    costoM2Sol: 26.50,
+    costoM2Sol: 25.00,
     traslapeTransversalMinMm: 200,
     pernosRequeridosPorM2: 4.5
   },
@@ -1659,7 +1659,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Trapezoidal TR-4 (4 Crestas)',
     longitudComercialM: 3.0,
     pesoM2Kg: 2.90,
-    costoM2Sol: 31.00,
+    costoM2Sol: 29.00,
     traslapeTransversalMinMm: 200,
     pernosRequeridosPorM2: 4.5
   },
@@ -1673,7 +1673,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Trapezoidal TR-4 (4 Crestas)',
     longitudComercialM: 3.0,
     pesoM2Kg: 3.38,
-    costoM2Sol: 34.50,
+    costoM2Sol: 33.00,
     traslapeTransversalMinMm: 200,
     pernosRequeridosPorM2: 4.5
   },
@@ -1687,7 +1687,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Trapezoidal TR-4 (4 Crestas)',
     longitudComercialM: 3.0,
     pesoM2Kg: 3.85,
-    costoM2Sol: 38.50,
+    costoM2Sol: 40.00,
     traslapeTransversalMinMm: 200,
     pernosRequeridosPorM2: 4.5
   },
@@ -1715,7 +1715,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Trapezoidal TR-5 (como TR-4, cresta más alta)',
     longitudComercialM: 3.0,
     pesoM2Kg: 4.90,
-    costoM2Sol: 49.00,
+    costoM2Sol: 50.00,
     traslapeTransversalMinMm: 200,
     pernosRequeridosPorM2: 5.0
   },
@@ -1743,7 +1743,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Ondulada Clásica',
     longitudComercialM: 3.0,
     pesoM2Kg: 2.20,
-    costoM2Sol: 22.00,
+    costoM2Sol: 16.00,
     traslapeTransversalMinMm: 150,
     pernosRequeridosPorM2: 5.0
   },
@@ -1757,7 +1757,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Alveolar 2 Paredes con Protección UV',
     longitudComercialM: 5.80,
     pesoM2Kg: 1.30,
-    costoM2Sol: 42.00,
+    costoM2Sol: 30.00,
     traslapeTransversalMinMm: 100,
     pernosRequeridosPorM2: 3.5
   },
@@ -1771,7 +1771,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Alveolar Reforzado Filtro Solar',
     longitudComercialM: 5.80,
     pesoM2Kg: 1.50,
-    costoM2Sol: 52.00,
+    costoM2Sol: 36.00,
     traslapeTransversalMinMm: 100,
     pernosRequeridosPorM2: 3.5
   },
@@ -1785,7 +1785,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Ondulada Aislante Ruido/Calor',
     longitudComercialM: 3.0,
     pesoM2Kg: 4.20,
-    costoM2Sol: 52.00,
+    costoM2Sol: 48.00,
     traslapeTransversalMinMm: 200,
     pernosRequeridosPorM2: 4.0
   },
@@ -1799,7 +1799,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Teja Española (onda 30 mm, paso 219 mm)',
     longitudComercialM: 5.913,
     pesoM2Kg: 4.6,
-    costoM2Sol: 0,
+    costoM2Sol: 58.00,
     traslapeTransversalMinMm: 219,
     pernosRequeridosPorM2: 4.0
   },
@@ -1813,7 +1813,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Malla tejida (sombra 50 %)',
     longitudComercialM: 100,
     pesoM2Kg: 0.1,
-    costoM2Sol: 0,
+    costoM2Sol: 2.20,
     traslapeTransversalMinMm: 0,
     pernosRequeridosPorM2: 0
   },
@@ -1827,7 +1827,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Malla tejida (sombra 65 %)',
     longitudComercialM: 100,
     pesoM2Kg: 0.12,
-    costoM2Sol: 0,
+    costoM2Sol: 2.60,
     traslapeTransversalMinMm: 0,
     pernosRequeridosPorM2: 0
   },
@@ -1841,7 +1841,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Malla tejida (sombra 80 %)',
     longitudComercialM: 100,
     pesoM2Kg: 0.15,
-    costoM2Sol: 0,
+    costoM2Sol: 3.20,
     traslapeTransversalMinMm: 0,
     pernosRequeridosPorM2: 0
   },
@@ -1855,7 +1855,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Malla tejida (sombra 90 %)',
     longitudComercialM: 100,
     pesoM2Kg: 0.18,
-    costoM2Sol: 0,
+    costoM2Sol: 3.80,
     traslapeTransversalMinMm: 0,
     pernosRequeridosPorM2: 0
   },
@@ -1869,7 +1869,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Lona tensada',
     longitudComercialM: 50,
     pesoM2Kg: 0.65,
-    costoM2Sol: 0,
+    costoM2Sol: 22.00,
     traslapeTransversalMinMm: 0,
     pernosRequeridosPorM2: 0
   },
@@ -1883,7 +1883,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Lámina lisa',
     longitudComercialM: 3.05,
     pesoM2Kg: 4.8,
-    costoM2Sol: 0,
+    costoM2Sol: 83.00,
     traslapeTransversalMinMm: 100,
     pernosRequeridosPorM2: 4
   },
@@ -1897,7 +1897,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Machihembrado Aislante Térmico',
     longitudComercialM: 6.0,
     pesoM2Kg: 8.50,
-    costoM2Sol: 95.00,
+    costoM2Sol: 115.00,
     traslapeTransversalMinMm: 150,
     pernosRequeridosPorM2: 3.0
   },
@@ -1911,7 +1911,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Machihembrado Aislante Térmico Alto',
     longitudComercialM: 6.0,
     pesoM2Kg: 10.80,
-    costoM2Sol: 125.00,
+    costoM2Sol: 145.00,
     traslapeTransversalMinMm: 150,
     pernosRequeridosPorM2: 3.0
   },
@@ -1926,7 +1926,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Ondulada Gran Onda',
     longitudComercialM: 2.44,
     pesoM2Kg: 11.0,
-    costoM2Sol: 0,
+    costoM2Sol: 23.00,
     traslapeTransversalMinMm: 140,
     pernosRequeridosPorM2: 3.0
   },
@@ -1940,7 +1940,7 @@ export const INVENTARIO_COBERTURAS: CoberturaItem[] = [
     tipoOnda: 'Teja Andina',
     longitudComercialM: 1.14,
     pesoM2Kg: 12.0,
-    costoM2Sol: 0,
+    costoM2Sol: 28.00,
     traslapeTransversalMinMm: 140,
     pernosRequeridosPorM2: 3.0
   }
@@ -1980,7 +1980,7 @@ export const SOLDADURA_AWS_E6011: SoldaduraItem = {
   nombre: 'Electrodo AWS E-6011 1/8" (Penetración Especial)',
   tipoProceso: 'SMAW_Electrodo',
   consumoKgPorMetroJunta: 0.28,
-  costoKgSol: 18.50
+  costoKgSol: 19.00
 };
 
 // Clasificación de perfiles por Norma / Acabado Industrial (LAC, Galvanizados, LAF/LAB, ASTM)

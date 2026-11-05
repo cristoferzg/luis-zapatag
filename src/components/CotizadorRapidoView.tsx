@@ -2,12 +2,12 @@
 // Calculadora estructural rápida de techos: forma (una agua, dos aguas, arco),
 // tijerales (sí/no, cantidad y tipo), correas según la cobertura, columnas
 // automáticas con placa y pernos, despiece en barras comerciales, cobertura
-// completa (planchas, cumbrera, pernos, canaletas) y presupuesto por m² o por
-// materiales con los precios del catálogo. "Abrir en Techos 3D" pasa las
+// completa (planchas, cumbrera, pernos, canaletas) y precio = materiales (con
+// los precios del catálogo) + 20 % de ganancia. "Abrir en Techos 3D" pasa las
 // medidas al Asistente de Techos.
 // =============================================================================
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, TrendingUp, DollarSign, PieChart, ShieldCheck, Box, Layers, Scissors, Package, FileText } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, PieChart, Box, Layers, Scissors, Package, FileText } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, SOLDADURA_AWS_E6011, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR } from './techos/techosCadCatalog';
 import { precio, clavePerfilDe, claveCobertura, useCatalogo } from '../lib/catalogoPrecios';
@@ -63,13 +63,113 @@ const CLAVE = 'innova_cotizador_rapido_data';
 const GANANCIA_MAX = 20; // % máximo de ganancia del contratista sobre el precio
 const inicial = {
   calcLargo: '', calcAncho: '', calcAlero: '0', calcBarLength: '6', calcAlturaColumnas: '3', calcNumColumnas: '',
-  precioPorM2: '140', margenGananciaPct: '20', v: 3,
+  margenGananciaPct: '20', v: 4,
   forma: 'dos_aguas' as Forma, pendiente: '15', flecha: '',
   conTijerales: true, numTijerales: '', sepPorticos: '5', tipoTijeral: 'pratt' as TipoTij, peralte: '',
   perfilCordon: 'perfil_sq_2x2_20', perfilCelosia: 'perfil_sq_1x1_15', perfilViga: 'perfil_rec_100x50_20', perfilColumna: 'perfil_sq_4x4_20', perfilCorrea: 'perfil_rec_2x1_15',
   cobertura: 'cob_aluzinc_tr4_035', sepCorrea: '', canaletas: false, placas: false,
-  modo: 'materiales' as 'm2' | 'materiales', manoObraPct: '40', gastosPct: '10',
 };
+
+/**
+ * Cálculo de la cotización rápida (sin interfaz): metrados, despiece, cobertura y
+ * precio = materiales + ganancia. Se exporta para poder verificar los números.
+ */
+export function calcularCotizacionRapida(f: typeof inicial) {
+  const L = n(f.calcLargo), A = n(f.calcAncho), alero = Math.max(0, n(f.calcAlero)), H = n(f.calcAlturaColumnas, 3);
+  const p = Math.max(0, n(f.pendiente, 15)) / 100;
+  const forma = f.forma as Forma;
+  if (L <= 0 || A <= 0) return null;
+  // Faldones: largo inclinado de cada caída (sin y con alero)
+  const flecha = forma === 'arco' ? (n(f.flecha) > 0 ? n(f.flecha) : Math.round(A * 0.15 * 100) / 100) : 0;
+  const arco = (c: number, fl: number) => c + (8 * fl * fl) / (3 * c);
+  const faldones = forma === 'una_agua' ? [Math.hypot(A, A * p)] : forma === 'dos_aguas' ? [Math.hypot(A / 2, A / 2 * p), Math.hypot(A / 2, A / 2 * p)] : [arco(A, flecha)];
+  const faldonesAlero = forma === 'arco' ? [arco(A + 2 * alero, flecha * (1 + 2 * alero / A) ** 2)] : faldones.map(fl => fl * (1 + (forma === 'una_agua' ? 2 * alero / A : alero / (A / 2))));
+  const largoCob = L + 2 * alero;
+  const areaPlanta = (A + 2 * alero) * largoCob;
+  // Lo que se cobra al cliente: largo × ancho, como siempre (sin alero ni inclinación).
+  const areaCobro = L * A;
+  const areaReal = faldonesAlero.reduce((s, x) => s + x, 0) * largoCob;
+  const subida = forma === 'una_agua' ? A * p : forma === 'dos_aguas' ? A / 2 * p : flecha;
+
+  // Pórticos (tijerales o vigas)
+  const sepP = Math.max(1, n(f.sepPorticos, 5));
+  const nP = Math.max(2, n(f.numTijerales) > 1 ? Math.round(n(f.numTijerales)) : Math.ceil(L / sepP) + 1);
+  const sepReal = L / (nP - 1);
+  const topLen = faldones.reduce((s, x) => s + x, 0);
+  const peralte = n(f.peralte) > 0 ? n(f.peralte) : Math.round(Math.max(0.4, Math.min(1.2, A / 15)) * 100) / 100;
+  const piezasPorPerfil = new Map<string, number[]>();
+  const add = (id: string, largo: number, veces = 1) => { if (largo <= 0 || veces <= 0) return; const a = piezasPorPerfil.get(id) || []; for (let i = 0; i < veces; i++) a.push(largo); piezasPorPerfil.set(id, a); };
+  let tij: { paneles: number; montantes: number; diagonales: number; largoDiag: number } | null = null;
+  if (f.conTijerales) {
+    const tipo = f.tipoTijeral as TipoTij;
+    const paneles = Math.max(4, Math.ceil(topLen / Math.max(0.5, peralte)) + (Math.ceil(topLen / Math.max(0.5, peralte)) % 2));
+    const panel = topLen / paneles;
+    const montantes = tipo === 'warren' || tipo === 'parabolico_warren' ? 0 : paneles + 1;
+    const diagonales = tipo === 'escalera_vierendeel' ? 0 : paneles;
+    const largoDiag = Math.hypot(panel, peralte);
+    tij = { paneles, montantes, diagonales, largoDiag };
+    faldones.forEach(fl => add(f.perfilCordon, fl, nP)); // cordón superior por faldón
+    add(f.perfilCordon, forma === 'arco' ? arco(A, Math.max(0, flecha - peralte)) : topLen, nP); // cordón inferior paralelo
+    add(f.perfilCelosia, peralte, montantes * nP);
+    add(f.perfilCelosia, largoDiag, diagonales * nP);
+  } else {
+    faldones.forEach(fl => add(f.perfilViga, fl, nP)); // viga simple por pórtico
+  }
+  // Columnas: 2 por pórtico (o lo que diga el usuario)
+  const nCol = n(f.calcNumColumnas) > 0 ? Math.round(n(f.calcNumColumnas)) : nP * 2;
+  const altCol = forma === 'una_agua' ? [H, H + A * p] : [H, H];
+  for (let i = 0; i < nCol; i++) add(f.perfilColumna, altCol[i % 2]);
+  // Vigas de amarre longitudinales (cabeza de columnas)
+  add(f.perfilViga, L, 2);
+  // Correas
+  const sepC = n(f.sepCorrea) > 0 ? n(f.sepCorrea) : sepCorreas(f.cobertura);
+  const lineasCorrea = faldonesAlero.reduce((s, fl) => s + Math.ceil(fl / sepC) + 1, 0);
+  add(f.perfilCorrea, largoCob, lineasCorrea);
+
+  const barra = n(f.calcBarLength, 6);
+  const despieces = [...piezasPorPerfil.entries()].map(([id, piezas]) => {
+    const d = despiece(piezas, barra);
+    const pm = precioMetro(id);
+    return { id, nombre: perfil(id).nombre, piezas: piezas.length, ...d, costo: d.barras * barra * pm, precioBarra: pm * barra };
+  });
+  const metrosAcero = despieces.reduce((s, d) => s + d.metros, 0);
+  const costoAcero = despieces.reduce((s, d) => s + d.costo, 0);
+
+  // Cobertura completa
+  const cob = INVENTARIO_COBERTURAS.find(c => c.id === f.cobertura) || INVENTARIO_COBERTURAS[0];
+  const anchoUtil = cob.anchoUtilMm / 1000, largoPl = cob.longitudComercialM || 6, traslape = cob.traslapeTransversalMinMm / 1000;
+  const planchas = faldonesAlero.reduce((s, fl) => s + Math.ceil(largoCob / anchoUtil) * Math.max(1, Math.ceil((fl - traslape) / Math.max(0.3, largoPl - traslape))), 0);
+  const items: { nombre: string; cant: string; costo: number }[] = [];
+  items.push({ nombre: cob.nombre, cant: `${planchas} planchas (${areaReal.toFixed(1)} m²)`, costo: areaReal * precio(claveCobertura(cob.id), cob.costoM2Sol) });
+  const pernos = Math.ceil(areaReal * (cob.pernosRequeridosPorM2 || 4));
+  items.push({ nombre: 'Pernos autoperforantes con arandela EPDM', cant: `${pernos} und (${Math.ceil(pernos / 100)} caja${pernos > 100 ? 's' : ''})`, costo: Math.ceil(pernos / 100) * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol) });
+  if (forma === 'dos_aguas') items.push({ nombre: 'Cumbrera', cant: `${largoCob.toFixed(1)} m`, costo: largoCob * precio('techos:cumbrera') });
+  if (f.canaletas) {
+    const lados = forma === 'una_agua' ? 1 : 2;
+    const bajadas = lados * Math.max(2, Math.ceil(largoCob / 10) + 1);
+    items.push({ nombre: 'Canaleta galvanizada', cant: `${(largoCob * lados).toFixed(1)} m`, costo: largoCob * lados * precio('agua:canaleta_galv') });
+    items.push({ nombre: 'Bajadas de agua', cant: `${bajadas} × ${H.toFixed(1)} m`, costo: bajadas * H * precio('agua:bajada_galv') });
+  }
+  if (f.placas) {
+    items.push({ nombre: 'Placas base', cant: `${nCol} und`, costo: nCol * precio('techos:placa_base', PLACA_BASE_ESTANDAR.costoUnidadSol) });
+    items.push({ nombre: 'Pernos de anclaje', cant: `${nCol * 4} und`, costo: (nCol * 4 / 100) * precio('techos:perno_anclaje', PERNO_ANCLAJE_J.costoCaja100Sol) }); // se compran por unidad
+  }
+  const kgSold = Math.round(metrosAcero * SOLDADURA_AWS_E6011.consumoKgPorMetroJunta * 0.35 * 10) / 10;
+  items.push({ nombre: 'Soldadura E6011', cant: `${kgSold} kg`, costo: kgSold * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol) });
+  const costoCob = items.reduce((s, i) => s + i.costo, 0);
+
+  // Cotización rápida = SOLO materiales (estructura + cobertura + accesorios y
+  // fijaciones) + la ganancia del contratista / maestro / ingeniero (20 %).
+  // Sin partidas de mano de obra, gastos generales ni otros porcentajes.
+  const materiales = costoAcero + costoCob;
+  const gananciaPct = Math.min(GANANCIA_MAX, Math.max(0, n(String(f.margenGananciaPct), GANANCIA_MAX)));
+  const ganancia = materiales * gananciaPct / 100;
+  const total = materiales + ganancia;
+  const porM2 = areaCobro > 0 ? total / areaCobro : 0;
+  const kgAcero = despieces.reduce((s, d) => s + d.metros * (perfil(d.id).pesoLinealKgM || 0), 0);
+
+  return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaCobro, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, kgAcero, costoAcero, planchas, items, costoCob, materiales, gananciaPct, ganancia, total, porM2 };
+}
 
 interface Props {
   /** Dentro de Materiales & Gastos: sin título grande. */
@@ -86,116 +186,19 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
     const g = (d.v ?? 0) >= 2 ? d.margenGananciaPct : '20'; // antes venía en 25 %
     // v3: cálculo clásico por m² sin adicionales (alero, canaletas, placas apagados al empezar)
     const sinAdicionales = (d.v ?? 0) < 3 ? { calcAlero: '0', canaletas: false, placas: false } : {};
-    return { ...inicial, ...d, ...sinAdicionales, cobertura: cob, margenGananciaPct: g, v: 3 };
+    // v4: la cotización rápida es solo materiales + ganancia (se quitan mano de obra, gastos y "por m²").
+    const { modo: _m, manoObraPct: _mo, gastosPct: _g, precioPorM2: _p, ...resto } = d;
+    return { ...inicial, ...resto, ...sinAdicionales, cobertura: cob, margenGananciaPct: g, v: 4 };
   });
   const set = <K extends keyof typeof inicial>(k: K, v: (typeof inicial)[K]) => setF((x: typeof inicial) => ({ ...x, [k]: v }));
   useEffect(() => { safeStorage.setItem(CLAVE, f); }, [f]);
 
-  const r = useMemo(() => {
-    const L = n(f.calcLargo), A = n(f.calcAncho), alero = Math.max(0, n(f.calcAlero)), H = n(f.calcAlturaColumnas, 3);
-    const p = Math.max(0, n(f.pendiente, 15)) / 100;
-    const forma = f.forma as Forma;
-    if (L <= 0 || A <= 0) return null;
-    // Faldones: largo inclinado de cada caída (sin y con alero)
-    const flecha = forma === 'arco' ? (n(f.flecha) > 0 ? n(f.flecha) : Math.round(A * 0.15 * 100) / 100) : 0;
-    const arco = (c: number, fl: number) => c + (8 * fl * fl) / (3 * c);
-    const faldones = forma === 'una_agua' ? [Math.hypot(A, A * p)] : forma === 'dos_aguas' ? [Math.hypot(A / 2, A / 2 * p), Math.hypot(A / 2, A / 2 * p)] : [arco(A, flecha)];
-    const faldonesAlero = forma === 'arco' ? [arco(A + 2 * alero, flecha * (1 + 2 * alero / A) ** 2)] : faldones.map(fl => fl * (1 + (forma === 'una_agua' ? 2 * alero / A : alero / (A / 2))));
-    const largoCob = L + 2 * alero;
-    const areaPlanta = (A + 2 * alero) * largoCob;
-    // Lo que se cobra al cliente: largo × ancho, como siempre (sin alero ni inclinación).
-    const areaCobro = L * A;
-    const areaReal = faldonesAlero.reduce((s, x) => s + x, 0) * largoCob;
-    const subida = forma === 'una_agua' ? A * p : forma === 'dos_aguas' ? A / 2 * p : flecha;
+  const r = useMemo(() => calcularCotizacionRapida(f), [f]);
 
-    // Pórticos (tijerales o vigas)
-    const sepP = Math.max(1, n(f.sepPorticos, 5));
-    const nP = Math.max(2, n(f.numTijerales) > 1 ? Math.round(n(f.numTijerales)) : Math.ceil(L / sepP) + 1);
-    const sepReal = L / (nP - 1);
-    const topLen = faldones.reduce((s, x) => s + x, 0);
-    const peralte = n(f.peralte) > 0 ? n(f.peralte) : Math.round(Math.max(0.4, Math.min(1.2, A / 15)) * 100) / 100;
-    const piezasPorPerfil = new Map<string, number[]>();
-    const add = (id: string, largo: number, veces = 1) => { if (largo <= 0 || veces <= 0) return; const a = piezasPorPerfil.get(id) || []; for (let i = 0; i < veces; i++) a.push(largo); piezasPorPerfil.set(id, a); };
-    let tij: { paneles: number; montantes: number; diagonales: number; largoDiag: number } | null = null;
-    if (f.conTijerales) {
-      const tipo = f.tipoTijeral as TipoTij;
-      const paneles = Math.max(4, Math.ceil(topLen / Math.max(0.5, peralte)) + (Math.ceil(topLen / Math.max(0.5, peralte)) % 2));
-      const panel = topLen / paneles;
-      const montantes = tipo === 'warren' || tipo === 'parabolico_warren' ? 0 : paneles + 1;
-      const diagonales = tipo === 'escalera_vierendeel' ? 0 : paneles;
-      const largoDiag = Math.hypot(panel, peralte);
-      tij = { paneles, montantes, diagonales, largoDiag };
-      faldones.forEach(fl => add(f.perfilCordon, fl, nP)); // cordón superior por faldón
-      add(f.perfilCordon, forma === 'arco' ? arco(A, Math.max(0, flecha - peralte)) : topLen, nP); // cordón inferior paralelo
-      add(f.perfilCelosia, peralte, montantes * nP);
-      add(f.perfilCelosia, largoDiag, diagonales * nP);
-    } else {
-      faldones.forEach(fl => add(f.perfilViga, fl, nP)); // viga simple por pórtico
-    }
-    // Columnas: 2 por pórtico (o lo que diga el usuario)
-    const nCol = n(f.calcNumColumnas) > 0 ? Math.round(n(f.calcNumColumnas)) : nP * 2;
-    const altCol = forma === 'una_agua' ? [H, H + A * p] : [H, H];
-    for (let i = 0; i < nCol; i++) add(f.perfilColumna, altCol[i % 2]);
-    // Vigas de amarre longitudinales (cabeza de columnas)
-    add(f.perfilViga, L, 2);
-    // Correas
-    const sepC = n(f.sepCorrea) > 0 ? n(f.sepCorrea) : sepCorreas(f.cobertura);
-    const lineasCorrea = faldonesAlero.reduce((s, fl) => s + Math.ceil(fl / sepC) + 1, 0);
-    add(f.perfilCorrea, largoCob, lineasCorrea);
-
-    const barra = n(f.calcBarLength, 6);
-    const despieces = [...piezasPorPerfil.entries()].map(([id, piezas]) => {
-      const d = despiece(piezas, barra);
-      const pm = precioMetro(id);
-      return { id, nombre: perfil(id).nombre, piezas: piezas.length, ...d, costo: d.barras * barra * pm, precioBarra: pm * barra };
-    });
-    const metrosAcero = despieces.reduce((s, d) => s + d.metros, 0);
-    const costoAcero = despieces.reduce((s, d) => s + d.costo, 0);
-
-    // Cobertura completa
-    const cob = INVENTARIO_COBERTURAS.find(c => c.id === f.cobertura) || INVENTARIO_COBERTURAS[0];
-    const anchoUtil = cob.anchoUtilMm / 1000, largoPl = cob.longitudComercialM || 6, traslape = cob.traslapeTransversalMinMm / 1000;
-    const planchas = faldonesAlero.reduce((s, fl) => s + Math.ceil(largoCob / anchoUtil) * Math.max(1, Math.ceil((fl - traslape) / Math.max(0.3, largoPl - traslape))), 0);
-    const items: { nombre: string; cant: string; costo: number }[] = [];
-    items.push({ nombre: cob.nombre, cant: `${planchas} planchas (${areaReal.toFixed(1)} m²)`, costo: areaReal * precio(claveCobertura(cob.id), cob.costoM2Sol) });
-    const pernos = Math.ceil(areaReal * (cob.pernosRequeridosPorM2 || 4));
-    items.push({ nombre: 'Pernos autoperforantes con arandela EPDM', cant: `${pernos} und (${Math.ceil(pernos / 100)} caja${pernos > 100 ? 's' : ''})`, costo: Math.ceil(pernos / 100) * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol) });
-    if (forma === 'dos_aguas') items.push({ nombre: 'Cumbrera', cant: `${largoCob.toFixed(1)} m`, costo: largoCob * precio('techos:cumbrera') });
-    if (f.canaletas) {
-      const lados = forma === 'una_agua' ? 1 : 2;
-      const bajadas = lados * Math.max(2, Math.ceil(largoCob / 10) + 1);
-      items.push({ nombre: 'Canaleta galvanizada', cant: `${(largoCob * lados).toFixed(1)} m`, costo: largoCob * lados * precio('agua:canaleta_galv') });
-      items.push({ nombre: 'Bajadas de agua', cant: `${bajadas} × ${H.toFixed(1)} m`, costo: bajadas * H * precio('agua:bajada_galv') });
-    }
-    if (f.placas) {
-      items.push({ nombre: 'Placas base', cant: `${nCol} und`, costo: nCol * precio('techos:placa_base', PLACA_BASE_ESTANDAR.costoUnidadSol) });
-      items.push({ nombre: 'Pernos de anclaje', cant: `${nCol * 4} und`, costo: (nCol * 4 / 100) * precio('techos:perno_anclaje', PERNO_ANCLAJE_J.costoCaja100Sol) }); // se compran por unidad
-    }
-    const kgSold = Math.round(metrosAcero * SOLDADURA_AWS_E6011.consumoKgPorMetroJunta * 0.35 * 10) / 10;
-    items.push({ nombre: 'Soldadura E6011', cant: `${kgSold} kg`, costo: kgSold * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol) });
-    const costoCob = items.reduce((s, i) => s + i.costo, 0);
-
-    const materiales = costoAcero + costoCob;
-    const manoObra = materiales * n(f.manoObraPct, 40) / 100;
-    const gastos = (materiales + manoObra) * n(f.gastosPct, 10) / 100;
-    const costoDirecto = materiales + manoObra + gastos;
-    // La ganancia del contratista es como máximo el 20 % del precio al cliente.
-    const utilidadPct = Math.min(GANANCIA_MAX, Math.max(0, n(f.margenGananciaPct, GANANCIA_MAX)));
-    const totalMateriales = costoDirecto / (1 - utilidadPct / 100);
-    const precioM2Sugerido = totalMateriales / areaCobro;
-    // Por m²: del precio sale primero tu ganancia (20 %); de lo que queda se pagan
-    // materiales y, lo restante, la mano de obra y los gastos.
-    const totalM2 = areaCobro * n(f.precioPorM2, 140);
-    const gananciaM2 = totalM2 * utilidadPct / 100;
-    const paraManoObraM2 = totalM2 - gananciaM2 - materiales;
-
-    return { L, A, H, alero, forma, flecha, subida, areaPlanta, areaCobro, areaReal, largoCob, nP, sepReal, peralte, tij, nCol, altCol, sepC, lineasCorrea, despieces, metrosAcero, costoAcero, planchas, items, costoCob, materiales, manoObra, gastos, costoDirecto, totalMateriales, totalM2, utilidadPct, precioM2Sugerido, gananciaM2, paraManoObraM2 };
-  }, [f]);
-
-  const total = r ? (f.modo === 'm2' ? r.totalM2 : r.totalMateriales) : 0;
-  const ganancia = r ? (f.modo === 'm2' ? r.gananciaM2 : r.totalMateriales - r.costoDirecto) : 0;
-  const costos = r ? (f.modo === 'm2' ? r.totalM2 - r.gananciaM2 : r.costoDirecto) : 0;
-  const noAlcanza = !!r && f.modo === 'm2' && r.paraManoObraM2 < r.manoObra + r.gastos; // el m² no cubre mano de obra y gastos estimados
+  const total = r ? r.total : 0;
+  // Medidas que parecen estar en centímetros (un error típico que multiplica el acero).
+  const avisoUnidades = !!r && (r.L > 300 || r.A > 120 || r.H > 25)
+    ? `Revisa las medidas: ${[r.L > 300 && `largo ${r.L} m`, r.A > 120 && `ancho ${r.A} m`, r.H > 25 && `columnas de ${r.H} m`].filter(Boolean).join(', ')}. Van en METROS (ej. 3 = 3 m, no 300).` : '';
 
   const detalleContrato = () => {
     if (!r) return '';
@@ -431,60 +434,33 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
               <p className="text-[10px] text-slate-400 mt-2">Los precios salen de tu catálogo (Precios). Los que dicen "sin precio" ponlos ahí una vez y quedan para siempre.</p>
             </div>
 
-            {/* PRESUPUESTO */}
-            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 p-5 md:p-8 rounded-2xl border border-indigo-800/80 text-white shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none"><TrendingUp className="w-32 h-32 text-indigo-400" /></div>
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-5 pb-4 border-b border-indigo-800/60 relative z-10 gap-4">
-                <div>
-                  <h4 className="font-bold text-indigo-300 text-sm uppercase tracking-wider flex items-center gap-2"><PieChart className="w-4 h-4 text-emerald-400" /> Presupuesto al cliente</h4>
-                  <div className="flex gap-1 mt-2 bg-slate-800/80 p-1 rounded-lg w-fit">
-                    {([['materiales', 'Por materiales'], ['m2', 'Por m²']] as ['materiales' | 'm2', string][]).map(([k, t]) => (
-                      <button key={k} onClick={() => set('modo', k)} className={`px-3 py-1.5 rounded-md text-xs font-bold cursor-pointer ${f.modo === k ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}>{t}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-800 text-xs font-bold">
-                  {f.modo === 'm2' && (
-                    <label className="text-slate-400">PRECIO/m²<span className="flex items-center text-indigo-300 mt-0.5">{simb()}<input type="number" value={f.precioPorM2} onChange={e => set('precioPorM2', e.target.value)} className="w-16 ml-1 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /></span></label>
-                  )}
-                  <>
-                    <label className="text-slate-400">MANO DE OBRA<span className="flex items-center text-indigo-300 mt-0.5"><input type="number" value={f.manoObraPct} onChange={e => set('manoObraPct', e.target.value)} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">%</span></span></label>
-                    <label className="text-slate-400">GASTOS<span className="flex items-center text-indigo-300 mt-0.5"><input type="number" value={f.gastosPct} onChange={e => set('gastosPct', e.target.value)} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">%</span></span></label>
-                    <label className="text-slate-400">GANANCIA<span className="flex items-center text-emerald-300 mt-0.5"><input type="number" min={0} max={GANANCIA_MAX} value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', String(Math.min(GANANCIA_MAX, Number(e.target.value) || 0)))} className="w-12 bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-white text-right" /><span className="ml-1">% <span className="text-slate-500">(máx. {GANANCIA_MAX})</span></span></span></label>
-                  </>
-                </div>
+            {/* PRESUPUESTO: materiales + ganancia (nada más) */}
+            <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 p-4 sm:p-6 rounded-2xl border border-indigo-800/80 text-white shadow-xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-indigo-800/60">
+                <h4 className="font-bold text-indigo-300 text-sm uppercase tracking-wider flex items-center gap-2"><PieChart className="w-4 h-4 text-emerald-400" /> Presupuesto al cliente</h4>
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-300">Ganancia
+                  <span className="flex items-center text-emerald-300"><input type="number" min={0} max={GANANCIA_MAX} value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', String(Math.min(GANANCIA_MAX, Math.max(0, Number(e.target.value) || 0))))} className="w-14 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-white text-right" /><span className="ml-1">%</span></span>
+                </label>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-                <div className="bg-indigo-600/30 p-5 rounded-xl border border-indigo-500/40 text-center">
-                  <h5 className="text-indigo-200 text-xs font-semibold uppercase mb-2 flex justify-center items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Precio al cliente</h5>
+              {avisoUnidades && <p className="mb-3 text-xs font-bold text-amber-200 bg-amber-950/60 border border-amber-500/50 rounded-lg px-3 py-2">{avisoUnidades}</p>}
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between gap-3"><span className="text-slate-300">Estructura de acero <span className="text-slate-500 text-xs">({r.kgAcero.toFixed(0)} kg)</span></span><span className="font-mono">{formatCurrency(r.costoAcero)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-300">Cobertura, accesorios y fijaciones</span><span className="font-mono">{formatCurrency(r.costoCob)}</span></div>
+                <div className="flex justify-between gap-3 pt-1.5 border-t border-slate-700/70 font-bold"><span>Materiales</span><span className="font-mono">{formatCurrency(r.materiales)}</span></div>
+                <div className="flex justify-between gap-3 text-emerald-300 font-bold"><span>Ganancia del contratista ({r.gananciaPct} %)</span><span className="font-mono">+ {formatCurrency(r.ganancia)}</span></div>
+              </div>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-indigo-600/30 p-4 rounded-xl border border-indigo-500/40 text-center">
+                  <h5 className="text-indigo-200 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Total al cliente</h5>
                   <p className="text-3xl font-bold">{formatCurrency(total)}</p>
-                  <p className="text-xs text-indigo-300 mt-1">{f.modo === 'm2' ? `${r.areaCobro.toFixed(1)} m² (largo × ancho) × ${simb()} ${f.precioPorM2}` : `${simb()} ${(total / r.areaCobro).toFixed(0)} por m² (largo × ancho)`}</p>
                 </div>
-                <div className={`p-5 rounded-xl border text-center ${!noAlcanza ? 'bg-emerald-950/70 border-emerald-500/60' : 'bg-rose-950/70 border-rose-500/60'}`}>
-                  <h5 className="text-emerald-300 text-xs font-extrabold uppercase mb-2 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Tu ganancia</h5>
-                  <p className={`text-3xl font-extrabold ${!noAlcanza ? 'text-emerald-300' : 'text-rose-300'}`}>{formatCurrency(ganancia)}</p>
-                  <p className="text-xs text-emerald-200/80 mt-1">{total > 0 ? `${((ganancia / total) * 100).toFixed(0)} % del precio` : ''}</p>
-                </div>
-                <div className="bg-slate-800/60 p-5 rounded-xl border border-slate-700/60 text-center">
-                  <h5 className="text-slate-300 text-xs font-semibold uppercase mb-2 flex justify-center items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5" /> Tus costos</h5>
-                  <p className="text-3xl font-bold text-slate-200">{formatCurrency(costos)}</p>
-                  <p className="text-[11px] text-slate-400 mt-1">{f.modo === 'm2'
-                    ? `Materiales ${formatCurrency(r.materiales)} · Queda para mano de obra y gastos ${formatCurrency(r.paraManoObraM2)} (calculado: ${formatCurrency(r.manoObra + r.gastos)})`
-                    : `Materiales ${formatCurrency(r.materiales)} · Mano de obra ${formatCurrency(r.manoObra)} · Gastos ${formatCurrency(r.gastos)}`}</p>
+                <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-center">
+                  <h5 className="text-slate-300 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Por m²</h5>
+                  <p className="text-3xl font-bold">{simb()} {r.porM2.toFixed(2)}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{r.areaCobro.toFixed(1)} m² (largo × ancho)</p>
                 </div>
               </div>
-              {noAlcanza && (
-                <p className="relative z-10 mt-4 text-xs font-bold text-rose-200 bg-rose-950/60 border border-rose-500/50 rounded-lg px-3 py-2">
-                  {r.paraManoObraM2 < 0 ? 'Con este precio por m² no alcanza ni para los materiales.' : 'Con este precio por m² no alcanza para la mano de obra y los gastos calculados.'} Sube el precio a {simb()} {Math.ceil(r.precioM2Sugerido)} por m².
-                </p>
-              )}
-              <div className="relative z-10 mt-4 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                <Package className="w-3.5 h-3.5" />
-                <span>Precio justo por m² (materiales + mano de obra + gastos + {r.utilidadPct} % de ganancia): <b className="text-white">{simb()} {Math.ceil(r.precioM2Sugerido)}</b> · total {formatCurrency(r.totalMateriales)}.</span>
-                {f.modo === 'm2' && Math.ceil(r.precioM2Sugerido) !== n(f.precioPorM2) && (
-                  <button onClick={() => set('precioPorM2', String(Math.ceil(r.precioM2Sugerido)))} className="px-2 py-1 rounded-md bg-indigo-600 text-white font-bold cursor-pointer">Usar {simb()} {Math.ceil(r.precioM2Sugerido)}/m²</button>
-                )}
-              </div>
+              <p className="mt-3 text-[11px] text-slate-400 flex items-start gap-1.5"><Package className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Cotización rápida: materiales con los precios de tu catálogo + tu ganancia. Para mano de obra, gastos generales e IGV usa el Presupuesto formal de Techos.</p>
             </div>
           </>
         )}

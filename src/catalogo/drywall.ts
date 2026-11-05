@@ -1,5 +1,7 @@
 // Catálogo de placas de Drywall.
-// Los precios arrancan en 0: cada usuario ingresa los de su proveedor.
+// Precio de referencia (Lima 2026) por plancha 1.22 × 2.44 m, guardado por m².
+// Cada usuario lo cambia en Precios.
+const PLANCHA_M2 = 1.22 * 2.44;
 
 export interface DrywallItem {
   id: string;
@@ -10,10 +12,10 @@ export interface DrywallItem {
 }
 
 export const DRYWALL_DEFAULTS: DrywallItem[] = [
-  { id: 'drywall_standard_125', tipo: 'Drywall Estándar (ST)', espesor: 12.5, precioM2: 0, pesoM2: 8.5 },
-  { id: 'drywall_humedad_125', tipo: 'Drywall Resistente a Humedad (RH)', espesor: 12.5, precioM2: 0, pesoM2: 8.8 },
-  { id: 'drywall_fuego_159', tipo: 'Drywall Resistente al Fuego (RF)', espesor: 15.9, precioM2: 0, pesoM2: 10.2 },
-  { id: 'fibrocemento_8', tipo: 'Placa de Fibrocemento (exterior)', espesor: 8, precioM2: 0, pesoM2: 11.5 },
+  { id: 'drywall_standard_125', tipo: 'Drywall Estándar (ST)', espesor: 12.5, precioM2: 32 / PLANCHA_M2, pesoM2: 8.5 },
+  { id: 'drywall_humedad_125', tipo: 'Drywall Resistente a Humedad (RH)', espesor: 12.5, precioM2: 45 / PLANCHA_M2, pesoM2: 8.8 },
+  { id: 'drywall_fuego_159', tipo: 'Drywall Resistente al Fuego (RF)', espesor: 15.9, precioM2: 55 / PLANCHA_M2, pesoM2: 10.2 },
+  { id: 'fibrocemento_8', tipo: 'Placa de Fibrocemento (exterior)', espesor: 8, precioM2: 75 / PLANCHA_M2, pesoM2: 11.5 },
 ];
 
 // Acabados, puertas y ventanas del cotizador de Drywall, con precios de referencia
@@ -22,7 +24,7 @@ export const DRYWALL_DEFAULTS: DrywallItem[] = [
 export const DRYWALL_ITEMS_EXTRA: [string, string, string, number, string][] = [
   ['dw:placa_flex', 'Placa de drywall flexible 6.4 mm (para curvas)', 'plancha 1.22 × 2.44', 42, 'Drywall y OSB'],
   ['dw:empaste', 'Empaste para interiores (bolsa 25 kg)', 'bolsa', 30, 'Consumibles y pintura'],
-  ['dw:imprimante', 'Imprimante / sellador para muros', 'galón', 28, 'Consumibles y pintura'],
+  ['dw:imprimante', 'Imprimante / sellador para muros', 'galón', 25, 'Consumibles y pintura'],
   ['dw:pintura_latex', 'Pintura látex lavable para interiores', 'galón', 58, 'Consumibles y pintura'],
   ['dw:lija', 'Lija para pared N.º 120', 'pliego', 1.5, 'Consumibles y pintura'],
   ['dw:puerta_lisa', 'Puerta contraplacada lisa con marco, bisagras y chapa', 'unidad', 380, 'Acabados e instalaciones'],

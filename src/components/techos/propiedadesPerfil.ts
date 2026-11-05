@@ -1,5 +1,5 @@
 // Propiedades de sección de un perfil del catálogo (calculadas con sus medidas)
-// y selección del perfil más liviano que cumple la esbeltez de la E.090.
+// y verificación de un tramo (cumpleTramo) con la que se elige el perfil más económico que cumple.
 import type { PerfilTubularItem, RolEstructuralSegmento } from './techosCadEngineTypes';
 
 export interface PropsSeccion { areaCm2: number; iMinCm4: number; rMinCm: number; iMaxCm4: number }
@@ -32,17 +32,6 @@ export const factorK = (rol: RolEstructuralSegmento) => (rol === 'columna' ? 1.0
 /** Límites de esbeltez (λ): hasta "bajo" no hay riesgo; hasta "maximo" se acepta con cuidado. */
 export const limitesLambda = (rol: RolEstructuralSegmento) => (SECUNDARIOS.includes(rol) ? { bajo: 200, maximo: 300 } : { bajo: 120, maximo: 200 });
 export const seAnaliza = (rol: RolEstructuralSegmento) => !SIN_ANALISIS.includes(rol);
-
-/** Perfil más liviano de la misma familia con λ ≤ límite "bajo" para el tramo más largo. */
-export function perfilRecomendado(catalogo: PerfilTubularItem[], actual: PerfilTubularItem | undefined, rol: RolEstructuralSegmento, longitudMaxM: number, cargas?: CargasGrupo): PerfilTubularItem | null {
-  const fam = actual?.categoria === 'perfil_c' || actual?.categoria === 'perfil_z' ? [actual.categoria] : ['tubo_cuadrado', 'tubo_rectangular'];
-  const galv = !!actual?.id?.includes('galv');
-  const ok = catalogo
-    .filter(p => fam.includes(p.categoria) && p.id.includes('galv') === galv)
-    .filter(p => cumpleTramo(p, rol, longitudMaxM, cargas))
-    .sort((a, b) => a.pesoLinealKgM - b.pesoLinealKgM);
-  return ok[0] || null;
-}
 
 /** Cargas de servicio de un grupo de elementos (para el perfil más económico). */
 export interface CargasGrupo {

@@ -9,6 +9,7 @@ import { FileText, CheckCircle2, AlertTriangle, XCircle, Zap } from 'lucide-reac
 import BotonImprimir from '../common/BotonImprimir';
 import { useEmpresa } from '../../lib/empresa';
 import type { Memoria, EstadoMemoria, GrupoMemoria } from './memoriaCalculo';
+import { simb } from '../../lib/currency';
 
 const f1 = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const f2 = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -22,6 +23,17 @@ export const ESTILO_ESTADO: Record<EstadoMemoria, { texto: string; clase: string
 const Icono = ({ e, className = 'w-4 h-4' }: { e: EstadoMemoria; className?: string }) =>
   e === 'CUMPLE' ? <CheckCircle2 className={`${className} text-emerald-600`} /> : e === 'OBSERVACION' ? <AlertTriangle className={`${className} text-amber-600`} /> : <XCircle className={`${className} text-rose-600`} />;
 
+/** Texto del perfil a usar: el MISMO que aplican "Aplicar recomendados" y "Perfil más económico que cumple". */
+const usarTexto = (g: GrupoMemoria) => {
+  if (!g.recomendado) return null;
+  if (!g.recomendadoId) return `→ ${g.recomendado}`;
+  const v = g.verifRec;
+  const chk = v ? ` (cumple: λ ${f0(v.lambda)}/${g.lambdaLim}${v.ratio !== null ? ` · ${f0(v.ratio * 100)} % usado` : ''})` : '';
+  const dif = g.difCosto !== undefined && Math.abs(g.difCosto) >= 0.5 ? ` · ${g.difCosto < 0 ? 'ahorra' : 'cuesta'} ${simb()} ${f2(Math.abs(g.difCosto))}${g.difCosto < 0 ? '' : ' más'}` : '';
+  return `${g.cambio === 'ahorro' ? '→ Más económico que también cumple: ' : '→ Usar: '}${g.recomendado}${chk}${dif}`;
+};
+const luzTexto = (g: GrupoMemoria) => g.LtuboMax > g.Lmax + 0.05 ? `tubo ${f2(g.LtuboMax)} m` : '';
+
 const verifTexto = (g: GrupoMemoria) => !g.verif ? 'Solo esbeltez'
   : g.verif.tipo === 'axial' ? `${f1(g.verif.demanda)} / ${f1(g.verif.capacidad)} kN`
   : `${f0(g.verif.demanda)} / ${f0(g.verif.capacidad)} mm`;
@@ -31,7 +43,9 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
   const { datos: emp } = useEmpresa();
   const { datos: d, cargas: c, grupos, reacciones: r } = memoria;
   const est = ESTILO_ESTADO[memoria.estado];
-  const cambios = grupos.filter(g => g.estado !== 'CUMPLE');
+  // Grupos con cambio: los que no cumplen y los que cumplen pero tienen uno más barato que también cumple.
+  const cambios = grupos.filter(g => g.estado !== 'CUMPLE' || g.recomendadoId);
+  const ahorroTotal = -grupos.reduce((s, g) => s + (g.difCosto || 0), 0);
   const sec = 'text-[11px] font-black uppercase tracking-wider text-slate-700 border-b border-slate-200 pb-1 mb-2 [break-after:avoid]';
   const dato = (k: string, v: string) => (
     <div className="flex justify-between gap-2 py-1 border-b border-dashed border-slate-100 text-xs"><span className="text-slate-500">{k}</span><span className="font-bold text-slate-800 text-right">{v}</span></div>
@@ -135,7 +149,8 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
             {memoria.tijeral && <li><b>Tijerales:</b> las correas se apoyan en los nudos, así que las barras trabajan a fuerza axial. Con w = {f0(memoria.tijeral.w)} N/m por tijeral, luz {f2(memoria.tijeral.luz)} m y peralte d = {f2(memoria.tijeral.d)} m: M = w·L²/8 = {f1(memoria.tijeral.M / 1000)} kN·m, cordones N = M/d = <b>{f1(memoria.tijeral.Ncordon)} kN</b>, diagonales 1.4·V y montantes V = w·L/2 = {f1(memoria.tijeral.V)} kN. Se verifica pandeo (K = 0.8, FS 3) y fluencia.</li>}
             <li><b>Vigas y correas:</b> flecha 5qL⁴ / 384EI ≤ L/240 (correas L/180), con la carga del área tributaria.</li>
             <li><b>Mínimos de obra</b> para soldar bien: columnas 2.0 mm y 50 mm por lado; vigas y tijerales 1.5 mm.</li>
-            <li>Manda el tramo más largo de cada grupo. Método simplificado y conservador de prediseño.</li>
+            <li><b>Luz libre:</b> correas y vigas se verifican con el tramo más largo entre apoyos (vigas o columnas que las sostienen), no con el largo total del tubo. Manda la pieza con más luz de cada grupo.</li>
+            <li><b>Perfil recomendado:</b> en cada grupo, el de menor precio por metro de tu Catálogo de precios que pasa todas estas verificaciones (es el mismo que aplican los botones "Aplicar recomendados" y "Perfil más económico que cumple"). Método simplificado y conservador de prediseño.</li>
           </ul>
         </section>
 
@@ -152,12 +167,12 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
                 </div>
                 <p className="text-[11px] text-slate-600 leading-snug">{g.perfil}</p>
                 <div className="grid grid-cols-3 gap-1.5 text-center">
-                  <div className="rounded-lg bg-slate-50 p-1.5"><p className="text-[9px] text-slate-500 uppercase font-bold">L máx</p><p className="text-xs font-black">{f2(g.Lmax)} m</p></div>
+                  <div className="rounded-lg bg-slate-50 p-1.5"><p className="text-[9px] text-slate-500 uppercase font-bold">Luz libre</p><p className="text-xs font-black">{f2(g.Lmax)} m</p>{luzTexto(g) && <p className="text-[9px] text-slate-400">{luzTexto(g)}</p>}</div>
                   <div className="rounded-lg bg-slate-50 p-1.5"><p className="text-[9px] text-slate-500 uppercase font-bold">λ / máx</p><p className={`text-xs font-black ${g.lambdaMax > g.lambdaLim ? 'text-rose-700' : ''}`}>{f0(g.lambdaMax)} / {g.lambdaLim}</p></div>
                   <div className="rounded-lg bg-slate-50 p-1.5"><p className="text-[9px] text-slate-500 uppercase font-bold">{g.verif?.tipo === 'flecha' ? 'Flecha / adm' : g.verif ? 'Carga / adm' : 'Verifica'}</p><p className={`text-xs font-black ${g.verif && g.verif.ratio > 1 ? 'text-rose-700' : ''}`}>{verifTexto(g)}</p></div>
                 </div>
                 <p className="text-[11px] text-slate-500">{g.motivo}</p>
-                {g.recomendado && <p className="text-[11px] font-bold text-indigo-700">→ Usar: {g.recomendado}</p>}
+                {usarTexto(g) && <p className={`text-[11px] font-bold ${g.cambio === 'ahorro' ? 'text-emerald-700' : 'text-indigo-700'}`}>{usarTexto(g)}</p>}
               </div>
             ))}
           </div>
@@ -167,7 +182,7 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
               <colgroup><col className="w-[27%]" /><col className="w-[7%]" /><col className="w-[10%]" /><col className="w-[11%]" /><col className="w-[16%]" /><col className="w-[29%]" /></colgroup>
               <thead>
                 <tr className="bg-slate-100 text-slate-600 text-[10px] uppercase text-left">
-                  <th className="p-2">Elemento / perfil</th><th className="p-2 text-right">Cant.</th><th className="p-2 text-right">L máx</th>
+                  <th className="p-2">Elemento / perfil</th><th className="p-2 text-right">Cant.</th><th className="p-2 text-right">Luz libre</th>
                   <th className="p-2 text-right">λ / máx</th><th className="p-2 text-right">Demanda / admisible</th><th className="p-2">Estado</th>
                 </tr>
               </thead>
@@ -176,13 +191,13 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
                   <tr key={i} className="border-b border-slate-100 align-top">
                     <td className="p-2"><b className="text-slate-900">{g.nombreRol}</b><span className="block text-[10px] text-slate-500 leading-snug">{g.perfil}</span></td>
                     <td className="p-2 text-right font-mono">{g.cant}</td>
-                    <td className="p-2 text-right font-mono">{f2(g.Lmax)} m</td>
+                    <td className="p-2 text-right font-mono">{f2(g.Lmax)} m{luzTexto(g) && <span className="block text-[10px] text-slate-400">{luzTexto(g)}</span>}</td>
                     <td className={`p-2 text-right font-mono font-bold ${g.lambdaMax > g.lambdaLim ? 'text-rose-700' : ''}`}>{f0(g.lambdaMax)} / {g.lambdaLim}</td>
                     <td className={`p-2 text-right font-mono font-bold ${g.verif && g.verif.ratio > 1 ? 'text-rose-700' : ''}`}>{verifTexto(g)}{g.verif && <span className="block text-[10px] font-semibold text-slate-400">{f0(g.verif.ratio * 100)} % usado</span>}</td>
                     <td className="p-2">
                       <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-black ${ESTILO_ESTADO[g.estado].clase}`}><Icono e={g.estado} className="w-3 h-3" />{ESTILO_ESTADO[g.estado].texto}</span>
                       <span className="block text-[10px] text-slate-500 mt-0.5 leading-snug">{g.motivo}</span>
-                      {g.recomendado && <span className="block text-[10px] font-bold text-indigo-700 mt-0.5 leading-snug">→ Usar: {g.recomendado}</span>}
+                      {usarTexto(g) && <span className={`block text-[10px] font-bold mt-0.5 leading-snug ${g.cambio === 'ahorro' ? 'text-emerald-700' : 'text-indigo-700'}`}>{usarTexto(g)}</span>}
                     </td>
                   </tr>
                 ))}
@@ -211,13 +226,13 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
         {/* 9. Conclusión (con las firmas, sin partirse entre hojas) */}
         <section className="[break-inside:avoid]">
           <p className={sec}>9. Conclusión</p>
-          {memoria.estado === 'CUMPLE' ? (
-            <p className="text-xs text-slate-700">Con las cargas indicadas, todos los grupos de piezas cumplen la esbeltez de la E.090 y las verificaciones de carga y flecha del prediseño.</p>
+          {memoria.estado === 'CUMPLE' && !cambios.length ? (
+            <p className="text-xs text-slate-700">Con las cargas indicadas, todos los grupos de piezas cumplen la esbeltez de la E.090 y las verificaciones de carga y flecha del prediseño, con el perfil más económico que cumple.</p>
           ) : (
             <div className="text-xs text-slate-700 space-y-1">
-              <p>{memoria.estado === 'NO_CUMPLE' ? 'La estructura NO cumple con los perfiles actuales.' : 'La estructura cumple, con observaciones.'} Cambios recomendados:</p>
+              <p>{memoria.estado === 'NO_CUMPLE' ? 'La estructura NO cumple con los perfiles actuales.' : memoria.estado === 'OBSERVACION' ? 'La estructura cumple, con observaciones.' : 'La estructura cumple, pero hay perfiles más económicos que también cumplen.'} Cambios recomendados{ahorroTotal >= 0.5 ? ` (ahorro neto ${simb()} ${f2(ahorroTotal)})` : ahorroTotal <= -0.5 ? ` (costo adicional ${simb()} ${f2(-ahorroTotal)})` : ''}:</p>
               <ul className="list-disc pl-4 space-y-0.5">
-                {cambios.map((g, i) => <li key={i}><b>{g.nombreRol}</b> ({g.cant}): {g.perfil} → <b className="text-indigo-700">{g.recomendado || 'revisar'}</b> <span className="text-slate-500">({g.motivo.toLowerCase()})</span></li>)}
+                {cambios.map((g, i) => <li key={i}><b>{g.nombreRol}</b> ({g.cant}): {g.perfil} → <b className={g.cambio === 'ahorro' ? 'text-emerald-700' : 'text-indigo-700'}>{g.recomendado || 'revisar'}</b> <span className="text-slate-500">({g.cambio === 'ahorro' ? 'cumple; el recomendado es más barato' : g.motivo.toLowerCase()})</span></li>)}
               </ul>
             </div>
           )}

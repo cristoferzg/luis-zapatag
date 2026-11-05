@@ -12,7 +12,8 @@
 // =============================================================================
 import type { Node3D, Segment3D, CoverageZone3D, RolEstructuralSegmento, PerfilTubularItem } from './techosCadEngineTypes';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
-import { propsPerfil, factorK, limitesLambda, seAnaliza, cumpleTramo, perfilRecomendado, CargasGrupo } from './propiedadesPerfil';
+import { propsPerfil, factorK, limitesLambda, seAnaliza, cumpleTramo, perfilMasEconomico, CargasGrupo } from './propiedadesPerfil';
+import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
 import { perfilSuperior, alerosConCanaleta } from './canaletas';
 import { zonaPrincipal } from './mecanismoMovil';
 
@@ -37,6 +38,65 @@ const largoDe = (nodes: Record<string, Node3D>, s: Segment3D) => {
   const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
   return a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0)) : 0;
 };
+
+/** Precio por metro del perfil (Catálogo de precios, que viene por barra comercial). */
+export function precioMetroPerfil(p: PerfilTubularItem): number {
+  const largo = p.longitudComercialM || 6;
+  return precio(clavePerfilDe(p), (p.costoMetroSol || 0) * largo) / largo;
+}
+
+/**
+ * Luz libre de cálculo de una pieza: el tramo más largo ENTRE APOYOS, no el largo
+ * del tubo. Una correa de 18 m que pasa sobre 5 vigas trabaja con luces de ~4 m;
+ * una viga que pasa sobre una columna intermedia, igual. Apoyos:
+ *  • correas y vigas secundarias: las vigas, cordones superiores o vigas secundarias
+ *    que las cruzan por debajo (en planta, a menos de 0.6 m de altura);
+ *  • vigas: las columnas cuya cabeza cae sobre la viga.
+ * Columnas, barras de tijeral y arriostres: su propio largo (van de nudo a nudo).
+ */
+const APOYA_CORREA = /^viga|^cordon_superior/;
+export function luzLibre(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, s: Segment3D): number {
+  const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
+  if (!a || !b) return 0;
+  const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0));
+  const rol = s.rolEstructural;
+  const esCorrea = rol === 'correa' || rol === 'viga_secundaria';
+  const esViga = /^viga/.test(rol);
+  if (!esCorrea && !esViga) return L;
+  const ts: number[] = [];
+  const ax = a.x, az = a.z || 0, dx = b.x - a.x, dz = (b.z || 0) - az;
+  Object.values(segments).forEach(o => {
+    if (o.id === s.id) return;
+    const c = nodes[o.nodeAId], d = nodes[o.nodeBId];
+    if (!c || !d) return;
+    if (esCorrea && APOYA_CORREA.test(o.rolEstructural) && o.rolEstructural !== 'correa') {
+      // Cruce en planta (x, z) de los dos ejes.
+      const ex = d.x - c.x, ez = (d.z || 0) - (c.z || 0);
+      const den = dx * ez - dz * ex;
+      if (Math.abs(den) < 1e-9) return; // paralelas
+      const cx = c.x - ax, cz = (c.z || 0) - az;
+      const t = (cx * ez - cz * ex) / den, u = (cx * dz - cz * dx) / den;
+      if (t <= 0.01 || t >= 0.99 || u < -0.02 || u > 1.02) return;
+      const yS = a.y + t * (b.y - a.y), yO = c.y + u * (d.y - c.y);
+      if (Math.abs(yS - yO) <= 0.6) ts.push(t);
+    }
+    if (esViga && o.rolEstructural === 'columna') {
+      // Cabeza de columna (su nudo más alto) sobre el eje de la viga.
+      const top = c.y >= d.y ? c : d;
+      const v = { x: top.x - a.x, y: top.y - a.y, z: (top.z || 0) - (a.z || 0) };
+      const dd = { x: b.x - a.x, y: b.y - a.y, z: (b.z || 0) - (a.z || 0) };
+      const t = (v.x * dd.x + v.y * dd.y + v.z * dd.z) / Math.max(1e-9, L * L);
+      if (t <= 0.01 || t >= 0.99) return;
+      const dist = Math.hypot(v.x - t * dd.x, v.y - t * dd.y, v.z - t * dd.z);
+      if (dist <= 0.15) ts.push(t);
+    }
+  });
+  if (!ts.length) return L;
+  const pts = [0, ...ts.sort((x, y) => x - y), 1];
+  let max = 0;
+  for (let i = 1; i < pts.length; i++) max = Math.max(max, pts[i] - pts[i - 1]);
+  return Math.max(0.05, max * L);
+}
 
 /** Cargas de servicio que recibe cada tipo de pieza (las mismas que usa "Aplicar recomendados"). */
 export function contextoCargas(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, inputs: EntradasCargas) {
@@ -96,8 +156,24 @@ function verificar(p: PerfilTubularItem | undefined, rol: string, L: number, c: 
 }
 
 export interface PiezaAnalizada {
-  id: string; rol: string; nombre: string; perfilId: string; perfil: string; L: number;
+  id: string; rol: string; nombre: string; perfilId: string; perfil: string;
+  /** Largo del tubo (m): para pesos y metrados. */
+  L: number;
+  /** Luz libre de cálculo (m): tramo más largo entre apoyos. Manda en todas las verificaciones. */
+  Lc: number;
   lambda: number; limite: number; PcrkN: number; ratio: number | null; riesgo: Riesgo;
+  /** Perfil más económico (precio del catálogo) que cumple TODAS las verificaciones con esta luz (null: ninguno alcanza). */
+  optimoId: string | null;
+}
+
+/**
+ * ÚNICA regla de elección de perfil (la usan la memoria, "Aplicar recomendados",
+ * "Perfil más económico que cumple" y las plantillas): el perfil de la misma familia
+ * con el MENOR precio por metro del Catálogo de precios que pasa todas las
+ * verificaciones que imprime la memoria (esbeltez, carga axial o flecha, mínimos de obra).
+ */
+export function perfilOptimo(actual: PerfilTubularItem | undefined, rol: string, Lc: number, cargas: CargasGrupo): PerfilTubularItem | null {
+  return perfilMasEconomico(INVENTARIO_PERFILES_TUBULARES, actual, rol as RolEstructuralSegmento, Lc, precioMetroPerfil, cargas);
 }
 
 /** Cada pieza con su esbeltez, carga crítica y riesgo (para el 3D y el detalle). */
@@ -108,18 +184,24 @@ export function analizarPiezas(nodes: Record<string, Node3D>, segments: Record<s
     const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
     if (!a || !b || !seAnaliza(s.rolEstructural)) return;
     const L = largoDe(nodes, s);
+    const Lc = luzLibre(nodes, segments, s);
     const p = perfilDe(s.profileId);
     const pr = propsPerfil(p) || { areaCm2: 4, iMinCm4: 6, rMinCm: 1.2, iMaxCm4: 6 };
     const K = factorK(s.rolEstructural);
-    const lambda = (K * L * 100) / pr.rMinCm;
+    const lambda = (K * Lc * 100) / pr.rMinCm;
     const lim = limitesLambda(s.rolEstructural);
-    const PcrkN = (Math.PI ** 2 * E_ACERO * pr.iMinCm4 * 1e-8) / Math.pow(K * Math.max(L, 0.01), 2) / 1000;
-    const v = verificar(p, s.rolEstructural, L, cargasDe(s.rolEstructural));
+    const PcrkN = (Math.PI ** 2 * E_ACERO * pr.iMinCm4 * 1e-8) / Math.pow(K * Math.max(Lc, 0.01), 2) / 1000;
+    const c = cargasDe(s.rolEstructural);
+    const v = verificar(p, s.rolEstructural, Lc, c);
     const ratio = v ? v.ratio : null;
+    const cumple = !!p && cumpleTramo(p, s.rolEstructural, Lc, c);
     // ALTO: pasa la esbeltez máxima o la carga/flecha supera lo admisible.
     const riesgo: Riesgo = lambda > lim.maximo || (ratio !== null && ratio > 1) ? 'ALTO'
-      : (p && cumpleTramo(p, s.rolEstructural, L, cargasDe(s.rolEstructural))) || lambda <= lim.bajo ? 'BAJO' : 'MEDIO';
-    lista.push({ id: s.id, rol: s.rolEstructural, nombre: '', perfilId: s.profileId, perfil: p?.nombre || s.profileId, L, lambda, limite: lim.maximo, PcrkN, ratio, riesgo });
+      : cumple ? 'BAJO' : 'MEDIO';
+    // Perfil a usar: el más barato que cumple; si el actual cumple y nada es más barato, se queda.
+    const opt = perfilOptimo(p, s.rolEstructural, Lc, c);
+    const optimoId = cumple && p && (!opt || precioMetroPerfil(opt) >= precioMetroPerfil(p) - 1e-6) ? p.id : (opt?.id ?? null);
+    lista.push({ id: s.id, rol: s.rolEstructural, nombre: '', perfilId: s.profileId, perfil: p?.nombre || s.profileId, L, Lc, lambda, limite: lim.maximo, PcrkN, ratio, riesgo, optimoId });
   });
   // Nombres legibles: "Columna 3 (x 0.00 · z 5.00)", numeradas por posición.
   const centro = (id: string) => { const s = segments[id]; const a = nodes[s.nodeAId], b = nodes[s.nodeBId]; return { x: (a.x + b.x) / 2, z: ((a.z || 0) + (b.z || 0)) / 2 }; };
@@ -133,10 +215,25 @@ export function analizarPiezas(nodes: Record<string, Node3D>, segments: Record<s
 }
 
 export interface GrupoMemoria {
-  rol: string; nombreRol: string; perfilId: string; perfil: string; cant: number; Lmax: number; Ltot: number; pesoKg: number;
+  rol: string; nombreRol: string; perfilId: string; perfil: string; cant: number;
+  /** Luz libre máxima (entre apoyos) que manda en las verificaciones. */
+  Lmax: number;
+  /** Largo máximo de tubo del grupo (si es mayor que la luz libre, la pieza pasa sobre apoyos). */
+  LtuboMax: number;
+  Ltot: number; pesoKg: number;
   lambdaMax: number; lambdaLim: number;
   verif: { tipo: 'axial' | 'flecha'; demanda: number; capacidad: number; ratio: number } | null;
-  estado: EstadoMemoria; motivo: string; recomendado?: string; recomendadoId?: string;
+  estado: EstadoMemoria; motivo: string;
+  /** Perfil a usar (el mismo que aplican los botones). Vacío si el actual ya es el más económico que cumple. */
+  recomendado?: string; recomendadoId?: string;
+  /** refuerzo: el actual no cumple · ahorro: el actual cumple pero hay uno más barato que también cumple. */
+  cambio?: 'refuerzo' | 'ahorro';
+  /** Diferencia de costo al cambiar (S/; negativo = ahorro). */
+  difCosto?: number;
+  /** Verificación del perfil recomendado (para mostrar que sí cumple). */
+  verifRec?: { lambda: number; ratio: number | null };
+  /** Ids de las piezas del grupo. */
+  ids: string[];
 }
 
 export interface Memoria {
@@ -189,14 +286,15 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
   const zona = inputs.zonaSismica || 'Z4';
   const cargas = { D: ctx.D, L: ctx.L, V, qViento, succion, zona, Z: FACTOR_Z[zona] ?? 0.45, U1: 1.4 * ctx.D, U2: 1.2 * ctx.D + 1.6 * ctx.L, U3: 0.9 * ctx.D - succion };
 
-  // Grupos: tipo de pieza + perfil. Manda el tramo más largo.
+  // Grupos: tipo de pieza + perfil actual + perfil a usar (cada pieza con su luz
+  // libre elige el más económico que cumple; las que eligen el mismo van juntas).
   const mapa = new Map<string, PiezaAnalizada[]>();
-  piezas.forEach(p => { const k = `${p.rol}|${p.perfilId}`; mapa.set(k, [...(mapa.get(k) || []), p]); });
+  piezas.forEach(p => { const k = `${p.rol}|${p.perfilId}|${p.optimoId ?? '-'}`; mapa.set(k, [...(mapa.get(k) || []), p]); });
   const orden = ['columna', 'viga_principal', 'cordon_superior', 'cordon_inferior', 'montante', 'diagonal', 'viga_secundaria', 'correa', 'arriostre'];
-  const grupos: GrupoMemoria[] = [...mapa.values()].map(arr => {
-    const { rol, perfilId } = arr[0];
+  const grupos: GrupoMemoria[] = [...mapa.values()].map((arr): GrupoMemoria => {
+    const { rol, perfilId, optimoId } = arr[0];
     const p = perfilDe(perfilId);
-    const Lmax = Math.max(...arr.map(x => x.L)), Ltot = arr.reduce((s, x) => s + x.L, 0);
+    const Lmax = Math.max(...arr.map(x => x.Lc)), Ltot = arr.reduce((s, x) => s + x.L, 0), LtuboMax = Math.max(...arr.map(x => x.L));
     const lambdaMax = Math.max(...arr.map(x => x.lambda));
     const lim = limitesLambda(rol as RolEstructuralSegmento);
     const cargas = ctx.cargasDe(rol);
@@ -206,12 +304,21 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
     else if (v && v.ratio > 1) { estado = 'NO_CUMPLE'; motivo = v.tipo === 'axial' ? `Carga ${v.demanda.toFixed(1)} kN > admisible ${v.capacidad.toFixed(1)} kN` : `Flecha ${v.demanda.toFixed(0)} mm > ${v.capacidad.toFixed(0)} mm`; }
     else if (p && !cumpleTramo(p, rol as RolEstructuralSegmento, Lmax, cargas)) { estado = 'OBSERVACION'; motivo = rol === 'columna' ? 'Espesor o lado menor al mínimo de obra (2 mm · 50 mm)' : 'Espesor menor al mínimo de obra'; }
     else if (lambdaMax > lim.bajo) { motivo += ' · esbeltez cerca del límite'; }
-    const rec = estado !== 'CUMPLE' ? perfilRecomendado(INVENTARIO_PERFILES_TUBULARES, p, rol as RolEstructuralSegmento, Lmax, cargas) : null;
+    const rec = optimoId && optimoId !== perfilId ? perfilDe(optimoId) : undefined;
+    let verifRec: GrupoMemoria['verifRec'];
+    if (rec) {
+      const pr = propsPerfil(rec);
+      const vr = verificar(rec, rol, Lmax, cargas);
+      verifRec = { lambda: pr ? (factorK(rol as RolEstructuralSegmento) * Lmax * 100) / pr.rMinCm : 0, ratio: vr ? vr.ratio : null };
+    }
     return {
-      rol, nombreRol: nombreRol(rol), perfilId, perfil: p?.nombre || perfilId, cant: arr.length, Lmax, Ltot,
+      rol, nombreRol: nombreRol(rol), perfilId, perfil: p?.nombre || perfilId, cant: arr.length, Lmax, LtuboMax, Ltot,
       pesoKg: Ltot * (p?.pesoLinealKgM || 0), lambdaMax, lambdaLim: lim.maximo, verif: v, estado, motivo,
-      recomendado: rec && rec.id !== perfilId ? rec.nombre : (estado !== 'CUMPLE' && !rec ? 'Ningún perfil del catálogo alcanza: agrega un apoyo o arriostre intermedio' : undefined),
-      recomendadoId: rec && rec.id !== perfilId ? rec.id : undefined,
+      recomendado: rec ? rec.nombre : (!optimoId ? 'Ningún perfil del catálogo alcanza: agrega un apoyo o arriostre intermedio' : undefined),
+      recomendadoId: rec?.id,
+      cambio: rec ? (estado === 'CUMPLE' ? 'ahorro' : 'refuerzo') : undefined,
+      difCosto: rec && p ? (precioMetroPerfil(rec) - precioMetroPerfil(p)) * Ltot : undefined,
+      verifRec, ids: arr.map(x => x.id),
     };
   }).sort((a, b) => (orden.indexOf(a.rol) + 99 * +(orden.indexOf(a.rol) < 0)) - (orden.indexOf(b.rol) + 99 * +(orden.indexOf(b.rol) < 0)) || b.Lmax - a.Lmax);
 
@@ -232,13 +339,13 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
   };
 }
 
-/** Perfil que cumple para cada pieza de los grupos que no cumplen (id de pieza → id de perfil). */
+/**
+ * Perfil a usar en cada pieza (id de pieza → id de perfil): el más económico que
+ * cumple, el mismo que muestra la memoria. Lo usan "Aplicar recomendados",
+ * "Perfil más económico que cumple" y las plantillas.
+ */
 export function perfilesQueCumplen(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, inputs: EntradasCargas): Record<string, string> {
-  const m = calcularMemoria(nodes, segments, {}, inputs);
   const nuevos: Record<string, string> = {};
-  m.grupos.forEach(g => {
-    if (!g.recomendadoId) return;
-    m.piezas.forEach(p => { if (p.rol === g.rol && p.perfilId === g.perfilId) nuevos[p.id] = g.recomendadoId!; });
-  });
+  analizarPiezas(nodes, segments, inputs).forEach(p => { if (p.optimoId && p.optimoId !== p.perfilId) nuevos[p.id] = p.optimoId; });
   return nuevos;
 }

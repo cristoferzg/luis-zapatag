@@ -25,6 +25,8 @@ import { VIDRIOS_ITEMS } from '../catalogo/vidrios';
 import { ACABADOS_ITEMS } from '../catalogo/acabados';
 
 export const AREA_PLANCHA_M2 = 1.22 * 2.44; // plancha estándar de drywall / OSB
+// Concreto: precios de referencia (Lima 2026). Los usan también Obra Civil y Metrados.
+export const PRECIOS_CONCRETO_REF = { cemento: 30, arena: 65, piedra: 80, acero: 4.5, encofrado: 35 };
 
 export type GrupoCatalogo =
   | 'Perfiles de acero' | 'Coberturas' | 'Accesorios de techos' | 'Accesorios de CarpiMetal' | 'Planchas, vidrio y malla'
@@ -88,7 +90,13 @@ function construirItems(): ItemCatalogo[] {
     }
     items.set(it.clave, it);
   };
-  // Perfiles: CarpiMetal ya está por barra de 6 m; Techos por metro → ×6.
+  // Perfiles: Techos por metro → ×6 (precios LAC de referencia, Lima 2026). Va primero: un tubo
+  // que también usa CarpiMetal toma este precio (un producto = un precio).
+  INVENTARIO_PERFILES_TUBULARES.forEach(p => {
+    const largo = p.longitudComercialM || 6;
+    add({ clave: clavePerfilDe(p), grupo: 'Perfiles de acero', nombre: nombrePerfil(p), alias: [p.nombre], unidad: `barra ${norm(largo)} m`, ref: Math.round(p.costoMetroSol * largo * 100) / 100, usadoEn: ['Techos'] });
+  });
+  // CarpiMetal: ya está por barra de 6 m.
   PERFILES_CATALOGO.forEach(p => {
     if (['cobertura', 'aluminio_serie', 'especial'].includes(p.categoria)) {
       add({ clave: `carpiperfil:${p.id}`, grupo: 'Perfiles de acero', nombre: p.nombre, unidad: 'barra 6 m', ref: p.precioPorBarra6m, usadoEn: ['CarpiMetal'] });
@@ -96,57 +104,54 @@ function construirItems(): ItemCatalogo[] {
     }
     add({ clave: clavePerfilDe(p), grupo: 'Perfiles de acero', nombre: nombrePerfil(p), unidad: 'barra 6 m', ref: p.precioPorBarra6m, usadoEn: ['CarpiMetal'], alias: [p.nombre] });
   });
-  INVENTARIO_PERFILES_TUBULARES.forEach(p => {
-    const largo = p.longitudComercialM || 6;
-    add({ clave: clavePerfilDe(p), grupo: 'Perfiles de acero', nombre: nombrePerfil(p), alias: [p.nombre], unidad: `barra ${norm(largo)} m`, ref: Math.round(p.costoMetroSol * largo * 100) / 100, usadoEn: ['Techos'] });
-  });
   INVENTARIO_COBERTURAS.forEach(c => add({ clave: claveCobertura(c.id), grupo: 'Coberturas', nombre: c.nombre, unidad: 'm²', ref: c.costoM2Sol, usadoEn: ['Techos'] }));
   // Tensores (varilla lisa / cable de acero) y sus accesorios.
   ([
-    ['tensor:varilla_12', 'Varilla lisa Ø 1/2" (tensor)', 'barra 6 m'], ['tensor:varilla_58', 'Varilla lisa Ø 5/8" (tensor)', 'barra 6 m'], ['tensor:varilla_34', 'Varilla lisa Ø 3/4" (tensor)', 'barra 6 m'],
-    ['tensor:cable_14', 'Cable de acero Ø 1/4"', 'm'], ['tensor:cable_38', 'Cable de acero Ø 3/8"', 'm'], ['tensor:cable_12', 'Cable de acero Ø 1/2"', 'm'],
-    ['tensor:templador_12', 'Templador (tensor) Ø 1/2"', 'unidad'], ['tensor:templador_58', 'Templador (tensor) Ø 5/8"', 'unidad'], ['tensor:templador_34', 'Templador (tensor) Ø 3/4"', 'unidad'],
-    ['tensor:tuerca', 'Tuerca + arandela para tensor', 'unidad'], ['tensor:grapa', 'Grapa para cable', 'unidad'], ['tensor:guardacabo', 'Guardacabo para cable', 'unidad'],
-  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
+    ['tensor:varilla_12', 'Varilla lisa Ø 1/2" (tensor)', 'barra 6 m', 33], ['tensor:varilla_58', 'Varilla lisa Ø 5/8" (tensor)', 'barra 6 m', 52], ['tensor:varilla_34', 'Varilla lisa Ø 3/4" (tensor)', 'barra 6 m', 75],
+    ['tensor:cable_14', 'Cable de acero Ø 1/4"', 'm', 4.5], ['tensor:cable_38', 'Cable de acero Ø 3/8"', 'm', 8], ['tensor:cable_12', 'Cable de acero Ø 1/2"', 'm', 13],
+    ['tensor:templador_12', 'Templador (tensor) Ø 1/2"', 'unidad', 18], ['tensor:templador_58', 'Templador (tensor) Ø 5/8"', 'unidad', 28], ['tensor:templador_34', 'Templador (tensor) Ø 3/4"', 'unidad', 40],
+    ['tensor:tuerca', 'Tuerca + arandela para tensor', 'unidad', 1.5], ['tensor:grapa', 'Grapa para cable', 'unidad', 3], ['tensor:guardacabo', 'Guardacabo para cable', 'unidad', 2.5],
+  ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref, usadoEn: ['Techos'] }));
   // Techo movible (corredizo, plegable o de lamas): rieles, ruedas, motor…
   ([
-    ['movil:riel', 'Riel guía para techo corredizo / plegable', 'm'], ['movil:rueda', 'Rueda (garrucha) con rodaje para riel', 'unidad'],
-    ['movil:tope', 'Tope y seguro de riel', 'unidad'], ['movil:bisagra', 'Bisagra pesada para paño plegable', 'unidad'],
-    ['movil:sello', 'Empaque / sello entre paños', 'm'], ['movil:eje_lama', 'Eje pivote para lama (con buje)', 'unidad'],
-    ['movil:barra_mando', 'Barra de mando de lamas', 'm'], ['movil:canaleta', 'Canaleta lateral para lamas', 'm'],
-    ['movil:motor', 'Motor para techo movible (con reductor)', 'unidad'], ['movil:control', 'Control remoto + sensor de lluvia', 'unidad'],
-    ['movil:cremallera', 'Cremallera / cadena de arrastre', 'm'], ['movil:manivela', 'Manivela con caja reductora', 'unidad'],
-  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
+    ['movil:riel', 'Riel guía para techo corredizo / plegable', 'm', 85], ['movil:rueda', 'Rueda (garrucha) con rodaje para riel', 'unidad', 45],
+    ['movil:tope', 'Tope y seguro de riel', 'unidad', 25], ['movil:bisagra', 'Bisagra pesada para paño plegable', 'unidad', 35],
+    ['movil:sello', 'Empaque / sello entre paños', 'm', 12], ['movil:eje_lama', 'Eje pivote para lama (con buje)', 'unidad', 28],
+    ['movil:barra_mando', 'Barra de mando de lamas', 'm', 30], ['movil:canaleta', 'Canaleta lateral para lamas', 'm', 40],
+    ['movil:motor', 'Motor para techo movible (con reductor)', 'unidad', 1800], ['movil:control', 'Control remoto + sensor de lluvia', 'unidad', 450],
+    ['movil:cremallera', 'Cremallera / cadena de arrastre', 'm', 60], ['movil:manivela', 'Manivela con caja reductora', 'unidad', 380],
+  ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref, usadoEn: ['Techos'] }));
   // Canaletas y bajadas de agua
   ([
-    ['agua:canaleta_galv', 'Canaleta galvanizada', 'm'], ['agua:canaleta_pvc', 'Canaleta de PVC', 'm'],
-    ['agua:bajada_galv', 'Bajada (tubo) galvanizada', 'm'], ['agua:bajada_pvc', 'Bajada (tubo) de PVC 3"', 'm'],
-    ['agua:soporte', 'Soporte de canaleta', 'unidad'], ['agua:tapa', 'Tapa de canaleta', 'unidad'], ['agua:embudo', 'Embudo / salida de canaleta', 'unidad'],
-    ['agua:abrazadera', 'Abrazadera para bajada', 'unidad'], ['agua:codo', 'Codo para bajada', 'unidad'],
-    ['agua:esquinero', 'Esquinero de canaleta', 'unidad'], ['agua:gargola', 'Gárgola / salida libre de canaleta', 'unidad'],
-    ['agua:babeta', 'Babeta / tapajuntas de muro (canaleta escondida)', 'm'], ['agua:rebose', 'Rebose de canaleta escondida', 'unidad'],
-  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
+    ['agua:canaleta_galv', 'Canaleta galvanizada', 'm', 38], ['agua:canaleta_pvc', 'Canaleta de PVC', 'm', 30],
+    ['agua:bajada_galv', 'Bajada (tubo) galvanizada', 'm', 32], ['agua:bajada_pvc', 'Bajada (tubo) de PVC 3"', 'm', 12],
+    ['agua:soporte', 'Soporte de canaleta', 'unidad', 6], ['agua:tapa', 'Tapa de canaleta', 'unidad', 10], ['agua:embudo', 'Embudo / salida de canaleta', 'unidad', 25],
+    ['agua:abrazadera', 'Abrazadera para bajada', 'unidad', 5], ['agua:codo', 'Codo para bajada', 'unidad', 15],
+    ['agua:esquinero', 'Esquinero de canaleta', 'unidad', 30], ['agua:gargola', 'Gárgola / salida libre de canaleta', 'unidad', 35],
+    ['agua:babeta', 'Babeta / tapajuntas de muro (canaleta escondida)', 'm', 22], ['agua:rebose', 'Rebose de canaleta escondida', 'unidad', 30],
+  ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref, usadoEn: ['Techos'] }));
   // Iluminación LED en vigas (sol y sombra / pérgola)
   ([
-    ['led:cinta', 'Cinta LED 12 V luz cálida (IP65)', 'm'], ['led:perfil', 'Perfil de aluminio con difusor para cinta LED', 'm'],
-    ['led:fuente', 'Fuente / transformador 12 V para LED', 'unidad'], ['led:conector', 'Conector para cinta LED', 'unidad'],
-    ['led:cable', 'Cable de alimentación 2 × 18 AWG', 'm'], ['led:control', 'Interruptor o control remoto para LED', 'unidad'],
-  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref: 0, usadoEn: ['Techos'] }));
+    ['led:cinta', 'Cinta LED 12 V luz cálida (IP65)', 'm', 12], ['led:perfil', 'Perfil de aluminio con difusor para cinta LED', 'm', 18],
+    ['led:fuente', 'Fuente / transformador 12 V para LED', 'unidad', 85], ['led:conector', 'Conector para cinta LED', 'unidad', 4],
+    ['led:cable', 'Cable de alimentación 2 × 18 AWG', 'm', 2.5], ['led:control', 'Interruptor o control remoto para LED', 'unidad', 45],
+  ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Accesorios de techos', nombre, unidad, ref, usadoEn: ['Techos'] }));
   // Obra Civil: acabados por ambiente, instalaciones y ladrillo de techo
+  // Precios de referencia (Lima 2026) por partida instalada: material + mano de obra.
   ([
-    ['acab:piso_ceramico', 'Piso cerámico (instalado)', 'm²'], ['acab:piso_porcelanato', 'Piso porcelanato (instalado)', 'm²'],
-    ['acab:piso_pulido', 'Piso de cemento pulido', 'm²'], ['acab:piso_laminado', 'Piso laminado (instalado)', 'm²'], ['acab:piso_vinilico', 'Piso vinílico (instalado)', 'm²'],
-    ['acab:pintura', 'Pintura de muros (2 manos)', 'm²'], ['acab:zocalo', 'Zócalo', 'm'],
-    ['inst:punto_luz', 'Punto de luz', 'punto'], ['inst:tomacorriente', 'Tomacorriente', 'punto'], ['inst:interruptor', 'Interruptor', 'punto'],
-    ['inst:punto_agua', 'Salida de agua fría', 'punto'], ['inst:punto_desague', 'Salida de desagüe', 'punto'], ['inst:sumidero', 'Sumidero', 'unidad'],
-  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Acabados e instalaciones', nombre, unidad, ref: 0, usadoEn: ['Obra Civil'] }));
+    ['acab:piso_ceramico', 'Piso cerámico (instalado)', 'm²', 58], ['acab:piso_porcelanato', 'Piso porcelanato (instalado)', 'm²', 90],
+    ['acab:piso_pulido', 'Piso de cemento pulido', 'm²', 32], ['acab:piso_laminado', 'Piso laminado (instalado)', 'm²', 55], ['acab:piso_vinilico', 'Piso vinílico (instalado)', 'm²', 60],
+    ['acab:pintura', 'Pintura de muros (2 manos)', 'm²', 10], ['acab:zocalo', 'Zócalo', 'm', 12],
+    ['inst:punto_luz', 'Punto de luz', 'punto', 100], ['inst:tomacorriente', 'Tomacorriente', 'punto', 90], ['inst:interruptor', 'Interruptor', 'punto', 70],
+    ['inst:punto_agua', 'Salida de agua fría', 'punto', 70], ['inst:punto_desague', 'Salida de desagüe', 'punto', 85], ['inst:sumidero', 'Sumidero', 'unidad', 40],
+  ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Acabados e instalaciones', nombre, unidad, ref, usadoEn: ['Obra Civil'] }));
   ([
-    ['obra:ladrillo_techo_12', 'Ladrillo de techo 12 (losa 17 cm)', 'unidad'], ['obra:ladrillo_techo_15', 'Ladrillo de techo 15 (losa 20 cm)', 'unidad'], ['obra:ladrillo_techo_20', 'Ladrillo de techo 20 (losa 25 cm)', 'unidad'],
-  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Ladrillos', nombre, unidad, ref: 0, usadoEn: ['Obra Civil'] }));
+    ['obra:ladrillo_techo_12', 'Ladrillo de techo 12 (losa 17 cm)', 'unidad', 2.6], ['obra:ladrillo_techo_15', 'Ladrillo de techo 15 (losa 20 cm)', 'unidad', 3.1], ['obra:ladrillo_techo_20', 'Ladrillo de techo 20 (losa 25 cm)', 'unidad', 4],
+  ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Ladrillos', nombre, unidad, ref, usadoEn: ['Obra Civil'] }));
   add({ clave: 'techos:placa_base', grupo: 'Accesorios de techos', nombre: PLACA_BASE_ESTANDAR.nombre, unidad: 'unidad', ref: PLACA_BASE_ESTANDAR.costoUnidadSol, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_anclaje', grupo: 'Accesorios de techos', nombre: PERNO_ANCLAJE_J.nombre, unidad: 'caja ×100', ref: PERNO_ANCLAJE_J.costoCaja100Sol, usadoEn: ['Techos'] });
-  add({ clave: 'techos:placa_cabeza', grupo: 'Accesorios de techos', nombre: 'Placa de cabeza de columna (apoyo de viga)', unidad: 'unidad', ref: 0, usadoEn: ['Techos'] });
-  add({ clave: 'techos:cumbrera', grupo: 'Accesorios de techos', nombre: 'Cumbrera (para dos aguas)', unidad: 'm', ref: 0, usadoEn: ['Techos'] });
+  add({ clave: 'techos:placa_cabeza', grupo: 'Accesorios de techos', nombre: 'Placa de cabeza de columna (apoyo de viga)', unidad: 'unidad', ref: 35, usadoEn: ['Techos'] });
+  add({ clave: 'techos:cumbrera', grupo: 'Accesorios de techos', nombre: 'Cumbrera (para dos aguas)', unidad: 'm', ref: 28, usadoEn: ['Techos'] });
   add({ clave: 'techos:perno_epdm', grupo: 'Accesorios de techos', nombre: PERNO_EPDM_ESTANDAR.nombre, unidad: 'caja ×100', ref: PERNO_EPDM_ESTANDAR.costoCaja100Sol, usadoEn: ['Techos'] });
   add({ clave: 'soldadura:kg', grupo: 'Consumibles y pintura', nombre: 'Soldadura (electrodos E6011 / E7018)', unidad: 'kg', ref: SOLDADURA_AWS_E6011.costoKgSol || 22, usadoEn: ['Techos', 'CarpiMetal'] });
   // Accesorios que se colocan en el plano de CarpiMetal (por tipo).
@@ -161,7 +166,7 @@ function construirItems(): ItemCatalogo[] {
     ['carpi:plancha_acanalada', 'Plancha acanalada LAC 1.2 mm (1.00 × 2.40 m)', 'plancha', 128],
     ['carpi:plancha_lisa', 'Plancha LAC 1/16" (1.20 × 2.40 m)', 'plancha', 135],
     ['carpi:malla', 'Malla electrosoldada galvanizada 50×50×3 mm', 'm²', 45],
-    ['carpi:vidrio', 'Vidrio templado incoloro 6 mm', 'm²', 110],
+    ['carpi:vidrio', 'Vidrio templado incoloro 6 mm', 'm²', 115],
   ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Planchas, vidrio y malla', nombre, unidad, ref, usadoEn: ['CarpiMetal'] }));
   ([
     ['carpi:perno_expansion', 'Perno de expansión 3/8" × 3 1/2" + arandela', 'juego', 4.5],
@@ -171,27 +176,43 @@ function construirItems(): ItemCatalogo[] {
     ['pintura:thinner', 'Thinner acrílico', 'galón', 25],
   ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Consumibles y pintura', nombre, unidad, ref, usadoEn: ['CarpiMetal'] }));
   ([
-    ['concreto:cemento', 'Cemento Portland tipo I (42.5 kg)', 'bolsa', 28],
-    ['concreto:arena', 'Arena gruesa', 'm³', 55],
-    ['concreto:piedra', 'Piedra chancada 1/2"', 'm³', 60],
-    ['concreto:acero', 'Acero corrugado (fierro)', 'kg', 4.2],
-    ['concreto:encofrado', 'Encofrado y desencofrado', 'm²', 25],
+    ['concreto:cemento', 'Cemento Portland tipo I (42.5 kg)', 'bolsa', PRECIOS_CONCRETO_REF.cemento],
+    ['concreto:arena', 'Arena gruesa', 'm³', PRECIOS_CONCRETO_REF.arena],
+    ['concreto:piedra', 'Piedra chancada 1/2"', 'm³', PRECIOS_CONCRETO_REF.piedra],
+    ['concreto:acero', 'Acero corrugado (fierro)', 'kg', PRECIOS_CONCRETO_REF.acero],
+    ['concreto:encofrado', 'Encofrado y desencofrado', 'm²', PRECIOS_CONCRETO_REF.encofrado],
+    // Referencia para comprar (varilla de 9 m, alambre, clavos, madera de encofrado).
+    ['concreto:hormigon', 'Hormigón (arena + piedra)', 'm³', 70],
+    ['concreto:arena_fina', 'Arena fina (tarrajeo / asentado)', 'm³', 65],
+    ['concreto:varilla_6mm', 'Acero corrugado 6 mm (varilla 9 m)', 'varilla', 11.5],
+    ['concreto:varilla_8mm', 'Acero corrugado 8 mm (varilla 9 m)', 'varilla', 18.5],
+    ['concreto:varilla_38', 'Acero corrugado 3/8" (varilla 9 m)', 'varilla', 25],
+    ['concreto:varilla_12mm', 'Acero corrugado 12 mm (varilla 9 m)', 'varilla', 38],
+    ['concreto:varilla_12', 'Acero corrugado 1/2" (varilla 9 m)', 'varilla', 42],
+    ['concreto:varilla_58', 'Acero corrugado 5/8" (varilla 9 m)', 'varilla', 66],
+    ['concreto:varilla_34', 'Acero corrugado 3/4" (varilla 9 m)', 'varilla', 95],
+    ['concreto:varilla_1', 'Acero corrugado 1" (varilla 9 m)', 'varilla', 168],
+    ['concreto:alambre_16', 'Alambre negro recocido N.º 16', 'kg', 6],
+    ['concreto:alambre_8', 'Alambre negro recocido N.º 8', 'kg', 5.5],
+    ['concreto:clavos', 'Clavos para madera 2" a 4"', 'kg', 6],
+    ['concreto:madera_encofrado', 'Madera tornillo para encofrado', 'pie tablar', 5.5],
+    ['concreto:triplay_encofrado', 'Triplay fenólico 18 mm para encofrado (1.22 × 2.44 m)', 'plancha', 135],
   ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Concreto y agregados', nombre, unidad, ref, usadoEn: ['Obra Civil'] }));
   LADRILLO_DEFAULTS.forEach(l => add({ clave: claveLadrillo(l.id), grupo: 'Ladrillos', nombre: l.tipo, unidad: 'millar', ref: l.precioxMil || 0, usadoEn: ['Obra Civil'] }));
   DRYWALL_DEFAULTS.forEach(d => add({ clave: claveDrywall(d.id), grupo: 'Drywall y OSB', nombre: `${d.tipo} ${d.espesor} mm`, unidad: 'plancha 1.22 × 2.44', ref: Math.round((d.precioM2 || 0) * AREA_PLANCHA_M2 * 100) / 100, usadoEn: ['Obra Civil', 'Drywall'] }));
   OSB_DEFAULTS.forEach(o => add({ clave: claveOsb(o.id), grupo: 'Drywall y OSB', nombre: o.tipo, unidad: 'plancha 1.22 × 2.44', ref: Math.round((o.precioM2 || 0) * AREA_PLANCHA_M2 * 100) / 100, usadoEn: ['Obra Civil', 'Drywall'] }));
   ([
-    ['dw:parante_64', 'Parante 64 mm (0.45 mm) × 3 m', 'pieza'], ['dw:parante_89', 'Parante 89 mm (0.45 mm) × 3 m', 'pieza'],
-    ['dw:riel_65', 'Riel 65 mm × 3 m', 'pieza'], ['dw:riel_90', 'Riel 90 mm × 3 m', 'pieza'],
-    ['dw:omega', 'Omega / vigueta para cielo raso × 3 m', 'pieza'], ['dw:angulo', 'Ángulo perimetral × 3 m', 'pieza'],
-    ['dw:esquinero', 'Esquinero metálico × 3 m', 'pieza'], ['dw:colgador', 'Colgador / alambre N.º 16 para cielo', 'unidad'],
-    ['dw:tornillo_placa', 'Tornillo punta fina 6 × 1" (placa)', 'ciento'], ['dw:tornillo_perfil', 'Tornillo wafer 8 × 1/2" (perfil)', 'ciento'],
-    ['dw:fijacion', 'Clavo de fijación / tarugo para riel', 'ciento'], ['dw:masilla', 'Masilla lista (balde 28 kg)', 'balde'],
-    ['dw:cinta', 'Cinta de papel para juntas (rollo 75 m)', 'rollo'],
-    ['dw:lana', 'Lana de vidrio 2" (aislante acústico)', 'm²'], ['dw:baldosa_6060', 'Baldosa de cielo raso 0.61 × 0.61', 'unidad'],
-    ['dw:t_principal', 'Perfil T principal × 3.66 m', 'pieza'], ['dw:t_sec_122', 'Perfil T secundario × 1.22 m', 'pieza'],
-    ['dw:t_sec_061', 'Perfil T secundario × 0.61 m', 'pieza'], ['dw:cinta_led', 'Cinta LED (rollo 5 m)', 'rollo'],
-  ] as [string, string, string][]).forEach(([clave, nombre, unidad]) => add({ clave, grupo: 'Accesorios de drywall', nombre, unidad, ref: 0, usadoEn: ['Drywall', 'Obra Civil'] }));
+    ['dw:parante_64', 'Parante 64 mm (0.45 mm) × 3 m', 'pieza', 9.5], ['dw:parante_89', 'Parante 89 mm (0.45 mm) × 3 m', 'pieza', 12.5],
+    ['dw:riel_65', 'Riel 65 mm × 3 m', 'pieza', 8.5], ['dw:riel_90', 'Riel 90 mm × 3 m', 'pieza', 11],
+    ['dw:omega', 'Omega / vigueta para cielo raso × 3 m', 'pieza', 7], ['dw:angulo', 'Ángulo perimetral × 3 m', 'pieza', 5],
+    ['dw:esquinero', 'Esquinero metálico × 3 m', 'pieza', 6], ['dw:colgador', 'Colgador / alambre N.º 16 para cielo', 'unidad', 0.8],
+    ['dw:tornillo_placa', 'Tornillo punta fina 6 × 1" (placa)', 'ciento', 4], ['dw:tornillo_perfil', 'Tornillo wafer 8 × 1/2" (perfil)', 'ciento', 4],
+    ['dw:fijacion', 'Clavo de fijación / tarugo para riel', 'ciento', 12], ['dw:masilla', 'Masilla lista (balde 28 kg)', 'balde', 60],
+    ['dw:cinta', 'Cinta de papel para juntas (rollo 75 m)', 'rollo', 6],
+    ['dw:lana', 'Lana de vidrio 2" (aislante acústico)', 'm²', 9], ['dw:baldosa_6060', 'Baldosa de cielo raso 0.61 × 0.61', 'unidad', 7],
+    ['dw:t_principal', 'Perfil T principal × 3.66 m', 'pieza', 12], ['dw:t_sec_122', 'Perfil T secundario × 1.22 m', 'pieza', 4.5],
+    ['dw:t_sec_061', 'Perfil T secundario × 0.61 m', 'pieza', 2.5], ['dw:cinta_led', 'Cinta LED (rollo 5 m)', 'rollo', 35],
+  ] as [string, string, string, number][]).forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Accesorios de drywall', nombre, unidad, ref, usadoEn: ['Drywall', 'Obra Civil'] }));
   // Drywall: placa flexible, empaste y pintura, puertas y ventanas (con precio de referencia).
   DRYWALL_ITEMS_EXTRA.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Drywall'] }));
   // Melamina: tableros 18 mm por color (2.44 × 2.15 m) y herrajes.
@@ -209,17 +230,13 @@ function construirItems(): ItemCatalogo[] {
   ACABADOS_ITEMS.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Acabados'] }));
   ['Ingeniero residente', 'Maestro de obra', 'Soldador homologado', 'Armador / montajista', 'Operario', 'Oficial', 'Ayudante', 'Instalador de drywall', 'Albañil', 'Carpintero de melamina', 'Gasfitero', 'Electricista', 'Pintor', 'Enchapador']
     .forEach(c => add({ clave: claveJornal(c), grupo: 'Mano de obra (jornal por día)', nombre: c, unidad: 'día', ref: 0, usadoEn: ['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall', 'Melamina', 'Gasfitería', 'Electricidad', 'Acabados'] }));
-  // Jornal de referencia del carpintero de melamina (Lima): se puede cambiar en Precios.
-  const carpintero = items.get(claveJornal('Carpintero de melamina'));
-  if (carpintero) carpintero.ref = 110;
-  const gasfitero = items.get(claveJornal('Gasfitero'));
-  if (gasfitero) gasfitero.ref = 120;
-  const electricista = items.get(claveJornal('Electricista'));
-  if (electricista) electricista.ref = 130;
-  const pintor = items.get(claveJornal('Pintor'));
-  if (pintor) pintor.ref = 100;
-  const enchapador = items.get(claveJornal('Enchapador'));
-  if (enchapador) enchapador.ref = 120;
+  // Jornales de referencia por día (Lima 2026, mercado): se pueden cambiar en Precios.
+  const JORNAL_REF: Record<string, number> = {
+    'Ingeniero residente': 250, 'Maestro de obra': 150, 'Soldador homologado': 150, 'Armador / montajista': 120,
+    'Operario': 110, 'Oficial': 90, 'Ayudante': 70, 'Instalador de drywall': 110, 'Albañil': 110,
+    'Carpintero de melamina': 110, 'Gasfitero': 120, 'Electricista': 130, 'Pintor': 100, 'Enchapador': 120,
+  };
+  Object.entries(JORNAL_REF).forEach(([cargo, ref]) => { const it = items.get(claveJornal(cargo)); if (it) it.ref = ref; });
   return [...items.values()];
 }
 
@@ -362,7 +379,9 @@ export function migrarPreciosAntiguos(perfilTechos: (id: string) => { categoria:
     (ct.cuadrilla || []).forEach((f: any) => { if (f.jornal > 0) poner(claveJornal(f.cargo), f.jornal); });
   }
   const ref = new Map(itemsCatalogo().map(i => [i.clave, i.ref]));
-  const siDistinto = (k: string, v: number) => { if (Math.abs((ref.get(k) ?? -1) - v) > 0.009) poner(k, v); };
+  // 0 = "sin precio" en las listas antiguas; el valor por defecto antiguo tampoco es un precio propio.
+  const DEFECTO_ANTIGUO: Record<string, number> = { 'concreto:cemento': 28, 'concreto:arena': 55, 'concreto:piedra': 60, 'concreto:acero': 4.2, 'concreto:encofrado': 25 };
+  const siDistinto = (k: string, v: number) => { if (!(v > 0.009) || Math.abs((DEFECTO_ANTIGUO[k] ?? -1) - v) < 0.009) return; if (Math.abs((ref.get(k) ?? -1) - v) > 0.009) poner(k, v); };
   (safeStorage.getItem<any[]>('catalogo_drywall', []) || []).forEach(d => siDistinto(claveDrywall(d.id), (d.precioM2 || 0) * AREA_PLANCHA_M2));
   (safeStorage.getItem<any[]>('catalogo_osb', []) || []).forEach(d => siDistinto(claveOsb(d.id), (d.precioM2 || 0) * AREA_PLANCHA_M2));
   (safeStorage.getItem<any[]>('catalogo_ladrillo', []) || []).forEach(d => siDistinto(claveLadrillo(d.id), d.precioxMil || 0));

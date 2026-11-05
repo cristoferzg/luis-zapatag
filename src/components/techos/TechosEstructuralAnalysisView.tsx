@@ -14,12 +14,10 @@ import {
 } from 'lucide-react';
 
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
-import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import PandeoEstructura3D, { Riesgo } from './PandeoEstructura3D';
-import { seAnaliza, perfilRecomendado, perfilMasEconomico } from './propiedadesPerfil';
-import { calcularMemoria, contextoCargas } from './memoriaCalculo';
+import { calcularMemoria, perfilesQueCumplen } from './memoriaCalculo';
 import MemoriaCalculoTechos, { ESTILO_ESTADO } from './MemoriaCalculoTechos';
-import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
+import { useCatalogo } from '../../lib/catalogoPrecios';
 import { simb } from '../../lib/currency';
 
 interface TechosEstructuralAnalysisViewProps {
@@ -41,79 +39,46 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
   const [bucklingScale, setBucklingScale] = useState<number>(1.5);
 
 
-  const perfilDe = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id);
   const [avisoAplicar, setAvisoAplicar] = useState<string | null>(null);
-  // Precio por metro del perfil según el Catálogo de precios (o el de referencia).
-  const precioM = (p: any) => { const largo = p.longitudComercialM || 6; return precio(clavePerfilDe(p), (p.costoMetroSol || 0) * largo) / largo; };
-  const [ahorro, setAhorro] = useState<null | { cambios: { rol: string; n: number; de: string; a: string; ahorro: number }[]; nuevos: Record<string, string>; total: number }>(null);
+  const [ahorro, setAhorro] = useState<null | { cambios: { rol: string; n: number; de: string; a: string; dif: number; tipo: 'refuerzo' | 'ahorro' }[]; sinOpcion: number; nuevos: Record<string, string>; total: number }>(null);
 
   // Cargas, verificación de cada pieza y memoria (memoriaCalculo.ts): mismos números en todo.
-  const { cargasDe } = contextoCargas(nodes, segments, structuralInputs);
+  // El perfil recomendado de cada grupo de la memoria es EL MISMO que aplican los dos
+  // botones: el más barato (precio del catálogo) que pasa todas las verificaciones.
+  const catalogoPrecios = useCatalogo(); // si cambian los precios, cambia el más económico
   const memoria = useMemo(() => calcularMemoria(nodes, segments, engineState.coverageZones || {}, structuralInputs),
-    [nodes, segments, engineState.coverageZones, structuralInputs]);
+    [nodes, segments, engineState.coverageZones, structuralInputs, catalogoPrecios]); // eslint-disable-line react-hooks/exhaustive-deps
   const bucklingAnalysis = memoria.piezas.map(p => ({
-    id: p.id, rol: p.rol, nombre: p.nombre, perfil: p.perfil, longitudM: p.L.toFixed(2), lambdaEsbeltez: p.lambda.toFixed(0),
+    id: p.id, rol: p.rol, nombre: p.nombre, perfil: p.perfil, longitudM: p.Lc.toFixed(2), lambdaEsbeltez: p.lambda.toFixed(0),
     limite: p.limite, esbeltezOk: p.lambda <= p.limite, PcrkN: p.PcrkN.toFixed(1), riesgoPandeo: p.riesgo,
   }));
 
-  // Por cada rol y perfil actual, cambia al perfil más liviano que deja el tramo
-  // más largo en riesgo BAJO. No cambia los roles ni los elementos que ya cumplen.
+  /** Cambios de la memoria (grupos con perfil recomendado distinto al actual). */
+  const cambiosMemoria = () => {
+    const cambios = memoria.grupos.filter(g => g.recomendadoId).map(g => ({
+      rol: g.nombreRol, n: g.cant, de: g.perfil, a: g.recomendado || '', dif: g.difCosto || 0, tipo: g.cambio || 'refuerzo' as const,
+    }));
+    const sinOpcion = memoria.grupos.filter(g => !g.recomendadoId && g.recomendado).reduce((s, g) => s + g.cant, 0);
+    return { cambios, sinOpcion, nuevos: perfilesQueCumplen(nodes, segments, structuralInputs), total: cambios.reduce((x, c) => x + c.dif, 0) };
+  };
+  const textoSinOpcion = (n: number) => n ? ` ${n} tramo(s) son muy largos para cualquier perfil del catálogo: agrega un apoyo o arriostre intermedio.` : '';
+
+  // Aplica los perfiles que recomienda la memoria (refuerzos y ahorros).
   const aplicarRecomendados = () => {
-    const grupos = new Map<string, { ids: string[]; rol: any; perfil: string; Lmax: number }>();
-    bucklingAnalysis.forEach(b => {
-      if (b.riesgoPandeo === 'BAJO') return;
-      const seg = segments[b.id];
-      const k = `${seg.rolEstructural}|${seg.profileId}`;
-      const g = grupos.get(k) || { ids: [], rol: seg.rolEstructural, perfil: seg.profileId, Lmax: 0 };
-      g.ids.push(b.id); g.Lmax = Math.max(g.Lmax, parseFloat(b.longitudM)); grupos.set(k, g);
-    });
-    if (!grupos.size) { setAvisoAplicar('Todos los elementos ya están en riesgo bajo: no hay nada que cambiar.'); return; }
-    const cambios: string[] = [];
-    const nuevos: Record<string, string> = {};
-    let sinOpcion = 0;
-    grupos.forEach(g => {
-      const rec = perfilRecomendado(INVENTARIO_PERFILES_TUBULARES, perfilDe(g.perfil), g.rol, g.Lmax, cargasDe(g.rol));
-      if (!rec) { sinOpcion += g.ids.length; return; }
-      if (rec.id === g.perfil) return;
-      g.ids.forEach(id => { nuevos[id] = rec.id; });
-      cambios.push(`${g.ids.length} ${String(g.rol).replace(/_/g, ' ')} → ${rec.nombre}`);
-    });
-    engineState.updateSegmentsProfiles(nuevos);
-    setAvisoAplicar((cambios.length ? `✓ Cambiado: ${cambios.join(' · ')}.` : 'No hubo cambios.') + (sinOpcion ? ` ${sinOpcion} tramo(s) son muy largos para cualquier perfil del catálogo: agrega un apoyo o arriostre intermedio.` : ''));
+    const c = cambiosMemoria();
+    if (!Object.keys(c.nuevos).length) { setAvisoAplicar((c.sinOpcion ? 'No hay perfiles para cambiar.' : 'Todos los grupos ya tienen el perfil más económico que cumple: no hay nada que cambiar.') + textoSinOpcion(c.sinOpcion)); return; }
+    engineState.updateSegmentsProfiles(c.nuevos);
+    setAvisoAplicar(`✓ Cambiado: ${c.cambios.map(x => `${x.n} ${x.rol.toLowerCase()} → ${x.a}`).join(' · ')}.` + textoSinOpcion(c.sinOpcion));
+    setAhorro(null);
     setTimeout(() => setAvisoAplicar(null), 12000);
   };
 
-  // Busca, por cada grupo (rol + perfil), el perfil más barato que sigue sin
-  // riesgo de pandeo (λ ≤ límite bajo) y calcula cuánto se ahorra.
-  const calcularAhorro = () => {
-    const grupos = new Map<string, { ids: string[]; rol: any; perfil: string; Lmax: number; Ltot: number }>();
-    const vacio = (): string[] => [];
-    Object.values(segments).forEach((seg: any) => {
-      if (!seAnaliza(seg.rolEstructural)) return;
-      const a = nodes[seg.nodeAId], b = nodes[seg.nodeBId]; if (!a || !b) return;
-      const L = Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0));
-      // Cada pieza por su largo: los tramos se agrupan por rol, perfil y largo (cada 0.5 m).
-      const k = `${seg.rolEstructural}|${seg.profileId}|${Math.ceil(L * 2) / 2}`;
-      const g = grupos.get(k) || { ids: vacio(), rol: seg.rolEstructural, perfil: seg.profileId, Lmax: 0, Ltot: 0 };
-      g.ids.push(seg.id); g.Lmax = Math.max(g.Lmax, L); g.Ltot += L; grupos.set(k, g);
-    });
-    const cambios: { rol: string; n: number; de: string; a: string; ahorro: number }[] = [];
-    const nuevos: Record<string, string> = {};
-    grupos.forEach(g => {
-      const act = perfilDe(g.perfil);
-      const rec = perfilMasEconomico(INVENTARIO_PERFILES_TUBULARES, act, g.rol, g.Lmax, precioM, cargasDe(g.rol));
-      if (!rec || !act || rec.id === act.id) return;
-      const dif = (precioM(act) - precioM(rec)) * g.Ltot;
-      if (dif <= 0.5) return;
-      g.ids.forEach(id => { nuevos[id] = rec.id; });
-      cambios.push({ rol: String(g.rol).replace(/_/g, ' '), n: g.ids.length, de: act.nombre, a: rec.nombre, ahorro: dif });
-    });
-    setAhorro({ cambios, nuevos, total: cambios.reduce((x, c) => x + c.ahorro, 0) });
-  };
+  // Muestra (antes de aplicar) el perfil más barato que cumple en cada grupo y la diferencia de costo.
+  const calcularAhorro = () => setAhorro(cambiosMemoria());
   const aplicarAhorro = () => {
     if (!ahorro) return;
     engineState.updateSegmentsProfiles(ahorro.nuevos);
-    setAvisoAplicar(`✓ Aplicado: ahorras ${simb()} ${ahorro.total.toFixed(2)} en perfiles y todo sigue sin riesgo de pandeo.`);
+    setAvisoAplicar(`✓ Aplicado: ${ahorro.total <= 0 ? `ahorras ${simb()} ${(-ahorro.total).toFixed(2)}` : `cuesta ${simb()} ${ahorro.total.toFixed(2)} más`} en perfiles y cada grupo cumple la memoria de cálculo.` + textoSinOpcion(ahorro.sinOpcion));
     setAhorro(null);
     setTimeout(() => setAvisoAplicar(null), 12000);
   };
@@ -163,25 +128,30 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
       {ahorro && (
         <div className="p-4 bg-white border-2 border-emerald-300 rounded-2xl space-y-2 shadow-xs">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-black text-emerald-800">{ahorro.cambios.length ? `Puedes ahorrar ${simb()} ${ahorro.total.toFixed(2)} en perfiles` : 'Tus perfiles ya son los más económicos que cumplen'}</p>
+            <p className="text-sm font-black text-emerald-800">{!ahorro.cambios.length ? 'Tus perfiles ya son los más económicos que cumplen'
+              : ahorro.total <= 0 ? `Puedes ahorrar ${simb()} ${(-ahorro.total).toFixed(2)} en perfiles`
+              : `Para cumplir hay que reforzar: ${simb()} ${ahorro.total.toFixed(2)} más en perfiles`}</p>
             <button onClick={() => setAhorro(null)} className="text-xs font-bold text-slate-400 cursor-pointer">Cerrar</button>
           </div>
           {ahorro.cambios.length > 0 && (<>
             <div className="overflow-x-auto">
               <table className="w-full text-xs min-w-[480px]">
-                <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1">Elementos</th><th>Perfil actual</th><th>Más económico que cumple</th><th className="text-right">Ahorro</th></tr></thead>
+                <thead><tr className="text-[10px] uppercase text-slate-400 text-left"><th className="py-1">Elementos</th><th>Perfil actual</th><th>Más económico que cumple</th><th className="text-right">Diferencia</th></tr></thead>
                 <tbody>
                   {ahorro.cambios.map((c, i) => (
                     <tr key={i} className="border-t border-slate-100">
-                      <td className="py-1.5 font-bold capitalize">{c.n} {c.rol}</td><td className="text-slate-500">{c.de}</td><td className="font-bold text-emerald-700">{c.a}</td><td className="text-right font-mono font-bold">{simb()} {c.ahorro.toFixed(2)}</td>
+                      <td className="py-1.5 font-bold">{c.n} {c.rol.toLowerCase()}<span className={`block text-[10px] font-black ${c.tipo === 'refuerzo' ? 'text-rose-600' : 'text-emerald-600'}`}>{c.tipo === 'refuerzo' ? 'NO CUMPLE → refuerzo' : 'CUMPLE → más barato'}</span></td>
+                      <td className="text-slate-500">{c.de}</td><td className="font-bold text-emerald-700">{c.a}</td>
+                      <td className={`text-right font-mono font-bold ${c.dif > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{c.dif > 0 ? '+' : '−'} {simb()} {Math.abs(c.dif).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-slate-500">Se compara con los precios de tu Catálogo de precios. Cada cambio deja cada tramo dentro de la esbeltez máxima de la E.090 y soporta la carga del techo (columnas) o no se flecha más de L/240 (vigas), con espesores mínimos para soldar (columnas 2 mm, vigas 1.5 mm). Es un prediseño: valídalo con un ingeniero.</p>
-            <button onClick={aplicarAhorro} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer">Aplicar y ahorrar {simb()} {ahorro.total.toFixed(2)}</button>
+            <p className="text-[11px] text-slate-500">Son los mismos perfiles que recomienda la memoria de cálculo (sección 6): en cada grupo, el de menor precio por metro de tu Catálogo de precios que cumple la esbeltez máxima de la E.090, la carga axial (columnas y tijerales) o la flecha L/240 (vigas; correas L/180) con su luz libre entre apoyos, y los espesores mínimos para soldar (columnas 2 mm y 50 mm de lado, vigas y tijerales 1.5 mm). Es un prediseño: valídalo con un ingeniero.</p>
+            <button onClick={aplicarAhorro} className="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black cursor-pointer">{ahorro.total <= 0 ? `Aplicar y ahorrar ${simb()} ${(-ahorro.total).toFixed(2)}` : 'Aplicar los perfiles que cumplen'}</button>
           </>)}
+          {ahorro.sinOpcion > 0 && <p className="text-[11px] font-bold text-rose-700">{textoSinOpcion(ahorro.sinOpcion).trim()}</p>}
         </div>
       )}
 

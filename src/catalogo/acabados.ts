@@ -43,7 +43,7 @@ export const clavePintura = (t: TipoPintura) => `acab:pint:${t}`;
 export const ACABADOS_ITEMS: [string, string, string, number, string][] = [
   ...PINTURAS.map(p => [clavePintura(p.id), p.nombre, 'galón', p.ref, 'Consumibles y pintura'] as [string, string, string, number, string]),
   ['acab:pint:techo', 'Pintura látex para techos / cielo raso (galón)', 'galón', 36, 'Consumibles y pintura'],
-  ['acab:imprimante', 'Imprimante para muros (galón)', 'galón', 22, 'Consumibles y pintura'],
+  ['acab:imprimante', 'Imprimante para muros (galón)', 'galón', 25, 'Consumibles y pintura'],
   ['acab:empaste', 'Empaste para interiores (bolsa 25 kg)', 'bolsa', 30, 'Consumibles y pintura'],
   ['acab:lija', 'Lija para pared N.º 100 (pliego)', 'pliego', 1.5, 'Consumibles y pintura'],
   ['acab:masking', 'Cinta masking tape 2" (rollo)', 'rollo', 5, 'Consumibles y pintura'],
@@ -54,7 +54,7 @@ export const ACABADOS_ITEMS: [string, string, string, number, string][] = [
   ['acab:espuma', 'Espuma niveladora para laminado 2 mm', 'm²', 3, 'Acabados e instalaciones'],
   ['acab:zocalo_mdf', 'Zócalo MDF / PVC 7 cm × 2.40 m', 'pieza', 14, 'Acabados e instalaciones'],
   ['acab:transicion', 'Perfil de transición / umbral de aluminio 0.90 m', 'pieza', 22, 'Acabados e instalaciones'],
-  ['acab:cemento', 'Cemento Portland tipo I (bolsa 42.5 kg)', 'bolsa', 29, 'Acabados e instalaciones'],
+  ['acab:cemento', 'Cemento Portland tipo I (bolsa 42.5 kg)', 'bolsa', 30, 'Acabados e instalaciones'],
   ['acab:arena_fina', 'Arena fina', 'm³', 65, 'Acabados e instalaciones'],
   ['acab:pegamento', 'Pegamento en polvo para cerámico (bolsa 25 kg)', 'bolsa', 22, 'Acabados e instalaciones'],
   ['acab:pegamento_porc', 'Pegamento para porcelanato y formato grande (bolsa 25 kg)', 'bolsa', 38, 'Acabados e instalaciones'],
