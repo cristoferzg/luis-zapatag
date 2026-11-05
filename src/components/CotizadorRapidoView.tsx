@@ -444,19 +444,24 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
               </div>
               {avisoUnidades && <p className="mb-3 text-xs font-bold text-amber-200 bg-amber-950/60 border border-amber-500/50 rounded-lg px-3 py-2">{avisoUnidades}</p>}
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between gap-3"><span className="text-slate-300">Estructura de acero <span className="text-slate-500 text-xs">({r.kgAcero.toFixed(0)} kg)</span></span><span className="font-mono">{formatCurrency(r.costoAcero)}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-slate-300">Cobertura, accesorios y fijaciones</span><span className="font-mono">{formatCurrency(r.costoCob)}</span></div>
-                <div className="flex justify-between gap-3 pt-1.5 border-t border-slate-700/70 font-bold"><span>Materiales</span><span className="font-mono">{formatCurrency(r.materiales)}</span></div>
-                <div className="flex justify-between gap-3 text-emerald-300 font-bold"><span>Ganancia del contratista ({r.gananciaPct} %)</span><span className="font-mono">+ {formatCurrency(r.ganancia)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-300">Estructura de acero <span className="text-slate-500 text-xs">({r.kgAcero.toFixed(0)} kg)</span></span><span className="font-mono whitespace-nowrap shrink-0">{formatCurrency(r.costoAcero)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-slate-300">Cobertura, accesorios y fijaciones</span><span className="font-mono whitespace-nowrap shrink-0">{formatCurrency(r.costoCob)}</span></div>
+                <div className="flex justify-between gap-3 pt-1.5 border-t border-slate-700/70 font-bold"><span>Materiales</span><span className="font-mono whitespace-nowrap shrink-0">{formatCurrency(r.materiales)}</span></div>
+                <div className="flex justify-between gap-3 text-emerald-300 font-bold"><span>Ganancia del contratista ({r.gananciaPct} %)</span><span className="font-mono whitespace-nowrap shrink-0">+ {formatCurrency(r.ganancia)}</span></div>
               </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-indigo-600/30 p-4 rounded-xl border border-indigo-500/40 text-center">
                   <h5 className="text-indigo-200 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><DollarSign className="w-3.5 h-3.5" /> Total al cliente</h5>
-                  <p className="text-3xl font-bold">{formatCurrency(total)}</p>
+                  <p className="text-2xl xl:text-3xl font-bold whitespace-nowrap">{formatCurrency(total)}</p>
+                </div>
+                <div className="bg-emerald-950/50 p-4 rounded-xl border border-emerald-500/50 text-center">
+                  <h5 className="text-emerald-300 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Tu ganancia</h5>
+                  <p className="text-2xl xl:text-3xl font-bold text-emerald-300 whitespace-nowrap">{formatCurrency(r.ganancia)}</p>
+                  <p className="text-[11px] text-emerald-200/70 mt-0.5">{r.gananciaPct} % sobre los materiales</p>
                 </div>
                 <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-center">
                   <h5 className="text-slate-300 text-xs font-semibold uppercase mb-1 flex justify-center items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5" /> Por m²</h5>
-                  <p className="text-3xl font-bold">{simb()} {r.porM2.toFixed(2)}</p>
+                  <p className="text-2xl xl:text-3xl font-bold whitespace-nowrap">{simb()} {r.porM2.toFixed(2)}</p>
                   <p className="text-[11px] text-slate-400 mt-0.5">{r.areaCobro.toFixed(1)} m² (largo × ancho)</p>
                 </div>
               </div>
