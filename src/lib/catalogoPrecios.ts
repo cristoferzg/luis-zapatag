@@ -18,12 +18,13 @@ import { DRYWALL_DEFAULTS, DRYWALL_ITEMS_EXTRA } from '../catalogo/drywall';
 import { LADRILLO_DEFAULTS } from '../catalogo/ladrillo';
 import { OSB_DEFAULTS } from '../catalogo/osb';
 import { COLORES_MELAMINA, MELAMINA_ITEMS } from '../catalogo/melamina';
+import { GASFITERIA_ITEMS } from '../catalogo/gasfiteria';
 
 export const AREA_PLANCHA_M2 = 1.22 * 2.44; // plancha estándar de drywall / OSB
 
 export type GrupoCatalogo =
   | 'Perfiles de acero' | 'Coberturas' | 'Accesorios de techos' | 'Accesorios de CarpiMetal' | 'Planchas, vidrio y malla'
-  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Acabados e instalaciones' | 'Melamina y herrajes' | 'Mano de obra (jornal por día)' | 'Mis materiales';
+  | 'Consumibles y pintura' | 'Concreto y agregados' | 'Ladrillos' | 'Drywall y OSB' | 'Accesorios de drywall' | 'Acabados e instalaciones' | 'Melamina y herrajes' | 'Gasfitería' | 'Aparatos sanitarios' | 'Mano de obra (jornal por día)' | 'Mis materiales';
 
 export interface ItemCatalogo {
   clave: string;
@@ -193,11 +194,15 @@ function construirItems(): ItemCatalogo[] {
   COLORES_MELAMINA.forEach(c => add({ clave: `mel:tablero:${c.id}`, grupo: 'Melamina y herrajes', nombre: `Melamina 18 mm ${c.nombre} (2.44 × 2.15 m)`, unidad: 'tablero', ref: c.ref, usadoEn: ['Melamina'] }));
   add({ clave: 'mel:tablero:otro', grupo: 'Melamina y herrajes', nombre: 'Melamina 18 mm otro color (2.44 × 2.15 m)', unidad: 'tablero', ref: 240, usadoEn: ['Melamina'] });
   MELAMINA_ITEMS.forEach(([clave, nombre, unidad, ref]) => add({ clave, grupo: 'Melamina y herrajes', nombre, unidad, ref, usadoEn: ['Melamina'] }));
-  ['Ingeniero residente', 'Maestro de obra', 'Soldador homologado', 'Armador / montajista', 'Operario', 'Oficial', 'Ayudante', 'Instalador de drywall', 'Albañil', 'Carpintero de melamina']
-    .forEach(c => add({ clave: claveJornal(c), grupo: 'Mano de obra (jornal por día)', nombre: c, unidad: 'día', ref: 0, usadoEn: ['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall', 'Melamina'] }));
+  // Gasfitería: tubos, conexiones, accesorios, aparatos y mano de obra por punto.
+  GASFITERIA_ITEMS.forEach(([clave, nombre, unidad, ref, grupo]) => add({ clave, grupo: grupo as GrupoCatalogo, nombre, unidad, ref, usadoEn: ['Gasfitería'] }));
+  ['Ingeniero residente', 'Maestro de obra', 'Soldador homologado', 'Armador / montajista', 'Operario', 'Oficial', 'Ayudante', 'Instalador de drywall', 'Albañil', 'Carpintero de melamina', 'Gasfitero']
+    .forEach(c => add({ clave: claveJornal(c), grupo: 'Mano de obra (jornal por día)', nombre: c, unidad: 'día', ref: 0, usadoEn: ['Techos', 'CarpiMetal', 'Obra Civil', 'Drywall', 'Melamina', 'Gasfitería'] }));
   // Jornal de referencia del carpintero de melamina (Lima): se puede cambiar en Precios.
   const carpintero = items.get(claveJornal('Carpintero de melamina'));
   if (carpintero) carpintero.ref = 110;
+  const gasfitero = items.get(claveJornal('Gasfitero'));
+  if (gasfitero) gasfitero.ref = 120;
   return [...items.values()];
 }
 

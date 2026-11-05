@@ -26,7 +26,7 @@ import { useSaldoIA } from './lib/saldoIA';
 import { versionApp } from './lib/version';
 import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, SlidersHorizontal, Armchair } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, SlidersHorizontal, Armchair, Droplets } from 'lucide-react';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import type { BibliotecaItem } from './components/BibliotecaPremiumView';
 import { Capacitor } from '@capacitor/core';
@@ -61,6 +61,7 @@ const PersonalYAsistenciaView = lazy(() => import('./components/PersonalYAsisten
 const ConcretoMetradosView = lazy(() => import('./components/ConcretoMetradosView'));
 const DrywallView = lazy(() => import('./components/DrywallView'));
 const MelaminaView = lazy(() => import('./components/MelaminaView'));
+const GasfiteriaView = lazy(() => import('./components/GasfiteriaView'));
 const BibliotecaPremiumView = lazy(() => import('./components/BibliotecaPremiumView'));
 const UsabilidadVideosView = lazy(() => import('./components/UsabilidadVideosView'));
 
@@ -2359,6 +2360,7 @@ export default function App() {
       case 'concreto': return <ConcretoMetradosView onIrATechos={() => setCurrentView('techos')} />;
       case 'drywall': return <DrywallView onIrATechos={() => setCurrentView('techos')} onIrAPrecios={() => setCurrentView('precios')} />;
       case 'melamina': return <MelaminaView onIrAPrecios={() => setCurrentView('precios')} />;
+      case 'gasfiteria': return <GasfiteriaView onIrAPrecios={() => setCurrentView('precios')} />;
       case 'usuarios': return <UsuariosView usuarios={usuarios} setUsuarios={setUsuarios} isAdmin={isAdmin} />;
       case 'soporte':
       case 'tickets':
@@ -2458,6 +2460,7 @@ export default function App() {
     { id: 'drywall', label: 'Drywall', icon: PanelsTopLeft },
     { id: 'herreria', label: 'Carpintería Metálica', icon: DoorClosed },
     { id: 'melamina', label: 'Melamina', icon: Armchair },
+    { id: 'gasfiteria', label: 'Gasfitería', icon: Droplets },
     { id: 'projects', label: 'Proyectos & Clientes', icon: Briefcase },
     { id: 'reporte', label: 'Reporte del mes', icon: BarChart3 },
     { id: 'portafolio', label: 'Carpeta Privada', icon: FolderKanban },
@@ -2504,6 +2507,7 @@ export default function App() {
     { seccion: 'Diseño y presupuesto', id: 'drywall', label: 'Drywall', icon: PanelsTopLeft, apartado: 'drywall', miembros: [{ id: 'drywall', label: 'Drywall' }] },
     { seccion: 'Diseño y presupuesto', id: 'herreria', label: 'Carpintería Metálica', corto: 'Carpintería', icon: DoorClosed, apartado: 'carpi', miembros: [{ id: 'herreria', label: 'Carpintería' }] },
     { seccion: 'Diseño y presupuesto', id: 'melamina', label: 'Melamina', icon: Armchair, apartado: 'melamina', miembros: [{ id: 'melamina', label: 'Melamina' }] },
+    { seccion: 'Diseño y presupuesto', id: 'gasfiteria', label: 'Gasfitería', corto: 'Gasfitería', icon: Droplets, apartado: 'gasfiteria', miembros: [{ id: 'gasfiteria', label: 'Gasfitería' }] },
     { seccion: 'Aprender', id: 'usabilidad', label: 'Academia y Recursos', corto: 'Academia', icon: Video, miembros: [{ id: 'usabilidad', label: 'Academia' }, { id: 'biblioteca', label: 'Recursos' }] },
     { seccion: 'Opcional', id: 'familia', label: 'Finanzas personales', corto: 'Finanzas', icon: Wallet, apartado: 'finanzas', miembros: [{ id: 'familia', label: 'Familia' }, { id: 'inversion', label: 'Inversiones' }, { id: 'deuda', label: 'Deudas' }] },
     { seccion: 'Cuenta', id: 'soporte', label: 'Ayuda y soporte', icon: Headset, miembros: [{ id: 'soporte', label: 'Ayuda' }] },
@@ -2942,9 +2946,9 @@ export default function App() {
           </div>
         )}
         {currentView !== 'designer' && currentView !== 'calculator' && (
-          <main className={(currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : currentView === 'concreto' || currentView === 'drywall' || currentView === 'melamina' ? "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-0 scroll-smooth" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth") + (fabActual ? ' pb-28 xl:pb-8' : '')}>
+          <main className={(currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : currentView === 'concreto' || currentView === 'drywall' || currentView === 'melamina' || currentView === 'gasfiteria' ? "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-0 scroll-smooth" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth") + (fabActual ? ' pb-28 xl:pb-8' : '')}>
             {/* Obra Civil y Drywall: lienzo a todo el ancho, como Techos Metálicos */}
-            <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' || currentView === 'concreto' || currentView === 'drywall' || currentView === 'melamina' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
+            <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' || currentView === 'concreto' || currentView === 'drywall' || currentView === 'melamina' || currentView === 'gasfiteria' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
               <EmpresaProvider value={empresaCtx}><Suspense fallback={cargandoModulo}>{renderView()}</Suspense></EmpresaProvider>
             </div>
           </main>

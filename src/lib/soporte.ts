@@ -84,6 +84,7 @@ const FAQ: [RegExp, string, string?][] = [
   [/losa|entrepiso/i, 'Para una losa: en Obra Civil elige "Losa" en la barra de abajo y toca dos esquinas opuestas. El metrado (concreto, acero, encofrado) sale solo.', 'concreto'],
   [/muro|pared|ladrillo/i, 'Para un muro: en Obra Civil elige "Muro" y toca el inicio y el final; sigue tocando para encadenar. El material se elige arriba.', 'concreto'],
   [/melamina|closet|ropero|repostero|mueble de cocina|despiece/i, 'En Melamina toca el tipo de mueble (closet, cocina, repostero…), pon sus medidas y en "Cortes" sale la lista en mm y el plano de cada tablero para llevar al local.', 'melamina'],
+  [/gasfiter|tuber[ií]a|desag[uü]e|agua fr[ií]a|agua caliente|inodoro|ca[nñ]er[ií]a/i, 'En Gasfitería pon los aparatos (inodoro, lavatorio, ducha…) sobre el plano y toca "Trazar automáticamente": salen las tuberías, los codos y tees, los materiales y el presupuesto por puntos.', 'gasfiteria'],
   [/drywall|tabique|cielo/i, 'En Drywall elige "Tabique" y toca el inicio y el final. Con "Capas" ves u ocultas la obra y el techo de fondo.', 'drywall'],
   [/presupuesto|precio|costo|sin precio/i, 'El presupuesto usa los precios de tu catálogo. Si ves "sin precio", ponlo una vez en Precios y se usa siempre. El total con IGV está en Techos → Presupuesto → Presupuesto formal.', 'precios'],
   [/boceto|foto|plano a mano/i, 'Sube la foto de tu dibujo a mano en Techos → botón ? → "Foto de tu boceto". El techo se arma solo con tus medidas (10 créditos).', 'techos'],
