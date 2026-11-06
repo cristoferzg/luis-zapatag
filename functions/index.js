@@ -31,6 +31,7 @@
 
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getMessaging } from 'firebase-admin/messaging';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -1275,4 +1276,83 @@ export const avisoSoporte = onDocumentWritten({ ...opcionesAviso, document: 'sop
   if (m.de === 'admin') await enviarPush({ aWs: [e.params.ws] }, '💬 Innova te respondió', cuerpo, 'soporte');
   else if (m.de === 'usuario' && d.conPersona) await enviarPush({ aAdmin: true }, `💬 ${d.nombre || 'Un usuario'}`, cuerpo, 'soporte');
   else if (m.de === 'sistema' && d.conPersona && !antes.conPersona) await enviarPush({ aAdmin: true }, `💬 ${d.nombre || 'Un usuario'} quiere hablar con Innova`, d.ultimo || '', 'soporte');
+});
+
+
+// =============================================================================
+// COMUNICADOS AUTOMÁTICOS: cada 15 minutos (hora de Lima) se publican solos
+//   1) los comunicados PROGRAMADOS por el admin (fecha y hora exactas);
+//   2) uno de la BIBLIOTECA de mensajes (rotando), con la frecuencia elegida
+//      (semanal / quincenal / mensual) el día y la hora configurados (martes 9:00).
+// Se publican en `notificaciones` igual que desde el panel: el trigger avisoComunicado
+// manda el push y la app los muestra arriba y en la campana.
+// Datos: `comunicados_programados/<id>` y la configuración en `comunicados_programados/_auto`
+// (solo el admin lee y escribe).
+// Tope: la biblioteca no publica si ese día ya salió un comunicado automático.
+// =============================================================================
+const COL_PROG = 'comunicados_programados';
+const DIAS_MIN = { semanal: 6, quincenal: 13, mensual: 27 };
+function horaLima(ms = Date.now()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', weekday: 'short', hour12: false })
+    .formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+  return { fecha: `${p.year}-${p.month}-${p.day}`, hora: Number(p.hour) % 24, dia: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday) };
+}
+async function publicarComunicadoAuto({ title, message, priority, durationHours }, origen) {
+  const ahora = Date.now();
+  const id = `auto_${ahora}_${Math.random().toString(36).slice(2, 7)}`;
+  const horas = Number(durationHours) >= 0 ? Number(durationHours) : 48;
+  await db.collection('notificaciones').doc(id).set({
+    id, title: String(title || '').slice(0, 120), message: String(message || '').slice(0, 600),
+    priority: ['info', 'important', 'alert'].includes(priority) ? priority : 'important',
+    createdAtTimestamp: ahora, expiresAtTimestamp: horas > 0 ? ahora + horas * 3600e3 : ahora + 10 * 365 * 24 * 3600e3,
+    durationHours: horas, author: 'Innova Contratistas', userId: 'admin', origen,
+    date: new Date(ahora).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Lima' }),
+  });
+  return id;
+}
+
+export const comunicadosAutomaticos = onSchedule({ schedule: 'every 15 minutes', timeZone: 'America/Lima', region: 'us-central1', retryCount: 0 }, async () => {
+  const ahora = Date.now();
+  const lima = horaLima(ahora);
+  const refAuto = db.collection(COL_PROG).doc('_auto');
+
+  // 1) Programados con fecha: los que ya llegaron a su hora (una sola vez cada uno).
+  const pend = await db.collection(COL_PROG).where('estado', '==', 'pendiente').get();
+  const vencidos = pend.docs.filter((d) => d.id !== '_auto' && Number(d.data().publicarEn) <= ahora)
+    .sort((a, b) => a.data().publicarEn - b.data().publicarEn).slice(0, 5);
+  for (const d of vencidos) {
+    const tomado = await db.runTransaction(async (tx) => {
+      const x = await tx.get(d.ref);
+      if (!x.exists || x.data().estado !== 'pendiente') return false;
+      tx.update(d.ref, { estado: 'publicando' });
+      return true;
+    });
+    if (!tomado) continue;
+    try {
+      const idN = await publicarComunicadoAuto(d.data(), 'programado');
+      await d.ref.update({ estado: 'publicado', publicadoEl: Date.now(), notificacionId: idN });
+      await refAuto.set({ ultimoAutoFecha: lima.fecha }, { merge: true });
+    } catch (e) {
+      await d.ref.update({ estado: 'pendiente', error: String(e?.message || e).slice(0, 200) });
+    }
+  }
+
+  // 2) Biblioteca rotativa.
+  const pick = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(refAuto);
+    const c = snap.exists ? snap.data() : null;
+    const mensajes = Array.isArray(c?.mensajes) ? c.mensajes.filter((m) => m && m.title && m.message) : [];
+    if (!c?.activo || !mensajes.length) return null;
+    const dia = Number.isInteger(c.dia) ? c.dia : 2, hora = Number.isInteger(c.hora) ? c.hora : 9;
+    const min = DIAS_MIN[c.frecuencia] ?? 6;
+    if (c.ultimoEnvio === lima.fecha) return null;
+    if (c.ultimoEnvioTs && ahora - c.ultimoEnvioTs < min * 864e5) return null;
+    if (!(lima.dia === dia || c.pospuesto) || lima.hora < hora) return null;
+    // Tope de 1 automático por día: si hoy ya salió uno programado, se pasa a mañana.
+    if (c.ultimoAutoFecha === lima.fecha) { tx.set(refAuto, { pospuesto: true }, { merge: true }); return null; }
+    const i = (Number(c.indice) || 0) % mensajes.length;
+    tx.set(refAuto, { indice: i + 1, ultimoEnvio: lima.fecha, ultimoEnvioTs: ahora, ultimoAutoFecha: lima.fecha, pospuesto: false, ultimoMensaje: mensajes[i].title }, { merge: true });
+    return { ...mensajes[i], priority: c.prioridad || 'important', durationHours: c.duracionHoras ?? 48 };
+  });
+  if (pick) await publicarComunicadoAuto(pick, 'biblioteca');
 });

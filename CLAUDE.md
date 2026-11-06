@@ -53,6 +53,15 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Con la app abierta el sistema no muestra el push; la app avisa con notificaciones locales
   (`notificar` evita repetir lo que ya llegó por push al volver a abrirla).
 
+## Comunicados programados y automáticos
+- Panel admin `ComunicadosProgramadosPanel` (Configuración, debajo de "Publicar comunicado"). Datos en
+  `comunicados_programados/<id>` {title, message, priority, durationHours, publicarEn, estado} y la biblioteca en
+  `comunicados_programados/_auto` {activo, frecuencia semanal|quincenal|mensual, dia (0-6), hora, mensajes[], indice}.
+  Regla: solo admin. La Cloud Function `comunicadosAutomaticos` (onSchedule cada 15 min, America/Lima) los publica en
+  `notificaciones` (→ push con avisoComunicado). Tope: la biblioteca no publica si ese día ya salió uno automático.
+  Prueba: `firebase emulators:exec --only firestore --project demo-innova "node seguridad/comunicados.test.mjs"`.
+  DEV: `window.__programadosSimulados` (incluir en el grep del dist).
+
 ## Ayuda y soporte (chat)
 - Reemplaza "Atención & Asesorías" en el menú (`AyudaSoporteView`). Un chat por usuario en
   `soporte_chats/<ws>` (`src/lib/soporte.ts`); regla: dueño o admin.
@@ -86,7 +95,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   "Quitar obligación" la desactiva. El admin nunca queda bloqueado.
 - Programa de PC 2.0 (`desktop/`, `npm run dist`): manda su versión en el agente (`InnovaContratistasPC/x.y.z`); si el instalador subido (versión tomada del nombre `InnovApp-Setup-x.y.z.exe`) es más nuevo, `AvisoVersionApp` invita a descargarlo.
 - Instalador de PC: el admin lo sube desde el panel (web/PC) a `descargas/pc` (Storage: lectura pública, escritura admin). En la app Android no se ofrecen otros instaladores; el aviso de actualización solo lleva a la ficha de Play (`enlacePlaySeguro`).
-- Simulación solo en DEV: `window.__descargasSimuladas`, `__avanceSimulado`, `__iaSimulada` (incluirlos en el grep del dist).
+- Simulación solo en DEV: `window.__descargasSimuladas`, `__avanceSimulado`, `__iaSimulada`, `__programadosSimulados`, `__escenaTechos` (incluirlos en el grep del dist).
 
 ## Seguridad (reglas por usuario)
 - `firestore.rules`: cada usuario solo lo suyo (`userId` / `authorUid`); contenido del sistema

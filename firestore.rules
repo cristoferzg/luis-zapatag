@@ -34,6 +34,8 @@ service cloud.firestore {
       allow read: if authed();
       allow write: if isAdmin();
     }
+    // Comunicados programados y biblioteca automática: solo el admin (los publica la Cloud Function).
+    match /comunicados_programados/{id} { allow read, write: if isAdmin(); }
     // Saldo de créditos: lo lee su dueño o el admin. Lo descuenta la Cloud Function.
     match /ai_access/{uid} {
       allow read: if isAdmin() || (conPin() && uid == workspace());

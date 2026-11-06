@@ -20,6 +20,7 @@ import PlanesIAAdminPanel from './PlanesIAAdminPanel';
 import MisCreditosCard from './MisCreditosCard';
 import { esAppAndroid } from '../lib/plataforma';
 import DescargasAppPanel from './DescargasAppPanel';
+import ComunicadosProgramadosPanel from './ComunicadosProgramadosPanel';
 import { publicarComunicado, quitarComunicado } from '../lib/comunicados';
 import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
@@ -1387,6 +1388,8 @@ export default function SettingsView({
           authorName={currentUserName || 'Administrador Principal'}
         />
       )}
+      {/* Comunicados programados y mensajes automáticos (los publica el servidor solo) */}
+      {isAdmin && <ComunicadosProgramadosPanel />}
 
       {/* Configuración de los planes de IA (precio y usos): SOLO ADMINISTRADOR */}
       {isAdmin ? <PlanesIAAdminPanel /> : <MisCreditosCard />}
