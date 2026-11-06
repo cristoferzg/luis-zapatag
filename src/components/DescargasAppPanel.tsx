@@ -3,7 +3,7 @@
 // Los usuarios ven solo los botones de descarga activos.
 import { useEffect, useRef, useState } from 'react';
 import { Smartphone, Monitor, Download, RefreshCw, Check, Bell, Upload } from 'lucide-react';
-import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay, versionDeInstalador, enlaceAndroid } from '../lib/appDescargas';
+import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay, versionDeInstalador, enlaceAndroid, CODIGO_ANDROID } from '../lib/appDescargas';
 import { uploadFileToFirebaseStorage } from '../lib/storage';
 import { versionApp } from '../lib/version';
 
@@ -19,6 +19,8 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
   const [borrador, setBorrador] = useState<ConfigDescargas | null>(null);
   const [nota, setNota] = useState('');
   const [obligatoria, setObligatoria] = useState(false);
+  const [incluirWeb, setIncluirWeb] = useState(true);
+  const [incluirAndroid, setIncluirAndroid] = useState(false);
   const [msg, setMsg] = useState('');
   useEffect(() => escucharDescargas(setCfg), []);
   const d = borrador || cfg;
@@ -27,13 +29,25 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
   const aviso = (t: string) => { setMsg(t); setTimeout(() => setMsg(''), 3000); };
   const guardar = async () => { try { await guardarDescargas(d); setBorrador(null); aviso('Guardado. Ya lo ven todos los usuarios.'); } catch { aviso('No se pudo guardar. Revisa tu conexión.'); } };
   const publicar = async () => {
-    const ultima = { fecha: BUILD_ACTUAL, version: versionApp, nota: nota.trim(), obligatoria, publicadoEl: new Date().toISOString() };
+    if (!incluirWeb && !incluirAndroid) { aviso('Elige a quién avisar: web y PC, la app de Android o ambos.'); return; }
+    const prev = cfg.ultima;
+    const ultima = {
+      fecha: incluirWeb ? BUILD_ACTUAL : (prev?.fecha || ''),
+      version: versionApp, nota: nota.trim(), obligatoria, publicadoEl: new Date().toISOString(),
+      codigoAndroid: incluirAndroid ? CODIGO_ANDROID : (prev?.codigoAndroid || 0),
+    };
     try {
       await guardarDescargas({ ...d, ultima });
       setBorrador(null);
       onAvisar?.('Nueva versión de InnovApp', `${obligatoria ? 'Actualización obligatoria' : 'Hay una versión nueva'}: ábrela y actualiza para recibir las mejoras.${nota.trim() ? `\n${nota.trim()}` : ''}`);
       setNota(''); aviso('Listo: los equipos con una versión anterior verán el aviso al entrar.');
     } catch { aviso('No se pudo publicar. Revisa tu conexión.'); }
+  };
+  // Quitar la obligación (por si se marcó antes de tiempo): el aviso queda como opcional.
+  const quitarObligacion = async () => {
+    if (!cfg.ultima) return;
+    try { await guardarDescargas({ ...cfg, ultima: { ...cfg.ultima, obligatoria: false } }); aviso('Listo: la actualización ya no es obligatoria.'); }
+    catch { aviso('No se pudo guardar. Revisa tu conexión.'); }
   };
   // En la app de Android (Google Play) no se ofrecen descargas de otros instaladores: Play solo
   // permite llevar a su propia ficha. Ahí este panel solo lo ve el admin, y sin botones de descarga.
@@ -121,10 +135,19 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
 
         <div className="border-t border-slate-100 pt-4 grid gap-2">
           <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-slate-500"><RefreshCw className="w-4 h-4" /> Avisar de versión nueva</span>
-          <p className="text-xs text-slate-600">Primero publica la web y sube la app nueva a Google Play. Luego pulsa el botón: quien tenga una versión anterior verá un aviso al entrar y se le enviará una notificación.</p>
+          <p className="text-xs text-slate-600">Primero publica la web y sube la app nueva a Google Play. Luego pulsa el botón: quien tenga una versión anterior verá un aviso al entrar y se le enviará una notificación. Si es obligatoria, no podrá seguir usando la app hasta actualizar.</p>
+          {cfg.ultima?.obligatoria && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 flex flex-wrap items-center gap-2">
+              <span className="flex-1 min-w-[180px] text-xs font-bold text-rose-800">Actualización obligatoria activa{cfg.ultima.version ? ` (v${cfg.ultima.version})` : ''}{cfg.ultima.codigoAndroid ? ` · Android: versión ${cfg.ultima.codigoAndroid} o mayor` : ' · solo web y PC'}</span>
+              <button type="button" onClick={quitarObligacion} className="min-h-[36px] px-3 rounded-lg bg-white border border-rose-300 text-rose-700 text-xs font-bold cursor-pointer">Quitar obligación</button>
+            </div>
+          )}
           <p className="text-[11px] text-slate-500">Versión de esta compilación: <b className="font-mono">v{versionApp}</b>{cfg.ultima?.fecha ? <> · última avisada: <b className="font-mono">{cfg.ultima.version ? `v${cfg.ultima.version}` : fechaBonita(cfg.ultima.fecha)}</b>{cfg.ultima.obligatoria ? ' (obligatoria)' : ''}</> : ''}</p>
           <textarea value={nota} onChange={e => setNota(e.target.value)} placeholder="¿Qué trae de nuevo? (opcional, lo verán en el aviso)" className="w-full min-h-[64px] rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-800 resize-none" />
-          <label className="flex items-center gap-2 text-xs text-slate-700"><input type="checkbox" checked={obligatoria} onChange={e => setObligatoria(e.target.checked)} className="w-4 h-4" /> Obligatoria (no podrán seguir sin actualizar)</label>
+          <span className="text-[11px] font-bold text-slate-500">¿A quién avisar?</span>
+          <label className="flex items-start gap-2 text-xs text-slate-700"><input type="checkbox" checked={incluirWeb} onChange={e => setIncluirWeb(e.target.checked)} className="w-4 h-4 mt-0.5 shrink-0" /> <span>Web y programa de PC <span className="text-slate-400">(se actualizan al tocar «Actualizar ahora»)</span></span></label>
+          <label className="flex items-start gap-2 text-xs text-slate-700"><input type="checkbox" checked={incluirAndroid} onChange={e => setIncluirAndroid(e.target.checked)} className="w-4 h-4 mt-0.5 shrink-0" /> <span>App de Android: versión <b className="font-mono">{CODIGO_ANDROID || '—'}</b> <span className="text-amber-700 font-semibold">(márcalo solo cuando Google Play ya la aprobó y está disponible; si no, el usuario no tendrá qué descargar)</span></span></label>
+          <label className="flex items-center gap-2 text-xs font-bold text-rose-700"><input type="checkbox" checked={obligatoria} onChange={e => setObligatoria(e.target.checked)} className="w-4 h-4" /> Obligatoria: no podrán seguir usando la app sin actualizar</label>
           <button onClick={publicar} className="w-full min-h-[44px] rounded-xl bg-orange-500 text-white text-sm font-black cursor-pointer">Avisar a todos que actualicen</button>
         </div>
         {msg && <p className="text-xs font-bold text-emerald-700 flex items-center gap-1"><Check className="w-4 h-4" /> {msg}</p>}

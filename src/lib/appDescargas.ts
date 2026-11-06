@@ -18,13 +18,16 @@ export interface ConfigDescargas {
   android?: EnlaceApp;
   pc?: EnlaceApp;
   iphone?: EnlaceApp;
-  ultima?: { fecha: string; version?: string; nota?: string; obligatoria?: boolean; publicadoEl?: string };
+  /** fecha = compilación de la web/PC; codigoAndroid = versionCode mínimo de la app de Android (si se incluyó). */
+  ultima?: { fecha: string; version?: string; nota?: string; obligatoria?: boolean; publicadoEl?: string; codigoAndroid?: number };
   recordatorioDias?: number; // 0 = sin recordatorios
 }
 export type Plataforma = 'android' | 'ios' | 'pc' | 'web';
 
 const REF = () => doc(db, 'config_ia', 'descargas');
 export const BUILD_ACTUAL: string = __BUILD__;
+/** versionCode de la app de Android con la que se compiló este código (en la web es el de la última compilación). */
+export const CODIGO_ANDROID: number = typeof __CODIGO_ANDROID__ === 'number' ? __CODIGO_ANDROID__ : 0;
 
 export function escucharDescargas(cb: (c: ConfigDescargas) => void): () => void {
   if (import.meta.env.DEV && (window as any).__descargasSimuladas) { cb((window as any).__descargasSimuladas); return () => {}; }
@@ -43,6 +46,13 @@ export const esCelularWeb = () => typeof navigator !== 'undefined' && /Android|i
 
 /** ¿Este equipo tiene una compilación anterior a la última publicada? (margen de 2 min) */
 export function desactualizado(c: ConfigDescargas): boolean {
+  // App de Android: se compara el número de versión de Google Play (versionCode). Solo se le pide
+  // actualizar si el admin incluyó la app (ya aprobada en Play): así nunca queda bloqueada
+  // esperando una versión que todavía no está en la tienda.
+  if (plataforma() === 'android') {
+    const min = Number(c.ultima?.codigoAndroid) || 0;
+    return min > 0 && CODIGO_ANDROID > 0 && CODIGO_ANDROID < min;
+  }
   const f = c.ultima?.fecha;
   if (!f) return false;
   const pub = new Date(f).getTime(), mia = new Date(BUILD_ACTUAL).getTime();

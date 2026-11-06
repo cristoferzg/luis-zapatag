@@ -10,7 +10,7 @@ import {
 } from '../lib/appDescargas';
 import { versionApp } from '../lib/version';
 
-export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecordatorio?: boolean }) {
+export default function AvisoVersionApp({ sinRecordatorio = false, esAdmin = false }: { sinRecordatorio?: boolean; esAdmin?: boolean }) {
   const [cfg, setCfg] = useState<ConfigDescargas | null>(null);
   const [cerrado, setCerrado] = useState(false);
   const [recordOculto, setRecordOculto] = useState(false);
@@ -21,7 +21,8 @@ export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecord
   if (!cfg) return null;
 
   const fecha = cfg.ultima?.fecha || '';
-  const obligatoria = !!cfg.ultima?.obligatoria;
+  // El administrador nunca queda bloqueado (debe poder quitar la obligación si hiciera falta).
+  const obligatoria = !!cfg.ultima?.obligatoria && !esAdmin;
   if (viejo && !cerrado && (obligatoria || !avisoPospuesto(fecha))) {
     const enlaceAndroid = enlacePlaySeguro(cfg.android?.url); // en la app de Play: solo la ficha de Play
     const necesitaDescarga = plat === 'android';

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
 
 // Versión única del sistema: sale de la fecha y hora (Lima) de cada compilación y es la misma
 // en la web, el programa de PC y la app Android (Gradle lee dist/version.txt). Ej. 2026.11.05.1432
@@ -9,9 +10,14 @@ const lima = new Date(BUILD.getTime() - 5 * 3600e3); // Perú: UTC-5 todo el añ
 const dd = (n: number) => String(n).padStart(2, '0');
 const VERSION = `${lima.getUTCFullYear()}.${dd(lima.getUTCMonth() + 1)}.${dd(lima.getUTCDate())}.${dd(lima.getUTCHours())}${dd(lima.getUTCMinutes())}`;
 
+// Código de versión de la app Android (versionCode de Google Play): el contador de
+// android/app/codigo-version.txt. Se compila dentro de la web, así la app sabe su número.
+let CODIGO_ANDROID = 0;
+try { CODIGO_ANDROID = parseInt(readFileSync('android/app/codigo-version.txt', 'utf8').trim(), 10) || 0; } catch { /* sin carpeta android */ }
+
 // https://vite.dev/config/
 export default defineConfig({
-  define: { __BUILD__: JSON.stringify(BUILD.toISOString()), __VERSION__: JSON.stringify(VERSION) },
+  define: { __BUILD__: JSON.stringify(BUILD.toISOString()), __VERSION__: JSON.stringify(VERSION), __CODIGO_ANDROID__: JSON.stringify(CODIGO_ANDROID) },
   resolve: {
     dedupe: ['react', 'react-dom'],
   },

@@ -3012,7 +3012,7 @@ export default function App() {
           objetivo={() => objetivoFab(fabActual)} onClick={() => { tocar(); ejecutarFab(); }} />
       )}
       {/* Versión nueva (actualizar al entrar) y recordatorio de instalar la app */}
-      <AvisoVersionApp sinRecordatorio={isAdmin} />
+      <AvisoVersionApp sinRecordatorio={isAdmin} esAdmin={isAdmin} />
       <OfflineIndicator />
       {activeUid && <InvitacionAvisos pausado={!!(sesionLimitada && !renovar.oculto)} />}
     </div>
