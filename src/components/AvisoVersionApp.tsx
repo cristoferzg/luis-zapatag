@@ -71,7 +71,8 @@ export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecord
   // Recordatorio en el navegador: instalar la app (solo con enlaces activos).
   if (plat !== 'web' || recordOculto || sinRecordatorio) return null;
   const opciones = [
-    { id: 'android', txt: 'Google Play', url: enlaceAndroid(cfg), Ic: Smartphone }, // ya publicada: siempre
+    // Google Play solo a quien entra desde el navegador de un celular Android (en la PC no).
+    /Android/i.test(navigator.userAgent) ? { id: 'android', txt: 'Descargar app', url: enlaceAndroid(cfg), Ic: Smartphone } : null,
     cfg.iphone?.activo && cfg.iphone.url ? { id: 'iphone', txt: 'iPhone', url: cfg.iphone.url, Ic: Smartphone } : null,
     cfg.pc?.activo && cfg.pc.url ? { id: 'pc', txt: 'Computadora', url: cfg.pc.url, Ic: Monitor } : null,
   ].filter(Boolean) as { id: string; txt: string; url: string; Ic: any }[];
