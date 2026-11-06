@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   MousePointer2, Hand, Plus, Spline, Undo2, Redo2, ZoomIn, ZoomOut, Maximize2, WandSparkles, RotateCw, Trash2, Copy, Check, X,
-  AlertTriangle, CircleCheck, Layers, Save, FolderOpen, FilePlus2, ClipboardList, Droplets, Ruler, Sparkles,
+  Layers, Save, FolderOpen, FilePlus2, ClipboardList, Droplets, Ruler, Sparkles,
 } from 'lucide-react';
 import { safeStorage } from '../../lib/storageManager';
 import { simb } from '../../lib/currency';
@@ -15,7 +15,8 @@ import {
   APARATOS, Aparato, CotizacionGas, KEY_COT_LISTA, Pt, Red, REDES, ORDEN_REDES, TipoAparato, Tramo, conexion, cotizacionEjemplo, cotizacionVacia,
   defAparato, esAgua, leerCotizaciones, limites, murosAmbiente, murosDeObra, nombreAparato, pendienteDefecto, pisosObra, pulg, redesDe, uid, MuroRef, FondoGas,
 } from './modeloGasfiteria';
-import { MetradoGas, NOMBRE_EMPALME, avisosGas, largoTramo, proyectar, totalCon, trazarAutomatico, Empalme } from './calculoGasfiteria';
+import { MetradoGas, NOMBRE_EMPALME, avisosGas, largoTramo, proyectar, totalCon, trazarAutomatico, Empalme, verificarInstalacion, desaguesInvertidos, grafoRed, Aviso } from './calculoGasfiteria';
+import VerificacionGas from './VerificacionGas';
 import { IconoAparato, SimboloAparato } from './SimboloAparato';
 import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from './DisenoIAInstalacion';
 
@@ -316,6 +317,21 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   });
 
   const avisos = useMemo(() => avisosGas(cot.tramos, cot.aparatos), [cot.tramos, cot.aparatos]);
+  const chequeos = useMemo(() => verificarInstalacion(cot.tramos, cot.aparatos, avisos), [cot.tramos, cot.aparatos, avisos]);
+  const invertidos = useMemo(() => desaguesInvertidos(cot.tramos, cot.aparatos), [cot.tramos, cot.aparatos]);
+  // "Ver en el plano": elige el aparato o la tubería del aviso y centra la vista en él.
+  const ubicar = (a: Aviso) => {
+    const ap = a.ap ? cot.aparatos.find(x => x.id === a.ap) : undefined, tr = a.tramo ? cot.tramos.find(x => x.id === a.tramo) : undefined;
+    const pts = ap ? [{ x: ap.x, y: ap.y }] : tr ? tr.pts.filter(p => isFinite(p.x) && isFinite(p.y)) : [];
+    if (!pts.length) return;
+    setHerr('mover'); setDibujo([]);
+    setSel(ap ? { tipo: 'ap', id: ap.id } : { tipo: 'tramo', id: tr!.id });
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const w = Math.max(2.5, Math.min(V.w, (Math.max(...xs) - Math.min(...xs)) * 1.6 + 1.5));
+    setVb({ x: cx - w / 2, y: cy - (w * tam.h) / tam.w / 2, w });
+    host.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
   const selAp = sel?.tipo === 'ap' ? cot.aparatos.find(a => a.id === sel.id) : undefined;
   const selTr = sel?.tipo === 'tramo' ? cot.tramos.find(t => t.id === sel.id) : undefined;
   const total = totalCon(r, cot);
@@ -378,8 +394,8 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
             <text x={0} y={0} fontSize={fs * 0.85} fontWeight={800} fill={c} textAnchor="middle">{etiqueta}</text>
           </g>
         )}
-        {t.red === 'desague' && lm > fs * 3 && (() => { // flecha del sentido del flujo (hacia el primer punto = la caja)
-          const ux = (A.x - B.x) / lm, uy = (A.y - B.y) / lm, k = fs * 0.5, cx = mx + ux * fs * 2.2, cy = my + uy * fs * 2.2;
+        {t.red === 'desague' && lm > fs * 3 && (() => { // flecha del sentido del flujo (hacia la caja, según la red)
+          const sg = invertidos.has(t.id) ? -1 : 1, ux = sg * (A.x - B.x) / lm, uy = sg * (A.y - B.y) / lm, k = fs * 0.5, cx = mx + ux * fs * 2.2, cy = my + uy * fs * 2.2;
           return <path d={`M${cx + ux * k} ${cy + uy * k} L${cx - ux * k - uy * k * 0.7} ${cy - uy * k + ux * k * 0.7} L${cx - ux * k + uy * k * 0.7} ${cy - uy * k - ux * k * 0.7}Z`} fill={c} pointerEvents="none" />;
         })()}
         {t.llave && (() => {
@@ -408,7 +424,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
     <>
       {selAp && (() => {
         const d = defAparato(selAp.tipo);
-        const conectado = (red: Red) => { const c = conexion(selAp, red); return cot.tramos.some(t => fam(t.red) === fam(red) && t.pts.some(p => dist(p, c) < 0.05)); };
+        const conectado = (red: Red) => grafoRed(cot.tramos, cot.aparatos, fam(red) as 'fria' | 'caliente' | 'desague').nudos.some(n => n.aristas.length && n.aparatos.some(x => x.ap.id === selAp.id && x.red === red));
         return (
           <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2.5 border border-teal-200">
             <div className="flex flex-nowrap items-center gap-2">
@@ -495,16 +511,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
     </div>
   );
 
-  const panelAvisos = (
-    <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
-      <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 text-amber-500" /> Revisión IS.010 <span className="font-semibold text-slate-400">(RNE)</span></p>
-      {!cot.aparatos.length ? <p className="text-[11px] text-slate-400">Pon aparatos para revisar la instalación.</p>
-        : !avisos.length ? <p className="text-[11px] font-bold text-emerald-700 flex items-center gap-1.5"><CircleCheck className="w-4 h-4" /> Sin observaciones: diámetros, pendientes y conexiones en orden.</p>
-          : <div className="space-y-1 max-h-64 overflow-y-auto pr-1">{avisos.map((a, i) => (
-            <p key={i} className={`text-[11px] font-bold flex gap-1.5 rounded-lg px-2 py-1.5 ${a.nivel === 'error' ? 'bg-rose-50 text-rose-800' : 'bg-amber-50 text-amber-800'}`}><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />{a.texto}</p>
-          ))}</div>}
-    </div>
-  );
+  const panelAvisos = <VerificacionGas chequeos={chequeos} hayAparatos={cot.aparatos.length > 0} onUbicar={ubicar} />;
 
   const resumenEmp = useMemo(() => {
     const m = new Map<string, { e: Empalme; n: number }>();

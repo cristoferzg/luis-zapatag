@@ -13,7 +13,8 @@ import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from 
 import BotonImprimir from './common/BotonImprimir';
 import { simb } from '../lib/currency';
 import { CotizacionGas, KEY_COT_ACTUAL, KEY_PESTANA, REDES, ORDEN_REDES, Red, leerCotizacionActual, defAparato, cotizacionEjemplo } from './gasfiteria/modeloGasfiteria';
-import { metradoGas, MetradoGas, totalCon, GRUPOS_LINEA, GrupoLinea, LineaGas, trazarAutomatico, avisosGas } from './gasfiteria/calculoGasfiteria';
+import { metradoGas, MetradoGas, totalCon, GRUPOS_LINEA, GrupoLinea, LineaGas, trazarAutomatico, avisosGas, verificarInstalacion, instalacionVerificada } from './gasfiteria/calculoGasfiteria';
+import VerificacionGas from './gasfiteria/VerificacionGas';
 import PlanoGas from './gasfiteria/PlanoGas';
 import type { Visibles } from './gasfiteria/Gasfiteria3D';
 import { IconoAparato } from './gasfiteria/SimboloAparato';
@@ -82,7 +83,7 @@ export default function GasfiteriaView({ onIrAPrecios }: { onIrAPrecios?: () => 
         {pestana === 'plano' && <PlanoGas cot={cot} setCot={setCot} r={r} onPresupuesto={() => setPestana('presupuesto')} onMateriales={() => setPestana('materiales')} />}
         {pestana === '3d' && <Vista3D cot={cot} r={r} onPlano={() => setPestana('plano')} onEjemplo={cargarEjemplo} />}
         {pestana === 'materiales' && <Materiales cot={cot} setCot={setCot} r={r} onIrAPrecios={onIrAPrecios} onPresupuesto={() => setPestana('presupuesto')} onPlano={() => setPestana('plano')} />}
-        {pestana === 'presupuesto' && <Presupuesto cot={cot} setCot={setCot} r={r} onIrAPrecios={onIrAPrecios} />}
+        {pestana === 'presupuesto' && <Presupuesto cot={cot} setCot={setCot} r={r} onIrAPrecios={onIrAPrecios} onPlano={() => setPestana('plano')} />}
       </div>
     </div>
   );
@@ -265,7 +266,7 @@ function Ajustes({ cot, setCot, onIrAPrecios, hoja, chk }: { cot: CotizacionGas;
 }
 
 // ── 4. Presupuesto ──────────────────────────────────────────────────────────
-function Presupuesto({ cot, setCot, r, onIrAPrecios }: { cot: CotizacionGas; setCot: SetCot; r: MetradoGas; onIrAPrecios?: () => void }) {
+function Presupuesto({ cot, setCot, r, onIrAPrecios, onPlano }: { cot: CotizacionGas; setCot: SetCot; r: MetradoGas; onIrAPrecios?: () => void; onPlano: () => void }) {
   const { datos } = useEmpresa();
   const hojaRef = useRef<HTMLDivElement>(null);
   const directo = r.directo;
@@ -273,6 +274,8 @@ function Presupuesto({ cot, setCot, r, onIrAPrecios }: { cot: CotizacionGas; set
   const sinPrecio = r.lineas.some(l => l.precio === 0);
   const vacio = cot.aparatos.length === 0;
   const avisos = useMemo(() => avisosGas(cot.tramos, cot.aparatos), [cot.tramos, cot.aparatos]);
+  const chequeos = useMemo(() => verificarInstalacion(cot.tramos, cot.aparatos, avisos), [cot.tramos, cot.aparatos, avisos]);
+  const verificada = !vacio && instalacionVerificada(chequeos);
   const resumenAp = useMemo(() => { const m = new Map<string, number>(); cot.aparatos.forEach(a => m.set(a.tipo, (m.get(a.tipo) || 0) + 1)); return [...m.entries()]; }, [cot.aparatos]);
   const whatsapp = () => {
     const lineas = [
@@ -304,7 +307,12 @@ function Presupuesto({ cot, setCot, r, onIrAPrecios }: { cot: CotizacionGas; set
         <BotonImprimir objetivo={() => hojaRef.current} titulo="Presupuesto de gasfitería" etiqueta="Imprimir / PDF" />
       </div>
       {sinPrecio && !vacio && <p className="no-imprimir text-[11px] font-bold text-amber-800 bg-amber-50 rounded-xl px-3 py-2">Hay productos sin precio (en naranja). Escríbelos en Precios → “Gasfitería”.</p>}
-      {avisos.some(a => a.nivel === 'error') && !vacio && <p className="no-imprimir text-[11px] font-bold text-rose-800 bg-rose-50 rounded-xl px-3 py-2">El plano tiene {avisos.filter(a => a.nivel === 'error').length} observación(es) IS.010 por corregir: revisa el panel de avisos del Plano antes de enviar.</p>}
+      {!vacio && (
+        <div className="no-imprimir space-y-1.5">
+          <VerificacionGas chequeos={chequeos} hayAparatos compacta />
+          {!verificada && <button onClick={onPlano} className={`${btn} w-full sm:w-auto bg-slate-900 text-white hover:bg-slate-800`}><MapIc className="w-4 h-4" /> Corregir en el Plano ({avisos.length} observación{avisos.length === 1 ? '' : 'es'})</button>}
+        </div>
+      )}
       <div ref={hojaRef} className="zona-impresion imprimir-claro bg-white rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
         <BandaMarca />
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-200 pb-4">
@@ -372,6 +380,7 @@ function Presupuesto({ cot, setCot, r, onIrAPrecios }: { cot: CotizacionGas; set
         {!vacio && <CondicionesComerciales total={total} />}
         {!vacio && (
           <div className="text-[10px] text-slate-400 space-y-0.5">
+            {verificada && <p className="font-bold text-emerald-700">✓ Instalación verificada: cada aparato con agua fría (y caliente desde la terma), desagüe hasta la caja de registro con pendiente y ventilación, y diámetros según las unidades de gasto (IS.010).</p>}
             <p>Diseño según la Norma IS.010 del RNE: agua fría PVC C-10 y agua caliente CPVC (½" a cada aparato), desagüe PVC SAL de 2" (4" para inodoros) con pendiente mínima de 1 % a 1.5 %, ventilación de 2" hasta el techo.</p>
             <p>Incluye prueba de presión de las redes de agua y prueba a tubo lleno del desagüe{cot.pruebaHidraulica ? '' : ' (no cotizada)'}. {cot.incluirAparatos ? 'Incluye los aparatos sanitarios indicados.' : 'Los aparatos sanitarios los compra el cliente; se cotiza su instalación.'} No incluye picado de losas ni acabados, salvo que se indique.</p>
           </div>
