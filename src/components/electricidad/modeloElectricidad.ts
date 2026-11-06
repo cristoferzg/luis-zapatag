@@ -157,15 +157,22 @@ export function limites(cot: { puntos: Punto[]; rutas: Ruta[]; fondo: FondoEle }
 /** Capacidad (A) del termomagnético que admite cada sección (THW-90 en tubo, 3 conductores). */
 export const BREAKER_MAX: Record<number, number> = { 2.5: 16, 4: 25, 6: 32, 10: 50, 16: 63, 25: 80 };
 const BRK = [16, 20, 25, 32, 40, 50, 63];
-const SECS = [2.5, 4, 6, 10, 16, 25];
+export const SECS = [2.5, 4, 6, 10, 16, 25];
 export const corriente = (w: number) => w / (TENSION * COS_FI);
-/** Termomagnético, sección y tubo para un circuito con su carga instalada. */
-export function dimensionar(uso: UsoCircuito, w: number) {
+/** Resistividad del cobre (Ω·mm²/m) para la caída de tensión. */
+export const RHO_CU = 0.0175;
+/** Límites de caída de tensión (CNE-U 050-102): alimentador 2.5 % y total (alimentador + circuito) 4 %. */
+export const CAIDA_ALIM_MAX = 2.5, CAIDA_TOTAL_MAX = 4;
+/** Caída de tensión monofásica (%): ΔV = 2·L·I·ρ·cos φ / S, sobre 220 V. */
+export const caidaPct = (largo: number, I: number, seccion: number) => (seccion > 0 && largo > 0 && I > 0 ? (200 * largo * I * RHO_CU * COS_FI) / (seccion * TENSION) : 0);
+/** Termomagnético, sección y tubo para un circuito con su carga instalada (y, si se sabe, el largo hasta el punto más lejano). */
+export function dimensionar(uso: UsoCircuito, w: number, largo = 0, caidaMax = CAIDA_TOTAL_MAX - 1.5) {
   if (uso === 'debil') return { breaker: 0, seccion: 0, tubo: '3/4' };
   const I = corriente(w) * (uso === 'fuerza' ? 1.25 : 1);
   const minB = USOS[uso].breaker;
   const breaker = BRK.find(b => b >= Math.max(minB, I)) || 63;
-  const seccion = SECS.find(s => s >= USOS[uso].seccion && BREAKER_MAX[s] >= breaker) || 25;
+  // La sección protege al interruptor y, en recorridos largos, sube hasta que la caída de tensión quede en el límite.
+  const seccion = SECS.find(s => s >= USOS[uso].seccion && BREAKER_MAX[s] >= breaker && caidaPct(largo, corriente(w), s) <= caidaMax + 1e-9) || 25;
   return { breaker, seccion, tubo: seccion >= 10 ? '1' : '3/4' };
 }
 export function nuevoCircuito(circuitos: Circuito[], uso: UsoCircuito, desc?: string): Circuito {

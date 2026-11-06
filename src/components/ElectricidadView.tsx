@@ -9,7 +9,7 @@
 //   5. Presupuesto: formal, para imprimir o enviar por WhatsApp.
 // =============================================================================
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Zap, Box, ListChecks, ClipboardList, Tag, Send, Map as MapIc, Eye, EyeOff, Sparkles, Gauge } from 'lucide-react';
+import { Zap, Box, ListChecks, ClipboardList, Tag, Send, Map as MapIc, Eye, EyeOff, Sparkles, Gauge, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useCatalogo } from '../lib/catalogoPrecios';
 import { safeStorage } from '../lib/storageManager';
 import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from '../lib/empresa';
@@ -19,7 +19,8 @@ import { NOMBRE_CABLE, NOMBRE_TUBO } from '../catalogo/electricidad';
 import {
   CotizacionEle, KEY_COT_ACTUAL, KEY_PESTANA, KEY_ORIGEN, ALIM, PT, COLOR_ALIM, COLOR_PT, leerCotizacionActual, cotizacionEjemplo, defPunto, esEspecial, Pt,
 } from './electricidad/modeloElectricidad';
-import { metradoEle, MetradoEle, totalCon, GRUPOS_LINEA, GrupoLinea, LineaEle, trazarAutomatico, sugerirCircuitos, avisosCNE, infoRutas, redimensionar, Cuadro } from './electricidad/calculoElectricidad';
+import { metradoEle, MetradoEle, totalCon, GRUPOS_LINEA, GrupoLinea, LineaEle, trazarAutomatico, sugerirCircuitos, infoRutas, redimensionar, Cuadro, verificarInstalacion } from './electricidad/calculoElectricidad';
+import VerificacionInstalacion from './electricidad/VerificacionInstalacion';
 import PlanoElectrico from './electricidad/PlanoElectrico';
 import type { Visibles3D } from './electricidad/Electricidad3D';
 import { IconoPunto } from './electricidad/SimboloElectrico';
@@ -91,9 +92,9 @@ export default function ElectricidadView({ onIrAPrecios }: { onIrAPrecios?: () =
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {pestana === 'plano' && <PlanoElectrico cot={cot} setCot={setCot} r={r} duchas={duchas} onPresupuesto={() => setPestana('presupuesto')} onMateriales={() => setPestana('materiales')} onCuadro={() => setPestana('cargas')} />}
         {pestana === '3d' && <Vista3D cot={cot} setCot={setCot} r={r} onPlano={() => setPestana('plano')} onEjemplo={cargarEjemplo} />}
-        {pestana === 'cargas' && <CuadroCargas cot={cot} setCot={setCot} r={r} onPlano={() => setPestana('plano')} onEjemplo={cargarEjemplo} />}
+        {pestana === 'cargas' && <CuadroCargas cot={cot} setCot={setCot} r={r} duchas={duchas} onPlano={() => setPestana('plano')} onEjemplo={cargarEjemplo} />}
         {pestana === 'materiales' && <Materiales cot={cot} setCot={setCot} r={r} onIrAPrecios={onIrAPrecios} onPresupuesto={() => setPestana('presupuesto')} onPlano={() => setPestana('plano')} />}
-        {pestana === 'presupuesto' && <Presupuesto cot={cot} setCot={setCot} r={r} duchas={duchas} onIrAPrecios={onIrAPrecios} />}
+        {pestana === 'presupuesto' && <Presupuesto cot={cot} setCot={setCot} r={r} duchas={duchas} onIrAPrecios={onIrAPrecios} onPlano={() => setPestana('plano')} />}
       </div>
     </div>
   );
@@ -232,9 +233,10 @@ function Unifilar({ cot, q }: { cot: CotizacionEle; q: Cuadro }) {
   );
 }
 
-function CuadroCargas({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionEle; setCot: SetCot; r: MetradoEle; onPlano: () => void; onEjemplo: () => void }) {
+function CuadroCargas({ cot, setCot, r, duchas, onPlano, onEjemplo }: { cot: CotizacionEle; setCot: SetCot; r: MetradoEle; duchas: Pt[]; onPlano: () => void; onEjemplo: () => void }) {
   const hojaRef = useRef<HTMLDivElement>(null);
   const q = r.cuadro;
+  const verif = useMemo(() => verificarInstalacion(cot, r, duchas), [cot, r, duchas]);
   if (!cot.circuitos.length) return <Vacio texto="El cuadro de cargas sale de los circuitos: pon los puntos en el Plano y toca “Sugerir circuitos”." onPlano={onPlano} onEjemplo={onEjemplo} />;
   const fd = (id: string, v: number) => setCot(c => ({ ...c, circuitos: c.circuitos.map(k => k.id === id ? { ...k, fd: Math.max(0, Math.min(1, v)) } : k) }));
   const kpi = (l: string, v: string, s?: string, color = 'text-slate-900') => (
@@ -254,6 +256,10 @@ function CuadroCargas({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionE
         {kpi('Alimentador', `${q.seccionAlim} mm²`, `2-1×${q.seccionAlim} + 1×${Math.min(16, q.seccionAlim)} (T) · Ø ${pulg(q.tuboAlim)}`)}
         {kpi('Suministro', q.monofasico ? 'Monofásico' : 'Trifásico', q.monofasico ? 'hasta 10 kW en 220 V' : 'la demanda pasa de 10 kW', q.monofasico ? 'text-emerald-700' : 'text-rose-600')}
       </div>
+      <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+        <VerificacionInstalacion v={verif} plegable />
+        {!verif.completa && <button onClick={onPlano} className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300`}><MapIc className="w-4 h-4" /> Corregir en el plano</button>}
+      </div>
       <div ref={hojaRef} className="zona-impresion imprimir-claro space-y-3">
         <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs">
           <div className="flex flex-wrap items-center gap-2 pb-2 mb-1 border-b border-slate-100">
@@ -265,7 +271,7 @@ function CuadroCargas({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionE
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-[10px] uppercase text-slate-400 border-b border-slate-200">
-                  {['Circuito', 'Descripción', 'Puntos', 'P. instalada', 'F. demanda', 'Máx. demanda', 'Corriente', 'Conductor', 'Interruptor', 'Diferencial', 'Tubería'].map((h, i) => <th key={h} className={`py-1.5 font-black ${i >= 2 ? 'text-right' : 'text-left'} ${i >= 7 ? 'pl-3' : ''}`}>{h}</th>)}
+                  {['Circuito', 'Descripción', 'Puntos', 'P. instalada', 'F. demanda', 'Máx. demanda', 'Corriente', 'Conductor', 'Interruptor', 'Diferencial', 'Tubería', 'Caída ΔV'].map((h, i) => <th key={h} className={`py-1.5 font-black ${i >= 2 ? 'text-right' : 'text-left'} ${i >= 7 ? 'pl-3' : ''}`}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -282,6 +288,7 @@ function CuadroCargas({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionE
                     <td className={`py-1.5 pl-3 text-right font-mono font-bold ${f.ok ? 'text-slate-800' : 'text-rose-600'}`}>{f.c.uso === 'debil' ? '—' : `2 × ${f.c.breaker} A`}{!f.ok && <span className="block text-[9px] font-bold">pide 2×{f.breakerReq} A · {f.seccionReq} mm²</span>}</td>
                     <td className="py-1.5 pl-3 text-right">{f.c.diferencial && f.c.uso !== 'debil' ? <span className="text-cyan-700 font-bold">30 mA</span> : '—'}</td>
                     <td className="py-1.5 pl-3 text-right font-mono">{NOMBRE_TUBO[cot.tubo]} Ø {pulg(f.c.tubo)}</td>
+                    <td className={`py-1.5 pl-3 text-right font-mono ${f.c.uso !== 'debil' && f.puntos && f.caida + q.caidaAlim > 4 ? 'text-rose-600 font-bold' : ''}`}>{f.c.uso === 'debil' || !f.puntos ? '—' : <>{(f.caida + q.caidaAlim).toFixed(2)} %<span className="block text-[9px] text-slate-400">{n0(f.largo)} m</span></>}</td>
                   </tr>
                 ))}
                 <tr className="bg-amber-50 font-black">
@@ -294,7 +301,8 @@ function CuadroCargas({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionE
                   <td className="py-2 pl-3 text-right font-mono">2-1×{q.seccionAlim} + 1×{Math.min(16, q.seccionAlim)} (T)</td>
                   <td className="py-2 pl-3 text-right font-mono">IG 2 × {q.ig} A</td>
                   <td />
-                  <td className="py-2 pl-3 pr-1 text-right font-mono">Ø {pulg(q.tuboAlim)}</td>
+                  <td className="py-2 pl-3 text-right font-mono">Ø {pulg(q.tuboAlim)}</td>
+                  <td className="py-2 pl-3 pr-1 text-right font-mono">{q.caidaAlim.toFixed(2)} %<span className="block text-[9px] text-slate-500 font-bold">alim. {n0(q.largoAlim)} m</span></td>
                 </tr>
               </tbody>
             </table>
@@ -305,7 +313,7 @@ function CuadroCargas({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionE
                 <span className="w-1 self-stretch rounded-full shrink-0" style={{ background: f.c.color }} />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-black text-slate-800 truncate"><span style={{ color: f.c.color }}>{f.c.nombre}</span> {f.c.desc}</p>
-                  <p className="text-[10px] text-slate-500 leading-snug">{f.puntos} pts{f.c.uso !== 'debil' ? ` · ${f.c.seccion} mm² · ${f.c.diferencial ? 'ID 30 mA · ' : ''}Ø ${pulg(f.c.tubo)} · f.d. ${f.c.fd}` : ' · coaxial y UTP'}</p>
+                  <p className="text-[10px] text-slate-500 leading-snug">{f.puntos} pts{f.c.uso !== 'debil' ? ` · ${f.c.seccion} mm² · ${f.c.diferencial ? 'ID 30 mA · ' : ''}Ø ${pulg(f.c.tubo)} · f.d. ${f.c.fd}${f.puntos ? ` · ΔV ${(f.caida + q.caidaAlim).toFixed(2)} %` : ''}` : ' · coaxial y UTP'}</p>
                 </div>
                 {f.c.uso !== 'debil' && <div className="text-right shrink-0">
                   <p className={`text-xs font-mono font-black ${f.ok ? 'text-slate-800' : 'text-rose-600'}`}>2×{f.c.breaker} A</p>
@@ -324,7 +332,7 @@ function CuadroCargas({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionE
           <Unifilar cot={cot} q={q} />
         </div>
       </div>
-      <p className="text-[10px] text-slate-400 leading-snug px-1">Corriente = máxima demanda ÷ (220 V × 0.9). Factores de demanda típicos (puedes cambiarlos): alumbrado 1.0, tomacorrientes 0.6, cocina 0.7, exclusivos 1.0. Conductores {NOMBRE_CABLE[cot.cable]}; el interruptor nunca supera la capacidad del cable (2.5 mm² → 16 A, 4 mm² → 25 A, 6 mm² → 32 A, 10 mm² → 50 A). Las cargas mayores a 10 kW suelen pedir suministro trifásico a la concesionaria.</p>
+      <p className="text-[10px] text-slate-400 leading-snug px-1">Corriente = máxima demanda ÷ (220 V × 0.9). Caída de tensión ΔV = 2 · L · I · 0.0175 · cos φ ÷ S (cobre), hasta el punto más lejano: alimentador ≤ 2.5 % y total ≤ 4 % (la sección sube sola si hace falta). Factores de demanda típicos (puedes cambiarlos): alumbrado 1.0, tomacorrientes 0.6, cocina 0.7, exclusivos 1.0. Conductores {NOMBRE_CABLE[cot.cable]}; el interruptor nunca supera la capacidad del cable (2.5 mm² → 16 A, 4 mm² → 25 A, 6 mm² → 32 A, 10 mm² → 50 A). Las cargas mayores a 10 kW suelen pedir suministro trifásico a la concesionaria.</p>
     </div>
   );
 }
@@ -471,14 +479,14 @@ function Ajustes({ cot, setCot, onIrAPrecios, hoja }: { cot: CotizacionEle; setC
 }
 
 // ── 5. Presupuesto ──────────────────────────────────────────────────────────
-function Presupuesto({ cot, setCot, r, duchas, onIrAPrecios }: { cot: CotizacionEle; setCot: SetCot; r: MetradoEle; duchas: Pt[]; onIrAPrecios?: () => void }) {
+function Presupuesto({ cot, setCot, r, duchas, onIrAPrecios, onPlano }: { cot: CotizacionEle; setCot: SetCot; r: MetradoEle; duchas: Pt[]; onIrAPrecios?: () => void; onPlano: () => void }) {
   const { datos } = useEmpresa();
   const hojaRef = useRef<HTMLDivElement>(null);
   const directo = r.directo;
   const gg = directo * cot.gg / 100, util = directo * cot.util / 100, total = directo + gg + util;
   const sinPrecio = r.lineas.some(l => l.precio === 0);
   const vacio = !cot.puntos.some(p => !esEspecial(p.tipo));
-  const avisos = useMemo(() => avisosCNE(cot, duchas), [cot, duchas]);
+  const verif = useMemo(() => verificarInstalacion(cot, r, duchas), [cot, r, duchas]);
   const q = r.cuadro;
   const resumenP = useMemo(() => { const m = new Map<string, number>(); cot.puntos.forEach(p => m.set(p.tipo, (m.get(p.tipo) || 0) + 1)); return [...m.entries()]; }, [cot.puntos]);
   const whatsapp = () => {
@@ -510,7 +518,9 @@ function Presupuesto({ cot, setCot, r, duchas, onIrAPrecios }: { cot: Cotizacion
         <BotonImprimir objetivo={() => hojaRef.current} titulo="Presupuesto de instalaciones eléctricas" etiqueta="Imprimir / PDF" />
       </div>
       {sinPrecio && !vacio && <p className="no-imprimir text-[11px] font-bold text-amber-800 bg-amber-50 rounded-xl px-3 py-2">Hay productos sin precio (en naranja). Escríbelos en Precios → “Electricidad”.</p>}
-      {avisos.some(a => a.nivel === 'error') && !vacio && <p className="no-imprimir text-[11px] font-bold text-rose-800 bg-rose-50 rounded-xl px-3 py-2">El plano tiene {avisos.filter(a => a.nivel === 'error').length} observación(es) del CNE por corregir: revisa el panel de avisos del Plano antes de enviar.</p>}
+      {!vacio && (verif.completa
+        ? <p className="no-imprimir text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-2"><ShieldCheck className="w-4 h-4 shrink-0" /> Instalación completa y verificada: {verif.checks.length} revisiones del CNE en orden{verif.avisos ? ` (${verif.avisos} recomendación${verif.avisos === 1 ? '' : 'es'})` : ''}.</p>
+        : <div className="no-imprimir text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 flex flex-wrap items-center gap-2"><ShieldAlert className="w-4 h-4 shrink-0" /><span className="flex-1 min-w-[180px]">La instalación tiene {verif.errores} punto{verif.errores === 1 ? '' : 's'} por corregir ({verif.checks.filter(k => k.estado === 'error').map(k => k.titulo).join('; ')}). Revísalo antes de enviar.</span><button onClick={onPlano} className="min-h-[36px] px-3 rounded-lg bg-white text-rose-700 border border-rose-200 cursor-pointer">Ver en el plano</button></div>)}
       <div ref={hojaRef} className="zona-impresion imprimir-claro bg-white rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
         <BandaMarca />
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-200 pb-4">

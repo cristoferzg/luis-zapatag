@@ -13,7 +13,7 @@ import {
 } from '../../catalogo/electricidad';
 import {
   ALIM, PT, BREAKER_MAX, COS_FI, CotizacionEle, Circuito, H_TABLERO, H_TECHO, Pt, Punto, Ruta, TENSION, TipoPunto, UsoCircuito, USOS, MuroRef,
-  corriente, defPunto, dimensionar, esEspecial, esInterruptor, esLuz, nombrePunto, nuevoCircuito, potencia, renumerar, uid, nombreCircuito,
+  CAIDA_ALIM_MAX, CAIDA_TOTAL_MAX, caidaPct, corriente, defPunto, dimensionar, esEspecial, esInterruptor, esLuz, nombrePunto, nuevoCircuito, potencia, renumerar, uid, nombreCircuito,
 } from './modeloElectricidad';
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -49,8 +49,8 @@ export function desplazar(pts: Pt[], off: number): Pt[] {
 const usoDe = (t: TipoPunto): UsoCircuito | undefined => defPunto(t).uso;
 
 // ── Circuitos ───────────────────────────────────────────────────────────────
-const LIM_PUNTOS: Partial<Record<UsoCircuito, number>> = { alumbrado: 12, tomas: 12, cocina: 8 };
-const LIM_W: Partial<Record<UsoCircuito, number>> = { alumbrado: 1500, tomas: 2500, cocina: 3500 };
+export const LIM_PUNTOS: Partial<Record<UsoCircuito, number>> = { alumbrado: 12, tomas: 12, cocina: 8 };
+export const LIM_W: Partial<Record<UsoCircuito, number>> = { alumbrado: 1500, tomas: 2500, cocina: 3500 };
 export const cargaCircuito = (cot: { puntos: Punto[] }, id: string) => cot.puntos.filter(p => p.circuito === id).reduce((s, p) => s + potencia(p), 0);
 export const puntosCircuito = (cot: { puntos: Punto[] }, id: string) => cot.puntos.filter(p => p.circuito === id && !esInterruptor(p.tipo));
 
@@ -70,12 +70,17 @@ export function circuitoParaPunto(cot: { puntos: Punto[]; circuitos: Circuito[] 
 const ORDEN_USO: UsoCircuito[] = ['alumbrado', 'tomas', 'cocina', 'fuerza', 'debil'];
 const ordenar = (cs: Circuito[]) => [...cs].sort((a, b) => ORDEN_USO.indexOf(a.uso) - ORDEN_USO.indexOf(b.uso));
 
-/** Recalcula interruptor, sección y tubo de los circuitos que el usuario no fijó. */
+/** Recalcula interruptor, sección y tubo de los circuitos que el usuario no fijó (por carga y por caída de tensión). */
 export function redimensionar(cot: CotizacionEle): CotizacionEle {
   let cambio = false;
+  // El interruptor sale de la carga; la caída que deja el alimentador fija cuánto puede caer cada circuito.
+  const conCarga = cot.circuitos.filter(c => c.uso !== 'debil' && puntosCircuito(cot, c.id).length);
+  const maxB = Math.max(0, ...conCarga.map(c => (c.manual ? c.breaker : dimensionar(c.uso, cargaCircuito(cot, c.id)).breaker)));
+  const al = alimentador(cot, demanda(cot), maxB);
+  const objetivo = Math.max(1.5, CAIDA_TOTAL_MAX - al.caidaAlim);
   const cs = cot.circuitos.map(c => {
     if (c.manual || c.uso === 'debil') return c;
-    const dm = dimensionar(c.uso, cargaCircuito(cot, c.id));
+    const dm = dimensionar(c.uso, cargaCircuito(cot, c.id), largoCircuito(cot, c.id), objetivo);
     if (dm.breaker === c.breaker && dm.seccion === c.seccion && dm.tubo === c.tubo) return c;
     cambio = true; return { ...c, ...dm };
   });
@@ -86,30 +91,50 @@ export function redimensionar(cot: CotizacionEle): CotizacionEle {
 export function sugerirCircuitos(cot: CotizacionEle): { circuitos: Circuito[]; puntos: Punto[] } {
   const out: Circuito[] = [];
   const asign = new Map<string, string>();
+  // Primero se enlaza cada interruptor con sus luces: las luces de un mismo interruptor van en el mismo circuito.
+  const base = enlazarInterruptores(cot);
   const grupo = (uso: UsoCircuito, ps: Punto[], desc: string) => {
     if (!ps.length) return;
-    // Ordena por zonas (de adelante hacia atrás) y reparte en circuitos parejos que no pasen el límite.
-    const orden = [...ps].sort((a, b) => (a.y + a.x * 0.15) - (b.y + b.x * 0.15));
-    const W = orden.reduce((s, q) => s + potencia(q), 0);
-    const n = Math.max(1, Math.ceil(orden.length / (LIM_PUNTOS[uso] || 99)), Math.ceil(W / (LIM_W[uso] || 1e9)));
-    const grupos: Punto[][] = Array.from({ length: n }, () => []);
-    let gi = 0, acc = 0;
-    orden.forEach(p => {
-      if (gi < n - 1 && grupos[gi].length && (grupos[gi].length >= Math.ceil(orden.length / n) || acc + potencia(p) / 2 > W / n)) { gi++; acc = 0; }
-      grupos[gi].push(p); acc += potencia(p);
+    // Unidades que no se separan: las luces que comparten interruptor.
+    const raiz = new Map(ps.map(p => [p.id, p.id]));
+    const find = (id: string): string => { const r = raiz.get(id)!; return r === id ? id : find(r); };
+    if (uso === 'alumbrado') base.filter(p => esInterruptor(p.tipo)).forEach(sw => {
+      const ids = (sw.controla || []).filter(id => raiz.has(id));
+      ids.slice(1).forEach(id => raiz.set(find(id), find(ids[0])));
     });
+    const mapa = new Map<string, Punto[]>();
+    ps.forEach(p => { const k = find(p.id); mapa.set(k, [...(mapa.get(k) || []), p]); });
+    const cx = (u: Punto[]) => u.reduce((s, p) => s + p.y + p.x * 0.15, 0) / u.length;
+    // Ordena por zonas (de adelante hacia atrás) y reparte en circuitos parejos que no pasen el límite.
+    const orden = [...mapa.values()].sort((a, b) => cx(a) - cx(b));
+    const wU = (u: Punto[]) => u.reduce((s, q) => s + potencia(q), 0);
+    const W = orden.reduce((s, u) => s + wU(u), 0), N = ps.length;
+    const limP = LIM_PUNTOS[uso] || 99, limW = LIM_W[uso] || 1e9;
+    const repartir = (n: number) => {
+      const gs: Punto[][] = Array.from({ length: n }, () => []);
+      let gi = 0, acc = 0;
+      orden.forEach(u => {
+        const w = wU(u);
+        if (gi < n - 1 && gs[gi].length && (gs[gi].length + u.length > Math.ceil(N / n) || acc + w / 2 > W / n)) { gi++; acc = 0; }
+        gs[gi].push(...u); acc += w;
+      });
+      return gs.filter(g => g.length);
+    };
+    // Si algún grupo pasa el límite de puntos o de potencia, se agrega un circuito más.
+    let n = Math.max(1, Math.ceil(N / limP), Math.ceil(W / limW)), grupos = repartir(n);
+    while (n < N && grupos.some(g => g.length > limP || (g.length > 1 && wU(g) > limW))) grupos = repartir(++n);
     grupos.forEach((g, i) => {
       const c = { ...nuevoCircuito(out, uso, grupos.length > 1 ? `${desc} ${i + 1}` : desc) };
       Object.assign(c, dimensionar(uso, g.reduce((s, q) => s + potencia(q), 0)));
       out.push(c); g.forEach(p => asign.set(p.id, c.id));
     });
   };
-  const ps = cot.puntos.filter(p => !esEspecial(p.tipo));
+  const ps = base.filter(p => !esEspecial(p.tipo));
   grupo('alumbrado', ps.filter(p => usoDe(p.tipo) === 'alumbrado' && !esInterruptor(p.tipo)), 'Alumbrado');
   grupo('tomas', ps.filter(p => usoDe(p.tipo) === 'tomas'), 'Tomacorrientes');
   grupo('cocina', ps.filter(p => usoDe(p.tipo) === 'cocina'), 'Tomas cocina y lavandería');
   ps.filter(p => defPunto(p.tipo).exclusivo).forEach(p => {
-    const c = nuevoCircuito(out, 'fuerza', nombrePunto(p, cot.puntos));
+    const c = nuevoCircuito(out, 'fuerza', nombrePunto(p, base));
     Object.assign(c, dimensionar('fuerza', potencia(p)));
     out.push(c); asign.set(p.id, c.id);
   });
@@ -122,7 +147,7 @@ export function sugerirCircuitos(cot: CotizacionEle): { circuitos: Circuito[]; p
     const c = l && asign.get(l.id);
     if (c) asign.set(p.id, c); else if (out.find(k => k.uso === 'alumbrado')) asign.set(p.id, out.find(k => k.uso === 'alumbrado')!.id);
   });
-  return { circuitos: renumerar(out), puntos: cot.puntos.map(p => ({ ...p, circuito: asign.get(p.id) })) };
+  return { circuitos: renumerar(out), puntos: base.map(p => ({ ...p, circuito: asign.get(p.id) })) };
 }
 
 // ── Trazado automático ──────────────────────────────────────────────────────
@@ -204,16 +229,62 @@ function cruzaMuro(a: Pt, b: Pt, muros: MuroRef[]) {
 export function enlazarInterruptores(cot: CotizacionEle): Punto[] {
   const luces = cot.puntos.filter(p => esLuz(p.tipo));
   const tomadas = new Set(cot.puntos.filter(p => esInterruptor(p.tipo)).flatMap(p => p.controla || []));
+  // Conmutación (3 vías): cuántos conmutadores manejan cada luz; el segundo conmutador va a la luz del primero.
+  const conm = new Map<string, number>();
+  cot.puntos.filter(p => p.tipo === 'int_conmutador').forEach(p => (p.controla || []).forEach(id => conm.set(id, (conm.get(id) || 0) + 1)));
   return cot.puntos.map(p => {
     if (!esInterruptor(p.tipo)) return p;
     const ok = (p.controla || []).filter(id => luces.some(l => l.id === id));
     if (ok.length) return ok.length === (p.controla || []).length ? p : { ...p, controla: ok };
+    if (p.tipo === 'int_conmutador') {
+      const pareja = luces.filter(l => conm.get(l.id) === 1).sort((a, b) => dist(a, p) - dist(b, p))[0];
+      if (pareja) { conm.set(pareja.id, 2); return { ...p, controla: [pareja.id] }; }
+    }
     const n = p.tipo === 'int_conmutador' ? 1 : defPunto(p.tipo).retornos || 1;
     const cand = luces.filter(l => !cruzaMuro(p, l, cot.fondo.muros)).sort((a, b) => (tomadas.has(a.id) ? 1 : 0) - (tomadas.has(b.id) ? 1 : 0) || dist(a, p) - dist(b, p));
     const elegidas = (cand.length ? cand : [...luces].sort((a, b) => dist(a, p) - dist(b, p))).slice(0, n);
-    elegidas.forEach(l => tomadas.add(l.id));
+    elegidas.forEach(l => { tomadas.add(l.id); if (p.tipo === 'int_conmutador') conm.set(l.id, (conm.get(l.id) || 0) + 1); });
     return elegidas.length ? { ...p, controla: elegidas.map(l => l.id) } : p;
   });
+}
+/** Metros en que una polilínea corre encima de otras rutas (tramos colineales superpuestos). */
+export function solape(pts: Pt[], rutas: Ruta[]) {
+  let s = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    rutas.forEach(t => { for (let k = 0; k < t.pts.length - 1; k++) {
+      const c = t.pts[k], d = t.pts[k + 1];
+      if (Math.abs(a.y - b.y) < 1e-6 && Math.abs(c.y - d.y) < 1e-6 && Math.abs(a.y - c.y) < 1e-6) s += Math.max(0, Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x)) - Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x)));
+      else if (Math.abs(a.x - b.x) < 1e-6 && Math.abs(c.x - d.x) < 1e-6 && Math.abs(a.x - c.x) < 1e-6) s += Math.max(0, Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y)) - Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y)));
+    } });
+  }
+  return s;
+}
+/** Corta la polilínea donde empieza a correr encima de otra ruta (queda unida en T a esa ruta). */
+function cortarEnSolape(pts: Pt[], rutas: Ruta[]): Pt[] {
+  const acc: Pt[] = [pts[0]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], L = dist(a, b);
+    if (L < 1e-6) continue;
+    const u = { x: (b.x - a.x) / L, y: (b.y - a.y) / L };
+    let ini = Infinity;
+    rutas.forEach(t => { for (let k = 0; k < t.pts.length - 1; k++) {
+      const c = t.pts[k], d = t.pts[k + 1];
+      const misma = (Math.abs(a.y - b.y) < 1e-6 && Math.abs(c.y - d.y) < 1e-6 && Math.abs(a.y - c.y) < 1e-6) || (Math.abs(a.x - b.x) < 1e-6 && Math.abs(c.x - d.x) < 1e-6 && Math.abs(a.x - c.x) < 1e-6);
+      if (!misma) continue;
+      const tc = (c.x - a.x) * u.x + (c.y - a.y) * u.y, td = (d.x - a.x) * u.x + (d.y - a.y) * u.y;
+      const s0 = Math.max(0, Math.min(tc, td)), s1 = Math.min(L, Math.max(tc, td));
+      if (s1 - s0 > 0.01) ini = Math.min(ini, s0);
+    } });
+    if (isFinite(ini)) {
+      const q = { x: r3(a.x + u.x * ini), y: r3(a.y + u.y * ini) };
+      if (dist(q, pts[0]) < 0.05) return pts; // la caja del interruptor ya está bajo la tubería: se deja la bajada entera
+      if (dist(q, acc[acc.length - 1]) > 0.005) acc.push(q);
+      return acc;
+    }
+    acc.push(b);
+  }
+  return pts;
 }
 /** Traza todas las rutas desde el tablero. Devuelve también los enlaces interruptor → luces. */
 export function trazarAutomatico(cot: CotizacionEle): { rutas: Ruta[]; puntos: Punto[]; notas: string[] } {
@@ -230,12 +301,19 @@ export function trazarAutomatico(cot: CotizacionEle): { rutas: Ruta[]; puntos: P
       const ds = ps.filter(p => defPunto(p.tipo).via === via);
       if (ds.length) out.push(...rutasDeArbol(arbolL([td], ds.map(p => ({ p, key: p.id }))), c.id, via));
     });
-    // Interruptores: bajada desde la luz que controlan.
+    // Interruptores: bajada desde la luz que controlan, por el lado que no repite la tubería que ya llega a esa luz.
     puntos.filter(p => p.circuito === c.id && esInterruptor(p.tipo)).forEach(s => {
       const l = puntos.find(x => x.id === (s.controla || [])[0]); if (!l) return;
       const perp = s.rot % 180 === 0; // en muro horizontal: primero entra al ambiente (en y)
-      const esq = perp ? { x: s.x, y: l.y } : { x: l.x, y: s.y };
-      const pts = [{ x: s.x, y: s.y }, esq, { x: l.x, y: l.y }].filter((p, i, a) => i === 0 || dist(p, a[i - 1]) > 0.005);
+      const techo = out.filter(t => t.circuito === c.id && t.via === 'techo');
+      const opciones = [perp, !perp].map(pr => {
+        const esq = pr ? { x: s.x, y: l.y } : { x: l.x, y: s.y };
+        const pts = [{ x: s.x, y: s.y }, esq, { x: l.x, y: l.y }].filter((p, i, a) => i === 0 || dist(p, a[i - 1]) > 0.005);
+        return { pts, sol: solape(pts, techo) };
+      });
+      // Si aun así corre sobre la tubería del circuito, la bajada entra a ella en una caja de paso y los retornos siguen por dentro.
+      const elegida = opciones[1].sol < opciones[0].sol - 0.01 ? opciones[1] : opciones[0];
+      const pts = elegida.sol > 0.01 ? cortarEnSolape(elegida.pts, techo) : elegida.pts;
       if (pts.length >= 2) out.push({ id: uid(), circuito: c.id, via: 'techo', pts: pts.map(p => ({ x: r3(p.x), y: r3(p.y) })), auto: true });
     });
   });
@@ -290,14 +368,76 @@ function recorrer(g: Grafo) {
   return { padre, orden };
 }
 
+/** Distancia en planta (m) desde la raíz a cada nudo, por las tuberías (Dijkstra). */
+function distancias(g: Grafo) {
+  const d = g.nudos.map(() => Infinity), hecho = g.nudos.map(() => false);
+  g.raiz.forEach(r => { d[r] = 0; });
+  for (;;) {
+    let k = -1; d.forEach((v, i) => { if (!hecho[i] && isFinite(v) && (k < 0 || v < d[k])) k = i; });
+    if (k < 0) break; hecho[k] = true;
+    g.nudos[k].aristas.forEach(i => { const e = g.aristas[i], m = e.a === k ? e.b : e.a; if (d[k] + e.len < d[m]) d[m] = d[k] + e.len; });
+  }
+  return d;
+}
+const salidaTablero = (via: 'techo' | 'piso') => (via === 'techo' ? H_TECHO - (H_TABLERO + 0.25) : H_TABLERO - 0.25);
+/** Largo del cable (m) desde el tablero hasta el punto más lejano del circuito: por sus tuberías (o en L si aún no hay), con subidas y bajadas. */
+export function largoCircuito(cot: { puntos: Punto[]; rutas: Ruta[] }, cid: string): number {
+  const td = cot.puntos.find(p => p.tipo === 'tablero'); if (!td) return 0;
+  const ps = cot.puntos.filter(p => p.circuito === cid && !esInterruptor(p.tipo) && !esEspecial(p.tipo));
+  if (!ps.length) return 0;
+  const g = cot.rutas.some(r => r.circuito === cid) ? grafoCircuito(cot, cid) : null;
+  const d = g ? distancias(g) : [];
+  return Math.max(...ps.map(p => {
+    const def = defPunto(p.tipo), v = salidaTablero(def.via) + Math.abs((def.via === 'techo' ? H_TECHO : 0) - def.h);
+    const k = g ? g.nudos.findIndex(n => n.puntos.some(q => q.id === p.id)) : -1;
+    return (k >= 0 && isFinite(d[k]) ? d[k] : man(td, p)) + v;
+  }));
+}
+/** Máxima demanda (W): carga instalada de cada circuito por su factor de demanda. */
+export function demanda(cot: { puntos: Punto[]; circuitos: Circuito[] }) {
+  return cot.circuitos.reduce((s, c) => s + puntosCircuito(cot, c.id).reduce((a, p) => a + potencia(p), 0) * c.fd, 0);
+}
+/** Interruptor general (mayor que el mayor circuito, para que dispare primero el del circuito) y alimentador por corriente y caída de tensión (≤ 2.5 %). */
+export function alimentador(cot: { puntos: Punto[]; rutas: Ruta[] }, md: number, maxBreaker: number) {
+  const I = md / (TENSION * COS_FI);
+  const ig = [32, 40, 50, 63, 80, 100].find(b => b >= I * 1.1 && b > maxBreaker) || 100;
+  const med = cot.puntos.find(p => p.tipo === 'medidor'), td = cot.puntos.find(p => p.tipo === 'tablero');
+  let largo = 0;
+  if (med && td) {
+    let plano = man(med, td);
+    if (cot.rutas.some(r => r.circuito === ALIM)) {
+      const g = grafoCircuito(cot, ALIM), d = distancias(g);
+      const k = g.nudos.findIndex(n => n.puntos.some(q => q.id === td.id));
+      if (k >= 0 && isFinite(d[k])) plano = d[k];
+    }
+    largo = plano + defPunto('medidor').h + salidaTablero('piso');
+  }
+  const seccionAlim = [10, 16, 25].find(s => (BREAKER_MAX[s] || 0) >= ig && caidaPct(largo, I, s) <= CAIDA_ALIM_MAX) || 25;
+  return { ig, seccionAlim, largoAlim: largo, caidaAlim: caidaPct(largo, I, seccionAlim), hayMedidor: !!(med && td) };
+}
+
 // ── Información de cada ruta: verticales, curvas, cajas de paso, conductores ──
 export type ColorCable = 'rojo' | 'negro' | 'verde' | 'amarillo';
 export interface CableRuta { sec: number; color: ColorCable; m: number }
 export interface InfoRuta {
   id: string; circuito: string; len: number; vert: number; curvas: number; paso: number; cond: number; diam: string;
   cables: CableRuta[]; coax: number; utp: number; extremos: { p?: Punto; v: number }[]; texto: string;
+  /** % del área interior del tubo ocupado por los conductores. */
+  relleno: number;
 }
 const HOLGURA = 0.3; // m de cable que se deja en cada caja, por conductor
+/** Diámetro exterior (mm) de cada conductor, con su aislamiento (catálogos de fabricantes peruanos). */
+const DIAM_CABLE: Record<string, Record<number, number>> = {
+  thw: { 2.5: 3.9, 4: 4.4, 6: 5.0, 10: 6.4, 16: 7.6, 25: 9.6 },
+  nh80: { 2.5: 4.3, 4: 4.8, 6: 5.4, 10: 6.8, 16: 7.9, 25: 9.8 },
+};
+const DIAM_COAX = 6.9, DIAM_UTP = 6.2;
+/** Diámetro interior (mm) del tubo PVC-SAP (el PVC-L es algo más ancho: se usa el más estrecho). */
+const DIAM_INT_TUBO: Record<string, number> = { '3/4': 22.9, '1': 29.4, '1 1/4': 38 };
+const ORDEN_TUBO = ['3/4', '1', '1 1/4'];
+const area = (d: number) => (Math.PI * d * d) / 4;
+/** Relleno máximo del tubo (CNE): 53 % con 1 conductor, 31 % con 2 y 40 % con 3 o más. */
+export const rellenoMax = (n: number) => (n <= 1 ? 53 : n === 2 ? 31 : 40);
 export function infoRutas(cot: CotizacionEle, seccionAlim: number): Map<string, InfoRuta> {
   const out = new Map<string, InfoRuta>();
   const ids = [...cot.circuitos.map(c => c.id), ALIM, PT];
@@ -350,34 +490,57 @@ export function infoRutas(cot: CotizacionEle, seccionAlim: number): Map<string, 
       } else if (sw) {
         const ret = defPunto(sw.tipo).retornos || 1;
         cond = 1 + ret; cables = [{ sec: c?.seccion || 2.5, color: 'rojo', m: largoCable(1) }, { sec: c?.seccion || 2.5, color: 'amarillo', m: largoCable(ret) }];
+        // Bajada que entra a la tubería del circuito antes de la luz: los retornos siguen por dentro hasta la luz.
+        const otro = extremos.find(e => e.p !== sw), luz = cot.puntos.find(p => p.id === (sw.controla || [])[0]);
+        if (otro && !otro.p && luz) { const q = dist(r.pts[0], sw) < dist(r.pts[r.pts.length - 1], sw) ? r.pts[r.pts.length - 1] : r.pts[0]; cables[1].m += (man(q, luz) + HOLGURA) * ret; }
       } else if (c) {
         cables = [{ sec: c.seccion, color: 'rojo', m: largoCable(1) }, { sec: c.seccion, color: 'negro', m: largoCable(1) }, { sec: c.seccion, color: 'verde', m: largoCable(1) }];
       }
       if (cond > 5 && diam === '3/4') diam = '1';
+      // Relleno del tubo: si los conductores no entran holgados se pasa al diámetro siguiente.
+      const dc = DIAM_CABLE[cot.cable] || DIAM_CABLE.thw;
+      const secs: number[] = cid === ALIM ? [seccionAlim, seccionAlim, Math.min(16, seccionAlim)] : cid === PT ? [Math.max(10, Math.min(16, seccionAlim))]
+        : c?.uso === 'debil' ? [] : Array.from({ length: cond }, () => c?.seccion || 2.5);
+      const ocupa = secs.reduce((s, k) => s + area(dc[k] || 4), 0) + (c?.uso === 'debil' ? (coax / Math.max(1e-9, L + 0.6)) * area(DIAM_COAX) + (utp / Math.max(1e-9, L + 0.6)) * area(DIAM_UTP) : 0);
+      const nCond = c?.uso === 'debil' ? cond : secs.length;
+      const rel = (d: string) => (100 * ocupa) / area(DIAM_INT_TUBO[d] || DIAM_INT_TUBO['3/4']);
+      while (rel(diam) > rellenoMax(nCond) && ORDEN_TUBO.indexOf(diam) >= 0 && ORDEN_TUBO.indexOf(diam) < ORDEN_TUBO.length - 1) diam = ORDEN_TUBO[ORDEN_TUBO.indexOf(diam) + 1];
+      const relleno = rel(diam);
       const texto = cid === PT ? '1 × tierra' : c?.uso === 'debil' ? `${cond} cable${cond > 1 ? 's' : ''}` : sw ? `${cond} cond. (fase + ${cond - 1} retorno${cond > 2 ? 's' : ''})` : `${cond} cond. (2 líneas + tierra)`;
-      out.set(r.id, { id: r.id, circuito: cid, len, vert, curvas, paso, cond, diam, cables, coax, utp, extremos, texto });
+      out.set(r.id, { id: r.id, circuito: cid, len, vert, curvas, paso, cond, diam, cables, coax, utp, extremos, texto, relleno });
     });
   });
   return out;
 }
 
 // ── Cuadro de cargas ────────────────────────────────────────────────────────
-export interface FilaCuadro { c: Circuito; puntos: number; ci: number; md: number; I: number; breakerReq: number; seccionReq: number; ok: boolean }
+export interface FilaCuadro {
+  c: Circuito; puntos: number; ci: number; md: number; I: number; breakerReq: number; seccionReq: number; ok: boolean;
+  /** Largo (m) hasta el punto más lejano y caída de tensión del circuito (%). */
+  largo: number; caida: number;
+}
 export interface Cuadro {
   filas: FilaCuadro[]; ci: number; md: number; I: number; ig: number; seccionAlim: number; tuboAlim: string;
+  /** Alimentador medidor → tablero: largo (m) y caída de tensión (%); hayMedidor = se pudo medir. */
+  largoAlim: number; caidaAlim: number; hayMedidor: boolean; caidaMaxCircuito: number;
   diferenciales: { amp: number; circ: string[]; suma: number }[]; polos: number; tablero: number; monofasico: boolean;
 }
 export function cuadroCargas(cot: CotizacionEle): Cuadro {
+  const md = demanda(cot);
+  const maxB = Math.max(0, ...cot.circuitos.filter(c => c.uso !== 'debil' && puntosCircuito(cot, c.id).length).map(c => c.breaker));
+  const al = alimentador(cot, md, maxB);
+  const caidaMaxCircuito = Math.max(1.5, CAIDA_TOTAL_MAX - al.caidaAlim);
   const filas: FilaCuadro[] = cot.circuitos.map(c => {
-    const ps = puntosCircuito(cot, c.id), ci = ps.reduce((s, p) => s + potencia(p), 0), md = ci * c.fd;
-    const req = dimensionar(c.uso, ci);
-    const ok = c.uso === 'debil' || (c.breaker >= req.breaker && (BREAKER_MAX[c.seccion] || 0) >= c.breaker && c.seccion >= req.seccion);
-    return { c, puntos: ps.length, ci, md, I: c.uso === 'debil' ? 0 : corriente(ci), breakerReq: req.breaker, seccionReq: req.seccion, ok };
+    const ps = puntosCircuito(cot, c.id), ci = ps.reduce((s, p) => s + potencia(p), 0), mdc = ci * c.fd;
+    const largo = c.uso === 'debil' ? 0 : largoCircuito(cot, c.id);
+    const req = dimensionar(c.uso, ci, largo, caidaMaxCircuito);
+    const caida = c.uso === 'debil' ? 0 : caidaPct(largo, corriente(ci), c.seccion);
+    const ok = c.uso === 'debil' || (c.breaker >= req.breaker && (BREAKER_MAX[c.seccion] || 0) >= c.breaker && c.seccion >= req.seccion && caida <= caidaMaxCircuito + 1e-9);
+    return { c, puntos: ps.length, ci, md: mdc, I: c.uso === 'debil' ? 0 : corriente(ci), breakerReq: req.breaker, seccionReq: req.seccion, ok, largo, caida };
   });
-  const ci = filas.reduce((s, f) => s + f.ci, 0), md = filas.reduce((s, f) => s + f.md, 0);
+  const ci = filas.reduce((s, f) => s + f.ci, 0);
   const I = md / (TENSION * COS_FI);
-  const ig = [32, 40, 50, 63, 80, 100].find(b => b >= I * 1.1) || 100;
-  const seccionAlim = [10, 16, 25].find(s => (BREAKER_MAX[s] || 0) >= Math.min(ig, 80)) || 25;
+  const { ig, seccionAlim } = al;
   // Diferenciales: uno por circuito exclusivo; los de tomacorrientes van de a dos (ID 2×40 A).
   const difs: { amp: number; circ: string[]; suma: number }[] = [];
   filas.filter(f => f.c.diferencial && f.c.uso !== 'debil' && f.puntos).forEach(f => {
@@ -388,7 +551,47 @@ export function cuadroCargas(cot: CotizacionEle): Cuadro {
   const nTM = filas.filter(f => f.c.uso !== 'debil').length;
   const polos = 2 + nTM * 2 + difs.length * 2 + 2;
   const tablero = [12, 18, 24, 36].find(n => n >= polos) || 36;
-  return { filas, ci, md, I, ig, seccionAlim, tuboAlim: seccionAlim >= 25 ? '1 1/4' : '1', diferenciales: difs, polos, tablero, monofasico: md <= 10000 };
+  return {
+    filas, ci, md, I, ig, seccionAlim, tuboAlim: seccionAlim >= 25 ? '1 1/4' : '1', diferenciales: difs, polos, tablero, monofasico: md <= 10000,
+    largoAlim: al.largoAlim, caidaAlim: al.caidaAlim, hayMedidor: al.hayMedidor, caidaMaxCircuito,
+  };
+}
+
+// ── Conexión y mando de luces (los usan los avisos y la verificación) ───────
+/** Nudos a los que se llega desde la raíz del grafo. */
+function alcanzados(g: Grafo) { const { padre } = recorrer(g); return new Set(g.nudos.map((_, i) => i).filter(i => padre[i] !== -2)); }
+/** Puntos que no llegan al tablero por tubería y tuberías sueltas (que no salen del tablero o de un circuito que ya no existe). */
+export function conexiones(cot: { puntos: Punto[]; rutas: Ruta[]; circuitos: Circuito[] }) {
+  const sueltos: Punto[] = [], huerfanas: Ruta[] = [];
+  const revisar = (cid: string, ps: Punto[]) => {
+    const g = grafoCircuito(cot, cid), vis = alcanzados(g);
+    ps.forEach(p => { if (!g.nudos.some((n, i) => vis.has(i) && n.puntos.some(q => q.id === p.id))) sueltos.push(p); });
+    const rutasOk = new Set(g.aristas.filter(e => vis.has(e.a) || vis.has(e.b)).map(e => e.ruta.id));
+    cot.rutas.filter(t => t.circuito === cid && !rutasOk.has(t.id)).forEach(t => huerfanas.push(t));
+  };
+  cot.circuitos.forEach(c => revisar(c.id, cot.puntos.filter(p => p.circuito === c.id && !esEspecial(p.tipo))));
+  const td = cot.puntos.find(p => p.tipo === 'tablero');
+  const med = cot.puntos.find(p => p.tipo === 'medidor'), pozo = cot.puntos.find(p => p.tipo === 'pozo_tierra');
+  if (td) revisar(ALIM, med ? [med] : []); else cot.rutas.filter(t => t.circuito === ALIM).forEach(t => huerfanas.push(t));
+  if (td) revisar(PT, pozo ? [pozo] : []); else cot.rutas.filter(t => t.circuito === PT).forEach(t => huerfanas.push(t));
+  cot.rutas.filter(t => t.circuito !== ALIM && t.circuito !== PT && !cot.circuitos.some(c => c.id === t.circuito)).forEach(t => huerfanas.push(t));
+  return { sueltos, huerfanas };
+}
+/** Luces sin interruptor, interruptores sin luces, interruptores que mezclan circuitos y conmutadores sin pareja. */
+export function mandoLuces(cot: { puntos: Punto[] }) {
+  const sws = cot.puntos.filter(p => esInterruptor(p.tipo));
+  const ctrl = new Map<string, Punto[]>();
+  sws.forEach(s => (s.controla || []).forEach(id => ctrl.set(id, [...(ctrl.get(id) || []), s])));
+  const luces = cot.puntos.filter(p => esLuz(p.tipo));
+  // El sensor de movimiento se enciende solo; no pide interruptor.
+  const sinInterruptor = luces.filter(l => l.tipo !== 'sensor' && !(ctrl.get(l.id) || []).length);
+  const vacios = sws.filter(s => !(s.controla || []).some(id => luces.some(l => l.id === id)));
+  const mezclados = sws.filter(s => {
+    const cs = new Set((s.controla || []).map(id => luces.find(l => l.id === id)?.circuito).filter(Boolean));
+    return cs.size > 1 || (cs.size === 1 && !!s.circuito && !cs.has(s.circuito));
+  });
+  const conmSolos = luces.filter(l => (ctrl.get(l.id) || []).filter(s => s.tipo === 'int_conmutador').length === 1);
+  return { sinInterruptor, vacios, mezclados, conmSolos };
 }
 
 // ── Avisos CNE ──────────────────────────────────────────────────────────────
@@ -423,14 +626,11 @@ export function avisosCNE(cot: CotizacionEle, duchas: Pt[] = []): Aviso[] {
   });
   // Puntos sin ruta al tablero.
   if (td.length && cot.rutas.length) {
-    const sueltos: Punto[] = [];
-    cot.circuitos.forEach(c => {
-      const g = grafoCircuito(cot, c.id); const { padre } = recorrer(g);
-      puntosCircuito(cot, c.id).concat(cot.puntos.filter(p => p.circuito === c.id && esInterruptor(p.tipo))).forEach(p => {
-        if (!g.nudos.some((n, i) => padre[i] !== -2 && n.puntos.some(q => q.id === p.id))) sueltos.push(p);
-      });
-    });
-    if (sueltos.length) out.push({ nivel: 'aviso', texto: `${sueltos.length} punto(s) sin tubería hasta el tablero: ${sueltos.slice(0, 3).map(p => nombrePunto(p, cot.puntos)).join(', ')}${sueltos.length > 3 ? '…' : ''}. Toca "Trazar automáticamente" o dibuja la tubería.`, punto: sueltos[0].id });
+    const { sueltos: todos, huerfanas } = conexiones(cot);
+    const sueltos = todos.filter(p => !esEspecial(p.tipo));
+    if (sueltos.length) out.push({ nivel: 'error', texto: `${sueltos.length} punto(s) sin tubería hasta el tablero: ${sueltos.slice(0, 3).map(p => nombrePunto(p, cot.puntos)).join(', ')}${sueltos.length > 3 ? '…' : ''}. Toca "Trazar automáticamente" o dibuja la tubería.`, punto: sueltos[0].id });
+    if (huerfanas.length) out.push({ nivel: 'aviso', texto: `${huerfanas.length} tubería(s) suelta(s): no salen del tablero (o su circuito ya no existe). Únelas o quítalas; igual se cuentan en los materiales.` });
+    if (cot.puntos.some(p => p.tipo === 'medidor') && cot.rutas.some(r => r.circuito === ALIM) && todos.some(p => p.tipo === 'medidor')) out.push({ nivel: 'error', texto: 'El alimentador no une el medidor con el tablero.' });
   } else if (td.length && !cot.rutas.length) out.push({ nivel: 'aviso', texto: 'Aún no hay tuberías: toca "Trazar automáticamente".' });
   if (td.length && cot.rutas.length && cot.puntos.some(p => p.tipo === 'pozo_tierra') && !cot.rutas.some(r => r.circuito === PT)) out.push({ nivel: 'error', texto: 'El pozo a tierra no está unido al tablero (falta la línea a tierra).' });
   // Tomacorrientes cerca de la ducha (de Gasfitería o duchas eléctricas).
@@ -438,7 +638,18 @@ export function avisosCNE(cot: CotizacionEle, duchas: Pt[] = []): Aviso[] {
   reales.filter(p => defPunto(p.tipo).clase === 'toma').forEach(p => {
     if (ds.some(d => dist(d, p) < 0.6)) out.push({ nivel: 'error', texto: `${nombrePunto(p, cot.puntos)} está a menos de 0.60 m de la ducha: aléjalo (zona húmeda).`, punto: p.id });
   });
-  cot.puntos.filter(p => esInterruptor(p.tipo) && !(p.controla || []).length).slice(0, 1).forEach(p => out.push({ nivel: 'aviso', texto: `${nombrePunto(p, cot.puntos)} no controla ninguna luz: elígelas en el panel del interruptor (o se enlaza solo al trazar).`, punto: p.id }));
+  const mando = mandoLuces(cot);
+  mando.vacios.slice(0, 1).forEach(p => out.push({ nivel: 'aviso', texto: `${nombrePunto(p, cot.puntos)} no controla ninguna luz: elígelas en el panel del interruptor (o se enlaza solo al trazar).`, punto: p.id }));
+  if (mando.sinInterruptor.length) out.push({ nivel: 'aviso', texto: `${mando.sinInterruptor.length} luz(ces) sin interruptor (${mando.sinInterruptor.slice(0, 3).map(p => nombrePunto(p, cot.puntos)).join(', ')}${mando.sinInterruptor.length > 3 ? '…' : ''}): enlázalas a un interruptor.`, punto: mando.sinInterruptor[0].id });
+  mando.mezclados.slice(0, 1).forEach(p => out.push({ nivel: 'error', texto: `${nombrePunto(p, cot.puntos)} maneja luces de otro circuito: un interruptor solo debe llevar la fase de un circuito. Pasa esas luces a un mismo circuito.`, punto: p.id }));
+  mando.conmSolos.slice(0, 1).forEach(p => out.push({ nivel: 'aviso', texto: `${nombrePunto(p, cot.puntos)} tiene un solo interruptor de conmutación: la conmutación (3 vías) lleva dos.`, punto: p.id }));
+  // Caída de tensión e interruptor general.
+  if (td.length && cot.circuitos.length) {
+    const q = cuadroCargas(cot);
+    q.filas.filter(f => f.puntos && f.c.uso !== 'debil' && f.caida + q.caidaAlim > CAIDA_TOTAL_MAX + 1e-9).forEach(f => out.push({ nivel: 'error', texto: `${f.c.nombre}: caída de tensión ${(f.caida + q.caidaAlim).toFixed(1)} % (máx. ${CAIDA_TOTAL_MAX} %) en ${f.largo.toFixed(0)} m: sube la sección del cable o acerca el tablero.` }));
+    if (q.caidaAlim > CAIDA_ALIM_MAX + 1e-9) out.push({ nivel: 'error', texto: `Alimentador: caída de tensión ${q.caidaAlim.toFixed(1)} % (máx. ${CAIDA_ALIM_MAX} %) en ${q.largoAlim.toFixed(0)} m: acerca el tablero al medidor.` });
+    if ((BREAKER_MAX[q.seccionAlim] || 0) < q.ig) out.push({ nivel: 'error', texto: `La demanda pide un interruptor general de 2 × ${q.ig} A: pasa lo que admite un suministro monofásico. Pide suministro trifásico o reparte las cargas.` });
+  }
   return out;
 }
 
@@ -529,7 +740,7 @@ export function metradoEle(cot: CotizacionEle): MetradoEle {
   const nTD = cuenta(t => t === 'tablero');
   if (nTD && cot.circuitos.length) {
     add('Tablero y protecciones', `ele:tablero:${cuadro.tablero}`, itemCatalogo(`ele:tablero:${cuadro.tablero}`)!.nombre, `${cuadro.polos} polos necesarios (con reserva)`, nTD);
-    add('Tablero y protecciones', claveTM(Math.min(63, cuadro.ig)), itemCatalogo(claveTM(Math.min(63, cuadro.ig)))?.nombre || `Termomagnético 2 × ${cuadro.ig} A`, 'interruptor general', nTD);
+    add('Tablero y protecciones', claveTM(cuadro.ig), itemCatalogo(claveTM(cuadro.ig))?.nombre || `Interruptor termomagnético 2 × ${cuadro.ig} A`, 'interruptor general', nTD);
     const tm = new Map<number, string[]>();
     cot.circuitos.filter(c => c.uso !== 'debil' && puntosCircuito(cot, c.id).length).forEach(c => tm.set(c.breaker, [...(tm.get(c.breaker) || []), c.nombre]));
     [...tm.entries()].sort((a, b) => a[0] - b[0]).forEach(([a, cs]) => add('Tablero y protecciones', claveTM(a), itemCatalogo(claveTM(a))?.nombre || `Termomagnético 2 × ${a} A`, cs.join(', '), cs.length));
@@ -595,3 +806,117 @@ export function metradoEle(cot: CotizacionEle): MetradoEle {
 }
 export const totalCon = (r: MetradoEle, cot: CotizacionEle) => r.directo * (1 + (cot.gg + cot.util) / 100);
 export { nombreCircuito, USOS };
+
+// ── Verificación de la instalación (lista de chequeo para el usuario) ───────
+export type EstadoCheck = 'ok' | 'aviso' | 'error';
+export interface CheckEle { id: string; titulo: string; estado: EstadoCheck; detalle: string; punto?: string; ruta?: string }
+export interface Verificacion { checks: CheckEle[]; completa: boolean; errores: number; avisos: number }
+/** Revisa la instalación completa: conexión al tablero, mando de luces, protecciones, diferencial, tierra, caída de tensión, tuberías y límites. */
+export function verificarInstalacion(cot: CotizacionEle, r: MetradoEle, duchas: Pt[] = []): Verificacion {
+  const checks: CheckEle[] = [];
+  const nom = (p: Punto) => nombrePunto(p, cot.puntos);
+  const lista = (ps: Punto[]) => `${ps.slice(0, 3).map(nom).join(', ')}${ps.length > 3 ? ` y ${ps.length - 3} más` : ''}`;
+  const add = (id: string, titulo: string, estado: EstadoCheck, detalle: string, extra: Partial<CheckEle> = {}) => checks.push({ id, titulo, estado, detalle, ...extra });
+  const reales = cot.puntos.filter(p => !esEspecial(p.tipo));
+  if (!reales.length) return { checks, completa: false, errores: 0, avisos: 0 };
+  const q = r.cuadro;
+  const td = cot.puntos.find(p => p.tipo === 'tablero'), med = cot.puntos.find(p => p.tipo === 'medidor'), pozo = cot.puntos.find(p => p.tipo === 'pozo_tierra');
+  const activos = cot.circuitos.filter(c => c.uso !== 'debil' && puntosCircuito(cot, c.id).length);
+
+  // 1. Tablero, medidor y pozo.
+  const faltan = [!td && 'tablero', !med && 'medidor', !pozo && 'pozo a tierra'].filter(Boolean) as string[];
+  add('especiales', 'Tablero, medidor y pozo a tierra', faltan.length ? 'error' : 'ok', faltan.length ? `Falta: ${faltan.join(', ')}.` : 'Ubicados en el plano.');
+
+  // 2. Circuitos asignados.
+  const sinC = reales.filter(p => !cot.circuitos.some(c => c.id === p.circuito));
+  add('circuitos', 'Cada punto en su circuito', sinC.length ? 'error' : 'ok', sinC.length ? `Sin circuito: ${lista(sinC)}. Toca "Sugerir circuitos".` : `${reales.length} puntos en ${cot.circuitos.length} circuitos.`, { punto: sinC[0]?.id });
+
+  // 3. Todo llega al tablero por tubería.
+  if (!td) add('conexion', 'Todos los puntos llegan al tablero', 'error', 'Sin tablero no hay desde dónde salir.');
+  else if (!cot.rutas.length) add('conexion', 'Todos los puntos llegan al tablero', 'error', 'Aún no hay tuberías: toca "Trazar automáticamente".');
+  else {
+    const { sueltos, huerfanas } = conexiones(cot);
+    const sinAlim = med && !cot.rutas.some(t => t.circuito === ALIM), sinPt = pozo && !cot.rutas.some(t => t.circuito === PT);
+    const partes: string[] = [];
+    if (sueltos.length) partes.push(`sin tubería hasta el tablero: ${lista(sueltos)}`);
+    if (sinAlim) partes.push('falta el alimentador medidor → tablero');
+    if (sinPt) partes.push('falta la línea del pozo a tierra');
+    if (partes.length) add('conexion', 'Todos los puntos llegan al tablero', 'error', `${partes.join('; ')}.`.replace(/^./, m => m.toUpperCase()), { punto: sueltos[0]?.id });
+    else if (huerfanas.length) add('conexion', 'Todos los puntos llegan al tablero', 'aviso', `Sí, pero hay ${huerfanas.length} tubería(s) suelta(s) que no salen del tablero: únelas o quítalas (se cobran en materiales).`, { ruta: huerfanas[0].id });
+    else add('conexion', 'Todos los puntos llegan al tablero', 'ok', `${cot.rutas.length} tuberías: cada punto, el medidor y el pozo unidos al tablero.`);
+  }
+
+  // 4. Mando de luces.
+  const m = mandoLuces(cot);
+  if (m.sinInterruptor.length) add('interruptores', 'Cada luz tiene su interruptor', 'error', `Sin interruptor: ${lista(m.sinInterruptor)}.`, { punto: m.sinInterruptor[0].id });
+  else if (m.vacios.length) add('interruptores', 'Cada luz tiene su interruptor', 'error', `${lista(m.vacios)} no controla ninguna luz.`, { punto: m.vacios[0].id });
+  else if (m.mezclados.length) add('interruptores', 'Cada luz tiene su interruptor', 'error', `${lista(m.mezclados)} maneja luces de otro circuito.`, { punto: m.mezclados[0].id });
+  else if (m.conmSolos.length) add('interruptores', 'Cada luz tiene su interruptor', 'aviso', `${lista(m.conmSolos)}: la conmutación lleva dos interruptores de 3 vías.`, { punto: m.conmSolos[0].id });
+  else { const n = cot.puntos.filter(p => esLuz(p.tipo)).length; add('interruptores', 'Cada luz tiene su interruptor', 'ok', `${n} ${n === 1 ? 'luz' : 'luces'} con su interruptor (retornos contados).`); }
+
+  // 5. Protecciones: termomagnético ≤ capacidad del cable y ≥ corriente; sección mínima; general coordinado.
+  const malP: string[] = [];
+  activos.forEach(c => {
+    const w = cargaCircuito(cot, c.id), I = corriente(w) * (c.uso === 'fuerza' ? 1.25 : 1), cap = BREAKER_MAX[c.seccion] || 0;
+    if (cap < c.breaker) malP.push(`${c.nombre}: ${c.seccion} mm² con 2×${c.breaker} A (máx. ${cap} A)`);
+    else if (I > c.breaker) malP.push(`${c.nombre}: ${I.toFixed(1)} A con 2×${c.breaker} A`);
+    else if (c.uso === 'alumbrado' ? c.seccion < 2.5 : c.seccion < 4) malP.push(`${c.nombre}: ${c.seccion} mm² es poco`);
+  });
+  if ((BREAKER_MAX[q.seccionAlim] || 0) < q.ig) malP.push(`general 2×${q.ig} A: no hay alimentador monofásico que lo soporte`);
+  add('protecciones', 'Llaves térmicas protegen sus cables', malP.length ? 'error' : 'ok',
+    malP.length ? `${malP.join('; ')}.` : `${activos.length} circuitos: cada interruptor ≤ capacidad del cable; general 2×${q.ig} A con alimentador de ${q.seccionAlim} mm².`);
+
+  // 6. Diferencial 30 mA.
+  const sinID = activos.filter(c => !c.diferencial && puntosCircuito(cot, c.id).some(p => defPunto(p.tipo).diferencial));
+  const extSinID = activos.filter(c => !c.diferencial && puntosCircuito(cot, c.id).some(p => p.tipo === 'reflector'));
+  const conID = activos.filter(c => c.diferencial).length;
+  add('diferencial', 'Diferencial 30 mA en tomas, baño, cocina y agua caliente', sinID.length ? 'error' : extSinID.length ? 'aviso' : 'ok',
+    sinID.length ? `Sin diferencial: ${sinID.map(c => c.nombre).join(', ')}.` : extSinID.length ? `Conviene diferencial en ${extSinID.map(c => c.nombre).join(', ')} (luces exteriores).` : `${conID} circuito${conID === 1 ? '' : 's'} con diferencial (${q.diferenciales.length} equipo${q.diferenciales.length === 1 ? '' : 's'}).`,
+    { punto: puntosCircuito(cot, (sinID[0] || extSinID[0])?.id || '')[0]?.id });
+
+  // 7. Tierra.
+  const sinTierra = [...r.info.values()].filter(i => {
+    const c = cot.circuitos.find(k => k.id === i.circuito);
+    return c && (c.uso === 'tomas' || c.uso === 'cocina' || c.uso === 'fuerza') && !i.extremos.some(e => e.p && esInterruptor(e.p.tipo)) && !i.cables.some(k => k.color === 'verde');
+  });
+  const ptOk = !!pozo && cot.rutas.some(t => t.circuito === PT);
+  add('tierra', 'Tierra en todos los circuitos de tomas y fuerza', !pozo || (cot.rutas.length && !ptOk) || sinTierra.length ? 'error' : 'ok',
+    !pozo ? 'Falta el pozo a tierra.' : cot.rutas.length && !ptOk ? 'El pozo no está unido a la barra de tierra del tablero.' : sinTierra.length ? `${sinTierra.length} tubería(s) de tomas o fuerza sin conductor de tierra.` : 'Conductor verde en cada circuito, barra de tierra y pozo (R ≤ 25 Ω).',
+    { ruta: sinTierra[0]?.id });
+
+  // 8. Caída de tensión.
+  const filas = q.filas.filter(f => f.puntos && f.c.uso !== 'debil');
+  const peor = filas.reduce<FilaCuadro | null>((b, f) => (!b || f.caida > b.caida ? f : b), null);
+  const total = (peor?.caida || 0) + q.caidaAlim;
+  const caidaMal = q.caidaAlim > CAIDA_ALIM_MAX + 1e-9 || total > CAIDA_TOTAL_MAX + 1e-9;
+  add('caida', `Caída de tensión ≤ ${CAIDA_TOTAL_MAX} %`, caidaMal ? 'error' : q.hayMedidor ? 'ok' : 'aviso',
+    `${peor ? `Peor circuito ${peor.c.nombre}: ${total.toFixed(2)} % (${peor.largo.toFixed(0)} m)` : 'Sin circuitos con carga'} · alimentador ${q.caidaAlim.toFixed(2)} %${q.hayMedidor ? '' : ' (pon el medidor para medirlo)'}.`);
+
+  // 9. Relleno de tuberías.
+  const llenas = [...r.info.values()].filter(i => i.relleno > rellenoMax(i.cond) + 1e-6);
+  const maxRel = Math.max(0, ...[...r.info.values()].map(i => i.relleno));
+  add('tuberias', 'Tuberías sin sobrellenar', llenas.length ? 'error' : 'ok', llenas.length ? `${llenas.length} tubería(s) pasan el 40 % de relleno: usa un tubo más grande.` : `Relleno máximo ${maxRel.toFixed(0)} % (límite 40 %).`, { ruta: llenas[0]?.id });
+
+  // 10. Límites por circuito.
+  const pasados: string[] = []; let pPunto: string | undefined;
+  cot.circuitos.forEach(c => {
+    const ps = puntosCircuito(cot, c.id), w = ps.reduce((s, p) => s + potencia(p), 0), lim = LIM_PUNTOS[c.uso];
+    if (lim && ps.length > lim) { pasados.push(`${c.nombre} tiene ${ps.length} puntos (máx. ${lim})`); pPunto = pPunto || ps[0]?.id; }
+    else if (c.uso === 'alumbrado' && w > 2000) pasados.push(`${c.nombre} tiene ${Math.round(w)} W de alumbrado`);
+    const ex = ps.filter(p => defPunto(p.tipo).exclusivo);
+    if (ex.length && ps.length > 1) { pasados.push(`${lista(ex)} debe ir solo en su circuito`); pPunto = pPunto || ex[0].id; }
+  });
+  add('limites', 'Circuitos dentro del número máximo de puntos', pasados.length ? 'error' : 'ok', pasados.length ? `${pasados.join('; ')}.` : 'Alumbrado y tomas hasta 12 puntos, cocina hasta 8; cargas grandes en circuito exclusivo.', { punto: pPunto });
+
+  // 11. Zona húmeda.
+  const ds = [...duchas, ...cot.puntos.filter(p => p.tipo === 'ducha_electrica')];
+  const cerca = reales.filter(p => defPunto(p.tipo).clase === 'toma' && ds.some(d => dist(d, p) < 0.6));
+  if (ds.length) add('ducha', 'Tomacorrientes lejos de la ducha', cerca.length ? 'error' : 'ok', cerca.length ? `A menos de 0.60 m: ${lista(cerca)}.` : 'Ningún tomacorriente a menos de 0.60 m.', { punto: cerca[0]?.id });
+
+  // 12. Suministro.
+  add('suministro', 'Demanda para suministro monofásico', q.md > 10000 ? 'aviso' : 'ok',
+    q.md > 10000 ? `${(q.md / 1000).toFixed(1)} kW de máxima demanda: la concesionaria suele pedir trifásico; consúltalo o baja los factores de demanda.` : `${(q.md / 1000).toFixed(2)} kW · ${q.I.toFixed(1)} A en 220 V.`);
+
+  const errores = checks.filter(k => k.estado === 'error').length, avisos = checks.filter(k => k.estado === 'aviso').length;
+  return { checks, completa: errores === 0, errores, avisos };
+}

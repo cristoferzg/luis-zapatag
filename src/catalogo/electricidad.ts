@@ -34,7 +34,7 @@ const TUBOS: [TipoTubo, string, number, number, number][] = [ // tubo, curva, un
   ['sap', '3/4', 5.5, 1.5, 0.8], ['sap', '1', 8.5, 2.5, 1.2], ['sap', '1 1/4', 13, 3.8, 1.8],
   ['l', '3/4', 2.8, 0.8, 0.5], ['l', '1', 4.2, 1.2, 0.7], ['l', '1 1/4', 6.5, 2.0, 1.0],
 ];
-const TM: [number, number][] = [[16, 28], [20, 28], [25, 30], [32, 33], [40, 45], [50, 65], [63, 82]];
+const TM: [number, number][] = [[16, 28], [20, 28], [25, 30], [32, 33], [40, 45], [50, 65], [63, 82], [80, 125]];
 
 // [clave, nombre, unidad, precio de referencia S/, grupo del catálogo]
 export const ELECTRICIDAD_ITEMS: [string, string, string, number, string][] = [

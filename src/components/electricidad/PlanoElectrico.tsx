@@ -17,8 +17,9 @@ import {
   circuitoDe, colorCircuito, cotizacionEjemplo, cotizacionVacia, defPunto, esEspecial, esInterruptor, esLuz, importarFondo, leerCotizaciones, limites, murosAmbiente,
   nombreCircuito, nombrePunto, normalizar, nuevoCircuito, pisosObra, potencia, renumerar, uid, PALETA_CIRCUITOS,
 } from './modeloElectricidad';
-import { desplazar, offsetCircuito, MetradoEle, avisosCNE, circuitoParaPunto, cargaCircuito, largoRuta, proyectar, puntosCircuito, sugerirCircuitos, totalCon, trazarAutomatico, TOL_PUNTO } from './calculoElectricidad';
+import { desplazar, offsetCircuito, MetradoEle, avisosCNE, verificarInstalacion, type CheckEle, circuitoParaPunto, cargaCircuito, largoRuta, proyectar, puntosCircuito, sugerirCircuitos, totalCon, trazarAutomatico, TOL_PUNTO } from './calculoElectricidad';
 import { SimboloElectrico, IconoPunto } from './SimboloElectrico';
+import VerificacionInstalacion from './VerificacionInstalacion';
 import { SimboloAparato } from '../gasfiteria/SimboloAparato';
 import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from '../gasfiteria/DisenoIAInstalacion';
 
@@ -377,6 +378,8 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
   const etiquetaFondoIA = cot.fondo.tipo === 'obra' ? 'Usar el plano de Obra Civil' : cot.fondo.tipo === 'gasfiteria' ? 'Usar el plano de Gasfitería' : cot.fondo.tipo === 'melamina' ? 'Usar los muebles de Melamina' : cot.fondo.tipo === 'techos' ? 'Usar el área de Techos' : 'Usar el plano actual';
 
   const avisos = useMemo(() => avisosCNE(cot, duchas), [cot, duchas]);
+  const verif = useMemo(() => verificarInstalacion(cot, r, duchas), [cot, r, duchas]);
+  const irA = (k: CheckEle) => { if (k.punto) setSel({ tipo: 'p', id: k.punto }); else if (k.ruta) setSel({ tipo: 'ruta', id: k.ruta }); setHerr('mover'); setFoco(null); };
   const selP = sel?.tipo === 'p' ? cot.puntos.find(a => a.id === sel.id) : undefined;
   const selR = sel?.tipo === 'ruta' ? cot.rutas.find(t => t.id === sel.id) : undefined;
   const total = totalCon(r, cot);
@@ -645,6 +648,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
     </div>
   );
 
+  const panelVerif = cot.puntos.some(p => !esEspecial(p.tipo)) ? <VerificacionInstalacion v={verif} onIr={irA} plegable /> : null;
   const cn = r.conteo;
   const panelConteo = (
     <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
@@ -866,7 +870,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
         {!vacio && (
           <div className="xl:hidden sticky bottom-3 z-20 ml-auto w-full lg:w-[420px] bg-slate-900/95 backdrop-blur text-white rounded-2xl shadow-xl px-4 py-2.5 flex flex-nowrap items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold text-slate-400 uppercase truncate">{nPuntos} puntos · {cot.circuitos.length} circuitos · {avisos.length ? `${avisos.length} aviso${avisos.length > 1 ? 's' : ''}` : 'sin avisos'}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase truncate">{nPuntos} puntos · {cot.circuitos.length} circuitos · {verif.completa ? <span className="text-emerald-400">verificada ✓</span> : `${verif.errores} por corregir`}</p>
               <p className="text-lg font-black font-mono truncate">{S(total)}</p>
             </div>
             <button onClick={onPresupuesto} className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300 shrink-0`}><ClipboardList className="w-4 h-4" /> Presupuesto</button>
@@ -875,6 +879,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
 
         <div className="xl:hidden space-y-3">
           {panelSel}
+          {panelVerif}
           {panelAvisos}
           {panelCircuitos}
           <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
@@ -892,6 +897,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
           <p className="text-xs font-black text-slate-800">Puntos <span className="font-semibold text-slate-400">toca uno y luego el plano</span></p>
           {paleta('grilla')}
         </div>
+        {panelVerif}
         {panelCircuitos}
         {panelAvisos}
         {panelConteo}
