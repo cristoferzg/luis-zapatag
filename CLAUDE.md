@@ -35,9 +35,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 
 ## Regla del dueño
 - Antes de empaquetar el `dist_ACTUALIZADO.zip`, mostrar imágenes del **antes y después**
-  de los cambios. Después de mandarlas, **compilar todo (ZIP, APK y el Manual de usuario
-  actualizado con los cambios: `docs/Manual_de_usuario_Innova_Contratistas.pdf`) sin esperar** su
-  aprobación (indicación del dueño). No reconstruir ni reenviar si no hubo cambios.
+  de los cambios y **ESPERAR a que el dueño diga "compila"** (indicación del dueño, 06/11/2026; reemplaza
+  la regla anterior de compilar sin esperar). Al compilar: ZIP, APK/AAB y el Manual de usuario
+  (`docs/Manual_de_usuario_Innova_Contratistas.pdf`) si cambia. No reconstruir ni reenviar si no hubo cambios.
 - El Manual SOLO se rehace y se envía si los cambios afectan lo que explica (pasos, textos, preguntas
   frecuentes). Si no cambia nada en el Manual, no se crea ni se manda.
 
