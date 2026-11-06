@@ -6,6 +6,7 @@ import { DrywallItem } from '../../catalogo/drywall';
 import { LadrilloItem } from '../../catalogo/ladrillo';
 import { OsbItem } from '../../catalogo/osb';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface Props {
   drywall: DrywallItem[];
@@ -46,7 +47,7 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onLadrillo, osb }:
                 <p className="text-[10px] text-slate-500">{d.espesor} mm · {d.pesoM2} kg/m² · plancha 1.22 × 2.44 m</p>
               </div>
               <label className="text-[11px] font-bold text-slate-600">{simb()} por plancha
-                <input type="number" inputMode="decimal" min={0} value={plancha(claveOsb(d.id), d.precioM2)}
+                <InputNumero type="number" inputMode="decimal" min={0} value={plancha(claveOsb(d.id), d.precioM2)}
                   onChange={e => fijarPrecio(claveOsb(d.id), num(e.target.value), 'Obra Civil')}
                   className={inputCls} />
               </label>
@@ -62,7 +63,7 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onLadrillo, osb }:
                 <p className="text-[10px] text-slate-500">{d.espesor} mm · {d.pesoM2} kg/m² · plancha 1.22 × 2.44 m</p>
               </div>
               <label className="text-[11px] font-bold text-slate-600">{simb()} por plancha
-                <input type="number" inputMode="decimal" min={0} value={plancha(claveDrywall(d.id), d.precioM2)}
+                <InputNumero type="number" inputMode="decimal" min={0} value={plancha(claveDrywall(d.id), d.precioM2)}
                   onChange={e => fijarPrecio(claveDrywall(d.id), num(e.target.value), 'Obra Civil')}
                   className={inputCls} />
               </label>
@@ -78,12 +79,12 @@ export function AdminCatalogosMateriales({ drywall, ladrillo, onLadrillo, osb }:
                 <p className="text-[10px] text-slate-500">{l.dimensiones} · {l.pesoUnitario} kg/u · {l.uso}</p>
               </div>
               <label className="text-[11px] font-bold text-slate-600">{simb()} por millar
-                <input type="number" inputMode="decimal" min={0} value={precio(claveLadrillo(l.id), l.precioxMil)}
+                <InputNumero type="number" inputMode="decimal" min={0} value={precio(claveLadrillo(l.id), l.precioxMil)}
                   onChange={e => fijarPrecio(claveLadrillo(l.id), num(e.target.value), 'Obra Civil')}
                   className={inputCls} />
               </label>
               <label className="text-[11px] font-bold text-slate-600">Unid. por m²
-                <input type="number" inputMode="decimal" min={0} value={l.unidadesM2}
+                <InputNumero type="number" inputMode="decimal" min={0} value={l.unidadesM2}
                   onChange={e => onLadrillo(ladrillo.map(x => x.id === l.id ? { ...x, unidadesM2: num(e.target.value) } : x))}
                   className={inputCls} />
               </label>

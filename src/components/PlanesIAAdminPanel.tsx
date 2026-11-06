@@ -11,6 +11,7 @@ import { comprasEnAppActivas, pagosPlayActivos } from '../lib/plataforma';
 import { idProductoPack, idProductoPlan } from '../lib/pagosPlay';
 import { simb, enMoneda, aSoles } from '../lib/currency';
 import CampoNumero from './CampoNumero';
+import InputNumero from './common/InputNumero';
 
 const campo = 'w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none bg-white';
 const etiqueta = 'text-[11px] font-bold text-slate-500 uppercase tracking-wide';
@@ -148,7 +149,7 @@ export default function PlanesIAAdminPanel() {
             </div>
             <div>
               <label className={etiqueta}>Créditos al mes</label>
-              <input type="number" step="1" min="0" value={p.creditosMes} onChange={e => updPlan(i, { creditosMes: Math.round(n(e.target.value)) })} className={campo} />
+              <InputNumero type="number" step="1" min="0" value={p.creditosMes} onChange={e => updPlan(i, { creditosMes: Math.round(n(e.target.value)) })} className={campo} />
               <p className="text-[10px] text-slate-400 mt-1">≈ {p.creditosMes} boletas o {Math.floor(p.creditosMes / COSTO_CREDITOS.croquis)} planos</p>
             </div>
             {p.id !== 'gratis' && (
@@ -166,7 +167,7 @@ export default function PlanesIAAdminPanel() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {packs.map((k, i) => (
             <div key={i} className="grid grid-cols-2 gap-2">
-              <div><label className={etiqueta}>Créditos</label><input type="number" min="1" value={k.creditos} onChange={e => updPack(i, { creditos: Math.round(n(e.target.value)) })} className={campo} /></div>
+              <div><label className={etiqueta}>Créditos</label><InputNumero type="number" min="1" value={k.creditos} onChange={e => updPack(i, { creditos: Math.round(n(e.target.value)) })} className={campo} /></div>
               <div><label className={etiqueta}>Precio {simb()}</label><CampoNumero step={0.1} min={0} value={enMoneda(k.precioSoles)} onCommit={v => updPack(i, { precioSoles: aSoles(v || 0) })} className={campo} /></div>
             </div>
           ))}

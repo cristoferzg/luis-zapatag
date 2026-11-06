@@ -3,13 +3,14 @@
 // encabezado con pestañas, Mis cotizaciones, tarjetas de ítem, barra de total,
 // Materiales (con despiece) y Presupuesto formal (imprimir / PDF / WhatsApp).
 // =============================================================================
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useRef, useState } from 'react';
 import { ClipboardList, Tag, Send, Save, FolderOpen, FilePlus2, Copy, Trash2, ChevronDown, ChevronUp, Sparkles, AlertTriangle } from 'lucide-react';
 import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from '../../../lib/empresa';
 import BotonImprimir from '../../common/BotonImprimir';
 import { simb } from '../../../lib/currency';
 import type { Linea, CotBase, Barra } from './comun';
 import { leerLista, guardarLista, uid } from './comun';
+import InputNumero from '../../common/InputNumero';
 
 export const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 export const f2 = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -30,15 +31,12 @@ export const TEMA_VIDRIOS: Tema = {
 
 // ── Campos ──────────────────────────────────────────────────────────────────
 export function Num({ label, value, onChange, step = 0.01, min = 0, max, sufijo = 'm', entero = false }: { label: string; value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; sufijo?: string; entero?: boolean }) {
-  const [txt, setTxt] = useState(String(value));
-  useEffect(() => { if (parseFloat(txt) !== value) setTxt(String(value)); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   const fijar = (v: number) => { let x = Math.max(min, max !== undefined ? Math.min(max, v) : v); x = entero ? Math.round(x) : Math.round(x * 1000) / 1000; onChange(x); };
   return (
     <label className="block min-w-0 text-[10px] font-bold text-slate-500 uppercase">{label}
       <div className="mt-0.5 flex items-center min-h-[40px] rounded-lg bg-slate-100 focus-within:ring-2 focus-within:ring-slate-300">
-        <input type="number" inputMode={entero ? 'numeric' : 'decimal'} step={step} min={min} max={max} value={txt}
-          onChange={e => { setTxt(e.target.value); const v = parseFloat(e.target.value); if (!isNaN(v)) fijar(v); }}
-          onBlur={() => setTxt(String(value))}
+        <InputNumero type="number" inputMode={entero ? 'numeric' : 'decimal'} step={step} min={min} max={max} value={value}
+          onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) fijar(v); }}
           className="w-full min-w-0 bg-transparent px-2 py-2 text-sm font-mono font-bold text-slate-800 focus:outline-none" />
         {sufijo && <span className="pr-2 text-[11px] font-bold text-slate-400 normal-case">{sufijo}</span>}
       </div>
@@ -324,7 +322,7 @@ export function PanelMateriales({ tema, cot, setCot, lineas, grupos, colorGrupo,
     <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
       <p className="text-xs font-black text-slate-800">Cómo se calcula</p>
       <label className="flex items-center gap-2 text-xs font-bold text-slate-700">Desperdicio
-        <input type="number" min={0} max={40} value={cot.merma} onChange={e => setCot((c: CotBase) => ({ ...c, merma: Math.max(0, Math.min(40, parseFloat(e.target.value) || 0)) }))} className="ml-auto w-16 min-h-[36px] px-2 rounded-lg bg-slate-100 font-mono text-right" /> %
+        <InputNumero type="number" min={0} max={40} value={cot.merma} onChange={e => setCot((c: CotBase) => ({ ...c, merma: Math.max(0, Math.min(40, parseFloat(e.target.value) || 0)) }))} className="ml-auto w-16 min-h-[36px] px-2 rounded-lg bg-slate-100 font-mono text-right" /> %
       </label>
       <Segmento label="Mano de obra" value={cot.modoMO} opciones={[['unidad', 'Por unidad / m²'], ['jornal', 'Por jornal']]} onChange={v => setCot((c: CotBase) => ({ ...c, modoMO: v }))} />
       {ajustes}
@@ -457,9 +455,9 @@ export function Presupuesto({ tema, cot, setCot, lineas, grupos, colorGrupo, sub
             <div className="w-full sm:w-80 space-y-1 text-xs">
               {desglose.map(([l, v]) => <div key={l} className="flex flex-nowrap justify-between gap-2"><span className="text-slate-500 font-bold">{l}</span><span className="font-mono font-bold">{S(v)}</span></div>)}
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Gastos generales
-                <input type="number" min={0} value={cot.gg} onChange={e => setCot((c: CotBase) => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className={inpPct} /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
+                <InputNumero type="number" min={0} value={cot.gg} onChange={e => setCot((c: CotBase) => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className={inpPct} /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Utilidad
-                <input type="number" min={0} value={cot.util} onChange={e => setCot((c: CotBase) => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className={inpPct} /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
+                <InputNumero type="number" min={0} value={cot.util} onChange={e => setCot((c: CotBase) => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className={inpPct} /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
               <div className={`flex flex-nowrap justify-between gap-2 text-white rounded-xl px-3 py-2 mt-1 ${tema.acento}`}><span className="font-black uppercase">Total</span><span className="font-mono font-black">{S(total)}</span></div>
             </div>
           </div>

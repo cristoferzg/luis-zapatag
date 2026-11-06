@@ -15,6 +15,7 @@ import {
   pisosObra, ambientesDeObra, AcabadoPintura, Revestimiento, Vano, normalizar,
 } from './modeloAcabados';
 import { MetradoAcab, calcularAmbiente } from './calculoAcabados';
+import InputNumero from '../common/InputNumero';
 
 type SetCot = (f: (c: CotizacionAcabados) => CotizacionAcabados) => void;
 const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -28,7 +29,7 @@ function Num({ label, value, onChange, step = 0.05, min = 0, max = 99, suf }: { 
   return (
     <label className={lbl}>{label}
       <span className="mt-1 flex flex-nowrap items-center rounded-xl bg-slate-100 focus-within:ring-2 focus-within:ring-rose-300">
-        <input type="number" inputMode="decimal" step={step} min={min} max={max} value={Number.isFinite(value) ? value : 0}
+        <InputNumero type="number" inputMode="decimal" step={step} min={min} max={max} value={Number.isFinite(value) ? value : 0}
           onChange={e => { const n = parseFloat(e.target.value); onChange(Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : 0); }}
           className="w-full min-w-0 min-h-[40px] pl-3 pr-1 bg-transparent text-sm font-mono font-bold text-slate-800 outline-none" />
         {suf && <span className="pr-2.5 text-[11px] font-bold text-slate-400 normal-case">{suf}</span>}
@@ -302,7 +303,7 @@ function EditorAmbiente({ a, set, onBorrar, onDuplicar }: { a: Ambiente; set: (f
   );
 }
 function MiniNum({ v, on, t }: { v: number; on: (n: number) => void; t: string }) {
-  return <input type="number" inputMode="decimal" step={0.05} min={0} value={v} title={t} onChange={e => on(Math.max(0, parseFloat(e.target.value) || 0))} className="w-16 shrink-0 min-h-[32px] px-1.5 rounded-lg bg-white text-xs font-mono font-bold text-slate-800 text-right outline-none focus:ring-2 focus:ring-rose-300" />;
+  return <InputNumero type="number" inputMode="decimal" step={0.05} min={0} value={v} title={t} onChange={e => on(Math.max(0, parseFloat(e.target.value) || 0))} className="w-16 shrink-0 min-h-[32px] px-1.5 rounded-lg bg-white text-xs font-mono font-bold text-slate-800 text-right outline-none focus:ring-2 focus:ring-rose-300" />;
 }
 function PinturaEditor({ v, on, colores, conTipo = false }: { v: AcabadoPintura; on: (p: Partial<AcabadoPintura>) => void; colores: { hex: string; nombre: string }[]; conTipo?: boolean }) {
   return (

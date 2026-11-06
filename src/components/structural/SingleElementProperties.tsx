@@ -16,6 +16,7 @@ import {
   Sparkles,
   Link2
 } from 'lucide-react';
+import InputNumero from '../common/InputNumero';
 
 export type SelectedItemType = 'column' | 'beam' | 'purlin' | 'truss' | 'brace' | 'sector' | 'edge' | 'vertex' | 'void';
 
@@ -314,7 +315,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
                   Altura de Columna (m)
                 </label>
-                <input
+                <InputNumero
                   type="number"
                   step="0.05"
                   value={altura === 0 ? '' : altura}
@@ -401,7 +402,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase">X (m)</label>
-              <input
+              <InputNumero
                 type="number"
                 step="0.05"
                 value={posX === 0 ? '' : posX}
@@ -411,7 +412,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase">Y (m)</label>
-              <input
+              <InputNumero
                 type="number"
                 step="0.05"
                 value={posY === 0 ? '' : posY}
@@ -421,7 +422,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase">Z (m)</label>
-              <input
+              <InputNumero
                 type="number"
                 step="0.05"
                 value={posZ === 0 ? '' : posZ}
@@ -467,7 +468,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
           <div className="pt-2 border-t border-slate-100 space-y-2">
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Peralte / Altura Tijeral (m)</label>
-              <input
+              <InputNumero
                 type="number"
                 step="0.05"
                 value={trussHeight}
@@ -569,7 +570,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase">H. Lado Alto (m)</label>
-                <input
+                <InputNumero
                   type="number"
                   step="0.05"
                   value={sectorHAlto}
@@ -582,7 +583,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase">H. Lado Bajo (m)</label>
-                <input
+                <InputNumero
                   type="number"
                   step="0.05"
                   value={sectorHBajo}
@@ -597,7 +598,7 @@ export const SingleElementProperties: React.FC<SingleElementPropertiesProps> = (
 
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Pendiente (%)</label>
-              <input
+              <InputNumero
                 type="number"
                 step="0.5"
                 value={sectorSlope}

@@ -22,6 +22,7 @@ import { CotizacionMelamina, KEY_COT_ACTUAL, KEY_COT_LISTA, KEY_PESTANA, cotizac
 import DibujoMueble, { FrenteSvg } from './melamina/DibujoMueble';
 import DisenoIA, { mueblesDePropuesta } from './melamina/DisenoIA';
 import BotonElectricidad from './electricidad/BotonElectricidad';
+import InputNumero from './common/InputNumero';
 
 const Melamina3D = lazy(() => import('./melamina/Melamina3D'));
 
@@ -96,15 +97,12 @@ export default function MelaminaView({ onIrAPrecios }: { onIrAPrecios?: () => vo
 
 // ── Campos ──────────────────────────────────────────────────────────────────
 function Num({ label, value, onChange, step = 0.01, min = 0, max, sufijo = 'm', entero = false }: { label: string; value: number; onChange: (v: number) => void; step?: number; min?: number; max?: number; sufijo?: string; entero?: boolean }) {
-  const [txt, setTxt] = useState(String(value));
-  useEffect(() => { if (parseFloat(txt) !== value) setTxt(String(value)); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   const fijar = (v: number) => { let x = Math.max(min, max !== undefined ? Math.min(max, v) : v); x = entero ? Math.round(x) : Math.round(x * 100) / 100; onChange(x); };
   return (
     <label className="block min-w-0 text-[10px] font-bold text-slate-500 uppercase">{label}
       <div className="mt-0.5 flex items-center min-h-[40px] rounded-lg bg-slate-100 focus-within:ring-2 focus-within:ring-teal-300">
-        <input type="number" inputMode={entero ? 'numeric' : 'decimal'} step={step} min={min} max={max} value={txt}
-          onChange={e => { setTxt(e.target.value); const v = parseFloat(e.target.value); if (!isNaN(v)) fijar(v); }}
-          onBlur={() => setTxt(String(value))}
+        <InputNumero type="number" inputMode={entero ? 'numeric' : 'decimal'} step={step} min={min} max={max} value={value}
+          onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) fijar(v); }}
           className="w-full min-w-0 bg-transparent px-2 py-2 text-sm font-mono font-bold text-slate-800 focus:outline-none" />
         {sufijo && <span className="pr-2 text-[11px] font-bold text-slate-400 normal-case">{sufijo}</span>}
       </div>
@@ -842,9 +840,9 @@ function Presupuesto({ cot, setCot, r, onIrAPrecios }: { cot: CotizacionMelamina
               <div className="flex flex-nowrap justify-between gap-2"><span className="text-slate-500 font-bold">Materiales y herrajes</span><span className="font-mono font-bold">{S(r.materiales)}</span></div>
               <div className="flex flex-nowrap justify-between gap-2"><span className="text-slate-500 font-bold">Mano de obra ({f2(r.dias)} días)</span><span className="font-mono font-bold">{S(r.manoObra)}</span></div>
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Gastos generales
-                <input type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
+                <InputNumero type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Utilidad
-                <input type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
+                <InputNumero type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
               <div className="flex flex-nowrap justify-between gap-2 bg-teal-600 text-white rounded-xl px-3 py-2 mt-1"><span className="font-black uppercase">Total</span><span className="font-mono font-black">{S(total)}</span></div>
             </div>
           </div>

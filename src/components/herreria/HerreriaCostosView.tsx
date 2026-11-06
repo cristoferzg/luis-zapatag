@@ -17,6 +17,7 @@ import {
 import { HerreriaDesign, CostoDesglosado } from './herreriaTypes';
 import { generarDespiece, generarMaterialesAgrupados, calcularCostosDesglosados } from './herreriaCalculations';
 import { simb, getCompanyCurrency } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface HerreriaCostosViewProps {
   design: HerreriaDesign;
@@ -220,7 +221,7 @@ export const HerreriaCostosView: React.FC<HerreriaCostosViewProps> = ({ design, 
                 {rubro.editable && rubro.campoMO ? (
                   <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-300">
                     <span className="text-xs text-slate-500 font-mono">{simb()}</span>
-                    <input
+                    <InputNumero
                       type="number"
                       step="10"
                       value={rubro.monto}

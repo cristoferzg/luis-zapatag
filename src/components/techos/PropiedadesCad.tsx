@@ -25,6 +25,7 @@ import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { RolEstructuralSegmento } from './techosCadEngineTypes';
 import { MERCADO_COLORES_PINTURA, TipoTijeral } from './techosCadColors';
+import InputNumero from '../common/InputNumero';
 
 export interface PropiedadesCadProps {
   engineState?: UseTechosCadEngineReturn;
@@ -552,7 +553,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                 🏛️ Concreto en columnas (base)
               </span>
               <div className="flex items-center gap-1.5">
-                <input
+                <InputNumero
                   type="number" step="0.25" min="0"
                   value={engineState?.columnasConcretoBaseM ?? 0}
                   onChange={(e) => engineState?.setColumnasConcretoBaseM(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -1115,7 +1116,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                   <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-300 space-y-1.5">
                     <label className="block text-[10px] font-black text-stone-800 uppercase tracking-wide">🏛️ Concreto en esta columna (base)</label>
                     <div className="flex items-center gap-1.5">
-                      <input
+                      <InputNumero
                         type="number" step="0.25" min="0"
                         value={selectedSegment.concretoBaseM ?? 0}
                         onChange={(e) => engineState?.setSegmentoConcretoBase(selectedSegment.id, Math.max(0, parseFloat(e.target.value) || 0))}

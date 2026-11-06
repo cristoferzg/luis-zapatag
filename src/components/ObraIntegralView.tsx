@@ -23,6 +23,7 @@ import {
   calcular, cronograma, fechaPago, fechaCorta, fechaLarga, fechaHabil,
 } from './obraIntegral/modelo';
 import Gantt from './obraIntegral/Gantt';
+import InputNumero from './common/InputNumero';
 
 const S = (n: number) => `${simb()} ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const f2 = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -306,7 +307,7 @@ function Totales({ p, setP, calc }: { p: PresupuestoObra; setP: SetP; calc: Calc
     <div className={`flex flex-nowrap items-center justify-between gap-2 min-h-[32px] ${cls}`}><span className="text-slate-500 font-bold min-w-0">{l}</span><span className="font-mono font-bold text-slate-800 shrink-0">{S(v)}</span></div>
   );
   const pct = (k: 'gg' | 'util') => (
-    <input type="number" min={0} inputMode="decimal" value={p[k]} onChange={e => setP(x => ({ ...x, [k]: Math.max(0, parseFloat(e.target.value) || 0) }))} className={`${inputNum} ml-1.5 w-14`} />
+    <InputNumero type="number" min={0} inputMode="decimal" value={p[k]} onChange={e => setP(x => ({ ...x, [k]: Math.max(0, parseFloat(e.target.value) || 0) }))} className={`${inputNum} ml-1.5 w-14`} />
   );
   return (
     <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
@@ -357,7 +358,7 @@ function FormaPago({ p, setP, total, crono }: { p: PresupuestoObra; setP: SetP; 
         <div key={g.id} className="rounded-xl bg-slate-50 p-2 space-y-1.5">
           <div className="flex items-center gap-1.5">
             <input value={g.concepto} onChange={e => upd(g.id, { concepto: e.target.value })} className="flex-1 min-w-0 min-h-[36px] px-2 rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-800" />
-            <input type="number" min={0} max={100} inputMode="decimal" value={g.pct} onChange={e => upd(g.id, { pct: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })} className={`${inputNum} w-14`} />
+            <InputNumero type="number" min={0} max={100} inputMode="decimal" value={g.pct} onChange={e => upd(g.id, { pct: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)) })} className={`${inputNum} w-14`} />
             <span className="text-[11px] font-bold text-slate-400">%</span>
             <button onClick={() => setP(x => ({ ...x, pagos: x.pagos.filter(y => y.id !== g.id) }))} disabled={p.pagos.length <= 1} title="Quitar"
               className="w-8 h-9 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer disabled:opacity-30"><X className="w-4 h-4" /></button>
@@ -458,7 +459,7 @@ function Cronograma({ p, setP, crono, hayApartados, onResumen }: { p: Presupuest
                 <button onClick={() => mover(b.id, 1)} disabled={i === crono.barras.length - 1} title="Bajar" className="w-8 h-8 inline-flex items-center justify-center rounded-lg bg-slate-50 text-slate-500 cursor-pointer disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
               </div>
               <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500 shrink-0">
-                <input type="number" min={1} inputMode="numeric" value={b.dias} onChange={e => updT(b.id, { dias: Math.max(1, parseInt(e.target.value) || 1) })} className={`${inputNum} w-14`} /> días
+                <InputNumero type="number" min={1} inputMode="numeric" value={b.dias} onChange={e => updT(b.id, { dias: Math.max(1, parseInt(e.target.value) || 1) })} className={`${inputNum} w-14`} /> días
                 {!b.libre && p.tareas[b.id]?.dias !== undefined && b.dias !== b.diasApartado && (
                   <button onClick={() => updT(b.id, { dias: undefined })} title={`Volver a ${b.diasApartado} días del apartado`} className="w-7 h-7 inline-flex items-center justify-center text-slate-400 hover:text-indigo-600 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>
                 )}
@@ -471,7 +472,7 @@ function Cronograma({ p, setP, crono, hayApartados, onResumen }: { p: Presupuest
                 {crono.barras.slice(0, i).map(o => <option key={'i' + o.id} value={`inicio:${o.id}`}>Junto con {o.nombre}</option>)}
               </select>
               <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500 shrink-0" title="Días de espera (+) o de traslape (−)">
-                <input type="number" inputMode="numeric" value={b.desfase} onChange={e => updT(b.id, { desfase: parseInt(e.target.value) || 0 })} className={`${inputNum} w-14`} /> <span className="hidden sm:inline">d. espera</span><span className="sm:hidden">espera</span>
+                <InputNumero type="number" inputMode="numeric" value={b.desfase} onChange={e => updT(b.id, { desfase: parseInt(e.target.value) || 0 })} className={`${inputNum} w-14`} /> <span className="hidden sm:inline">d. espera</span><span className="sm:hidden">espera</span>
               </label>
               <span className="text-[10px] font-mono text-slate-400 shrink-0 md:w-28 md:text-right ml-auto">{fechaCorta(fechaHab(p, b.ini))} → {fechaCorta(fechaHab(p, b.fin - 1))}</span>
               {b.libre && <button onClick={() => quitar(b.id)} title="Quitar" className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 cursor-pointer shrink-0"><Trash2 className="w-4 h-4" /></button>}

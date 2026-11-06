@@ -9,6 +9,7 @@ import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, PLACA_BASE_ESTAND
 import { useCostosTechos, guardarCostosTechos, totalCuadrilla, totalOperativos, CostosTechos, jornalDe } from './costosTechos';
 import { useCatalogo, precio, fijarPrecio, quitarPrecio, tienePrecioPropio, clavePerfilDe, claveCobertura, claveJornal, largoPlanchaCompra, precioEnUnidad, fijarPrecioEnUnidad, fijarCompraCobertura } from '../../lib/catalogoPrecios';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface TechosCostosViewProps {
   design?: any;
@@ -112,7 +113,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
                     <tr key={p.profileId} className="border-t border-slate-100">
                       <td className="py-1.5 pr-2 font-bold text-slate-700">{p.nombrePerfil}</td>
                       <td className="text-right font-mono text-slate-500">{p.totalBarrasComerciales6m} barras de {largoPf(p.profileId)} m</td>
-                      <td className="pl-2"><input type="number" step="0.5" value={precioBarra(p.profileId)} onChange={e => fijarPrecio(clavePf(p.profileId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} /></td>
+                      <td className="pl-2"><InputNumero type="number" step="0.5" value={precioBarra(p.profileId)} onChange={e => fijarPrecio(clavePf(p.profileId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} /></td>
                       <td className="text-right font-mono font-bold">{S(p.totalCostoSoles)}</td>
                       <td className="text-right">{editado && <button title="Volver al precio de referencia" onClick={() => quitarPrecio(clavePf(p.profileId))} className="p-1 text-slate-400 hover:text-slate-700 cursor-pointer"><RotateCcw className="w-3.5 h-3.5" /></button>}</td>
                     </tr>
@@ -138,7 +139,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
                         : `${filas.reduce((s, x) => s + x.areaEfectivaCalculadaM2, 0).toFixed(2)} m²`}</td>
                       <td className="pl-2">
                         <div className="flex items-center gap-1 justify-end">
-                          <input type="number" step="0.1" value={Math.round(precioEnUnidad(claveCobertura(z.coberturaMaterialId)) * 100) / 100} onChange={e => fijarPrecioEnUnidad(claveCobertura(z.coberturaMaterialId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} />
+                          <InputNumero type="number" step="0.1" value={Math.round(precioEnUnidad(claveCobertura(z.coberturaMaterialId)) * 100) / 100} onChange={e => fijarPrecioEnUnidad(claveCobertura(z.coberturaMaterialId), num(e.target.value), 'Techos')} className={`${inp} text-right ${editado ? 'ring-1 ring-amber-400' : ''}`} />
                           <select value={largoPlanchaCompra(claveCobertura(z.coberturaMaterialId)) ? 'plancha' : 'm2'} title="Cómo te venden esta cobertura"
                             onChange={e => fijarCompraCobertura(claveCobertura(z.coberturaMaterialId), e.target.value === 'plancha' ? (INVENTARIO_COBERTURAS.find(c => c.id === z.coberturaMaterialId)?.longitudComercialM || 3.66) : null)}
                             className="px-1 py-1 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600 cursor-pointer">
@@ -163,7 +164,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
             ['soldadura:kg', `Soldadura (${simb()} kg) · ${bom?.kgSoldaduraAwsEstimados ?? 0} kg`, SOLDADURA_AWS_E6011.costoKgSol],
           ] as [string, string, number][]).map(([k, l, def]) => (
             <label key={k} className="text-[10px] font-bold text-slate-500">{l}
-              <input type="number" step="0.1" value={precio(k, def)} onChange={e => fijarPrecio(k, num(e.target.value), 'Techos')} className={`${inp} mt-0.5`} />
+              <InputNumero type="number" step="0.1" value={precio(k, def)} onChange={e => fijarPrecio(k, num(e.target.value), 'Techos')} className={`${inp} mt-0.5`} />
             </label>
           ))}
         </div>
@@ -174,7 +175,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         <Modo valor={c.manoObraModo} onChange={v => set({ manoObraModo: v })} />
         {c.manoObraModo === 'porcentaje' ? (
           <label className="flex items-center gap-2 text-xs font-bold text-slate-600">% sobre materiales
-            <input type="number" value={c.manoObraPct} onChange={e => set({ manoObraPct: num(e.target.value) })} className={`${inp} w-24`} />
+            <InputNumero type="number" value={c.manoObraPct} onChange={e => set({ manoObraPct: num(e.target.value) })} className={`${inp} w-24`} />
           </label>
         ) : (
           <div className="overflow-x-auto">
@@ -186,9 +187,9 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
                   return (
                     <tr key={f.id} className="border-t border-slate-100">
                       <td className="py-1 pr-2"><input value={f.cargo} onChange={e => up({ cargo: e.target.value })} className={`${inp} font-sans font-bold`} /></td>
-                      <td className="pr-1"><input type="number" value={f.cantidad} onChange={e => up({ cantidad: num(e.target.value) })} className={inp} /></td>
-                      <td className="pr-1"><input type="number" value={jornalDe(f)} onChange={e => { up({ jornal: num(e.target.value) }); fijarPrecio(claveJornal(f.cargo), num(e.target.value), 'Techos'); }} className={inp} title="Se guarda en el Catálogo de precios para este cargo" /></td>
-                      <td className="pr-1"><input type="number" value={f.dias} onChange={e => up({ dias: num(e.target.value) })} className={inp} /></td>
+                      <td className="pr-1"><InputNumero type="number" value={f.cantidad} onChange={e => up({ cantidad: num(e.target.value) })} className={inp} /></td>
+                      <td className="pr-1"><InputNumero type="number" value={jornalDe(f)} onChange={e => { up({ jornal: num(e.target.value) }); fijarPrecio(claveJornal(f.cargo), num(e.target.value), 'Techos'); }} className={inp} title="Se guarda en el Catálogo de precios para este cargo" /></td>
+                      <td className="pr-1"><InputNumero type="number" value={f.dias} onChange={e => up({ dias: num(e.target.value) })} className={inp} /></td>
                       <td className="text-right font-mono font-bold">{S(f.cantidad * jornalDe(f) * f.dias)}</td>
                       <td className="text-right"><button onClick={() => set({ cuadrilla: c.cuadrilla.filter(x => x.id !== f.id) })} className="p-1 text-rose-400 hover:text-rose-600 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button></td>
                     </tr>
@@ -209,7 +210,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         <Modo valor={c.operativosModo} onChange={v => set({ operativosModo: v })} />
         {c.operativosModo === 'porcentaje' ? (
           <label className="flex items-center gap-2 text-xs font-bold text-slate-600">% sobre materiales
-            <input type="number" value={c.operativosPct} onChange={e => set({ operativosPct: num(e.target.value) })} className={`${inp} w-24`} />
+            <InputNumero type="number" value={c.operativosPct} onChange={e => set({ operativosPct: num(e.target.value) })} className={`${inp} w-24`} />
           </label>
         ) : (
           <div className="space-y-1.5">
@@ -218,7 +219,7 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
               return (
                 <div key={f.id} className="flex items-center gap-2">
                   <input value={f.concepto} onChange={e => up({ concepto: e.target.value })} className={`${inp} font-sans font-bold flex-1`} />
-                  <input type="number" value={f.monto} onChange={e => up({ monto: num(e.target.value) })} className={`${inp} w-32 text-right`} />
+                  <InputNumero type="number" value={f.monto} onChange={e => up({ monto: num(e.target.value) })} className={`${inp} w-32 text-right`} />
                   <button onClick={() => set({ operativos: c.operativos.filter(x => x.id !== f.id) })} className="p-1 text-rose-400 hover:text-rose-600 cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               );
@@ -235,10 +236,10 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
       <Seccion icono={<Percent className="w-4 h-4 text-amber-600" />} titulo="4. Gastos generales, utilidad e IGV">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
           <label className="text-[10px] font-bold text-slate-500">Gastos generales %
-            <input type="number" value={c.gastosGeneralesPct} onChange={e => set({ gastosGeneralesPct: num(e.target.value) })} className={`${inp} mt-0.5`} />
+            <InputNumero type="number" value={c.gastosGeneralesPct} onChange={e => set({ gastosGeneralesPct: num(e.target.value) })} className={`${inp} mt-0.5`} />
           </label>
           <label className="text-[10px] font-bold text-slate-500">Utilidad %
-            <input type="number" value={c.utilidadPct} onChange={e => set({ utilidadPct: num(e.target.value) })} className={`${inp} mt-0.5`} />
+            <InputNumero type="number" value={c.utilidadPct} onChange={e => set({ utilidadPct: num(e.target.value) })} className={`${inp} mt-0.5`} />
           </label>
           <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer pb-2">
             <input type="checkbox" checked={c.igv} onChange={e => set({ igv: e.target.checked })} /> Sumar IGV 18 %

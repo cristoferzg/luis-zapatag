@@ -17,6 +17,7 @@ import { formato, nombreFormato, nombreColor, COLORES_PARED, COLORES_BALDOSA, PI
 import { CotizacionAcabados, KEY_COT_ACTUAL, KEY_PESTANA, leerCotizacionActual, cotizacionEjemplo, TIPOS_PISO, esBaldosa } from './acabados/modeloAcabados';
 import { metradoAcabados, MetradoAcab, totalCon, GRUPOS_LINEA, GrupoLinea, LineaAcab, CalcAmbiente } from './acabados/calculoAcabados';
 import AmbientesAcabados, { ICONO_AMB } from './acabados/AmbientesAcabados';
+import InputNumero from './common/InputNumero';
 
 const Acabados3D = lazy(() => import('./acabados/Acabados3D'));
 
@@ -286,7 +287,7 @@ function Ajustes({ cot, setCot, onIrAPrecios, hoja }: { cot: CotizacionAcabados;
     <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
       <p className="text-xs font-black text-slate-800">Cómo se calcula</p>
       <label className="flex items-center gap-2 text-xs font-bold text-slate-700">Rendimiento de la pintura
-        <input type="number" min={15} max={60} value={cot.rendPintura} onChange={e => setCot(c => ({ ...c, rendPintura: Math.max(15, Math.min(60, parseFloat(e.target.value) || 35)) }))} className="ml-auto w-16 min-h-[36px] px-2 rounded-lg bg-slate-100 font-mono text-right" /> m²/gal
+        <InputNumero type="number" min={15} max={60} value={cot.rendPintura} onChange={e => setCot(c => ({ ...c, rendPintura: Math.max(15, Math.min(60, parseFloat(e.target.value) || 35)) }))} className="ml-auto w-16 min-h-[36px] px-2 rounded-lg bg-slate-100 font-mono text-right" /> m²/gal
       </label>
       <div>
         <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Mano de obra</p>
@@ -398,9 +399,9 @@ function Presupuesto({ cot, setCot, r, onIrAPrecios }: { cot: CotizacionAcabados
               {!cot.soloMO && <div className="flex flex-nowrap justify-between gap-2"><span className="text-slate-500 font-bold">Materiales</span><span className="font-mono font-bold">{S(r.materiales)}</span></div>}
               <div className="flex flex-nowrap justify-between gap-2"><span className="text-slate-500 font-bold">Mano de obra</span><span className="font-mono font-bold">{S(r.manoObra)}</span></div>
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Gastos generales
-                <input type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
+                <InputNumero type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Utilidad
-                <input type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
+                <InputNumero type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
               <div className="flex flex-nowrap justify-between gap-2 bg-rose-600 text-white rounded-xl px-3 py-2 mt-1"><span className="font-black uppercase">Total</span><span className="font-mono font-black">{S(total)}</span></div>
             </div>
           </div>

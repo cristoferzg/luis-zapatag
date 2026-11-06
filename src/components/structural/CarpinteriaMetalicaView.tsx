@@ -15,6 +15,7 @@ import {
   Cuboid
 } from 'lucide-react';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 export type TipoCarpinteria = 
   | 'puerta' 
@@ -466,7 +467,7 @@ Total Estimado: ${simb()} ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-slate-400 font-medium mb-1">Ancho / Longitud (m)</label>
-                <input 
+                <InputNumero 
                   type="number" 
                   step="0.05" 
                   min="0.5" 
@@ -480,7 +481,7 @@ Total Estimado: ${simb()} ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
                 <label className="block text-slate-400 font-medium mb-1">
                   {project.tipo === 'escalera' ? 'Proyección Horizontal (m)' : 'Alto / Altura (m)'}
                 </label>
-                <input 
+                <InputNumero 
                   type="number" 
                   step="0.05" 
                   min="0.5" 
@@ -499,7 +500,7 @@ Total Estimado: ${simb()} ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div>
                   <label className="block text-slate-400 font-medium mb-1">Altura Total (m)</label>
-                  <input 
+                  <InputNumero 
                     type="number" 
                     step="0.05" 
                     min="0.5" 
@@ -511,7 +512,7 @@ Total Estimado: ${simb()} ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
                 </div>
                 <div>
                   <label className="block text-slate-400 font-medium mb-1">Número de Peldaños</label>
-                  <input 
+                  <InputNumero 
                     type="number" 
                     min="3" 
                     max="30" 
@@ -574,7 +575,7 @@ Total Estimado: ${simb()} ${totalCotizacion.toFixed(2)} PEN (Incluye IGV)`;
               <div className="grid grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-slate-400 font-medium mb-1">Número de Hojas</label>
-                  <input 
+                  <InputNumero 
                     type="number" 
                     min="1" 
                     max="6" 

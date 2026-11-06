@@ -57,6 +57,7 @@ import {
   Compass,
   Box
 } from 'lucide-react';
+import InputNumero from './common/InputNumero';
 
 interface DiseñadorViewProps {
   onOpenCarpinteria?: () => void;
@@ -2364,7 +2365,7 @@ export const DiseñadorView: React.FC<DiseñadorViewProps> = ({
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                     <div>
                       <label className="block font-bold text-slate-600 mb-1">Lado 1 - Frente (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.1"
                         value={surveyDim.frente}
@@ -2376,7 +2377,7 @@ export const DiseñadorView: React.FC<DiseñadorViewProps> = ({
 
                     <div>
                       <label className="block font-bold text-slate-600 mb-1">Lado 2 - Fondo Der (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.1"
                         value={surveyDim.fondoDer}
@@ -2388,7 +2389,7 @@ export const DiseñadorView: React.FC<DiseñadorViewProps> = ({
 
                     <div>
                       <label className="block font-bold text-slate-600 mb-1">Lado 3 - Posterior (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.1"
                         value={surveyDim.posterior}
@@ -2400,7 +2401,7 @@ export const DiseñadorView: React.FC<DiseñadorViewProps> = ({
 
                     <div>
                       <label className="block font-bold text-slate-600 mb-1">Lado 4 - Fondo Izq (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.1"
                         value={surveyDim.fondoIzq}
@@ -2414,7 +2415,7 @@ export const DiseñadorView: React.FC<DiseñadorViewProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
                     <div>
                       <label className="block font-bold text-slate-600 mb-1">Altura Punto Bajo (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.05"
                         value={surveyDim.hBajo}
@@ -2426,7 +2427,7 @@ export const DiseñadorView: React.FC<DiseñadorViewProps> = ({
 
                     <div>
                       <label className="block font-bold text-slate-600 mb-1">Altura Punto Alto (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.05"
                         value={surveyDim.hAlto}
@@ -2533,7 +2534,7 @@ export const DiseñadorView: React.FC<DiseñadorViewProps> = ({
                 Nueva medida en metros (m):
               </label>
               <div className="flex items-center space-x-2">
-                <input
+                <InputNumero
                   type="number"
                   step="0.10"
                   min="1.0"

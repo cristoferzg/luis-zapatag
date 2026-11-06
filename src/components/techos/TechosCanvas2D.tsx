@@ -63,6 +63,7 @@ import {
   TipoTijeral, 
   CATALOGO_TIJERALES_INFO
 } from './techosCadColors';
+import InputNumero from '../common/InputNumero';
 
 export type { VistaTechoCAD };
 
@@ -1620,7 +1621,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-300 rounded-xl shrink-0 shadow-2xs"
             title="Profundidad de trabajo en el eje Z (hacia el fondo del techo). En Planta la pones con el cursor; aquí la fijas para dibujar en elevación.">
             <span className="text-[10px] font-black text-amber-800 uppercase tracking-wide">Prof. Z</span>
-            <input
+            <InputNumero
               type="number"
               step="0.25"
               value={profundidadZSetting}
@@ -2709,7 +2710,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             {/* Peralte + espaciado rápido — ahora también visible en MÓVIL, compacto */}
             <div className="flex items-center gap-1.5 text-[10px] font-mono shrink-0">
               <span className="text-slate-400">H</span>
-              <input
+              <InputNumero
                 type="number" step="0.05" min="0.20" max="2.50"
                 value={trussHeightSetting}
                 onChange={(e) => { const h = Math.max(0.20, parseFloat(e.target.value) || 0.5); setTrussHeightSetting(h); ajustarTijeral({ h: hFirmada(h) }); }}
@@ -3022,7 +3023,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
             <label className="block text-[10px] font-bold text-slate-600">
               Ancho real del plano (m) — calibra la escala
-              <input type="number" step="0.5" value={refImgWidthM}
+              <InputNumero type="number" step="0.5" value={refImgWidthM}
                 onChange={e => setRefImgWidthM(Math.max(0.5, parseFloat(e.target.value) || 0.5))}
                 className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
             </label>
@@ -3030,13 +3031,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <div className="grid grid-cols-2 gap-2">
               <label className="block text-[10px] font-bold text-slate-600">
                 Posición X (m)
-                <input type="number" step="0.25" value={refImgX}
+                <InputNumero type="number" step="0.25" value={refImgX}
                   onChange={e => setRefImgX(parseFloat(e.target.value) || 0)}
                   className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
               </label>
               <label className="block text-[10px] font-bold text-slate-600">
                 Posición Z (m)
-                <input type="number" step="0.25" value={refImgY}
+                <InputNumero type="number" step="0.25" value={refImgY}
                   onChange={e => setRefImgY(parseFloat(e.target.value) || 0)}
                   className="mt-0.5 w-full px-2 py-1 rounded-lg border border-slate-300 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-sky-400" />
               </label>
@@ -3183,7 +3184,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 bg-white/95 border border-sky-300 shadow-xl rounded-2xl px-3 py-2 flex flex-wrap items-center gap-2 text-xs font-bold text-slate-700"
               onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
               <span className="text-sky-700">📏 Medida</span>
-              <input type="number" step="0.01" min={0.05} value={m.d} onChange={e => { const v = parseFloat(e.target.value); if (v > 0) setUltimaMedida({ ...m, d: v }); }}
+              <InputNumero type="number" step="0.01" min={0.05} value={m.d} onChange={e => { const v = parseFloat(e.target.value); if (v > 0) setUltimaMedida({ ...m, d: v }); }}
                 className="w-20 px-2 py-1 rounded-lg border border-slate-200 font-mono text-right" /> m
               <button type="button" onClick={trazar} className="px-2.5 py-1.5 rounded-lg bg-sky-600 text-white cursor-pointer">Trazar viga exacta</button>
               <button type="button" onClick={() => setUltimaMedida(null)} className="px-2.5 py-1.5 rounded-lg bg-slate-100 cursor-pointer">Medir de nuevo</button>

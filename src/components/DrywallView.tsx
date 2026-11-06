@@ -31,6 +31,7 @@ import DisenoIADrywall from './drywall/DisenoIADrywall';
 import { CotizacionDrywall, KEY_COT_ACTUAL, KEY_COT_LISTA, cotizacionVacia, leerCotizacionActual, leerCotizaciones } from './drywall/cotizacionDrywall';
 import { simb } from '../lib/currency';
 import BotonElectricidad from './electricidad/BotonElectricidad';
+import InputNumero from './common/InputNumero';
 
 const Drywall3D = lazy(() => import('./drywall/Drywall3D'));
 
@@ -129,13 +130,11 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
 
 // ── Campo numérico compacto ─────────────────────────────────────────────────
 function Num({ label, value, onChange, step = 0.05, min = 0, sufijo = 'm' }: { label: string; value: number; onChange: (v: number) => void; step?: number; min?: number; sufijo?: string }) {
-  const [txt, setTxt] = useState(String(value));
-  useEffect(() => { if (parseFloat(txt) !== value) setTxt(String(value)); }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <label className="block text-[10px] font-bold text-slate-500 uppercase">{label}
       <div className="mt-0.5 flex items-center rounded-lg bg-slate-100 focus-within:ring-2 focus-within:ring-violet-300">
-        <input type="number" inputMode="decimal" step={step} min={min} value={txt}
-          onChange={e => { setTxt(e.target.value); const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(Math.max(min, v)); }}
+        <InputNumero type="number" inputMode="decimal" step={step} min={min} value={value}
+          onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(Math.max(min, v)); }}
           className="w-full min-w-0 bg-transparent px-2 py-1.5 text-sm font-mono font-bold text-slate-800 focus:outline-none" />
         {sufijo && <span className="pr-2 text-[11px] font-bold text-slate-400 normal-case">{sufijo}</span>}
       </div>
@@ -843,9 +842,9 @@ function Presupuesto({ cot, setCot, onIrAPrecios }: { cot: CotizacionDrywall; se
               <div className="flex justify-between"><span className="text-slate-500 font-bold">Materiales</span><span className="font-mono font-bold">{S(materiales)}</span></div>
               <div className="flex justify-between"><span className="text-slate-500 font-bold">Mano de obra ({f2(dias)} días)</span><span className="font-mono font-bold">{S(manoObra)}</span></div>
               <div className="flex justify-between items-center"><span className="text-slate-500 font-bold">Gastos generales
-                <input type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-12 px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
+                <InputNumero type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-12 px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
               <div className="flex justify-between items-center"><span className="text-slate-500 font-bold">Utilidad
-                <input type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-12 px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
+                <InputNumero type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-12 px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
               <div className="flex justify-between bg-violet-600 text-white rounded-xl px-3 py-2 mt-1"><span className="font-black uppercase">Total</span><span className="font-mono font-black">{S(total)}</span></div>
             </div>
           </div>

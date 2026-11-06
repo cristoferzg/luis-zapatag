@@ -8,6 +8,7 @@
 //   sobretecho opcional. Todo se ve y se metra también en Concreto por pisos.
 // =============================================================================
 import { useMemo, useState } from 'react';
+import InputNumero from '../common/InputNumero';
 import { X, Layers, Droplets, Trash2, Compass, Cable, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { INVENTARIO_COBERTURAS, INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
@@ -203,7 +204,7 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
   );
   const num = (label: string, value: number, on: (v: number) => void, step = 0.05) => (
     <label className="text-[11px] font-bold text-slate-600">{label}
-      <input type="number" step={step} value={value} onChange={e => on(parseFloat(e.target.value) || 0)}
+      <InputNumero type="number" step={step} value={value} onChange={e => on(parseFloat(e.target.value) || 0)}
         className="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-100 text-xs font-mono focus:outline-none" />
     </label>
   );
@@ -260,7 +261,7 @@ export default function TechosCoberturaTanqueModal({ engineState, modo: modoInic
               <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" checked={ten.correas} onChange={e => setTen({ ...ten, correas: e.target.checked })} /> Templadores de correas (paños de más de 5.5 m)</label>
               {arriostresTubo > 0 && <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"><input type="checkbox" checked={ten.reemplazar} onChange={e => setTen({ ...ten, reemplazar: e.target.checked })} /> Reemplazar los {arriostresTubo} arriostres de tubo en cruz por estos tensores</label>}
               <label className="flex items-center gap-2 text-xs font-bold text-slate-700">Arriostrar los paños extremos y cada
-                <input type="number" min={2} max={10} value={ten.cada} onChange={e => setTen({ ...ten, cada: Math.max(2, parseInt(e.target.value) || 5) })} className="w-14 px-2 py-1 rounded-lg bg-slate-100 text-xs font-mono focus:outline-none" /> paños
+                <InputNumero type="number" min={2} max={10} value={ten.cada} onChange={e => setTen({ ...ten, cada: Math.max(2, parseInt(e.target.value) || 5) })} className="w-14 px-2 py-1 rounded-lg bg-slate-100 text-xs font-mono focus:outline-none" /> paños
               </label>
             </div>
             <div className="flex flex-wrap gap-2">

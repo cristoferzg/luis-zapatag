@@ -15,6 +15,7 @@
 // =============================================================================
 import { useState } from 'react';
 import { X, Plus, Trash2, Columns, Check, Grid3x3 } from 'lucide-react';
+import InputNumero from '../common/InputNumero';
 
 interface ColumnaExacta {
   x: string;      // Posición X en planta (m)
@@ -163,7 +164,7 @@ export default function TechosColumnasExactasModal({ engineState, onClose, onDon
           <label className="text-xs font-bold text-slate-700 flex items-center gap-2">
             <Grid3x3 className="w-4 h-4 text-amber-600" />
             N° de columnas:
-            <input
+            <InputNumero
               type="number"
               min={1}
               max={60}

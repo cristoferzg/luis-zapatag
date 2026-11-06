@@ -9,6 +9,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { TipoTecho, DireccionCaida } from './structuralTypes';
+import InputNumero from '../common/InputNumero';
 
 export interface RoofTemplateOption {
   id: string;
@@ -361,7 +362,7 @@ export const RoofCreationModal: React.FC<RoofCreationModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Frente / Fachada (m)
                   </label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={survey.frente === 0 ? '' : survey.frente}
@@ -374,7 +375,7 @@ export const RoofCreationModal: React.FC<RoofCreationModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Fondo Derecho (m)
                   </label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={survey.fondoDer === 0 ? '' : survey.fondoDer}
@@ -387,7 +388,7 @@ export const RoofCreationModal: React.FC<RoofCreationModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Posterior / Atrás (m)
                   </label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={survey.posterior === 0 ? '' : survey.posterior}
@@ -400,7 +401,7 @@ export const RoofCreationModal: React.FC<RoofCreationModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Fondo Izquierdo (m)
                   </label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={survey.fondoIzq === 0 ? '' : survey.fondoIzq}
@@ -415,7 +416,7 @@ export const RoofCreationModal: React.FC<RoofCreationModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Altura Lado Alto (m)
                   </label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={survey.hAlto === 0 ? '' : survey.hAlto}
@@ -428,7 +429,7 @@ export const RoofCreationModal: React.FC<RoofCreationModalProps> = ({
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     Altura Lado Bajo (m)
                   </label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={survey.hBajo === 0 ? '' : survey.hBajo}

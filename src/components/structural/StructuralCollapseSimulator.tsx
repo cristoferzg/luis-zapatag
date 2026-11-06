@@ -24,6 +24,7 @@ import {
   BeamElement, 
   PurlinElement 
 } from './structuralTypes';
+import InputNumero from '../common/InputNumero';
 
 export interface CollapseSimulatorProps {
   isOpen?: boolean;
@@ -627,7 +628,7 @@ export const StructuralCollapseSimulator: React.FC<CollapseSimulatorProps> = ({
                         onChange={e => setColHeightM(parseFloat(e.target.value))}
                         className="flex-1 accent-blue-600 cursor-pointer"
                       />
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.05"
                         value={colHeightM}
@@ -658,7 +659,7 @@ export const StructuralCollapseSimulator: React.FC<CollapseSimulatorProps> = ({
                         onChange={e => setSpanM(parseFloat(e.target.value))}
                         className="flex-1 accent-blue-600 cursor-pointer"
                       />
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.10"
                         value={spanM}
@@ -690,7 +691,7 @@ export const StructuralCollapseSimulator: React.FC<CollapseSimulatorProps> = ({
                       onChange={e => setSpacingM(parseFloat(e.target.value))}
                       className="flex-1 accent-blue-600 cursor-pointer"
                     />
-                    <input
+                    <InputNumero
                       type="number"
                       step="0.05"
                       value={spacingM}

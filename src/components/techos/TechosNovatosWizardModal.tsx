@@ -20,6 +20,7 @@ import { safeStorage } from '../../lib/storageManager';
 import { aVigaSimple, perfilVigaSugerido, PERFILES_VIGA_SIMPLE } from './vigaSimple';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { calculateE090Requirements } from '../../lib/e090StructuralAnalysis';
+import InputNumero from '../common/InputNumero';
 
 interface TechosNovatosWizardModalProps {
   isOpen: boolean;
@@ -2459,7 +2460,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     </button>
                   ))}
                   <div className="flex items-center gap-1 ml-auto">
-                    <input
+                    <InputNumero
                       type="number"
                       min="1"
                       max="30"
@@ -2487,7 +2488,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     </button>
                   ))}
                   <div className="flex items-center gap-1 ml-auto">
-                    <input
+                    <InputNumero
                       type="number"
                       step="0.05"
                       min="0.10"
@@ -2519,7 +2520,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                       {h.toFixed(2)}m
                     </button>
                   ))}
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     min="0.20"

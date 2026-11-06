@@ -25,6 +25,7 @@ import { HerreriaDesign, MaterialAgrupado } from './herreriaTypes';
 import { generarDespiece, generarMaterialesAgrupados } from './herreriaCalculations';
 import { safeStorage } from '../../lib/storageManager';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface HerreriaMaterialesViewProps {
   design: HerreriaDesign;
@@ -606,7 +607,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">
                       Cantidad *
                     </label>
-                    <input
+                    <InputNumero
                       type="number"
                       min="1"
                       step="1"
@@ -621,7 +622,7 @@ export const HerreriaMaterialesView: React.FC<HerreriaMaterialesViewProps> = ({ 
                     <label className="text-[11px] font-bold text-slate-700 block mb-1">
                       Precio Unit. ({simb()}) *
                     </label>
-                    <input
+                    <InputNumero
                       type="number"
                       min="0"
                       step="0.5"

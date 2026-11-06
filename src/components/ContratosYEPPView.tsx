@@ -18,6 +18,7 @@ import { safeStorage } from '../lib/storageManager';
 import { prepararArchivoCarpeta } from '../lib/carpetaArchivos';
 import { getCachedTechosDesigns, fetchAllTechosDesigns, SavedTechosDesign } from '../lib/techosDesignsRepo';
 import { simb } from '../lib/currency';
+import InputNumero from './common/InputNumero';
 
 interface ContratosYEPPViewProps {
   projects: Project[];
@@ -557,11 +558,11 @@ function ContratosSubView({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Presupuesto Total ({simb()})</label>
-            <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800" value={presupuestoTotal} onChange={e => setPresupuestoTotal(Number(e.target.value))} />
+            <InputNumero type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800" value={presupuestoTotal} onChange={e => setPresupuestoTotal(Number(e.target.value))} />
           </div>
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Adelanto Acordado ({simb()})</label>
-            <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800" value={adelantoInput} onChange={e => setAdelantoInput(Number(e.target.value))} />
+            <InputNumero type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black text-slate-800" value={adelantoInput} onChange={e => setAdelantoInput(Number(e.target.value))} />
           </div>
         </div>
 

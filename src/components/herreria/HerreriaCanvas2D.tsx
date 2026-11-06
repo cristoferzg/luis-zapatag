@@ -48,6 +48,7 @@ import { findBestSnapPoint, SnapResult, distance2D, roundToPrecision } from './c
 import { HerreriaContextMenu, ContextMenuPosition } from './HerreriaContextMenu';
 import { CadGesturesAndShortcutsModal } from '../common/CadGesturesAndShortcutsModal';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 function distancePointToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
   const l2 = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
@@ -2187,7 +2188,7 @@ export const HerreriaCanvas2D: React.FC<HerreriaCanvas2DProps> = ({
             onClick={() => setPlanoProfundidadM(v => roundToPrecision(v + 0.05, 3))}
             className="w-8 h-6 rounded-lg text-slate-600 bg-slate-100 hover:bg-amber-100 hover:text-amber-700 text-sm font-bold flex items-center justify-center"
           >+</button>
-          <input
+          <InputNumero
             type="number"
             step={5}
             value={Math.round(planoProfundidadM * 100)}

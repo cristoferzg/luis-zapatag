@@ -1382,7 +1382,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // otros donde los paños caen en distintas direcciones.
   // `recorte`: contorno real de la zona (techo en L, con vacíos o ductos). Las planchas
   // se cortan a esa forma en vez de cubrir el rectángulo que la encierra.
-  const crearPanoZona = (pts: THREE.Vector3[], arriba: boolean, recorte?: THREE.Vector3[]): THREE.BufferGeometry | null => {
+  // `elevar`: altura de la plancha sobre el eje de los perfiles = mitad del perfil más alto + holgura
+  // (antes era fijo 4 cm: con tubos de 4" la malla o la plancha quedaba a media altura del tubo).
+  const crearPanoZona = (pts: THREE.Vector3[], arriba: boolean, recorte?: THREE.Vector3[], elevar = 0.04): THREE.BufferGeometry | null => {
     if (pts.length < 3) return null;
     const activeModel = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
     const P0 = pts[0];
@@ -1402,7 +1404,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     for (let k = Math.floor(u0 / periodo) - 1; k * periodo <= u1 + periodo; k++) fr.forEach(f => { const u = (k + f) * periodo; if (u > u0 && u < u1) uu.push(u); });
     uu.push(u1);
     const vv = [v0, (v0 + v1) / 2, v1];
-    const base = 0.04 + (arriba ? Math.max(0.002, activeModel.espesorMm / 1000) : 0);
+    const base = Math.max(0.04, elevar) + (arriba ? Math.max(0.002, activeModel.espesorMm / 1000) : 0);
     const pos: number[] = [], idx: number[] = [], uvA: number[] = [];
     const vertice = (u: number, v: number) => {
       const rib = getRibHeightProfile(u, freq, alto * (arriba ? 1 : 0.95), activeModel.tipo).offset;
@@ -2623,7 +2625,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       
       // Mostrar esfera de unión azul en todas las conexiones superiores (evitando superponer sobre la placa base en y=0)
       if (node.y > 0.10 && data.count >= 1) {
-        const jointRadius = Math.max(0.055, Math.min(0.12, (data.maxProfileWidth || 0.08) * 0.65));
+        // El nudo no puede sobresalir de la cara de arriba del tubo: si fuera más grande atraviesa la
+        // cobertura (malla raschel, planchas) y parece que la estructura va encima.
+        const anchoNudo = data.maxProfileWidth || 0.08;
+        const jointRadius = Math.min(Math.max(0.055, Math.min(0.12, anchoNudo * 0.65)), anchoNudo / 2 + 0.006);
         const jointGeo = new THREE.SphereGeometry(jointRadius, 16, 16);
         const jointMesh = new THREE.Mesh(jointGeo, nudoJointMat);
         jointMesh.position.set(node.x, node.y, node.z || 0);
@@ -2894,7 +2899,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
           // Si la zona no es un rectángulo (vacíos, ductos, forma en L) se recorta a su contorno.
           const unica = panosZona.length === 1 && panosZona[0].pts.length > 4 ? panosZona[0].pts : undefined;
-          const gt = crearPanoZona(panoLargo, true, unica), gb = crearPanoZona(panoLargo, false, unica);
+          const gt = crearPanoZona(panoLargo, true, unica, holguraTop), gb = crearPanoZona(panoLargo, false, unica, holguraTop);
           if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
           if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
           modeloGroup.add(grupo);
@@ -2916,7 +2921,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             const zPiv = lama ? (a0 + a1) / 2 : a0, yPiv = yEn(zPiv);
             const escalon = movil.tipo === 'corredizo' ? k * 0.09 : 0;
             const g = new THREE.Group(); g.name = 'pano_movil';
-            [crearPanoZona(sub, true), crearPanoZona(sub, false)].forEach((geo, i) => {
+            [crearPanoZona(sub, true, undefined, holguraTop), crearPanoZona(sub, false, undefined, holguraTop)].forEach((geo, i) => {
               if (!geo) return;
               const mesh = new THREE.Mesh(geo, i === 0 ? flatTop : flatBottom);
               mesh.name = 'cobertura_malla';
@@ -2949,7 +2954,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
         const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
         const pz = panosZona[0];
-        const gt = crearPanoZona(pz.pts, true), gb = crearPanoZona(pz.pts, false);
+        const gt = crearPanoZona(pz.pts, true, undefined, holguraTop), gb = crearPanoZona(pz.pts, false, undefined, holguraTop);
         if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
         if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
         modeloGroup.add(grupo);
@@ -2960,7 +2965,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
         const grupo = new THREE.Group(); grupo.name = 'cobertura_malla';
         panosZona.forEach(pz => {
-          const gt = crearPanoZona(pz.pts, true), gb = crearPanoZona(pz.pts, false);
+          const gt = crearPanoZona(pz.pts, true, undefined, holguraTop), gb = crearPanoZona(pz.pts, false, undefined, holguraTop);
           if (gt) grupo.add(new THREE.Mesh(gt, flatTop));
           if (gb) grupo.add(new THREE.Mesh(gb, flatBottom));
         });
@@ -3257,6 +3262,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
+    if (import.meta.env.DEV) (window as any).__escenaTechos = scene; // solo para pruebas en desarrollo
 
     const cfgIlum = CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro;
     scene.background = fotoFondoRef.current ? null : new THREE.Color(cfgIlum.bgColor);

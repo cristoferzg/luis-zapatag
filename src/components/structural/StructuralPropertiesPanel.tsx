@@ -32,6 +32,7 @@ import {
   SlidersHorizontal 
 } from 'lucide-react';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 export type PropertyItemType = 'column' | 'beam' | 'purlin' | 'truss' | 'brace' | 'sector' | 'edge' | 'void' | 'gutter' | 'downspout';
 
@@ -524,7 +525,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 </div>
                 <div>
                   <label className="block font-semibold text-amber-900 text-[11px] mb-1">Peralte / Altura (m):</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     min="0.30"
@@ -540,7 +541,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-semibold text-amber-900 text-[11px] mb-1">Luz / Span (m):</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.10"
                     min="2.00"
@@ -552,7 +553,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                 </div>
                 <div>
                   <label className="block font-semibold text-amber-900 text-[11px] mb-1">Pendiente (%):</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="1"
                     min="0"
@@ -660,7 +661,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   <div className="space-y-1">
                     <label className="block font-semibold text-slate-600">Altura Individual:</label>
                     <div className="flex items-center space-x-1">
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.05"
                         min="1.0"
@@ -691,7 +692,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
                 <div className="space-y-1">
                   <label className="block font-semibold text-slate-600">Cantidad:</label>
-                  <input
+                  <InputNumero
                     type="number"
                     min="1"
                     max="100"
@@ -1078,7 +1079,7 @@ export const StructuralPropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       </div>
                       <div>
                         <label className="block font-semibold text-slate-600 mb-1">Cantidad bajantes:</label>
-                        <input
+                        <InputNumero
                           type="number"
                           min="0"
                           max="10"

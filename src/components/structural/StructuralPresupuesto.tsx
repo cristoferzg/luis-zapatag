@@ -21,6 +21,7 @@ import {
   DollarSign 
 } from 'lucide-react';
 import { simb, getCompanyCurrency } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface PresupuestoProps {
   geometria: StructuralGeometry;
@@ -440,7 +441,7 @@ TOTAL PRESUPUESTO ESTIMADO: ${simb()} ${totalPresupuestoPEN.toFixed(2)} PEN
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-xs">
           <div>
             <label className="block text-slate-500 font-semibold mb-1">Acero ({simb()}/kg):</label>
-            <input
+            <InputNumero
               type="number"
               step="0.5"
               value={steelPricePerKg}
@@ -450,7 +451,7 @@ TOTAL PRESUPUESTO ESTIMADO: ${simb()} ${totalPresupuestoPEN.toFixed(2)} PEN
           </div>
           <div>
             <label className="block text-slate-500 font-semibold mb-1">Cobertura ({simb()}/m²):</label>
-            <input
+            <InputNumero
               type="number"
               step="1"
               value={coveragePricePerM2}
@@ -460,7 +461,7 @@ TOTAL PRESUPUESTO ESTIMADO: ${simb()} ${totalPresupuestoPEN.toFixed(2)} PEN
           </div>
           <div>
             <label className="block text-slate-500 font-semibold mb-1">Mano de Obra ({simb()}/kg):</label>
-            <input
+            <InputNumero
               type="number"
               step="0.5"
               value={laborPricePerKg}
@@ -470,7 +471,7 @@ TOTAL PRESUPUESTO ESTIMADO: ${simb()} ${totalPresupuestoPEN.toFixed(2)} PEN
           </div>
           <div>
             <label className="block text-slate-500 font-semibold mb-1">Canaleta ({simb()}/m):</label>
-            <input
+            <InputNumero
               type="number"
               step="1"
               value={gutterPricePerM}
@@ -480,7 +481,7 @@ TOTAL PRESUPUESTO ESTIMADO: ${simb()} ${totalPresupuestoPEN.toFixed(2)} PEN
           </div>
           <div>
             <label className="block text-slate-500 font-semibold mb-1">Bajante ({simb()}/m):</label>
-            <input
+            <InputNumero
               type="number"
               step="1"
               value={downpipePricePerM}

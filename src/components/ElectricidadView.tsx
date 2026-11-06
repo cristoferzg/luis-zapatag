@@ -24,6 +24,7 @@ import VerificacionInstalacion from './electricidad/VerificacionInstalacion';
 import PlanoElectrico from './electricidad/PlanoElectrico';
 import type { Visibles3D } from './electricidad/Electricidad3D';
 import { IconoPunto } from './electricidad/SimboloElectrico';
+import InputNumero from './common/InputNumero';
 
 const Electricidad3D = lazy(() => import('./electricidad/Electricidad3D'));
 
@@ -281,7 +282,7 @@ function CuadroCargas({ cot, setCot, r, duchas, onPlano, onEjemplo }: { cot: Cot
                     <td className="py-1.5 font-bold text-slate-700">{f.c.desc}</td>
                     <td className="py-1.5 text-right font-mono">{f.puntos}</td>
                     <td className="py-1.5 text-right font-mono">{f.c.uso === 'debil' ? '—' : `${n0(f.ci)} W`}</td>
-                    <td className="py-1.5 text-right">{f.c.uso === 'debil' ? '—' : <input type="number" min={0} max={1} step={0.05} value={f.c.fd} onChange={e => fd(f.c.id, parseFloat(e.target.value) || 0)} className="w-14 min-h-[28px] px-1 rounded bg-slate-100 text-right font-mono no-imprimir-borde" />}</td>
+                    <td className="py-1.5 text-right">{f.c.uso === 'debil' ? '—' : <InputNumero type="number" min={0} max={1} step={0.05} value={f.c.fd} onChange={e => fd(f.c.id, parseFloat(e.target.value) || 0)} className="w-14 min-h-[28px] px-1 rounded bg-slate-100 text-right font-mono no-imprimir-borde" />}</td>
                     <td className="py-1.5 text-right font-mono font-bold">{f.c.uso === 'debil' ? '—' : `${n0(f.md)} W`}</td>
                     <td className="py-1.5 text-right font-mono">{f.c.uso === 'debil' ? '—' : `${f.I.toFixed(1)} A`}</td>
                     <td className="py-1.5 pl-3 text-right font-mono">{f.c.uso === 'debil' ? 'Coax / UTP' : `2-1×${f.c.seccion} + 1×${f.c.seccion} (T)`}</td>
@@ -465,7 +466,7 @@ function Ajustes({ cot, setCot, onIrAPrecios, hoja }: { cot: CotizacionEle; setC
       <div><p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Tubería</p>{seg(cot.tubo, [['sap', 'PVC-SAP (pesado)'], ['l', 'PVC-L (liviano)']], v => setCot(c => ({ ...c, tubo: v })))}</div>
       <div><p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Mano de obra</p>{seg(cot.modoMO, [['puntos', 'Por punto'], ['jornal', 'Por jornal']], v => setCot(c => ({ ...c, modoMO: v })))}</div>
       <label className="flex items-center gap-2 text-xs font-bold text-slate-700">Desperdicio
-        <input type="number" min={0} max={40} value={cot.merma} onChange={e => setCot(c => ({ ...c, merma: Math.max(0, Math.min(40, parseFloat(e.target.value) || 0)) }))} className="ml-auto w-16 min-h-[36px] px-2 rounded-lg bg-slate-100 font-mono text-right" /> %
+        <InputNumero type="number" min={0} max={40} value={cot.merma} onChange={e => setCot(c => ({ ...c, merma: Math.max(0, Math.min(40, parseFloat(e.target.value) || 0)) }))} className="ml-auto w-16 min-h-[36px] px-2 rounded-lg bg-slate-100 font-mono text-right" /> %
       </label>
       <label className={chk}><input type="checkbox" className="w-4 h-4 accent-amber-500" checked={cot.incluirLuminarias} onChange={e => setCot(c => ({ ...c, incluirLuminarias: e.target.checked }))} /> Incluir luminarias (y su instalación)</label>
       <label className={chk}><input type="checkbox" className="w-4 h-4 accent-amber-500" checked={cot.pruebas} onChange={e => setCot(c => ({ ...c, pruebas: e.target.checked }))} /> Pruebas de aislamiento y protocolo</label>
@@ -599,9 +600,9 @@ function Presupuesto({ cot, setCot, r, duchas, onIrAPrecios, onPlano }: { cot: C
               {cot.incluirLuminarias && <div className="flex flex-nowrap justify-between gap-2"><span className="text-slate-500 font-bold">Luminarias</span><span className="font-mono font-bold">{S(r.luminarias)}</span></div>}
               <div className="flex flex-nowrap justify-between gap-2"><span className="text-slate-500 font-bold">Mano de obra</span><span className="font-mono font-bold">{S(r.manoObra)}</span></div>
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Gastos generales
-                <input type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
+                <InputNumero type="number" min={0} value={cot.gg} onChange={e => setCot(c => ({ ...c, gg: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(gg)}</span></div>
               <div className="flex justify-between items-center gap-2"><span className="text-slate-500 font-bold">Utilidad
-                <input type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
+                <InputNumero type="number" min={0} value={cot.util} onChange={e => setCot(c => ({ ...c, util: Math.max(0, parseFloat(e.target.value) || 0) }))} className="ml-1 w-14 min-h-[32px] px-1 py-0.5 rounded bg-slate-100 text-right font-mono" /> %</span><span className="font-mono font-bold">{S(util)}</span></div>
               <div className="flex flex-nowrap justify-between gap-2 bg-amber-400 text-slate-950 rounded-xl px-3 py-2 mt-1"><span className="font-black uppercase">Total</span><span className="font-mono font-black">{S(total)}</span></div>
             </div>
           </div>

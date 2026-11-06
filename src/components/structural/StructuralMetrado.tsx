@@ -12,6 +12,7 @@ import { getProfileById } from './structuralCatalog';
 import { calculateRoofGeometry } from './structuralGenerator';
 import { FileSpreadsheet, Download, Copy, Check, Droplets, ShieldCheck, Layers, Hammer } from 'lucide-react';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface MetradoProps {
   geometria: StructuralGeometry;
@@ -583,7 +584,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Acero Fabricado ({simb()}/kg):</label>
-            <input 
+            <InputNumero 
               type="number" 
               step="0.5" 
               value={steelPricePerKg} 
@@ -593,7 +594,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Cobertura Techo ({simb()}/m²):</label>
-            <input 
+            <InputNumero 
               type="number" 
               step="1" 
               value={coveragePricePerM2} 
@@ -603,7 +604,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Canaleta Pluvial ({simb()}/m):</label>
-            <input 
+            <InputNumero 
               type="number" 
               step="1" 
               value={gutterPricePerM} 
@@ -613,7 +614,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Bajante Pluvial ({simb()}/m):</label>
-            <input 
+            <InputNumero 
               type="number" 
               step="1" 
               value={downpipePricePerM} 
@@ -623,7 +624,7 @@ export const StructuralMetrado: React.FC<MetradoProps> = ({
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1">Mano de Obra ({simb()}/kg):</label>
-            <input 
+            <InputNumero 
               type="number" 
               step="0.5" 
               value={laborPricePerKg} 

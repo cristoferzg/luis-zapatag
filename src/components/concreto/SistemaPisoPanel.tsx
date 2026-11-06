@@ -11,6 +11,7 @@ import {
 import { INVENTARIO_PERFILES_TUBULARES } from '../techos/techosCadCatalog';
 import { precioBarraPerfil, clavePerfilDe, fijarPrecio } from '../../lib/catalogoPrecios';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface Props {
   nivel: string;
@@ -156,7 +157,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
                 </select>
               </label>
               <label className="text-[11px] font-bold text-slate-600">Área muro (m²)
-                <input type="number" inputMode="decimal" min={0} value={m.areaM2} onChange={e => setMuro(m.id, { areaM2: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} />
+                <InputNumero type="number" inputMode="decimal" min={0} value={m.areaM2} onChange={e => setMuro(m.id, { areaM2: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} />
               </label>
               {m.tipo !== 'ladrillo' ? (
                 <label className="text-[11px] font-bold text-slate-600">Caras
@@ -243,7 +244,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
                 </select>
               </label>
               <label className="text-[11px] font-bold text-slate-600">Altura soporte (m)
-                <input type="number" inputMode="decimal" min={0.3} step={0.1} value={sistema.tanque.alturaM} onChange={e => setTanque({ alturaM: Math.max(0.3, parseFloat(e.target.value) || 0.3) })} className={inputCls} />
+                <InputNumero type="number" inputMode="decimal" min={0.3} step={0.1} value={sistema.tanque.alturaM} onChange={e => setTanque({ alturaM: Math.max(0.3, parseFloat(e.target.value) || 0.3) })} className={inputCls} />
               </label>
               <label className="col-span-2 text-[11px] font-bold text-slate-600">Perfil
                 <select value={sistema.tanque.perfilId} onChange={e => {
@@ -255,7 +256,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
               </label>
               <label className="text-[11px] font-bold text-slate-600">Precio perfil ({simb()} barra)
                 {(() => { const pf = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === sistema.tanque!.perfilId); const k = pf ? clavePerfilDe(pf) : ''; return (
-                  <input type="number" inputMode="decimal" min={0} value={pf ? precioBarraPerfil(pf, pf.costoMetroSol * (pf.longitudComercialM || 6)) : 0} onChange={e => k && fijarPrecio(k, Math.max(0, parseFloat(e.target.value) || 0), 'Obra Civil')} className={inputCls} />
+                  <InputNumero type="number" inputMode="decimal" min={0} value={pf ? precioBarraPerfil(pf, pf.costoMetroSol * (pf.longitudComercialM || 6)) : 0} onChange={e => k && fijarPrecio(k, Math.max(0, parseFloat(e.target.value) || 0), 'Obra Civil')} className={inputCls} />
                 ); })()}
               </label>
               <label className="text-[11px] font-bold text-slate-600 flex items-end gap-2 pb-2">
@@ -270,7 +271,7 @@ export function SistemaPisoPanel({ nivel, sistema, calc, drywall, ladrillo, osb,
                     </select>
                   </label>
                   <label className="text-[11px] font-bold text-slate-600">Alto sobrepecho (m)
-                    <input type="number" inputMode="decimal" min={0} step={0.1} value={sistema.tanque.sobrepechoAlturaM} onChange={e => setTanque({ sobrepechoAlturaM: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} />
+                    <InputNumero type="number" inputMode="decimal" min={0} step={0.1} value={sistema.tanque.sobrepechoAlturaM} onChange={e => setTanque({ sobrepechoAlturaM: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} />
                   </label>
                 </>
               )}

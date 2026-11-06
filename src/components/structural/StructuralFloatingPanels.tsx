@@ -38,6 +38,7 @@ import {
   Sparkles,
   Compass
 } from 'lucide-react';
+import InputNumero from '../common/InputNumero';
 
 export type FloatingTab = 'propiedades' | 'geometria' | 'sectores' | 'elementos' | 'asistente';
 
@@ -410,7 +411,7 @@ export const StructuralFloatingPanels: React.FC<FloatingPanelsProps> = ({
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Largo (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.5"
                         min="2"
@@ -421,7 +422,7 @@ export const StructuralFloatingPanels: React.FC<FloatingPanelsProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Ancho (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.5"
                         min="2"
@@ -435,7 +436,7 @@ export const StructuralFloatingPanels: React.FC<FloatingPanelsProps> = ({
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Lado Alto (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.05"
                         min="1"
@@ -446,7 +447,7 @@ export const StructuralFloatingPanels: React.FC<FloatingPanelsProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 block mb-0.5">Lado Bajo (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.05"
                         min="1"
@@ -679,7 +680,7 @@ export const StructuralFloatingPanels: React.FC<FloatingPanelsProps> = ({
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-amber-800 block mb-0.5">Peralte (m):</label>
-                      <input
+                      <InputNumero
                         type="number"
                         step="0.05"
                         min="0.3"
@@ -1118,7 +1119,7 @@ export const StructuralFloatingPanels: React.FC<FloatingPanelsProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="font-bold text-slate-500 block text-[10px]">Largo (m):</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.5"
                     value={geometria.largo}
@@ -1128,7 +1129,7 @@ export const StructuralFloatingPanels: React.FC<FloatingPanelsProps> = ({
                 </div>
                 <div>
                   <label className="font-bold text-slate-500 block text-[10px]">Ancho (m):</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.5"
                     value={geometria.ancho}

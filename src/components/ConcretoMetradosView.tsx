@@ -37,6 +37,7 @@ import BotonElectricidad from './electricidad/BotonElectricidad';
 
 import { CATALOGO_ELEMENTOS, DIAMETROS_KGM, LARGO_VARILLA_M, desgloseVarillas, nuevaInstancia, costoMaterialesConcreto } from './concreto/elementosConcreto';
 import type { Instancia } from './concreto/elementosConcreto';
+import InputNumero from './common/InputNumero';
 
 const NIVELES_DEFAULT = ['Cimentación', 'Piso 1'];
 
@@ -285,7 +286,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
           ] as [keyof typeof PRECIOS_DEFAULT, string][]).map(([k, label]) => (
             <label key={k} className="text-[11px] font-bold text-slate-600">
               {label}
-              <input type="number" value={precios[k]} onChange={e => fijarPrecio(CLAVE_PRECIO[k], parseFloat(e.target.value) || 0, 'Obra Civil')}
+              <InputNumero type="number" value={precios[k]} onChange={e => fijarPrecio(CLAVE_PRECIO[k], parseFloat(e.target.value) || 0, 'Obra Civil')}
                 className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
             </label>
           ))}
@@ -386,7 +387,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
                       {def.campos.map(c => (
                         <label key={c.key} className="text-[11px] font-bold text-slate-600">
                           {c.label}
-                          <input type="number" inputMode="decimal" value={it.valores[c.key]}
+                          <InputNumero type="number" inputMode="decimal" value={it.valores[c.key]}
                             onChange={e => updateVal(it.uid, c.key, parseFloat(e.target.value) || 0)}
                             className="mt-1 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-stone-400" />
                         </label>

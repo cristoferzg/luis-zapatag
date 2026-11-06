@@ -13,6 +13,7 @@ import {
   useFotosLocales, agregarFotoLocal, reintentarFoto, reintentarPendientes, quitarFotoLocal, asignarParte,
   suscribirFotosLocales, tomarFotosListas, avanceSimuladoDev, FotoLocal,
 } from '../../lib/avanceObra';
+import InputNumero from '../common/InputNumero';
 
 type SetProjects = React.Dispatch<React.SetStateAction<Project[]>>;
 interface FotoVista { src: string; caption?: string }
@@ -241,7 +242,7 @@ function TabAvance({ project, a, pct, guardar, setProjects, locales, onVer, onNu
               <label className="text-[11px] font-bold text-slate-500">Inicio
                 <input type="date" value={t?.inicio || ''} onChange={e => guardar(x => ({ ...x, fechaInicio: e.target.value || undefined }))} className={`${inp} mt-0.5`} /></label>
               <label className="text-[11px] font-bold text-slate-500">Plazo (días)
-                <input type="number" min="1" value={a.plazoDias || t?.plazo || ''} onChange={e => guardar(x => ({ ...x, plazoDias: Number(e.target.value) || undefined }))} className={`${inp} mt-0.5`} placeholder="30" /></label>
+                <InputNumero type="number" min="1" value={a.plazoDias || t?.plazo || ''} onChange={e => guardar(x => ({ ...x, plazoDias: Number(e.target.value) || undefined }))} className={`${inp} mt-0.5`} placeholder="30" /></label>
             </div>
           )}
           {t ? (
@@ -303,11 +304,11 @@ function TabAvance({ project, a, pct, guardar, setProjects, locales, onVer, onNu
                   <div className="mt-2 rounded-xl bg-slate-50 border border-slate-100 p-2.5 space-y-2">
                     <div className="flex items-center gap-2">
                       <input type="range" min="0" max="100" step="5" value={limitarPct(x.avance)} onChange={e => cambiarPartida(x.id, { avance: Number(e.target.value) })} className="flex-1 accent-emerald-600" />
-                      <input type="number" min="0" max="100" value={limitarPct(x.avance)} onChange={e => cambiarPartida(x.id, { avance: limitarPct(Number(e.target.value)) })} className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm text-right" />
+                      <InputNumero type="number" min="0" max="100" value={limitarPct(x.avance)} onChange={e => cambiarPartida(x.id, { avance: limitarPct(Number(e.target.value)) })} className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm text-right" />
                     </div>
                     <div className="grid grid-cols-[1fr_7.5rem_auto] gap-1.5 items-end">
                       <label className="text-[10px] font-bold text-slate-500 min-w-0">Nombre<input value={x.nombre} onChange={e => cambiarPartida(x.id, { nombre: e.target.value })} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm" /></label>
-                      <label className="text-[10px] font-bold text-slate-500">Peso / costo<input type="number" min="0" value={x.peso ?? ''} onChange={e => cambiarPartida(x.id, { peso: Number(e.target.value) || undefined })} placeholder="opcional" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm" /></label>
+                      <label className="text-[10px] font-bold text-slate-500">Peso / costo<InputNumero type="number" min="0" value={x.peso ?? ''} onChange={e => cambiarPartida(x.id, { peso: Number(e.target.value) || undefined })} placeholder="opcional" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm" /></label>
                       <button onClick={() => quitarPartida(x.id)} className="p-2 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer" title="Quitar"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>

@@ -19,6 +19,7 @@ import { safeStorage } from '../../lib/storageManager';
 import { Plantilla, ModuloPlantilla, NOMBRE_MODULO, capturarDiseno, pesoKB, plantillaDesdeArchivo } from '../../lib/plantillas';
 import { precioPEN, simb, enMoneda, aSoles } from '../../lib/currency';
 import CampoNumero from '../CampoNumero';
+import InputNumero from './InputNumero';
 
 export interface AdjuntoSubido { nombre: string; url: string; tipo: string; tamano?: number }
 
@@ -476,7 +477,7 @@ export default function AsistenteSubida({ modo, editando, inicial, categorias, o
                       </div>
                       <div>
                         <label className={etiqueta}><Tag className="w-3 h-3 inline -mt-0.5" /> Descuento %</label>
-                        <input type="number" min={0} max={90} inputMode="numeric" className={campo} value={b.descuentoPct || ''} onChange={e => set({ descuentoPct: Math.min(90, Math.max(0, Number(e.target.value) || 0)) })} placeholder="0" />
+                        <InputNumero type="number" min={0} max={90} inputMode="numeric" className={campo} value={b.descuentoPct || ''} onChange={e => set({ descuentoPct: Math.min(90, Math.max(0, Number(e.target.value) || 0)) })} placeholder="0" />
                       </div>
                       <div>
                         <label className={etiqueta}>Descuento hasta</label>

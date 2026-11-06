@@ -13,6 +13,7 @@ import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, SOLDADURA_AWS_E60
 import { perfilMasEconomico, type CargasGrupo } from './techos/propiedadesPerfil';
 import { precio, clavePerfilDe, claveCobertura, useCatalogo } from '../lib/catalogoPrecios';
 import { simb, dinero } from '../lib/currency';
+import InputNumero from './common/InputNumero';
 
 const formatCurrency = (amount: number) => dinero(amount);
 const n = (v: string, d = 0) => { const x = parseFloat(v); return Number.isFinite(x) ? x : d; };
@@ -456,7 +457,7 @@ const CotizadorRapidoView = ({ embebida = false, onAgregarAlContrato }: Props = 
               <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-indigo-800/60">
                 <h4 className="font-bold text-indigo-300 text-sm uppercase tracking-wider flex items-center gap-2"><PieChart className="w-4 h-4 text-emerald-400" /> Presupuesto al cliente</h4>
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-300">Ganancia
-                  <span className="flex items-center text-emerald-300"><input type="number" min={0} max={GANANCIA_MAX} value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', String(Math.min(GANANCIA_MAX, Math.max(0, Number(e.target.value) || 0))))} className="w-14 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-white text-right" /><span className="ml-1">% <span className="text-slate-500 font-normal">(máx. {GANANCIA_MAX})</span></span></span>
+                  <span className="flex items-center text-emerald-300"><InputNumero type="number" min={0} max={GANANCIA_MAX} value={f.margenGananciaPct} onChange={e => set('margenGananciaPct', String(Math.min(GANANCIA_MAX, Math.max(0, Number(e.target.value) || 0))))} className="w-14 bg-slate-800 border border-slate-700 rounded px-1.5 py-1 text-white text-right" /><span className="ml-1">% <span className="text-slate-500 font-normal">(máx. {GANANCIA_MAX})</span></span></span>
                 </label>
               </div>
               {avisoUnidades && <p className="mb-3 text-xs font-bold text-amber-200 bg-amber-950/60 border border-amber-500/50 rounded-lg px-3 py-2">{avisoUnidades}</p>}

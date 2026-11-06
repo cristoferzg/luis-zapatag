@@ -24,6 +24,7 @@ import {
 import { PERFILES_CATALOGO } from './herreriaCatalog';
 import { HerreriaPerfilesSelector } from './HerreriaPerfilesSelector';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 export type HerreriaSelectedType = 
   | 'pieza_cad'
@@ -385,7 +386,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <input
+              <InputNumero
                 type="number"
                 step="0.01"
                 value={piezaSeleccionada.longitudM}
@@ -403,7 +404,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
               <span className="text-[10px] text-slate-500 font-bold block uppercase">Punto 1 (Inicio)</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-slate-400">X:</span>
-                <input
+                <InputNumero
                   type="number"
                   step="0.05"
                   value={piezaSeleccionada.x1}
@@ -413,7 +414,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-slate-400">Y:</span>
-                <input
+                <InputNumero
                   type="number"
                   step="0.05"
                   value={piezaSeleccionada.y1}
@@ -428,7 +429,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
               <span className="text-[10px] text-slate-500 font-bold block uppercase">Punto 2 (Fin)</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-slate-400">X:</span>
-                <input
+                <InputNumero
                   type="number"
                   step="0.05"
                   value={piezaSeleccionada.x2}
@@ -438,7 +439,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-slate-400">Y:</span>
-                <input
+                <InputNumero
                   type="number"
                   step="0.05"
                   value={piezaSeleccionada.y2}
@@ -663,7 +664,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-[11px] text-slate-600 font-semibold block mb-1">Posición X (m)</label>
-              <input
+              <InputNumero
                 type="number"
                 step="0.05"
                 value={accesorioSeleccionado.x}
@@ -673,7 +674,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
             </div>
             <div>
               <label className="text-[11px] text-slate-600 font-semibold block mb-1">Posición Y (m)</label>
-              <input
+              <InputNumero
                 type="number"
                 step="0.05"
                 value={accesorioSeleccionado.y}
@@ -685,7 +686,7 @@ export const HerreriaPropertiesPanel: React.FC<HerreriaPropertiesPanelProps> = (
 
           <div>
             <label className="text-[11px] text-slate-600 font-semibold block mb-1">Precio Unitario Estimado ({simb()})</label>
-            <input
+            <InputNumero
               type="number"
               step="0.50"
               value={accesorioSeleccionado.precioUnitario || 0}

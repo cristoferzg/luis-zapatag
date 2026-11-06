@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { TechoEstructuraDesign, TipoTecho, TipoTijeral, TipoCobertura, ColorCobertura } from './techosTypes';
 import { simb } from '../../lib/currency';
+import InputNumero from '../common/InputNumero';
 
 interface TechosPropertiesPanelProps {
   design: TechoEstructuraDesign;
@@ -228,7 +229,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Luz Libre L (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.1"
                     value={design.luzM}
@@ -239,7 +240,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Largo Total Nave (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.5"
                     value={design.largoM}
@@ -252,7 +253,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Altura Columnas H (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.1"
                     value={design.alturaColumnasM}
@@ -263,7 +264,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Pendiente (%)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="1"
                     value={design.pendientePorcentaje}
@@ -276,7 +277,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               {design.tipoTecho === 'techo_parabolico' && (
                 <div>
                   <label className="block text-[11px] font-semibold text-amber-300 mb-1">Flecha del Arco f (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.1"
                     value={design.flechaArcoM || 2.5}
@@ -292,7 +293,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Volado Frontal (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.1"
                     value={design.voladoFrontalM}
@@ -303,7 +304,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Volado Lateral (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.1"
                     value={design.voladoLateralM}
@@ -359,7 +360,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Espaciado Tijerales (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.5"
                     value={design.distanciaTijeralesM}
@@ -672,7 +673,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Espaciado Correas (m)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={design.distanciaCorreasM}
@@ -683,7 +684,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Filas por Caída</label>
-                  <input
+                  <InputNumero
                     type="number"
                     value={design.numFilasCorreas}
                     onChange={e => updateField('numFilasCorreas', parseInt(e.target.value) || 7)}
@@ -755,7 +756,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">Espesor (mm)</label>
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     value={design.espesorCoberturaMm}
@@ -838,7 +839,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-300 mb-1">Materiales Estructura y Cobertura ({simb()} por m²)</label>
-                <input
+                <InputNumero
                   type="number"
                   value={design.costoM2Materiales}
                   onChange={e => updateField('costoM2Materiales', parseFloat(e.target.value) || 85)}
@@ -848,7 +849,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-300 mb-1">Mano de Obra y Montaje ({simb()} por m²)</label>
-                <input
+                <InputNumero
                   type="number"
                   value={design.costoM2ManoObra}
                   onChange={e => updateField('costoM2ManoObra', parseFloat(e.target.value) || 35)}
@@ -858,7 +859,7 @@ export const TechosPropertiesPanel: React.FC<TechosPropertiesPanelProps> = ({
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-300 mb-1">Equipos y Camión Grúa ({simb()} por m²)</label>
-                <input
+                <InputNumero
                   type="number"
                   value={design.costoM2EquiposGrua}
                   onChange={e => updateField('costoM2EquiposGrua', parseFloat(e.target.value) || 12)}

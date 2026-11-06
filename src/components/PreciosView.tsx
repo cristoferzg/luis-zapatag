@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { safeStorage } from '../lib/storageManager';
 import { simb } from '../lib/currency';
+import InputNumero from './common/InputNumero';
 
 export interface PriceItem {
   nombre: string;
@@ -342,7 +343,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
                 <label className="block text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wide">Costo directo base (materiales + mano de obra)</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">{simb()}</span>
-                  <input type="number" min="0" value={costoEstimado === 0 ? '' : costoEstimado}
+                  <InputNumero type="number" min="0" value={costoEstimado === 0 ? '' : costoEstimado}
                     onChange={e => setCostoEstimado(e.target.value === '' ? 0 : Number(e.target.value))}
                     inputMode="decimal" placeholder="Ej. 3500.00"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-2.5 text-[13px] font-bold outline-none focus:border-slate-400 text-slate-800" />
@@ -380,7 +381,7 @@ Precios referenciales sujetos a verificación en planos o visita de campo.`;
                 ) : (
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">{simb()}</span>
-                    <input type="number" min="0" value={margenFijo}
+                    <InputNumero type="number" min="0" value={margenFijo}
                       onChange={e => setMargenFijo(e.target.value === '' ? 0 : Number(e.target.value))}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-2 text-[13px] font-bold outline-none focus:border-slate-400 text-slate-800" />
                   </div>

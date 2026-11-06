@@ -8,6 +8,7 @@ import {
   Zap
 } from 'lucide-react';
 import { TipoTecho, PatronTijeral, TipoTijeral } from './structuralTypes';
+import InputNumero from '../common/InputNumero';
 
 export interface BasicTrussRoofConfig {
   tipoTecho: TipoTecho;
@@ -247,7 +248,7 @@ export const BasicTrussRoofModal: React.FC<BasicTrussRoofModalProps> = ({
                   Largo Total (L)
                 </label>
                 <div className="flex items-center">
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.5"
                     min="2"
@@ -280,7 +281,7 @@ export const BasicTrussRoofModal: React.FC<BasicTrussRoofModalProps> = ({
                   Ancho / Luz Tijeral (A)
                 </label>
                 <div className="flex items-center">
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.5"
                     min="2"
@@ -313,7 +314,7 @@ export const BasicTrussRoofModal: React.FC<BasicTrussRoofModalProps> = ({
                   Altura Columnas (H)
                 </label>
                 <div className="flex items-center">
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.1"
                     min="1.5"
@@ -348,7 +349,7 @@ export const BasicTrussRoofModal: React.FC<BasicTrussRoofModalProps> = ({
                   Peralte del Tijeral
                 </label>
                 <div className="flex items-center mt-1">
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.05"
                     min="0.3"
@@ -366,7 +367,7 @@ export const BasicTrussRoofModal: React.FC<BasicTrussRoofModalProps> = ({
                   Pendiente de Caída
                 </label>
                 <div className="flex items-center mt-1">
-                  <input
+                  <InputNumero
                     type="number"
                     step="1"
                     min="1"
@@ -384,7 +385,7 @@ export const BasicTrussRoofModal: React.FC<BasicTrussRoofModalProps> = ({
                   Separación Tijerales
                 </label>
                 <div className="flex items-center mt-1">
-                  <input
+                  <InputNumero
                     type="number"
                     step="0.25"
                     min="2.0"

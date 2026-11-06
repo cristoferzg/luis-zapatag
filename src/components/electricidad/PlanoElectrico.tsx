@@ -22,6 +22,7 @@ import { SimboloElectrico, IconoPunto } from './SimboloElectrico';
 import VerificacionInstalacion from './VerificacionInstalacion';
 import { SimboloAparato } from '../gasfiteria/SimboloAparato';
 import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from '../gasfiteria/DisenoIAInstalacion';
+import InputNumero from '../common/InputNumero';
 
 /** Respuesta de disenarElectricidad (ya revisada en el servidor). */
 export interface PropuestaEleIA extends PlantaIABase { puntos: { tipo: TipoPunto; x: number; y: number; rot: number; nombre?: string; w?: number }[] }
@@ -489,7 +490,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
               {(d.w > 0 || selP.w) ? (
                 <label className="block text-[10px] font-bold text-slate-500 uppercase">Potencia
                   <div className="mt-0.5 flex items-center min-h-[40px] rounded-lg bg-slate-100">
-                    <input type="number" min={0} step={10} value={potencia(selP)} onChange={e => { const v = Math.max(0, parseFloat(e.target.value) || 0); setCot(c => ({ ...c, puntos: c.puntos.map(a => a.id === selP.id ? { ...a, w: v } : a) })); }}
+                    <InputNumero type="number" min={0} step={10} value={potencia(selP)} onChange={e => { const v = Math.max(0, parseFloat(e.target.value) || 0); setCot(c => ({ ...c, puntos: c.puntos.map(a => a.id === selP.id ? { ...a, w: v } : a) })); }}
                       className="w-full min-w-0 bg-transparent px-2 py-2 text-sm font-mono font-bold text-slate-800 focus:outline-none" />
                     <span className="pr-2 text-[11px] font-bold text-slate-400">W</span>
                   </div>
@@ -701,7 +702,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
       <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
         {cot.fondo.tipo === 'blanco' && (['ancho', 'largo'] as const).map(k => (
           <label key={k} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">{k === 'ancho' ? 'Ancho' : 'Largo'}
-            <input type="number" min={1} max={60} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(60, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo), ambientes: undefined } }; }); }}
+            <InputNumero type="number" min={1} max={60} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(60, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo), ambientes: undefined } }; }); }}
               className="w-16 min-h-[34px] px-2 rounded-lg bg-slate-100 font-mono text-xs text-right" /> m
           </label>
         ))}
