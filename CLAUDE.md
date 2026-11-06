@@ -40,6 +40,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   (`docs/Manual_de_usuario_Innova_Contratistas.pdf`) si cambia. No reconstruir ni reenviar si no hubo cambios.
 - SIEMPRE en parejas: por cada pantalla que cambie, una captura del ANTES y otra del DESPUÉS (también en
   los ajustes pequeños y en cada nueva vuelta de un mismo cambio).
+- Al entregar lo compilado, decir SIEMPRE (sin que lo pida) qué archivos del ZIP copiar y a qué carpeta,
+  qué comandos correr y qué subir a Play.
 - El Manual SOLO se rehace y se envía si los cambios afectan lo que explica (pasos, textos, preguntas
   frecuentes). Si no cambia nada en el Manual, no se crea ni se manda.
 
