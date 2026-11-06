@@ -19,7 +19,7 @@ import { NOMBRE_CABLE, NOMBRE_TUBO } from '../catalogo/electricidad';
 import {
   CotizacionEle, KEY_COT_ACTUAL, KEY_PESTANA, KEY_ORIGEN, ALIM, PT, COLOR_ALIM, COLOR_PT, leerCotizacionActual, cotizacionEjemplo, defPunto, esEspecial, Pt,
 } from './electricidad/modeloElectricidad';
-import { metradoEle, MetradoEle, totalCon, GRUPOS_LINEA, GrupoLinea, LineaEle, trazarAutomatico, sugerirCircuitos, avisosCNE, redimensionar, Cuadro } from './electricidad/calculoElectricidad';
+import { metradoEle, MetradoEle, totalCon, GRUPOS_LINEA, GrupoLinea, LineaEle, trazarAutomatico, sugerirCircuitos, avisosCNE, infoRutas, redimensionar, Cuadro } from './electricidad/calculoElectricidad';
 import PlanoElectrico from './electricidad/PlanoElectrico';
 import type { Visibles3D } from './electricidad/Electricidad3D';
 import { IconoPunto } from './electricidad/SimboloElectrico';
@@ -90,7 +90,7 @@ export default function ElectricidadView({ onIrAPrecios }: { onIrAPrecios?: () =
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {pestana === 'plano' && <PlanoElectrico cot={cot} setCot={setCot} r={r} duchas={duchas} onPresupuesto={() => setPestana('presupuesto')} onMateriales={() => setPestana('materiales')} onCuadro={() => setPestana('cargas')} />}
-        {pestana === '3d' && <Vista3D cot={cot} r={r} onPlano={() => setPestana('plano')} onEjemplo={cargarEjemplo} />}
+        {pestana === '3d' && <Vista3D cot={cot} setCot={setCot} r={r} onPlano={() => setPestana('plano')} onEjemplo={cargarEjemplo} />}
         {pestana === 'cargas' && <CuadroCargas cot={cot} setCot={setCot} r={r} onPlano={() => setPestana('plano')} onEjemplo={cargarEjemplo} />}
         {pestana === 'materiales' && <Materiales cot={cot} setCot={setCot} r={r} onIrAPrecios={onIrAPrecios} onPresupuesto={() => setPestana('presupuesto')} onPlano={() => setPestana('plano')} />}
         {pestana === 'presupuesto' && <Presupuesto cot={cot} setCot={setCot} r={r} duchas={duchas} onIrAPrecios={onIrAPrecios} />}
@@ -113,8 +113,20 @@ function Vacio({ texto, onPlano, onEjemplo }: { texto: string; onPlano: () => vo
 }
 
 // ── 2. 3D ───────────────────────────────────────────────────────────────────
-function Vista3D({ cot, r, onPlano, onEjemplo }: { cot: CotizacionEle; r: MetradoEle; onPlano: () => void; onEjemplo: () => void }) {
+function Vista3D({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionEle; setCot: SetCot; r: MetradoEle; onPlano: () => void; onEjemplo: () => void }) {
   const [ver, setVer] = useState<Visibles3D>({});
+  // Sin tuberías trazadas: se muestra el trazado automático como vista previa (no se guarda hasta "Usar").
+  const previa = useMemo(() => {
+    if (cot.rutas.length || !cot.puntos.some(p => !esEspecial(p.tipo))) return null;
+    if (!cot.puntos.some(p => p.tipo === 'tablero')) return { sinTablero: true as const };
+    let b = cot;
+    if (b.puntos.some(p => !esEspecial(p.tipo) && !b.circuitos.some(c => c.id === p.circuito))) b = { ...b, ...sugerirCircuitos(b) };
+    const t = trazarAutomatico(b);
+    if (!t.rutas.length) return null;
+    const c2 = { ...b, rutas: t.rutas, puntos: t.puntos };
+    return { sinTablero: false as const, cot: c2, info: infoRutas(c2, r.cuadro.seccionAlim) };
+  }, [cot, r.cuadro.seccionAlim]);
+  const vista = previa && !previa.sinTablero ? previa.cot : cot;
   if (!cot.puntos.length) return <Vacio texto="Pon los puntos y traza las tuberías en el Plano para verlas en 3D." onPlano={onPlano} onEjemplo={onEjemplo} />;
   const on = (k: string) => ver[k] !== false;
   const chip = (k: string, label: string, color?: string, extra?: string) => (
@@ -127,16 +139,22 @@ function Vista3D({ cot, r, onPlano, onEjemplo }: { cot: CotizacionEle; r: Metrad
   return (
     <div className="h-full min-h-[480px] flex flex-col gap-2 sm:gap-3 p-2 sm:p-4">
       <div className="bg-white rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-wrap items-center gap-1.5 shrink-0">
-        {cot.circuitos.map(c => chip(c.id, c.nombre, c.color, c.desc))}
-        {cot.rutas.some(t => t.circuito === ALIM) && chip(ALIM, 'Alimentador', COLOR_ALIM)}
-        {cot.rutas.some(t => t.circuito === PT) && chip(PT, 'Tierra', COLOR_PT)}
+        {vista.circuitos.map(c => chip(c.id, c.nombre, c.color, c.desc))}
+        {vista.rutas.some(t => t.circuito === ALIM) && chip(ALIM, 'Alimentador', COLOR_ALIM)}
+        {vista.rutas.some(t => t.circuito === PT) && chip(PT, 'Tierra', COLOR_PT)}
         <span className="hidden sm:block w-px h-6 bg-slate-200 mx-0.5" />
         {chip('puntos', 'Puntos')}
         {chip('muros', 'Muros')}
       </div>
+      {previa && (previa.sinTablero
+        ? <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 flex flex-wrap items-center gap-2 shrink-0">Pon el tablero (TD) en el Plano para ver las tuberías en 3D.<button type="button" onClick={onPlano} className="ml-auto min-h-[36px] px-3 rounded-lg bg-amber-400 text-slate-950 cursor-pointer">Ir al Plano</button></div>
+        : <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 flex flex-wrap items-center gap-2 shrink-0">
+            <span className="flex-1 min-w-[180px]">Vista previa: tuberías trazadas automáticamente. Aún no están en tu plano ni en el presupuesto.</span>
+            <button type="button" onClick={() => { const c2 = previa.cot; setCot(() => c2); }} className="min-h-[36px] px-3 rounded-lg bg-amber-400 text-slate-950 cursor-pointer">Usar este trazado</button>
+          </div>)}
       <div className="flex-1 min-h-[360px]">
         <Suspense fallback={<div className="w-full h-full rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">Cargando 3D…</div>}>
-          <Electricidad3D cot={cot} ver={ver} info={r.info} />
+          <Electricidad3D cot={vista} ver={ver} info={previa && !previa.sinTablero ? previa.info : r.info} />
         </Suspense>
       </div>
     </div>

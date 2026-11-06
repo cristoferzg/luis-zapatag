@@ -176,7 +176,31 @@ export default function Electricidad3D({ cot, ver, info }: { cot: CotizacionEle;
           if (p.tipo === 'tira_led') add(new THREE.BoxGeometry(1.0, 0.03, 0.05), mat('#fde68a', 0.9), 0, d.h, 0);
           else if (p.tipo === 'timbre') add(new THREE.BoxGeometry(0.09, 0.09, 0.03), mat(col), 0, d.h, -0.02);
           else if (p.tipo === 'aplique' || p.tipo === 'reflector') { add(new THREE.BoxGeometry(0.2, 0.14, 0.12), mat('#fef3c7', 0.7), 0, d.h, 0.02); add(new THREE.BoxGeometry(0.06, 0.06, 0.04), mat(col), 0, d.h, -0.06); }
-          else { const o = add(new THREE.CylinderGeometry(p.tipo === 'empotrado' ? 0.2 : 0.16, 0.16, 0.04, 24), mat('#fef9c3', 0.85), 0, d.h - 0.04, 0); if (p.tipo === 'empotrado') o.scale.set(1, 1, 1); add(new THREE.TorusGeometry(0.17, 0.012, 6, 24), mat(col), 0, d.h - 0.06, 0).rotation.x = Math.PI / 2; }
+          else {
+            // Luz de techo: caja octogonal pegada al techo y la luz COLGANDO hacia abajo (foco o panel),
+            // con un cono de luz tenue hacia el piso para que se lea hacia dónde alumbra.
+            const yT = d.h;
+            add(new THREE.CylinderGeometry(0.075, 0.075, 0.04, 8), mat('#94a3b8'), 0, yT - 0.02, 0);   // caja octogonal
+            add(new THREE.TorusGeometry(0.075, 0.01, 6, 8), mat(col), 0, yT - 0.04, 0).rotation.x = Math.PI / 2; // anillo del circuito
+            let yLuz: number;
+            if (p.tipo === 'empotrado') {
+              add(new THREE.BoxGeometry(0.34, 0.025, 0.34), mat('#e2e8f0'), 0, yT - 0.055, 0);        // marco
+              add(new THREE.BoxGeometry(0.3, 0.012, 0.3), mat('#fef9c3', 1.1), 0, yT - 0.073, 0);     // panel encendido (cara de abajo)
+              yLuz = yT - 0.08;
+            } else if (p.tipo === 'sensor') {
+              add(new THREE.SphereGeometry(0.06, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat('#f8fafc'), 0, yT - 0.04, 0);
+              yLuz = 0;
+            } else {
+              add(new THREE.CylinderGeometry(0.026, 0.03, 0.07, 12), mat('#f1f5f9'), 0, yT - 0.075, 0); // socket
+              add(new THREE.SphereGeometry(0.075, 20, 14), mat('#fde68a', 1.2), 0, yT - 0.17, 0);       // foco encendido
+              yLuz = yT - 0.17;
+            }
+            if (yLuz > 0) {
+              const hc = Math.min(1.1, yLuz - 0.2), rc = hc * 0.55;
+              const cono = new THREE.Mesh(new THREE.ConeGeometry(rc, hc, 28, 1, true), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+              cono.position.set(0, yLuz - hc / 2, 0); cono.userData.sinAjuste = true; g.add(cono);
+            }
+          }
           break;
         case 'interruptor': add(new THREE.BoxGeometry(0.08, 0.12, 0.02), mat('#ffffff'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.03, 0.05, 0.025), mat(col), 0, d.h, -0.02); break;
         case 'toma': add(new THREE.BoxGeometry(0.12, 0.08, 0.02), mat('#ffffff'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.07, 0.03, 0.025), mat(col), 0, d.h, -0.02); break;
