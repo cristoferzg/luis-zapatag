@@ -44,6 +44,10 @@ export default defineConfig({
         orientation: 'any',
         start_url: '/',
         scope: '/',
+        // La app de Google Play es "pariente" de esta web: Chrome en Android puede saber si ya está
+        // instalada (navigator.getInstalledRelatedApps) y así no pedir que la descarguen otra vez.
+        related_applications: [{ platform: 'play', id: 'pe.innovacontratistas.app', url: 'https://play.google.com/store/apps/details?id=pe.innovacontratistas.app' }],
+        prefer_related_applications: false,
         icons: [
           {
             src: '/pwa-192x192.png',

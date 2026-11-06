@@ -67,8 +67,10 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Clases/recursos: solo se avisa y cuenta en "Novedades" lo que el usuario ve (`lib/accesoContenido.ts`; en Android,
   lo de pago que no tiene no aparece). Servidor: `avisoClaseNueva`/`avisoRecursoNuevo` solo a quien tiene acceso;
   `avisoClaseHabilitada`/`avisoCursoHabilitado`/`avisoRecursoHabilitado` al pasar a gratis o al dar acceso.
-- Google Play: el botón Android se muestra siempre (`enlaceAndroid`, ficha oficial si no hay enlace); tarjeta en el
-  Inicio de la web (`TarjetaGooglePlay`).
+- Google Play: el botón Android se muestra siempre (`enlaceAndroid`, ficha oficial si no hay enlace). Tarjeta
+  `TarjetaGooglePlay` en el Inicio: SOLO navegador de celular Android y SOLO si aún no tiene la app: la app anota
+  `appAndroid {codigo, visto}` en el settings del usuario (App.tsx → `fijarAppEnCuenta`) y Chrome comprueba la app en
+  el celular (`getInstalledRelatedApps`: `related_applications` en el manifest PWA + `asset_statements` en Android).
 
 ## Descargas de la app y versión nueva
 - `config_ia/descargas` (`src/lib/appDescargas.ts`): enlaces Android/PC/iPhone con `activo`,

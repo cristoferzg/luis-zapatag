@@ -115,6 +115,26 @@ export const enlacePlaySeguro = (url?: string) => esEnlacePlay(url) ? url! : `ht
  *  enlace del admin si es de Play; si no, la ficha oficial). */
 export const enlaceAndroid = (c?: ConfigDescargas | null) => enlacePlaySeguro(c?.android?.url);
 
+// ---- ¿El usuario ya tiene la app de Android? ----
+// 1) En su cuenta: la app anota `appAndroid` en la configuración del usuario al abrirse (App.tsx).
+// 2) En este celular: Chrome en Android pregunta si la app "pariente" de la web está instalada
+//    (related_applications del manifest + asset_statements en la app).
+let _appEnCuenta = false;
+export const fijarAppEnCuenta = (v: boolean) => {
+  if (_appEnCuenta === v) return;
+  _appEnCuenta = v;
+  try { window.dispatchEvent(new CustomEvent('innova_app_en_cuenta')); } catch { /* sin ventana */ }
+};
+export const appEnCuenta = () => _appEnCuenta;
+export async function appInstaladaEnEsteCelular(): Promise<boolean> {
+  try {
+    const f = (navigator as any).getInstalledRelatedApps;
+    if (typeof f !== 'function') return false;
+    const apps: { id?: string; platform?: string }[] = await f.call(navigator);
+    return apps.some(a => a.platform === 'play' && (!a.id || a.id === ID_APP_ANDROID));
+  } catch { return false; }
+}
+
 // ---- Programa de PC: versión del instalador ----
 /** Versión del programa de PC que está corriendo (la manda en su marca: "InnovaContratistasPC/2.0.0"). */
 export const versionProgramaPC = (): string | null => {

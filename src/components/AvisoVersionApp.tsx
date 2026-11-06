@@ -6,7 +6,7 @@ import { Download, RefreshCw, Smartphone, Monitor, X } from 'lucide-react';
 import {
   ConfigDescargas, escucharDescargas, desactualizado, plataforma, abrirEnlace, recargarUltimaVersion,
   avisoPospuesto, posponerAviso, enlacePlaySeguro, toca, marcarRecordado, programarRecordatorioNativo, esCelularWeb,
-  programaPCDesactualizado, avisoPCPospuesto, posponerAvisoPC, versionProgramaPC, enlaceAndroid,
+  programaPCDesactualizado, avisoPCPospuesto, posponerAvisoPC, versionProgramaPC, enlaceAndroid, appEnCuenta,
 } from '../lib/appDescargas';
 import { versionApp } from '../lib/version';
 
@@ -73,7 +73,7 @@ export default function AvisoVersionApp({ sinRecordatorio = false, esAdmin = fal
   if (plat !== 'web' || recordOculto || sinRecordatorio) return null;
   const opciones = [
     // Google Play solo a quien entra desde el navegador de un celular Android (en la PC no).
-    /Android/i.test(navigator.userAgent) ? { id: 'android', txt: 'Descargar app', url: enlaceAndroid(cfg), Ic: Smartphone } : null,
+    /Android/i.test(navigator.userAgent) && !appEnCuenta() ? { id: 'android', txt: 'Descargar app', url: enlaceAndroid(cfg), Ic: Smartphone } : null,
     cfg.iphone?.activo && cfg.iphone.url ? { id: 'iphone', txt: 'iPhone', url: cfg.iphone.url, Ic: Smartphone } : null,
     cfg.pc?.activo && cfg.pc.url ? { id: 'pc', txt: 'Computadora', url: cfg.pc.url, Ic: Monitor } : null,
   ].filter(Boolean) as { id: string; txt: string; url: string; Ic: any }[];

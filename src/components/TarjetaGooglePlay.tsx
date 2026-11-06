@@ -1,9 +1,9 @@
 // Inicio: a quien entra desde el NAVEGADOR de un celular Android se le invita a descargar la app
 // (ya está en Google Play). En el navegador de la PC, en el programa de PC y dentro de la app no
 // aparece. Misma forma que las tarjetas del Inicio; se puede ocultar por 30 días.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, Smartphone, X } from 'lucide-react';
-import { abrirEnlace, enlaceAndroid, plataforma } from '../lib/appDescargas';
+import { abrirEnlace, enlaceAndroid, plataforma, appEnCuenta, appInstaladaEnEsteCelular } from '../lib/appDescargas';
 import { safeStorage } from '../lib/storageManager';
 
 const K = 'innova_tarjeta_play_oculta';
@@ -11,7 +11,15 @@ const androidEnNavegador = () => plataforma() === 'web' && typeof navigator !== 
 
 export default function TarjetaGooglePlay() {
   const [oculta, setOculta] = useState(() => Number(safeStorage.getItem(K, 0)) > Date.now());
-  if (oculta || !androidEnNavegador()) return null;
+  // Si ya tiene la app (en su cuenta o en este celular), no se le pide descargarla.
+  const [yaLaTiene, setYaLaTiene] = useState(appEnCuenta);
+  useEffect(() => {
+    const f = () => setYaLaTiene(v => v || appEnCuenta());
+    window.addEventListener('innova_app_en_cuenta', f);
+    appInstaladaEnEsteCelular().then(si => { if (si) setYaLaTiene(true); });
+    return () => window.removeEventListener('innova_app_en_cuenta', f);
+  }, []);
+  if (oculta || yaLaTiene || !androidEnNavegador()) return null;
   const cerrar = () => { safeStorage.setItem(K, Date.now() + 30 * 864e5); setOculta(true); };
   return (
     <div className="relative bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">

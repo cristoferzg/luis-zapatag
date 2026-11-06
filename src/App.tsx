@@ -19,7 +19,8 @@ import { auth, authReady } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { cambiarEspacioDeTrabajo, fijarDuenoSiFalta } from './lib/espacioUsuario';
 import { quitarComunicado } from './lib/comunicados';
-import { useFirestoreArraySync } from './lib/db';
+import { useFirestoreArraySync, updateRecord } from './lib/db';
+import { plataforma as plataformaApp, CODIGO_ANDROID, fijarAppEnCuenta } from './lib/appDescargas';
 import { setAICtx, cargarEstadoIA, getConfigIA } from './lib/aiAccess';
 import { usaGooglePlay, iniciarPagosPlay } from './lib/pagosPlay';
 import { useSaldoIA } from './lib/saldoIA';
@@ -1780,6 +1781,17 @@ export default function App() {
     currency: 'PEN',
     theme: 'light'
   };
+
+  // ¿YA TIENE LA APP DE ANDROID? Al abrir la app, se anota en la configuración del usuario (solo ese
+  // campo; y solo si su configuración ya llegó, para no crearla vacía). En la web, con ese dato, no se
+  // le vuelve a pedir que descargue la app.
+  const appAndroidCuenta = (myOwnSettings as any)?.appAndroid as { codigo?: number } | undefined;
+  useEffect(() => { fijarAppEnCuenta(!!appAndroidCuenta); }, [!!appAndroidCuenta]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (plataformaApp() !== 'android' || !activeUid || !myOwnSettings || appAndroidCuenta?.codigo === CODIGO_ANDROID) return;
+    const id = (myOwnSettings as any).id || mySettingsId;
+    updateRecord('settings', id, { userId: (myOwnSettings as any).userId || activeUid, appAndroid: { codigo: CODIGO_ANDROID, visto: new Date().toISOString() } });
+  }, [activeUid, !!myOwnSettings, appAndroidCuenta?.codigo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // MONEDA: la elegida en Configuración se guarda en el documento de la empresa; así llega
   // también al celular, a la app y al programa de Windows. Al cambiar, se redibuja todo.

@@ -4,4 +4,6 @@
     <string name="title_activity_main">InnovApp</string>
     <string name="package_name">pe.innovacontratistas.app</string>
     <string name="custom_url_scheme">pe.innovacontratistas.app</string>
+    <!-- La web es "pariente" de la app: así el navegador del celular sabe si la app ya está instalada. -->
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://innovacontratistas-434d2.web.app\"}}, {\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://innovacontratistas-434d2.firebaseapp.com\"}}]</string>
 </resources>
