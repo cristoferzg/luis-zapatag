@@ -38,6 +38,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   de los cambios y **ESPERAR a que el dueño diga "compila"** (indicación del dueño, 06/11/2026; reemplaza
   la regla anterior de compilar sin esperar). Al compilar: ZIP, APK/AAB y el Manual de usuario
   (`docs/Manual_de_usuario_Innova_Contratistas.pdf`) si cambia. No reconstruir ni reenviar si no hubo cambios.
+- SIEMPRE en parejas: por cada pantalla que cambie, una captura del ANTES y otra del DESPUÉS (también en
+  los ajustes pequeños y en cada nueva vuelta de un mismo cambio).
 - El Manual SOLO se rehace y se envía si los cambios afectan lo que explica (pasos, textos, preguntas
   frecuentes). Si no cambia nada en el Manual, no se crea ni se manda.
 
