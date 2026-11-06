@@ -1086,14 +1086,58 @@ export const avisoComunicado = onDocumentCreated({ ...opcionesAviso, document: '
   await enviarPush({ aUsuarios: true }, '📢 ' + (n.title || 'Comunicado'), n.message || '', 'dashboard');
 });
 
+// Clases y recursos: el aviso llega solo a quien lo puede ver. Los avisos push van a la app de
+// Android, que solo muestra lo gratis o lo que el usuario ya tiene (sin ventas dentro de la app):
+// si se avisara de algo de pago, el usuario no lo encontraría al entrar.
+const recursoGratis = (b) => b.isFree === true || (b.isFree !== false && !(Number(b.precioSoles) > 0));
+async function cursoDe(nombre) {
+  if (!nombre) return null;
+  const q = await db.collection('cursos').where('name', '==', nombre).limit(1).get().catch(() => null);
+  return q && !q.empty ? q.docs[0].data() : null;
+}
+async function claseGratis(v) {
+  if (v.isFree !== false) return true;
+  const c = await cursoDe(v.category);
+  return !!c && c.isFree !== false;
+}
+const listaIds = (x) => (Array.isArray(x) ? x : []).map(sinPrefijo).filter(Boolean);
+const nuevosIds = (antes, despues) => { const a = new Set(listaIds(antes)); return listaIds(despues).filter((u) => !a.has(u)); };
+
 export const avisoClaseNueva = onDocumentCreated({ ...opcionesAviso, document: 'tutoriales/{id}' }, async (e) => {
   const v = e.data?.data() || {};
-  await enviarPush({ aUsuarios: true }, '🎓 Nueva clase en Academia', v.title || '', 'usabilidad');
+  const c = v.isFree === false ? await cursoDe(v.category) : null;
+  const destino = (await claseGratis(v)) ? { aUsuarios: true } : { aWs: [...listaIds(v.allowedUserIds), ...listaIds(c?.allowedUserIds)] };
+  await enviarPush(destino, '🎓 Nueva clase en Academia', v.title || '', 'usabilidad');
 });
 
 export const avisoRecursoNuevo = onDocumentCreated({ ...opcionesAviso, document: 'biblioteca/{id}' }, async (e) => {
   const b = e.data?.data() || {};
-  await enviarPush({ aUsuarios: true }, '📘 Nuevo en Recursos Técnicos', b.titulo || '', 'biblioteca');
+  const destino = recursoGratis(b) ? { aUsuarios: true } : { aWs: listaIds(b.allowedUserIds) };
+  await enviarPush(destino, '📘 Nuevo en Recursos Técnicos', b.titulo || '', 'biblioteca');
+});
+
+// Si después se habilita (pasa a gratis o se le da acceso a alguien), se avisa en ese momento.
+export const avisoClaseHabilitada = onDocumentUpdated({ ...opcionesAviso, document: 'tutoriales/{id}' }, async (e) => {
+  const antes = e.data?.before?.data() || {}; const v = e.data?.after?.data() || {};
+  if (antes.isFree === false && v.isFree !== false && !(await claseGratis(antes))) {
+    await enviarPush({ aUsuarios: true }, '🎓 Clase gratis en Academia', v.title || '', 'usabilidad'); return;
+  }
+  const nuevos = nuevosIds(antes.allowedUserIds, v.allowedUserIds);
+  if (nuevos.length) await enviarPush({ aWs: nuevos }, '🎓 Ya tienes acceso a una clase', v.title || '', 'usabilidad');
+});
+
+export const avisoCursoHabilitado = onDocumentUpdated({ ...opcionesAviso, document: 'cursos/{id}' }, async (e) => {
+  const antes = e.data?.before?.data() || {}; const c = e.data?.after?.data() || {};
+  if (antes.isFree === false && c.isFree !== false) { await enviarPush({ aUsuarios: true }, '🎓 Curso gratis en Academia', c.name || '', 'usabilidad'); return; }
+  const nuevos = nuevosIds(antes.allowedUserIds, c.allowedUserIds);
+  if (nuevos.length) await enviarPush({ aWs: nuevos }, '🎓 Ya tienes acceso al curso', c.name || '', 'usabilidad');
+});
+
+export const avisoRecursoHabilitado = onDocumentUpdated({ ...opcionesAviso, document: 'biblioteca/{id}' }, async (e) => {
+  const antes = e.data?.before?.data() || {}; const b = e.data?.after?.data() || {};
+  if (!recursoGratis(antes) && recursoGratis(b)) { await enviarPush({ aUsuarios: true }, '📘 Recurso gratis en Recursos Técnicos', b.titulo || '', 'biblioteca'); return; }
+  const nuevos = nuevosIds(antes.allowedUserIds, b.allowedUserIds);
+  if (nuevos.length) await enviarPush({ aWs: nuevos }, '📘 Ya tienes acceso a un recurso', b.titulo || '', 'biblioteca');
 });
 
 export const avisoTicketNuevo = onDocumentCreated({ ...opcionesAviso, document: 'tickets/{id}' }, async (e) => {

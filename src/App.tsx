@@ -28,6 +28,10 @@ import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
 import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, SlidersHorizontal, Armchair, Droplets, Zap, PaintRoller, Hammer, AppWindow } from 'lucide-react';
 import { ClipboardList } from 'lucide-react';
+import BandejaAvisos from './components/BandejaAvisos';
+import TarjetaGooglePlay from './components/TarjetaGooglePlay';
+import { agregarABandeja } from './lib/bandejaAvisos';
+import { visibleClase, visibleRecurso } from './lib/accesoContenido';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import type { BibliotecaItem } from './components/BibliotecaPremiumView';
 import { Capacitor } from '@capacitor/core';
@@ -1820,8 +1824,11 @@ export default function App() {
   const [novVistas, setNovVistas] = useState<{ ini: boolean; ids: Record<string, 1> }>(() => safeStorage.getItem(claveNov, { ini: false, ids: {} }) || { ini: false, ids: {} });
   useEffect(() => { setNovVistas(safeStorage.getItem(claveNov, { ini: false, ids: {} }) || { ini: false, ids: {} }); }, [claveNov]); // eslint-disable-line react-hooks/exhaustive-deps
   const hace14 = Date.now() - 14 * 864e5;
-  const clasesNuevas = (tutoriales as any[]).filter(v => !novVistas.ids['v_' + v.id] && (novVistas.ini || (v.createdAt && new Date(v.createdAt).getTime() >= hace14)));
-  const recursosNuevos = (biblioteca as any[]).filter(b => !novVistas.ids['b_' + b.id] && novVistas.ini);
+  // Solo cuenta lo que el usuario ve al entrar (en la app de Android, lo de pago que no tiene no aparece).
+  const claseVisible = (v: any) => visibleClase(v, cursos as any, user?.id || activeUid, isAdmin);
+  const recursoVisible = (b: any) => visibleRecurso(b, user?.id || activeUid, isAdmin);
+  const clasesNuevas = (tutoriales as any[]).filter(v => claseVisible(v) && !novVistas.ids['v_' + v.id] && (novVistas.ini || (v.createdAt && new Date(v.createdAt).getTime() >= hace14)));
+  const recursosNuevos = (biblioteca as any[]).filter(b => recursoVisible(b) && !novVistas.ids['b_' + b.id] && novVistas.ini);
   const marcarVistos = (pref: 'v_' | 'b_', lista: { id: string }[]) => {
     setNovVistas(prev => {
       const ids = { ...prev.ids }; lista.forEach(x => { ids[pref + x.id] = 1; });
@@ -1863,32 +1870,37 @@ export default function App() {
     const clave = 'innova_avisos_vistos_' + activeUid;
     const vistos = safeStorage.getItem<Record<string, string> | null>(clave, null);
     const ahora: Record<string, string> = {};
-    const avisos: [string, string][] = [];
+    const avisos: [string, string, string, string][] = []; // título, texto, id, vista
     const esMio = (id?: string) => !!id && (id === user?.id || id === activeUid);
+    const vTickets = isAdmin ? 'tickets' : 'soporte', vAses = isAdmin ? 'asesorias' : 'soporte';
     globalNotifs.forEach(n => {
       if (n.expiresAtTimestamp && n.expiresAtTimestamp < Date.now()) return;
       const k = 'n_' + n.id; ahora[k] = '1';
-      if (vistos && !vistos[k]) avisos.push(['📢 ' + (n.title || 'Comunicado'), n.message || '']);
+      if (vistos && !vistos[k]) avisos.push(['📢 ' + (n.title || 'Comunicado'), n.message || '', k, 'dashboard']);
     });
     tickets.forEach((t: any) => {
       if (!isAdmin && !esMio(t.author)) return;
       const k = 't_' + t.id; ahora[k] = t.status;
       if (!vistos) return;
-      if (isAdmin && !vistos[k]) avisos.push(['🎫 Ticket nuevo', `${t.authorName || 'Un usuario'}: ${t.title}`]);
-      else if (!isAdmin && vistos[k] && vistos[k] !== t.status) avisos.push(['🎫 Tu ticket: ' + t.status, t.title]);
+      if (isAdmin && !vistos[k]) avisos.push(['🎫 Ticket nuevo', `${t.authorName || 'Un usuario'}: ${t.title}`, k, vTickets]);
+      else if (!isAdmin && vistos[k] && vistos[k] !== t.status) avisos.push(['🎫 Tu ticket: ' + t.status, t.title, k + '_' + t.status, vTickets]);
     });
     asesorias.forEach((a: any) => {
       if (!isAdmin && !esMio(a.authorUserId) && !esMio(a.assignedUserId)) return;
       const k = 'a_' + a.id; ahora[k] = a.status;
       if (!vistos) return;
-      if (isAdmin && !vistos[k]) avisos.push(['📅 Asesoría solicitada', `${a.authorName || 'Un usuario'}: ${a.subject}`]);
-      else if (!isAdmin && (!vistos[k] || vistos[k] !== a.status)) avisos.push(['📅 Asesoría: ' + a.status, a.subject + (a.scheduledDate ? ` · ${a.scheduledDate} ${a.scheduledTime || ''}` : '')]);
+      if (isAdmin && !vistos[k]) avisos.push(['📅 Asesoría solicitada', `${a.authorName || 'Un usuario'}: ${a.subject}`, k, vAses]);
+      else if (!isAdmin && (!vistos[k] || vistos[k] !== a.status)) avisos.push(['📅 Asesoría: ' + a.status, a.subject + (a.scheduledDate ? ` · ${a.scheduledDate} ${a.scheduledTime || ''}` : ''), k + '_' + a.status, vAses]);
     });
-    (tutoriales as any[]).forEach(v => { const k = 'v_' + v.id; ahora[k] = '1'; if (vistos && !vistos[k] && !isAdmin) avisos.push(['🎓 Nueva clase en Academia', v.title || '']); });
-    (biblioteca as any[]).forEach(b => { const k = 'b_' + b.id; ahora[k] = '1'; if (vistos && !vistos[k] && !isAdmin) avisos.push(['📘 Nuevo en Recursos Técnicos', b.titulo || '']); });
+    // Clases y recursos: solo los que el usuario puede ver. Lo que aún no puede ver no se marca
+    // como visto: si después se lo habilitan (lo compra o pasa a gratis), se le avisa en ese momento.
+    (tutoriales as any[]).forEach(v => { const k = 'v_' + v.id; if (!claseVisible(v)) return; ahora[k] = '1'; if (vistos && !vistos[k] && !isAdmin) avisos.push(['🎓 Nueva clase en Academia', v.title || '', k, 'usabilidad']); });
+    (biblioteca as any[]).forEach(b => { const k = 'b_' + b.id; if (!recursoVisible(b)) return; ahora[k] = '1'; if (vistos && !vistos[k] && !isAdmin) avisos.push(['📘 Nuevo en Recursos Técnicos', b.titulo || '', k, 'biblioteca']); });
     safeStorage.setItem(clave, { ...(vistos || {}), ...ahora });
+    // Todo queda en la bandeja (la campana), aunque se borre la notificación del celular.
+    agregarABandeja(activeUid, avisos.map(([titulo, cuerpo, id, vista]) => ({ id, titulo, cuerpo, vista })));
     avisos.slice(0, 3).forEach(([t, c]) => { notificar(t, c); });
-  }, [activeUid, globalNotifs, tickets, asesorias, tutoriales, biblioteca]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeUid, globalNotifs, tickets, asesorias, tutoriales, biblioteca, cursos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // RESCATE: la pantalla Configuración no recibía el usuario y guardaba en
   // "settings_default". Si ese documento es de ESTE usuario (su userId) y el suyo propio
@@ -2251,7 +2263,7 @@ export default function App() {
     // pantalla de mantenimiento en vez del módulo real.
     if (vistaBloqueada(currentView)) return renderMantenimiento();
     switch (currentView) {
-      case 'dashboard': return <div className="ajustes-compactos">{(clasesNuevas.length > 0 || recursosNuevos.length > 0) && (
+      case 'dashboard': return <div className="ajustes-compactos"><TarjetaGooglePlay />{(clasesNuevas.length > 0 || recursosNuevos.length > 0) && (
         <div className="mb-4 bg-white rounded-2xl border border-orange-200 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-base">✨</span><h3 className="flex-1 text-sm font-black text-slate-900">Novedades para ti</h3>
@@ -2711,6 +2723,7 @@ export default function App() {
                 <Settings className="w-4 h-4" />
               </button>
             )}
+            <span className="hidden xl:block"><BandejaAvisos uid={activeUid} oscuro onIr={v => setCurrentView(v as ViewType)} /></span>
             {/* Botón de Colapsar en Escritorio */}
             <button
               className="hidden xl:block text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition-colors cursor-pointer"
@@ -2869,6 +2882,7 @@ export default function App() {
                 <Coins className="w-4 h-4 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')}
               </button>
             )}
+            <BandejaAvisos uid={activeUid} onIr={v => setCurrentView(v as ViewType)} />
             {grupoActual?.id !== 'settings' && <button onClick={() => { tocar(); setCurrentView('settings'); }} title="Configuración" className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-slate-600 active:bg-slate-100 cursor-pointer"><Settings className="w-5 h-5" /></button>}
           </header>
         )}

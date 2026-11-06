@@ -101,6 +101,9 @@ export async function programarRecordatorioNativo(dias: number, pendienteActuali
 export const ID_APP_ANDROID = 'pe.innovacontratistas.app';
 export const esEnlacePlay = (url?: string) => !!url && /^https:\/\/play\.google\.com\//.test(url);
 export const enlacePlaySeguro = (url?: string) => esEnlacePlay(url) ? url! : `https://play.google.com/store/apps/details?id=${ID_APP_ANDROID}`;
+/** La app ya está publicada en Google Play: el botón de Android se muestra siempre (con el
+ *  enlace del admin si es de Play; si no, la ficha oficial). */
+export const enlaceAndroid = (c?: ConfigDescargas | null) => enlacePlaySeguro(c?.android?.url);
 
 // ---- Programa de PC: versión del instalador ----
 /** Versión del programa de PC que está corriendo (la manda en su marca: "InnovaContratistasPC/2.0.0"). */

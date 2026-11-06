@@ -6,7 +6,7 @@ import { Download, RefreshCw, Smartphone, Monitor, X } from 'lucide-react';
 import {
   ConfigDescargas, escucharDescargas, desactualizado, plataforma, abrirEnlace, recargarUltimaVersion,
   avisoPospuesto, posponerAviso, enlacePlaySeguro, toca, marcarRecordado, programarRecordatorioNativo, esCelularWeb,
-  programaPCDesactualizado, avisoPCPospuesto, posponerAvisoPC, versionProgramaPC,
+  programaPCDesactualizado, avisoPCPospuesto, posponerAvisoPC, versionProgramaPC, enlaceAndroid,
 } from '../lib/appDescargas';
 import { versionApp } from '../lib/version';
 
@@ -71,7 +71,7 @@ export default function AvisoVersionApp({ sinRecordatorio = false }: { sinRecord
   // Recordatorio en el navegador: instalar la app (solo con enlaces activos).
   if (plat !== 'web' || recordOculto || sinRecordatorio) return null;
   const opciones = [
-    cfg.android?.activo && cfg.android.url ? { id: 'android', txt: 'Android', url: cfg.android.url, Ic: Smartphone } : null,
+    { id: 'android', txt: 'Google Play', url: enlaceAndroid(cfg), Ic: Smartphone }, // ya publicada: siempre
     cfg.iphone?.activo && cfg.iphone.url ? { id: 'iphone', txt: 'iPhone', url: cfg.iphone.url, Ic: Smartphone } : null,
     cfg.pc?.activo && cfg.pc.url ? { id: 'pc', txt: 'Computadora', url: cfg.pc.url, Ic: Monitor } : null,
   ].filter(Boolean) as { id: string; txt: string; url: string; Ic: any }[];

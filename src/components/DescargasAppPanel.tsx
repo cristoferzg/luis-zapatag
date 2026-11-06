@@ -3,7 +3,7 @@
 // Los usuarios ven solo los botones de descarga activos.
 import { useEffect, useRef, useState } from 'react';
 import { Smartphone, Monitor, Download, RefreshCw, Check, Bell, Upload } from 'lucide-react';
-import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay, versionDeInstalador } from '../lib/appDescargas';
+import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay, versionDeInstalador, enlaceAndroid } from '../lib/appDescargas';
 import { uploadFileToFirebaseStorage } from '../lib/storage';
 import { versionApp } from '../lib/version';
 
@@ -38,7 +38,9 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
   // En la app de Android (Google Play) no se ofrecen descargas de otros instaladores: Play solo
   // permite llevar a su propia ficha. Ahí este panel solo lo ve el admin, y sin botones de descarga.
   const enAndroid = plataforma() === 'android';
-  const activos = enAndroid ? [] : FILAS.filter(f => enlace(f.id).activo && enlace(f.id).url);
+  // Android: siempre (la app ya está en Google Play); PC e iPhone: solo si el admin los activó.
+  const urlDe = (id: 'android' | 'pc' | 'iphone') => id === 'android' ? enlaceAndroid(d) : enlace(id).url;
+  const activos = enAndroid ? [] : FILAS.filter(f => f.id === 'android' || (enlace(f.id).activo && enlace(f.id).url));
   // Subir el instalador de PC directo a la nube (solo admin, desde la web o la PC).
   const refExe = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState<number | null>(null);
@@ -68,7 +70,7 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
       {activos.length > 0 ? (
         <div className="grid sm:grid-cols-2 gap-2">
           {activos.map(f => (
-            <button key={f.id} onClick={() => abrirEnlace(enlace(f.id).url)} className="min-h-[44px] rounded-xl bg-slate-900 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"><f.Ic className="w-4 h-4" /> {f.nombre}</button>
+            <button key={f.id} onClick={() => abrirEnlace(urlDe(f.id))} className="min-h-[44px] rounded-xl bg-slate-900 text-white text-sm font-bold flex items-center justify-center gap-2 cursor-pointer"><f.Ic className="w-4 h-4" /> {f.nombre}</button>
           ))}
         </div>
       ) : !isAdmin && <p className="text-xs text-slate-500 bg-slate-50 rounded-xl p-3">Muy pronto podrás descargar la app desde aquí.</p>}
@@ -83,12 +85,14 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
                 <div className="flex items-center gap-2">
                   <f.Ic className="w-4 h-4 text-slate-500 shrink-0" />
                   <b className="text-sm text-slate-800 flex-1 min-w-0">{f.nombre}</b>
-                  <button type="button" role="switch" aria-checked={e.activo} onClick={() => cambiar(f.id, { activo: !e.activo })}
-                    className={`shrink-0 min-h-[32px] px-3 rounded-full text-[11px] font-black cursor-pointer ${e.activo ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>{e.activo ? 'Activo' : 'Desactivado'}</button>
+                  {f.id === 'android'
+                    ? <span className="shrink-0 min-h-[32px] px-3 rounded-full text-[11px] font-black bg-emerald-600 text-white inline-flex items-center">Siempre visible</span>
+                    : <button type="button" role="switch" aria-checked={e.activo} onClick={() => cambiar(f.id, { activo: !e.activo })}
+                    className={`shrink-0 min-h-[32px] px-3 rounded-full text-[11px] font-black cursor-pointer ${e.activo ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>{e.activo ? 'Activo' : 'Desactivado'}</button>}
                 </div>
                 <input type="url" value={e.url} onChange={ev => cambiar(f.id, { url: ev.target.value.trim() })} placeholder={f.ph}
                   className="w-full min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-400" />
-                <span className="text-[11px] text-slate-500">{f.ayuda}{e.activo && !e.url ? ' · Falta el enlace: no se mostrará.' : ''}</span>
+                <span className="text-[11px] text-slate-500">{f.id === 'android' ? 'La app ya está en Google Play: todos ven el botón. Si dejas el enlace vacío se usa la ficha oficial.' : f.ayuda}{f.id !== 'android' && e.activo && !e.url ? ' · Falta el enlace: no se mostrará.' : ''}</span>
                 {f.id === 'android' && e.url && !esEnlacePlay(e.url) && <span className="text-[11px] font-bold text-amber-700">Este enlace no es de Google Play: en la app de Android se usará la ficha de Play.</span>}
                 {f.id === 'pc' && !enAndroid && (
                   <div className="flex flex-wrap items-center gap-2">

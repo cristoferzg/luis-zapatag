@@ -38,6 +38,8 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
 .app-marca .barra-app h1 { color: #fff !important; font-size: 19px !important; font-weight: 700 !important; }
 .app-marca .barra-app p { color: #fdba74 !important; }
 .app-marca .barra-app > button:last-child { color: #fff !important; }
+.app-marca .barra-app .campana-avisos { color: #fff !important; }
+.app-marca .barra-app .campana-avisos:active { background: rgba(255, 255, 255, .16) !important; }
 .app-marca .barra-app > button:last-child:active { background: rgba(255, 255, 255, .16) !important; }
 
 /* Tarjetas: blancas, esquinas Material (16 px) y sombra de elevación 1 */

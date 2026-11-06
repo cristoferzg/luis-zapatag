@@ -59,6 +59,15 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   gestión siguen igual; el admin los gestiona en la pestaña "Asesorías y reportes").
 - Push del chat: `avisoSoporte` (trigger). Compras en la app: `config_ia/planes.comprasEnApp`.
 
+## Avisos de contenido y bandeja
+- Campana (`BandejaAvisos`, `lib/bandejaAvisos.ts`): guarda en el equipo los avisos (comunicados, clases, recursos,
+  tickets, asesorías) aunque se borre la notificación del celular. La alimenta el efecto de avisos de App.
+- Clases/recursos: solo se avisa y cuenta en "Novedades" lo que el usuario ve (`lib/accesoContenido.ts`; en Android,
+  lo de pago que no tiene no aparece). Servidor: `avisoClaseNueva`/`avisoRecursoNuevo` solo a quien tiene acceso;
+  `avisoClaseHabilitada`/`avisoCursoHabilitado`/`avisoRecursoHabilitado` al pasar a gratis o al dar acceso.
+- Google Play: el botón Android se muestra siempre (`enlaceAndroid`, ficha oficial si no hay enlace); tarjeta en el
+  Inicio de la web (`TarjetaGooglePlay`).
+
 ## Descargas de la app y versión nueva
 - `config_ia/descargas` (`src/lib/appDescargas.ts`): enlaces Android/PC/iPhone con `activo`,
   `recordatorioDias` y `ultima {fecha (= __BUILD__), nota, obligatoria}`. Panel en Configuración
