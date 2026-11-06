@@ -406,6 +406,8 @@ const AnnouncementBanner = ({ notifications, isAdmin, setNotifications }: { noti
             </div>
           </div>
 
+          <TarjetaGooglePlay />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 cursor-pointer hover:bg-indigo-50 transition-colors" onClick={() => setCurrentView('projects')}>
               <div className="p-3 bg-indigo-100 text-indigo-700 rounded-xl"><Briefcase className="w-6 h-6" /></div>
@@ -2263,7 +2265,7 @@ export default function App() {
     // pantalla de mantenimiento en vez del módulo real.
     if (vistaBloqueada(currentView)) return renderMantenimiento();
     switch (currentView) {
-      case 'dashboard': return <div className="ajustes-compactos"><TarjetaGooglePlay />{(clasesNuevas.length > 0 || recursosNuevos.length > 0) && (
+      case 'dashboard': return <div className="ajustes-compactos">{(clasesNuevas.length > 0 || recursosNuevos.length > 0) && (
         <div className="mb-4 bg-white rounded-2xl border border-orange-200 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-base">✨</span><h3 className="flex-1 text-sm font-black text-slate-900">Novedades para ti</h3>
