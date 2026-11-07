@@ -1,0 +1,108 @@
+rules_version = '2';
+
+// Reglas de Innova Contratistas (aislamiento por usuario).
+//
+// Despliegue (no subir el ZIP a mano, así no se aplican):
+//   firebase deploy --only hosting,functions,firestore:rules
+// Pruebas: `cd seguridad && npm test` (emulador de Firestore).
+//
+// Quién es quién (lo pone el servidor en loginWithPin, no se puede falsificar):
+//   role      'admin' | 'user'      → sesión con PIN. La sesión anónima no tiene rol.
+//   workspace 'admin' o el id del usuario (sin "user_").
+// Cada registro guarda su dueño en `userId` ('admin', '<id>' o 'user_<id>').
+//
+// IMPORTANTE: en Firestore "si alguna regla permite, se concede". NO hay regla comodín:
+// cada colección se lista aquí. Una colección NUEVA necesita su línea.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function authed() { return request.auth != null; }
+    function isAdmin() { return authed() && request.auth.token.role == 'admin'; }
+    function conPin() { return authed() && request.auth.token.role in ['admin', 'user']; }
+    function workspace() { return request.auth.token.workspace; }
+    function esMio(uid) { return conPin() && (uid == workspace() || uid == 'user_' + workspace()); }
+    function duenoActual() { return esMio(resource.data.get('userId', '')); }
+    function duenoNuevo() { return esMio(request.resource.data.get('userId', '')); }
+    // Datos propios: el dueño hace todo con lo suyo (sin cambiarle el dueño); el admin, todo.
+    function lecturaPropia() { return isAdmin() || duenoActual(); }
+    function creacionPropia() { return isAdmin() || duenoNuevo(); }
+    function cambioPropio() { return isAdmin() || (duenoActual() && duenoNuevo()); }
+
+    // ---- IA: planes, saldo, descargas de la app -----------------------------------
+    match /config_ia/{doc} {
+      allow read: if authed();
+      allow write: if isAdmin();
+    }
+    // Comunicados programados y biblioteca automática: solo el admin (los publica la Cloud Function).
+    match /comunicados_programados/{id} { allow read, write: if isAdmin(); }
+    // Saldo de créditos: lo lee su dueño o el admin. Lo descuenta la Cloud Function.
+    match /ai_access/{uid} {
+      allow read: if isAdmin() || (conPin() && uid == workspace());
+      allow write: if isAdmin();
+    }
+
+    // ---- Datos privados de cada usuario ----------------------------------------
+    match /projects/{id} { allow read, delete: if lecturaPropia(); allow create: if creacionPropia(); allow update: if cambioPropio(); }
+    match /clients/{id}  { allow read, delete: if lecturaPropia(); allow create: if creacionPropia(); allow update: if cambioPropio(); }
+    match /finances/{id} { allow read, delete: if lecturaPropia(); allow create: if creacionPropia(); allow update: if cambioPropio(); }
+    match /settings/{id} { allow read, delete: if lecturaPropia(); allow create: if creacionPropia(); allow update: if cambioPropio(); }
+    // Diseños de Techos: el dueño va en authorUid (uid de la sesión = workspace).
+    match /planos_techos/{id} {
+      allow read, delete: if isAdmin() || (conPin() && resource.data.get('authorUid', '') == request.auth.uid);
+      allow create: if isAdmin() || (conPin() && request.resource.data.get('authorUid', '') == request.auth.uid);
+      allow update: if isAdmin() || (conPin() && resource.data.get('authorUid', '') == request.auth.uid
+                                     && request.resource.data.get('authorUid', '') == request.auth.uid);
+    }
+    // Tickets y asesorías: cada uno los suyos; el admin, todos.
+    match /tickets/{id}   { allow read, delete: if lecturaPropia(); allow create: if creacionPropia(); allow update: if cambioPropio(); }
+    match /asesorias/{id} { allow read, delete: if lecturaPropia(); allow create: if creacionPropia(); allow update: if cambioPropio(); }
+    // Compras: el usuario solo pide (queda pendiente); valida o rechaza el admin.
+    match /purchases/{id} {
+      allow read: if lecturaPropia();
+      allow create: if isAdmin() || (duenoNuevo() && request.resource.data.status == 'pendiente');
+      allow update, delete: if isAdmin();
+    }
+
+    // Compras con Google Play: las registra solo el servidor (validarCompraPlay); el admin las ve.
+    match /compras_play/{id} { allow read: if isAdmin(); allow write: if false; }
+
+    // ---- Usuarios (PIN): solo el admin. Cada usuario puede leer su propia ficha. --
+    match /usuarios/{uid} {
+      allow read: if isAdmin() || (conPin() && uid == workspace());
+      allow write: if isAdmin();
+    }
+
+    // ---- Contenido del sistema: lo leen los usuarios con PIN, lo cambia el admin ----
+    match /cursos/{id}          { allow read: if conPin(); allow write: if isAdmin(); }
+    match /tutoriales/{id}      { allow read: if conPin(); allow write: if isAdmin(); }
+    match /biblioteca/{id}      { allow read: if conPin(); allow write: if isAdmin(); }
+    match /notificaciones/{id}  { allow read: if conPin(); allow write: if isAdmin(); }
+    match /config_flags/{id}    { allow read: if conPin(); allow write: if isAdmin(); }
+    match /config_academia/{id} { allow read: if conPin(); allow write: if isAdmin(); }
+    // Estadísticas de Academia y Recursos: cada usuario suma sus visitas; solo el admin las lee.
+    match /estadisticas_contenido/{id} { allow read, delete: if isAdmin(); allow create, update: if conPin(); }
+
+    // Token del celular para avisos push: cada uno guarda el suyo; solo el servidor los lee.
+    match /push_tokens/{token} {
+      allow create, update: if conPin() && request.resource.data.ws == workspace();
+      allow delete: if isAdmin() || (conPin() && resource.data.ws == workspace());
+    }
+    // Ayuda y soporte: un chat por usuario (su espacio de trabajo); el admin ve y responde todos.
+    match /soporte_chats/{ws} {
+      allow read: if isAdmin() || (conPin() && ws == workspace());
+      allow create, update: if isAdmin() || (conPin() && ws == workspace());
+      allow delete: if isAdmin();
+    }
+    // Propuestas para el cliente: cualquiera con el link la lee; la crea/borra un
+    // usuario de la app; el cliente solo puede marcarla como aceptada.
+    match /propuestas/{id} {
+      allow get: if true;
+      allow list: if conPin();
+      allow create, delete: if conPin();
+      allow update: if conPin()
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'aceptadaOpcion', 'aceptadaNombre', 'aceptadaEn'])
+            && request.resource.data.estado == 'aceptada');
+    }
+  }
+}

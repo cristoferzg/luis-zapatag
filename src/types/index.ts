@@ -1,0 +1,182 @@
+export type ViewType = 'dashboard' | 'projects' | 'clients' | 'portafolio' | 'materials' | 'personal' | 'finances' | 'contracts' | 'settings' | 'gastos' | 'familia' | 'inversion' | 'deuda' | 'precios' | 'asistencia' | 'epp' | 'calculator' | 'designer' | 'carpinteria' | 'herreria' | 'techos' | 'usuarios' | 'tickets' | 'asesorias' | 'biblioteca' | 'soporte' | 'usabilidad' | 'admin_purchases' | 'concreto' | 'drywall' | 'melamina' | 'gasfiteria' | 'electricidad' | 'madera' | 'vidrios' | 'acabados' | 'obra_integral' | 'supervision' | 'reporte' | 'membresia';
+
+export interface Cobro { 
+  id: string; 
+  amount: number; 
+  date: string; 
+  method?: string; 
+  reference?: string; 
+}
+
+export interface AsistenciaRecord { 
+  id: string; 
+  date: string; 
+  hours: number; 
+  status: 'Presente' | 'Tarde' | 'Falta' | 'Medio Día'; 
+  notes?: string; 
+}
+
+export interface Material { 
+  id: string; 
+  name: string; 
+  quantity: number; 
+  unit?: string; 
+  price?: number; 
+  category?: string; 
+  unitPrice?: number; 
+}
+
+export interface Worker { 
+  id: string; 
+  name: string; 
+  role: string; 
+  dailyRate?: number; 
+  dni?: string; 
+  phone?: string; 
+  address?: string; 
+  paymentType?: string; 
+  days?: number; 
+  globalAmount?: number; 
+  adelantos?: any[]; 
+  amount?: number; 
+  asistencia?: AsistenciaRecord[]; 
+}
+
+export interface Project {
+  id: string; 
+  name: string; 
+  client: string; 
+  status: 'Pendiente' | 'En Progreso' | 'Completado';
+  presupuesto: number; 
+  date: string; 
+  plazoEstimado?: string; 
+  cobros?: Cobro[]; 
+  gastos?: number;
+  materiales?: Material[]; 
+  personal?: Worker[]; 
+  detallesContrato?: string;
+  userId?: string;
+  creatorName?: string;
+  techos?: TechosDelProyecto;   // propuesta de Techos Metálicos y lo acordado con el cliente (opcional)
+  /** "No se dio": el trabajo no se concretó; sus números no cuentan en liquidez ni balance. */
+  excluidoBalance?: boolean;
+  avance?: AvanceObra;          // avance de obra con partes diarios y fotos (src/lib/avanceObra.ts)
+}
+
+/** Avance de obra: partidas con % y partes diarios con fotos (guardado dentro del proyecto). */
+export interface PartidaAvance { id: string; nombre: string; avance: number; peso?: number; origen?: 'manual' | 'materiales' | 'techos' }
+export interface FotoAvance { id: string; url: string; path: string; w: number; h: number }
+export interface AvanceEnParte { partidaId: string; de: number; a: number }
+export interface ParteDiario {
+  id: string; fecha: string; avances: AvanceEnParte[]; nota?: string;
+  personal?: number; clima?: 'soleado' | 'nublado' | 'lluvia' | 'viento' | 'calor';
+  fotos: FotoAvance[]; creadoEn: string; autor?: string;
+}
+export interface AvanceObra { partidas: PartidaAvance[]; partes: ParteDiario[]; fechaInicio?: string; plazoDias?: number; actualizado?: string }
+
+/** Enlace del proyecto con su diseño de Techos: propuesta A/B/C enviada y lo acordado. */
+export interface TechosDelProyecto {
+  disenoId?: string; disenoNombre?: string;
+  opciones?: { nombre: string; cobertura: string; total: number }[];
+  propuestaId?: string; propuestaFecha?: string;   // link enviado al cliente
+  acordado?: { opcion: string; cobertura?: string; total: number; fecha: string; fuente: 'link' | 'manual' };
+}
+
+export interface ClientFile {
+  id: string;
+  name: string;
+  type: 'photo' | 'contract' | 'document' | 'other';
+  dataUrl: string;
+  uploadedAt: string;
+  size?: string;
+}
+
+export interface Client { 
+  id: string; 
+  name: string; 
+  company?: string; 
+  phone?: string; 
+  email?: string; 
+  dni?: string; 
+  address?: string; 
+  files?: ClientFile[];
+  userId?: string;
+  creatorName?: string;
+  createdAt?: string;
+}
+
+export interface FinanceRecord { 
+  id: string; 
+  type: 'ingreso' | 'gasto' | 'gastos' | 'familia' | 'inversion' | 'deuda'; 
+  amount: number; 
+  date: string; 
+  description: string; 
+  category?: string; 
+  sourceProject?: string; 
+  isPaid?: boolean; 
+  isMonthly?: boolean; 
+  payments?: {amount: number; date: string}[]; 
+  frequency?: 'Unico' | 'Semanal' | 'Quincenal' | 'Mensual'; 
+  userId?: string;
+  creatorName?: string;
+}
+
+export interface SystemUser {
+  id: string;
+  name: string;
+  role: string;
+  pin: string;
+  email?: string;
+  phone?: string;
+  photoUrl?: string;
+  lastLogin?: string;
+  lastLoginTimestamp?: number;
+  isActive?: boolean;
+  // Workspace owner this user belongs to; preserved across backup/restore so a
+  // restored user keeps access to their own projects/clients/finances.
+  userId?: string;
+  // Pago con el que se dio el acceso (leído del comprobante; opcional).
+  pago?: { nroOperacion?: string; monto?: number; fecha?: string; metodo?: string };
+  materiales?: Material[];
+  personal?: Worker[];
+  cobros?: Cobro[];
+}
+
+export interface GlobalNotification {
+  id: string;
+  title: string;
+  message: string;
+  date: string;
+  createdAtTimestamp: number;
+  priority: 'info' | 'important' | 'alert';
+  author: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  expiresAtTimestamp?: number;
+  durationHours?: number;
+}
+
+export interface SystemConfig { 
+  id: string; 
+  appName: string; 
+  logoBase64: string; 
+  currency?: string; 
+  theme?: string; 
+  contratistaDni?: string; 
+  contratistaDir?: string; 
+  contratistaPhone?: string; 
+  contratistaEmail?: string;
+  bancoNombre?: string;
+  cuentaTitular?: string;
+  pagoDetracciones?: string; 
+  pagoCtaCorriente?: string; 
+  pagoCciDetracciones?: string; 
+  pagoCtaBcp?: string; 
+  pagoCciBcp?: string; 
+  pagoYape?: string; 
+  userId?: string;
+  softwareVersion?: string;
+  googleDriveFolderUrl?: string;
+  officialLetterheadBase64?: string;
+  notifications?: GlobalNotification[];
+}

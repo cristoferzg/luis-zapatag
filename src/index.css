@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App instalada: la pantalla no se agranda con el pellizco ni al tocar un campo
+   (los planos y el 3D tienen su propio zoom con dos dedos; maximum-scale=1 en
+   index.html evita el zoom automático al escribir). */
+html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* Celular / app: toque como app nativa (sin el resaltado azul del navegador y con
+   el botón que se "hunde" al tocarlo). */
+@media (hover: none) and (pointer: coarse) {
+  html { -webkit-tap-highlight-color: transparent; }
+  button:active, [role="button"]:active { transform: scale(0.97); transition: transform 60ms ease-out; }
+}
+
+/* Celular y tablet: el título del apartado va en la barra superior (estilo Android);
+   el título grande de la página solo se muestra en PC. */
+@media (max-width: 1279.98px) { .titulo-pagina { display: none !important; } }
+
+/* ============================================================================
+   ESTILO "MARCA INNOVA · MATERIAL" — en la app InnovApp y en la web desde celular o
+   tablet (html.app-marca, ver index.html). En la computadora no cambia nada.
+   Material Design con los colores de la marca: superficies sólidas, sin
+   transparencias ni desenfoques (es lo más rápido de dibujar en Android).
+   ============================================================================ */
+.app-marca { --marca-azul: 15, 42, 74; --marca-naranja: 249, 115, 22; }
+.app-marca .columna-app { background: #f3f5f9 !important; }
+.app-marca .columna-app > main.overflow-y-auto, .app-marca .columna-app > div.overflow-y-auto { background: transparent !important; }
+
+/* Barra superior: azul de la marca, sólida */
+.app-marca .barra-app {
+  height: auto !important; min-height: 64px; padding: 10px 16px 12px !important; gap: 12px !important;
+  background: rgb(var(--marca-azul)) !important; border-radius: 0 0 20px 20px;
+  box-shadow: 0 2px 6px rgba(var(--marca-azul), .25) !important; z-index: 30;
+}
+.app-marca .barra-app img { width: 40px !important; height: 40px !important; border: none !important; border-radius: 12px !important; padding: 3px !important; background: #fff !important; }
+.app-marca .barra-app h1 { color: #fff !important; font-size: 19px !important; font-weight: 700 !important; }
+.app-marca .barra-app p { color: #fdba74 !important; }
+.app-marca .barra-app > button:last-child { color: #fff !important; }
+.app-marca .barra-app .campana-avisos { color: #fff !important; }
+.app-marca .barra-app .campana-avisos:active { background: rgba(255, 255, 255, .16) !important; }
+.app-marca .barra-app > button:last-child:active { background: rgba(255, 255, 255, .16) !important; }
+
+/* Tarjetas: blancas, esquinas Material (16 px) y sombra de elevación 1 */
+.app-marca main.overflow-y-auto .rounded-2xl.border,
+.app-marca main.overflow-y-auto .rounded-3xl.border {
+  background-color: #fff !important; border-color: transparent !important; border-radius: 16px !important;
+  box-shadow: 0 1px 2px rgba(var(--marca-azul), .08), 0 1px 3px rgba(var(--marca-azul), .06) !important;
+}
+
+/* Barra de abajo: blanca, con la píldora indicadora naranja de Material 3 */
+.app-marca .nav-app { background: #fff !important; box-shadow: 0 -1px 0 #e5e9f0; }
+.app-marca .nav-app > button { width: auto !important; flex: 1 1 0; min-width: 0; -webkit-tap-highlight-color: transparent; }
+.app-marca .nav-app > button > span:first-child { width: 60px !important; color: #64748b !important; background: transparent !important; transition: background-color .15s linear; }
+.app-marca .nav-app > button > span:first-child.bg-\[\#e8def8\] { background: rgba(var(--marca-naranja), .14) !important; color: #c2410c !important; }
+.app-marca .nav-app > button > span:last-child { color: #64748b !important; }
+.app-marca .nav-app > button > span.font-bold:last-child { color: rgb(var(--marca-azul)) !important; }
+
+/* Botón +: botón flotante Material, naranja, por fuera de la barra */
+.app-marca .fab-app {
+  width: 56px !important; height: 56px !important; padding: 0 !important; justify-content: center; border-radius: 16px !important;
+  font-size: 0 !important; gap: 0 !important; color: #fff !important; right: 16px !important;
+  background: rgb(var(--marca-naranja)) !important;
+  box-shadow: 0 3px 5px rgba(0, 0, 0, .2), 0 6px 10px rgba(0, 0, 0, .14) !important;
+}
+.app-marca .fab-app svg { width: 26px !important; height: 26px !important; }
+
+/* Menú lateral: azul sólido, íconos de un solo tono, el activo con la píldora naranja */
+.app-marca .menu-lateral { background: rgb(var(--marca-azul)) !important; }
+.app-marca .menu-lateral .border-slate-800, .app-marca .menu-lateral .border-slate-800\/80 { border-color: rgba(255, 255, 255, .1) !important; }
+.app-marca .menu-lateral .bg-slate-950\/70 { background: rgba(0, 0, 0, .18) !important; }
+.app-marca .item-menu { border-radius: 999px !important; padding-top: 10px !important; padding-bottom: 10px !important; padding-left: 16px !important; color: #cbd5e1 !important; background: transparent !important; transition: background-color .12s linear !important; -webkit-tap-highlight-color: transparent; }
+.app-marca .item-menu:hover { background: transparent !important; }
+.app-marca .item-menu:active { background: rgba(255, 255, 255, .1) !important; }
+.app-marca .item-menu > span.absolute { display: none; }
+.app-marca .item-menu > svg { width: 22px !important; height: 22px !important; color: #94a3b8 !important; margin-right: 14px !important; }
+.app-marca .item-menu > span.truncate { font-size: 14.5px !important; font-weight: 500; }
+.app-marca .item-menu.activo { background: rgb(var(--marca-naranja)) !important; color: #fff !important; }
+.app-marca .item-menu.activo > svg { color: #fff !important; }
+.app-marca .item-menu.activo > span.truncate { font-weight: 700; }
+
+/* El velo oscuro detrás del menú, sin desenfoque */
+.app-marca .fixed.inset-0.backdrop-blur-sm { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; background-color: rgba(15, 23, 42, .45) !important; }
+
+/* Toque Material: sin achicar los botones (solo cambia el fondo) */
+@media (hover: none) and (pointer: coarse) { .app-marca button:active { transform: none !important; } }
+
+/* ── Opción A: cada celular con su sensación ───────────────────────────────── */
+/* Android (Material 3): onda que nace donde se toca (capa aparte, ver sensacionNativa.ts) */
+.onda-material { position: absolute; border-radius: 50%; opacity: .2; transform: scale(0); animation: onda-material .5s cubic-bezier(.2, .8, .2, 1) forwards; }
+@keyframes onda-material { to { transform: scale(1); opacity: 0; } }
+/* iPhone: el botón se encoge y aclara un instante, sin onda */
+.app-marca.plat-ios .toque-ios { scale: .965; opacity: .72; transition: scale .08s ease-out, opacity .08s ease-out; }
+.app-marca.plat-ios * { -webkit-tap-highlight-color: transparent; }
+/* iPhone: barra de abajo translúcida y el ícono activo en naranja, sin píldora */
+.app-marca.plat-ios .nav-app { background: rgba(255, 255, 255, .84) !important; -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px); box-shadow: 0 -.5px 0 rgba(0, 0, 0, .18); }
+.app-marca.plat-ios .nav-app > button > span:first-child,
+.app-marca.plat-ios .nav-app > button > span:first-child.bg-\[\#e8def8\] { background: transparent !important; }
+.app-marca.plat-ios .nav-app > button > span:first-child.bg-\[\#e8def8\],
+.app-marca.plat-ios .nav-app > button > span.font-bold:last-child { color: rgb(var(--marca-naranja)) !important; }
+/* iPhone: título más grande, como Ajustes o Notas; sin botón flotante (las acciones van en cada pantalla) */
+.app-marca.plat-ios .barra-app h1 { font-size: 22px !important; font-weight: 800 !important; letter-spacing: -.02em; }
+.app-marca.plat-ios .fab-app { display: none !important; }
+/* Cambio de pantalla: Android con fundido, iPhone deslizando (al volver, desde la izquierda) */
+.app-marca.plat-android main.vista-entra { animation: vista-fundido .24s ease-out both; }
+.app-marca.plat-ios main.vista-entra { animation: vista-desliza .32s cubic-bezier(.2, .8, .2, 1) both; }
+.app-marca.plat-ios main.vista-entra.vista-vuelve { animation-name: vista-vuelve; }
+@keyframes vista-fundido { from { opacity: 0; transform: scale(.99); } }
+@keyframes vista-desliza { from { opacity: .5; transform: translateX(28px); } }
+@keyframes vista-vuelve { from { opacity: .5; transform: translateX(-28px); } }
+@media (prefers-reduced-motion: reduce) { .onda-material, .app-marca main.vista-entra { animation: none !important; } .app-marca.plat-ios .toque-ios { scale: 1; } }
+
+/* Techos · pantalla completa para dibujar (botón ⤢ en el celular): se ocultan la barra
+   azul, las secciones del módulo, la navegación de abajo y el botón +. */
+html.modo-dibujo .barra-app, html.modo-dibujo .nav-app, html.modo-dibujo .fab-app, html.modo-dibujo .oculto-en-dibujo { display: none !important; }
+/* Paneles fijos que se apoyaban sobre la navegación: en pantalla completa bajan al borde. */
+html.modo-dibujo .sube-sin-nav { bottom: env(safe-area-inset-bottom, 0px) !important; }
+html.modo-dibujo .sube-sin-nav-2 { bottom: calc(48px + env(safe-area-inset-bottom, 0px)) !important; }
+
+/* Celular: botones de la fila de arriba de los editores (Techos, Obra Civil, Drywall,
+   Carpintería) grandes para el dedo, como la barra de abajo (mín. 40 px). */
+@media (max-width: 639.98px) {
+  .barra-dibujo button, .barra-dibujo select, .barra-dibujo label { min-height: 40px; }
+  .barra-dibujo button.w-8, .barra-dibujo button.w-9 { width: 40px; }
+  .barra-dibujo button { font-size: 13px; }
+  .barra-dibujo svg { width: 18px; height: 18px; }
+}
+
+/* Tablet: barra de abajo centrada */
+@media (min-width: 640px) {
+  .app-marca .barra-app { padding-left: 24px !important; padding-right: 24px !important; }
+}
+@media (min-width: 640px) and (max-width: 1279.98px) { .app-marca .menu-lateral { width: 300px !important; } }
+@media (max-width: 1279.98px) { .app-marca .menu-lateral { border-radius: 0 20px 20px 0; } }
+@media (max-width: 359.98px) { .app-marca .nav-app > button > span:last-child { font-size: 10px !important; } }
+
+/* Celular / tablet: que ningún botón se salga de su tarjeta, aunque el teléfono tenga
+   la letra grande. Las filas "texto ↔ botón" bajan el botón a la línea siguiente
+   cuando no cabe, y un botón nunca es más ancho que su caja. */
+@media (max-width: 1279.98px) {
+  main.overflow-y-auto:not(.lg\:p-0) .flex.justify-between:not(.flex-col):not([class*="overflow-x"]):not(.flex-nowrap),
+  main.overflow-y-auto:not(.lg\:p-0) .flex.items-center.gap-2:not(.flex-col):not([class*="overflow-x"]):not(.flex-nowrap),
+  main.overflow-y-auto:not(.lg\:p-0) .flex.items-center.gap-3:not(.flex-col):not([class*="overflow-x"]):not(.flex-nowrap) { flex-wrap: wrap; row-gap: .5rem; }
+  main.overflow-y-auto:not(.lg\:p-0) button { max-width: 100%; }
+  main.overflow-y-auto:not(.lg\:p-0) button.whitespace-nowrap { white-space: normal; }
+}
+
+/* Tiras deslizables sin la barra gris (se usaba la clase pero no existía:
+   en la PC con ventana mediana aparecía una barra de desplazamiento). */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* Adaptable: un selector o campo nunca más ancho que su contenedor (un <select> crece
+   hasta su opción más larga — p. ej. un nombre de proyecto largo — y corría la página). */
+select, input, textarea { max-width: 100%; }
+select { text-overflow: ellipsis; }
+
+/* Configuración en el celular/tablet: tarjetas dentro de tarjetas con menos relleno y
+   menos redondeo (en PC se ve como siempre). */
+@media (max-width: 1279.98px) {
+  .ajustes-compactos :is(.rounded-3xl, .rounded-\[2rem\]) { border-radius: 1rem !important; }
+  .ajustes-compactos :is(.p-6, .p-8) { padding: 1rem !important; }
+  .ajustes-compactos :is(.rounded-2xl, .rounded-3xl, .rounded-xl) :is(.rounded-2xl, .rounded-3xl) { border-radius: .75rem !important; }
+  .ajustes-compactos :is(.rounded-2xl, .rounded-3xl) :is(.rounded-2xl, .rounded-3xl):is(.p-4, .p-5, .p-6, .p-8) { padding: .75rem !important; }
+}
+@media (min-width: 640px) and (max-width: 1279.98px) {
+  .ajustes-compactos :is(.sm\:p-6, .sm\:p-8) { padding: 1rem !important; }
+}
