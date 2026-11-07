@@ -7,9 +7,16 @@ Unicode true
   !define VERSION "1.0.0"
 !endif
 !define UNINST "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
+; Carpeta empaquetada y sufijo del instalador (Windows 7/8: win-ia32-unpacked y "-win7-8").
+!ifndef ORIGEN
+  !define ORIGEN "win-unpacked"
+!endif
+!ifndef SUFIJO
+  !define SUFIJO ""
+!endif
 
 Name "${APP}"
-OutFile "..\release\InnovApp-Setup-${VERSION}.exe"
+OutFile "..\release\InnovApp-Setup-${VERSION}${SUFIJO}.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APP}"
 InstallDirRegKey HKCU "Software\${APP}" "Carpeta"
 RequestExecutionLevel user
@@ -49,7 +56,7 @@ Section "Instalar"
   nsExec::Exec 'taskkill /F /IM "${EXE}"'
   Sleep 500
   SetOutPath "$INSTDIR"
-  File /r "..\release\win-unpacked\*.*"
+  File /r "..\release\${ORIGEN}\*.*"
   CreateShortCut "$DESKTOP\${APP}.lnk" "$INSTDIR\${EXE}" "" "$INSTDIR\${EXE}" 0
   CreateShortCut "$SMPROGRAMS\${APP}.lnk" "$INSTDIR\${EXE}" "" "$INSTDIR\${EXE}" 0
   ; Avisos de Windows: el programa se registra con su identificador (el acceso directo lo arregla el programa al abrirse).

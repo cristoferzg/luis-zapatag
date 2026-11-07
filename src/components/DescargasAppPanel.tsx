@@ -3,7 +3,7 @@
 // Los usuarios ven solo los botones de descarga activos.
 import { useEffect, useRef, useState } from 'react';
 import { Smartphone, Monitor, Download, RefreshCw, Check, Bell, Upload } from 'lucide-react';
-import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay, versionDeInstalador, enlaceAndroid, CODIGO_ANDROID } from '../lib/appDescargas';
+import { ConfigDescargas, EnlaceApp, escucharDescargas, guardarDescargas, BUILD_ACTUAL, abrirEnlace, plataforma, esEnlacePlay, versionDeInstalador, enlaceAndroid, CODIGO_ANDROID, pcPara } from '../lib/appDescargas';
 import { uploadFileToFirebaseStorage } from '../lib/storage';
 import { versionApp } from '../lib/version';
 
@@ -53,7 +53,7 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
   // permite llevar a su propia ficha. Ahí este panel solo lo ve el admin, y sin botones de descarga.
   const enAndroid = plataforma() === 'android';
   // Android: siempre (la app ya está en Google Play); PC e iPhone: solo si el admin los activó.
-  const urlDe = (id: 'android' | 'pc' | 'iphone') => id === 'android' ? enlaceAndroid(d) : enlace(id).url;
+  const urlDe = (id: 'android' | 'pc' | 'iphone') => id === 'android' ? enlaceAndroid(d) : id === 'pc' ? (pcPara(d)?.url || enlace('pc').url) : enlace(id).url;
   const activos = enAndroid ? [] : FILAS.filter(f => f.id === 'android' || (enlace(f.id).activo && enlace(f.id).url));
   // Subir el instalador de PC directo a la nube (solo admin, desde la web o la PC).
   const refExe = useRef<HTMLInputElement>(null);
@@ -63,7 +63,10 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
     setSubiendo(0);
     try {
       const url = await uploadFileToFirebaseStorage(file, 'descargas/pc', pct => setSubiendo(pct));
-      const nuevo: ConfigDescargas = { ...d, pc: { url, activo: true, nombre: file.name, version: versionDeInstalador(file.name) || '', tamanoMb: Math.round(file.size / 1048576 * 10) / 10, subidoEl: new Date().toISOString() } };
+      // "InnovApp-Setup-2.1.1-win7-8.exe" → instalador para Windows 7/8; los demás, para Windows 10/11.
+      const deWin7 = /win\s*7|win7-8|windows\s*7/i.test(file.name);
+      const datos = { url, activo: true, nombre: file.name, version: versionDeInstalador(file.name.replace(/-?win7-8/i, '')) || '', tamanoMb: Math.round(file.size / 1048576 * 10) / 10, subidoEl: new Date().toISOString() };
+      const nuevo: ConfigDescargas = deWin7 ? { ...d, pcWin7: datos } : { ...d, pc: { ...datos, obligatoria: d.pc?.obligatoria } };
       await guardarDescargas(nuevo); setBorrador(null);
       aviso(versionDeInstalador(file.name) ? 'Instalador subido. Quien tenga un programa más antiguo verá el aviso para actualizarlo.' : 'Instalador subido y activado. Ya lo pueden descargar.');
     } catch { aviso('No se pudo subir. Revisa tu conexión e inténtalo otra vez.'); }
@@ -112,7 +115,10 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
                   <div className="flex flex-wrap items-center gap-2">
                     <input ref={refExe} type="file" accept=".exe,.msi" className="hidden" onChange={ev => { const fl = ev.target.files?.[0]; if (fl) subirExe(fl); ev.target.value = ''; }} />
                     <button type="button" disabled={subiendo !== null} onClick={() => refExe.current?.click()} className="min-h-[40px] px-3 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60"><Upload className="w-4 h-4" /> {subiendo !== null ? `Subiendo… ${subiendo}%` : 'Subir instalador (.exe)'}</button>
-                    {e.nombre && <span className="text-[11px] text-slate-500 min-w-0 truncate">{e.nombre}{e.version ? ` · v${e.version}` : ''}{e.tamanoMb ? ` · ${e.tamanoMb} MB` : ''}{e.subidoEl ? ` · ${fechaBonita(e.subidoEl)}` : ''}</span>}
+                    {e.nombre && <span className="text-[11px] text-slate-500 min-w-0 truncate">Windows 10/11: {e.nombre}{e.version ? ` · v${e.version}` : ''}{e.tamanoMb ? ` · ${e.tamanoMb} MB` : ''}{e.subidoEl ? ` · ${fechaBonita(e.subidoEl)}` : ''}</span>}
+                    <span className={`basis-full text-[11px] ${d.pcWin7?.url ? 'text-slate-500' : 'text-amber-700 font-semibold'}`}>{d.pcWin7?.url
+                      ? `Windows 7/8: ${d.pcWin7.nombre || 'instalador'}${d.pcWin7.version ? ` · v${d.pcWin7.version}` : ''}${d.pcWin7.subidoEl ? ` · ${fechaBonita(d.pcWin7.subidoEl)}` : ''} (a esas PCs se les da este automáticamente)`
+                      : 'Windows 7/8: aún no subido. Sube también «InnovApp-Setup-…-win7-8.exe» (con el mismo botón): el de Windows 10/11 no arranca en Windows 7 u 8.'}</span>
                   </div>
                 )}
                 {f.id === 'pc' && subiendo !== null && <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-emerald-500 transition-all" style={{ width: `${subiendo}%` }} /></div>}

@@ -18,6 +18,8 @@ export interface EnlaceApp { url: string; activo: boolean; nombre?: string; tama
 export interface ConfigDescargas {
   android?: EnlaceApp;
   pc?: EnlaceApp;
+  /** Instalador para Windows 7 / 8 / 8.1 (32 bits, base antigua): el de Windows 10/11 no arranca ahí. */
+  pcWin7?: EnlaceApp;
   iphone?: EnlaceApp;
   /** fecha = compilación de la web/PC; codigoAndroid = versionCode mínimo de la app de Android (si se incluyó). */
   ultima?: { fecha: string; version?: string; nota?: string; obligatoria?: boolean; publicadoEl?: string; codigoAndroid?: number };
@@ -150,10 +152,20 @@ export function compararVersiones(a: string, b: string): number {
   for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d < 0 ? -1 : 1; }
   return 0;
 }
-/** ¿Este programa de PC es más antiguo que el instalador publicado? */
+/** Windows 7, 8 u 8.1 (Windows NT 6.1 / 6.2 / 6.3): necesitan su propio instalador. */
+export const esWindowsAntiguo = () => typeof navigator !== 'undefined' && /Windows NT 6\.[1-3]/.test(navigator.userAgent);
+/** El instalador que le corresponde a ESTA computadora (Windows 7/8 → el suyo, si está subido).
+ *  "Obligatorio" y "activo" se toman del de Windows 10/11 (el admin los marca una sola vez). */
+export function pcPara(c?: ConfigDescargas | null): EnlaceApp | undefined {
+  if (!c?.pc && !c?.pcWin7) return undefined;
+  if (esWindowsAntiguo() && c.pcWin7?.url) return { ...c.pcWin7, activo: c.pc?.activo ?? true, obligatoria: c.pc?.obligatoria };
+  return c.pc;
+}
+/** ¿Este programa de PC es más antiguo que el instalador publicado para su Windows? */
 export function programaPCDesactualizado(c: ConfigDescargas): boolean {
-  const mia = versionProgramaPC(), pub = c.pc?.version;
-  return !!(mia && pub && c.pc?.activo && c.pc.url && compararVersiones(mia, pub) < 0);
+  const p = pcPara(c);
+  const mia = versionProgramaPC(), pub = p?.version;
+  return !!(mia && pub && p?.activo && p.url && compararVersiones(mia, pub) < 0);
 }
 const K_PC_POSPUESTO = 'innova_programa_pc_pospuesto';
 export const avisoPCPospuesto = (v: string) => { const p = safeStorage.getItem<{ v: string; hasta: number } | null>(K_PC_POSPUESTO, null); return !!p && p.v === v && p.hasta > Date.now(); };

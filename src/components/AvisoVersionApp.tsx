@@ -6,7 +6,7 @@ import { Download, RefreshCw, Smartphone, Monitor, X } from 'lucide-react';
 import {
   ConfigDescargas, escucharDescargas, desactualizado, plataforma, abrirEnlace, recargarUltimaVersion,
   avisoPospuesto, posponerAviso, enlacePlaySeguro, toca, marcarRecordado, programarRecordatorioNativo, esCelularWeb,
-  programaPCDesactualizado, avisoPCPospuesto, posponerAvisoPC, versionProgramaPC, enlaceAndroid, appEnCuenta,
+  programaPCDesactualizado, avisoPCPospuesto, posponerAvisoPC, versionProgramaPC, enlaceAndroid, appEnCuenta, pcPara,
 } from '../lib/appDescargas';
 import { versionApp } from '../lib/version';
 
@@ -51,15 +51,16 @@ export default function AvisoVersionApp({ sinRecordatorio = false, esAdmin = fal
     );
   }
 
+  const pcE = pcPara(cfg); // instalador para el Windows de esta computadora (10/11 o 7/8)
   // Programa de PC antiguo y el admin lo marcó obligatorio: no se puede seguir sin instalar el nuevo.
-  if (plat === 'pc' && programaPCDesactualizado(cfg) && cfg.pc?.obligatoria && !esAdmin) {
+  if (plat === 'pc' && programaPCDesactualizado(cfg) && pcE?.obligatoria && !esAdmin) {
     return (
       <div className="fixed inset-0 z-[90] bg-slate-950/60 flex items-center justify-center p-3" role="dialog" aria-modal="true">
         <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4 grid gap-3">
           <div className="flex items-center gap-3">
             <span className="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 grid place-items-center shrink-0"><Monitor className="w-5 h-5" /></span>
             <div className="min-w-0">
-              <b className="block text-[15px] text-slate-900">Actualiza el programa de PC (v{cfg.pc!.version})</b>
+              <b className="block text-[15px] text-slate-900">Actualiza el programa de PC (v{pcE!.version})</b>
               <span className="block text-[11px] text-slate-400">Tienes la v{versionProgramaPC()}</span>
               <span className="block text-xs text-slate-500">Debes instalar la versión nueva para seguir usando InnovApp en esta computadora.</span>
             </div>
@@ -69,24 +70,24 @@ export default function AvisoVersionApp({ sinRecordatorio = false, esAdmin = fal
             <li>Abre el archivo descargado e instálalo encima del actual.</li>
             <li>Tus datos se mantienen: están en la nube.</li>
           </ol>
-          <button onClick={() => abrirEnlace(cfg.pc!.url)} className="min-h-[48px] rounded-xl bg-orange-500 text-white font-black flex items-center justify-center gap-2 cursor-pointer"><Download className="w-4 h-4" /> Descargar el programa nuevo</button>
+          <button onClick={() => abrirEnlace(pcE!.url)} className="min-h-[48px] rounded-xl bg-orange-500 text-white font-black flex items-center justify-center gap-2 cursor-pointer"><Download className="w-4 h-4" /> Descargar el programa nuevo</button>
         </div>
       </div>
     );
   }
 
   // Programa de PC antiguo: invita a descargar el instalador nuevo (se instala encima, sin perder nada).
-  if (plat === 'pc' && !recordOculto && programaPCDesactualizado(cfg) && !avisoPCPospuesto(cfg.pc!.version!)) {
-    const cerrarPC = () => { posponerAvisoPC(cfg.pc!.version!); setRecordOculto(true); };
+  if (plat === 'pc' && !recordOculto && programaPCDesactualizado(cfg) && !avisoPCPospuesto(pcE!.version!)) {
+    const cerrarPC = () => { posponerAvisoPC(pcE!.version!); setRecordOculto(true); };
     return (
       <div className="fixed right-6 bottom-6 w-[360px] z-[70] bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 grid gap-2">
         <div className="flex items-start gap-2">
           <span className="w-9 h-9 rounded-xl bg-orange-100 text-orange-600 grid place-items-center shrink-0"><Monitor className="w-4 h-4" /></span>
-          <div className="min-w-0 flex-1"><b className="block text-sm text-slate-900">Programa de PC nuevo (v{cfg.pc!.version})</b><span className="block text-xs text-slate-500">Tienes la v{versionProgramaPC()}. Descárgalo e instálalo encima: tus datos se mantienen.</span></div>
+          <div className="min-w-0 flex-1"><b className="block text-sm text-slate-900">Programa de PC nuevo (v{pcE!.version})</b><span className="block text-xs text-slate-500">Tienes la v{versionProgramaPC()}. Descárgalo e instálalo encima: tus datos se mantienen.</span></div>
           <button onClick={cerrarPC} aria-label="Cerrar" className="w-9 h-9 grid place-items-center rounded-lg text-slate-400 cursor-pointer shrink-0"><X className="w-4 h-4" /></button>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => { abrirEnlace(cfg.pc!.url); cerrarPC(); }} className="flex-1 min-h-[40px] rounded-xl bg-orange-500 text-white text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer"><Download className="w-4 h-4" /> Descargar</button>
+          <button onClick={() => { abrirEnlace(pcE!.url); cerrarPC(); }} className="flex-1 min-h-[40px] rounded-xl bg-orange-500 text-white text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer"><Download className="w-4 h-4" /> Descargar</button>
           <button onClick={cerrarPC} className="flex-1 min-h-[40px] rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer">Más tarde</button>
         </div>
       </div>
@@ -99,7 +100,7 @@ export default function AvisoVersionApp({ sinRecordatorio = false, esAdmin = fal
     // Google Play solo a quien entra desde el navegador de un celular Android (en la PC no).
     /Android/i.test(navigator.userAgent) && !appEnCuenta() ? { id: 'android', txt: 'Descargar app', url: enlaceAndroid(cfg), Ic: Smartphone } : null,
     cfg.iphone?.activo && cfg.iphone.url ? { id: 'iphone', txt: 'iPhone', url: cfg.iphone.url, Ic: Smartphone } : null,
-    cfg.pc?.activo && cfg.pc.url ? { id: 'pc', txt: 'Computadora', url: cfg.pc.url, Ic: Monitor } : null,
+    pcE?.activo && pcE.url ? { id: 'pc', txt: 'Computadora', url: pcE.url, Ic: Monitor } : null,
   ].filter(Boolean) as { id: string; txt: string; url: string; Ic: any }[];
   if (!opciones.length || !toca(cfg.recordatorioDias ?? 7)) return null;
   // En el celular primero la app del celular; en la PC, el programa.

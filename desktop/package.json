@@ -8,7 +8,8 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win dir --x64 && node build/instalador.cjs"
+    "dist": "electron-builder --win dir --x64 && node build/instalador.cjs",
+    "dist:win7": "electron-builder --win dir --ia32 -c.electronVersion=22.3.27 && ORIGEN=win-ia32-unpacked SUFIJO=-win7-8 node build/instalador.cjs"
   },
   "build": {
     "appId": "pe.innovacontratistas.pc",
