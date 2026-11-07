@@ -3,6 +3,9 @@ import { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { esErrorDeVersion, recargarPorVersionNueva } from '../../lib/versionNueva';
 
+/** El navegador no pudo crear el lienzo 3D (tarjeta de video, drivers o demasiados 3D abiertos). */
+const esErrorWebGL = (e?: Error) => !!e && /webgl|context/i.test(e.message || '');
+
 interface Props {
   children: ReactNode;
   fallbackTitle?: string;
@@ -45,9 +48,17 @@ export class TechosErrorBoundary extends Component<Props, State> {
                 {this.props.fallbackTitle || 'Aviso en Módulo Techos Metálicos'}
               </h3>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                Se detectó una excepción en el lienzo o cálculo CAD. La aplicación sigue estable.
+                {esErrorWebGL(this.state.error) ? 'Este equipo no pudo abrir el 3D en este momento. Tus datos están a salvo.' : 'Se detectó una excepción en el lienzo o cálculo CAD. La aplicación sigue estable.'}
               </p>
             </div>
+            {esErrorWebGL(this.state.error) && (
+              <ol className="text-left text-[11px] text-slate-300 bg-slate-900/70 rounded-xl p-3 pl-7 list-decimal space-y-1">
+                <li>Toca «Reiniciar Lienzo CAD» (si tenías otras pestañas con 3D abiertas, ciérralas antes).</li>
+                <li>Si sigue igual, cierra InnovApp y vuelve a abrirlo.</li>
+                <li>En Chrome: Configuración → Sistema → activa «Usar aceleración de gráficos cuando esté disponible» y reinicia Chrome.</li>
+                <li>Si la PC es antigua, actualiza el driver de la tarjeta de video (Windows Update → Actualizaciones opcionales).</li>
+              </ol>
+            )}
 
             {this.state.error && (
               <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-[11px] font-mono text-red-300 truncate text-left">

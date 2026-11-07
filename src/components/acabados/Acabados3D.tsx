@@ -6,6 +6,7 @@
 // =============================================================================
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Maximize2 } from 'lucide-react';
 import { formato } from '../../catalogo/acabados';
@@ -123,7 +124,7 @@ export default function Acabados3D({ ambientes, sel }: { ambientes: Ambiente[]; 
 
   useEffect(() => {
     const el = host.current; if (!el) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    const renderer = crearRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor('#dfe4eb');
     el.appendChild(renderer.domElement);
@@ -157,7 +158,7 @@ export default function Acabados3D({ ambientes, sel }: { ambientes: Ambiente[]; 
     };
     const ro = new ResizeObserver(tam); ro.observe(el); tam();
     ctx.current = c;
-    return () => { ro.disconnect(); controls.dispose(); liberar(scene); renderer.dispose(); renderer.domElement.remove(); ctx.current = null; };
+    return () => { ro.disconnect(); controls.dispose(); liberar(scene); liberarRenderer(renderer); ctx.current = null; };
   }, []);
 
   const firma = JSON.stringify(ambientes) + '|' + sel;

@@ -135,6 +135,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   (bicolor: las piezas llevan `color` y se optimizan con ese tablero). 3D: puertas y cajones se abren (tocar o "Abrir puertas").
 - Diseñador: en Android el arrastre bloquea el scroll solo si el toque empieza sobre un mueble (`data-mueble`).
 
+## 3D (WebGL)
+- TODOS los visores crean y liberan el lienzo con `crearRenderer` / `liberarRenderer` (src/lib/webglSeguro.ts): reintento con
+  opciones livianas y `forceContextLoss` al desmontar (antes se acumulaban contextos → "Error creating WebGL context").
+  Nunca usar `new THREE.WebGLRenderer` directo. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
+
 ## Impresión en la app Android
 - El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo
   `Imprimir` (android/.../ImprimirPlugin.java → PrintManager: impresoras o "Guardar como PDF").

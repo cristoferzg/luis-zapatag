@@ -6,6 +6,7 @@
 // =============================================================================
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import type { Node3D, Segment3D } from './techosCadEngineTypes';
 
 export type Riesgo = 'BAJO' | 'MEDIO' | 'ALTO';
@@ -29,7 +30,7 @@ export default function PandeoEstructura3D({ nodes, segments, riesgos, escala = 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf8fafc);
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 500);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = crearRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
     Object.assign(renderer.domElement.style, { width: '100%', height: '100%', display: 'block', cursor: 'grab', touchAction: 'none' });
@@ -137,7 +138,7 @@ export default function PandeoEstructura3D({ nodes, segments, riesgos, escala = 
       cancelAnimationFrame(raf); ro.disconnect();
       el.removeEventListener('pointerdown', down); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('wheel', wheel);
       scene.traverse(o => { const m = o as THREE.Mesh; if (m.geometry) m.geometry.dispose(); });
-      renderer.dispose();
+      liberarRenderer(renderer);
       if (el.parentNode === mount) mount.removeChild(el);
     };
   }, [nodes, segments, JSON.stringify(riesgos)]); // eslint-disable-line react-hooks/exhaustive-deps

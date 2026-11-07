@@ -7,6 +7,7 @@
 // =============================================================================
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Maximize2, Box as BoxIc } from 'lucide-react';
 import { Aparato, CotizacionGas, Red, REDES, defAparato, limites, esAgua } from './modeloGasfiteria';
@@ -96,7 +97,7 @@ export default function Gasfiteria3D({ cot, ver, empalmes }: { cot: CotizacionGa
 
   useEffect(() => {
     const el = host.current; if (!el) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    const renderer = crearRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor('#eef2f7');
     el.appendChild(renderer.domElement);
@@ -156,7 +157,7 @@ export default function Gasfiteria3D({ cot, ver, empalmes }: { cot: CotizacionGa
     };
     const ro = new ResizeObserver(tam); ro.observe(el); tam();
     ctx.current = c;
-    return () => { ro.disconnect(); c.controls.dispose(); liberar(scene); renderer.dispose(); renderer.domElement.remove(); ctx.current = null; };
+    return () => { ro.disconnect(); c.controls.dispose(); liberar(scene); liberarRenderer(renderer); ctx.current = null; };
   }, []);
 
   useEffect(() => {

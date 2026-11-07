@@ -5,6 +5,7 @@
 // =============================================================================
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { crearRenderer, liberarRenderer } from '../../../lib/webglSeguro';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Maximize2, DoorOpen, DoorClosed } from 'lucide-react';
 
@@ -50,7 +51,7 @@ export default function Visor3D({ construir, clave, acento = 'bg-amber-700', tex
 
   useEffect(() => {
     const el = host.current; if (!el) return;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    const renderer = crearRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor('#eef2f7');
     el.appendChild(renderer.domElement);
@@ -111,7 +112,7 @@ export default function Visor3D({ construir, clave, acento = 'bg-amber-700', tex
       if (raf) cancelAnimationFrame(raf);
       renderer.domElement.removeEventListener('pointerdown', abajo); renderer.domElement.removeEventListener('pointerup', arriba);
       ro.disconnect(); controls.removeEventListener('change', render); controls.dispose();
-      liberar(scene); renderer.dispose(); renderer.domElement.remove(); ctx.current = null;
+      liberar(scene); liberarRenderer(renderer); ctx.current = null;
     };
   }, []);
 

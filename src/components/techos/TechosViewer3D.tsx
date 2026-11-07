@@ -6,6 +6,7 @@
 // e Iluminación Simplificada en 2 Modos Únicos: Claro y Oscuro
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
+import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { panoUnaAgua } from './coberturaAuto';
 import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Calidad3D } from '../../lib/calidad3d';
 import { INVENTARIO_COBERTURAS } from './techosCadCatalog';
@@ -3270,7 +3271,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 500);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    const renderer = crearRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(pixelRatio3d());
     rendererRef.current = renderer;
@@ -3634,7 +3635,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
       resizeObserver.disconnect();
       try {
-        renderer.dispose();
+        liberarRenderer(renderer);
       } catch {
         // ignore
       }

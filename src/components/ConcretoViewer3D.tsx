@@ -13,6 +13,7 @@ import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Cal
 import { useEffect, useRef, useState } from 'react';
 import { Video, Square as StopIcon, DoorOpen, DoorClosed } from 'lucide-react';
 import * as THREE from 'three';
+import { crearRenderer, liberarRenderer } from '../lib/webglSeguro';
 import type { PlanoElem } from './ConcretoPlanoCad';
 import { EstructuraTechos, contextosObra, cotaLosa } from './concreto/obraPisos';
 import { CieloRaso, perfilMuro, largoMuro, esPuerta, esVidrio, detectarAmbientes, regionesCielo, mallaCielo, mallaCieloTanque, tanquesEnEstructura, MallaCielo, esNodoTanque,
@@ -210,7 +211,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = crearRenderer({ antialias: true });
     rendererRef.current = renderer;
     renderer.setPixelRatio(pixelRatio3d());
     mount.appendChild(renderer.domElement);
@@ -817,7 +818,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('contextmenu', sinMenu);
       scene.traverse(o => { const m = o as THREE.Mesh; if (m.geometry) m.geometry.dispose(); });
-      renderer.dispose();
+      liberarRenderer(renderer);
       if (el.parentNode === mount) mount.removeChild(el);
     };
   }, []);

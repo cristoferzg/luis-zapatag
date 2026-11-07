@@ -2,6 +2,7 @@
 // Proyección 3D en tiempo real de piezas (PiezaCad) y accesorios (AccesorioCad) como única fuente de verdad
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
+import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { 
   RotateCw, 
   Sun,
@@ -1165,7 +1166,7 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
     resetCamera();
 
     // Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+    const renderer = crearRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
@@ -1239,7 +1240,7 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
       resizeObserver.disconnect();
       try {
-        renderer.dispose();
+        liberarRenderer(renderer);
       } catch (_e) {
         // ignore
       }

@@ -63,6 +63,11 @@ function crearBandeja() {
   } catch { /* sin bandeja: el programa se cierra como antes */ }
 }
 
+// 3D en PCs con tarjeta de video antigua o en la "lista negra" de Chrome: se usa la tarjeta igual
+// y, si falla, el 3D por software (sin esto aparece "Error creating WebGL context").
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+
 // Una sola ventana: si ya está abierto, se trae al frente.
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
