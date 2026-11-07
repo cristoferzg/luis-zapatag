@@ -1,7 +1,7 @@
 // InnovApp para Windows (Innova Contratistas).
 // Abre la web publicada en su propia ventana, como un programa: así cada
 // "firebase deploy" llega también a la PC sin reinstalar nada.
-const { app, BrowserWindow, Menu, shell, screen, Notification, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, screen, Notification, dialog, Tray, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -11,6 +11,57 @@ const ORIGEN = new URL(APP_URL).origin;
 // (la web avisa si hay un instalador nuevo). No cambia el diseño de escritorio.
 const AGENTE = `InnovaContratistasPC/${app.getVersion()}`;
 const ICONO = path.join(__dirname, 'icon.png');
+const AUMID = 'pe.innovacontratistas.pc';
+// Arrancó con Windows: se queda en la bandeja (sin abrir la ventana) para recibir los avisos.
+const OCULTO = process.argv.includes('--oculto');
+let saliendo = false; // true solo con "Salir": cerrar la ventana la manda a la bandeja.
+let tray = null;
+
+// AVISOS DE WINDOWS: Windows 10/11 solo muestra notificaciones de un programa cuyo acceso
+// directo del menú Inicio lleva su identificador (AppUserModelID). El instalador antiguo no lo
+// ponía y los avisos se descartaban sin decir nada. Aquí se arregla el acceso directo (o se crea).
+function registrarAvisosWindows() {
+  if (process.platform !== 'win32') return;
+  const exe = process.execPath;
+  const lnks = [
+    path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'InnovApp.lnk'),
+    path.join(app.getPath('desktop'), 'InnovApp.lnk'),
+  ];
+  lnks.forEach((lnk, i) => {
+    try {
+      const opciones = { target: exe, cwd: path.dirname(exe), icon: exe, iconIndex: 0, appUserModelId: AUMID, description: 'Innova Contratistas' };
+      if (fs.existsSync(lnk)) shell.writeShortcutLink(lnk, 'update', { appUserModelId: AUMID });
+      else if (i === 0) shell.writeShortcutLink(lnk, 'create', opciones);
+    } catch { /* sin permiso: se ignora */ }
+  });
+}
+
+function mostrarVentana() {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+}
+const iniciaConWindows = () => { try { return app.getLoginItemSettings({ args: ['--oculto'] }).openAtLogin; } catch { return false; } };
+function fijarInicioConWindows(si) {
+  try { app.setLoginItemSettings({ openAtLogin: si, args: ['--oculto'], name: 'InnovApp' }); } catch { /* sin permiso */ }
+}
+function crearBandeja() {
+  if (tray) return;
+  try {
+    tray = new Tray(ICONO);
+    tray.setToolTip('InnovApp — Innova Contratistas');
+    const armar = () => tray.setContextMenu(Menu.buildFromTemplate([
+      { label: 'Abrir InnovApp', click: mostrarVentana },
+      { type: 'separator' },
+      { label: 'Iniciar con Windows (para recibir avisos)', type: 'checkbox', checked: iniciaConWindows(), click: (it) => { fijarInicioConWindows(it.checked); armar(); } },
+      { type: 'separator' },
+      { label: 'Salir', click: () => { saliendo = true; app.quit(); } },
+    ]));
+    armar();
+    tray.on('click', mostrarVentana);
+    tray.on('double-click', mostrarVentana);
+  } catch { /* sin bandeja: el programa se cierra como antes */ }
+}
 
 // Una sola ventana: si ya está abierto, se trae al frente.
 if (!app.requestSingleInstanceLock()) { app.quit(); }
@@ -46,10 +97,21 @@ function crearVentana() {
     show: false,
     autoHideMenuBar: true,
     // backgroundThrottling: que la grabación del 3D no se frene si la ventana queda detrás.
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true, backgroundThrottling: false },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: true, backgroundThrottling: false, preload: path.join(__dirname, 'preload.cjs') },
   });
   win.webContents.setUserAgent(`${win.webContents.getUserAgent()} ${AGENTE}`);
-  win.once('ready-to-show', () => { if (v.maximizada) win.maximize(); win.show(); });
+  win.once('ready-to-show', () => { if (OCULTO) return; if (v.maximizada) win.maximize(); win.show(); });
+  // Cerrar la ventana NO cierra el programa: queda en la bandeja (junto al reloj) para seguir
+  // recibiendo los avisos. "Salir" (menú de la bandeja o Archivo → Salir) sí lo cierra.
+  let avisoBandeja = false;
+  win.on('close', (e) => {
+    if (saliendo || !tray) return;
+    e.preventDefault(); guardarVentana(win); win.hide();
+    if (!avisoBandeja) {
+      avisoBandeja = true;
+      try { new Notification({ title: 'InnovApp sigue activo', body: 'Te avisará aquí de comunicados, clases y tus obras. Para cerrarlo del todo: clic derecho en el ícono junto al reloj → Salir.', icon: ICONO }).show(); } catch { /* sin avisos */ }
+    }
+  });
   // Zoom con Ctrl + rueda del mouse (se recuerda para la próxima vez).
   const zoomInicial = Number.isFinite(v.zoom) ? v.zoom : 0;
   win.webContents.on('did-finish-load', () => win.webContents.setZoomLevel(zoomInicial));
@@ -129,7 +191,7 @@ const menu = Menu.buildFromTemplate([
   { label: 'Archivo', submenu: [
     { label: 'Imprimir…', accelerator: 'CmdOrCtrl+P', click: () => win && win.webContents.print() },
     { type: 'separator' },
-    { role: 'quit', label: 'Salir' },
+    { label: 'Salir', accelerator: 'CmdOrCtrl+Q', click: () => { saliendo = true; app.quit(); } },
   ] },
   { label: 'Editar', submenu: [
     { role: 'undo', label: 'Deshacer' }, { role: 'redo', label: 'Rehacer' }, { type: 'separator' },
@@ -153,10 +215,20 @@ const menu = Menu.buildFromTemplate([
   ] },
 ]);
 
-app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+app.on('second-instance', () => mostrarVentana());
+app.on('before-quit', () => { saliendo = true; });
+// La web pide mostrar la ventana al tocar uno de sus avisos.
+ipcMain.on('innova-mostrar', () => mostrarVentana());
 app.whenReady().then(() => {
-  app.setAppUserModelId('pe.innovacontratistas.pc');
+  app.setAppUserModelId(AUMID);
+  registrarAvisosWindows();
+  // La primera vez queda activado "Iniciar con Windows" (se puede quitar desde la bandeja).
+  try {
+    const marca = path.join(app.getPath('userData'), 'inicio-configurado');
+    if (!fs.existsSync(marca)) { fijarInicioConWindows(true); fs.writeFileSync(marca, '1'); }
+  } catch { /* sin permiso */ }
   Menu.setApplicationMenu(menu);
+  crearBandeja();
   crearVentana();
 });
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => { if (saliendo || !tray) app.quit(); });

@@ -94,6 +94,10 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   SUBIR el contador ANTES de `npm run build`). El admin marca "App de Android" solo cuando Play ya aprobó la versión;
   "Quitar obligación" la desactiva. El admin nunca queda bloqueado.
 - Programa de PC 2.0 (`desktop/`, `npm run dist`): manda su versión en el agente (`InnovaContratistasPC/x.y.z`); si el instalador subido (versión tomada del nombre `InnovApp-Setup-x.y.z.exe`) es más nuevo, `AvisoVersionApp` invita a descargarlo.
+- Avisos en el programa de PC (2.1.0): Windows solo muestra notificaciones si el acceso directo del menú Inicio lleva el
+  AppUserModelID `pe.innovacontratistas.pc` → `registrarAvisosWindows()` en desktop/main.cjs lo arregla/crea al abrir.
+  Cerrar la ventana la oculta en la bandeja (Tray; "Salir" cierra de verdad); "Iniciar con Windows" (`--oculto`) activo
+  por defecto. `preload.cjs` expone solo `innovaPC.mostrar()` (al tocar un aviso de la web se muestra la ventana).
 - Instalador de PC: el admin lo sube desde el panel (web/PC) a `descargas/pc` (Storage: lectura pública, escritura admin). En la app Android no se ofrecen otros instaladores; el aviso de actualización solo lleva a la ficha de Play (`enlacePlaySeguro`).
 - Simulación solo en DEV: `window.__descargasSimuladas`, `__avanceSimulado`, `__iaSimulada`, `__programadosSimulados`, `__escenaTechos` (incluirlos en el grep del dist).
 

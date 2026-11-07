@@ -52,6 +52,8 @@ Section "Instalar"
   File /r "..\release\win-unpacked\*.*"
   CreateShortCut "$DESKTOP\${APP}.lnk" "$INSTDIR\${EXE}" "" "$INSTDIR\${EXE}" 0
   CreateShortCut "$SMPROGRAMS\${APP}.lnk" "$INSTDIR\${EXE}" "" "$INSTDIR\${EXE}" 0
+  ; Avisos de Windows: el programa se registra con su identificador (el acceso directo lo arregla el programa al abrirse).
+  WriteRegStr HKCU "Software\Classes\AppUserModelId\pe.innovacontratistas.pc" "DisplayName" "${APP}"
   WriteUninstaller "$INSTDIR\Desinstalar ${APP}.exe"
   WriteRegStr HKCU "Software\${APP}" "Carpeta" "$INSTDIR"
   WriteRegStr HKCU "${UNINST}" "DisplayName" "${APP} - ${EMPRESA}"
@@ -71,5 +73,7 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\${APP}.lnk"
   RMDir /r "$INSTDIR"
   DeleteRegKey HKCU "${UNINST}"
+  DeleteRegKey HKCU "Software\Classes\AppUserModelId\pe.innovacontratistas.pc"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "InnovApp"
   DeleteRegKey HKCU "Software\${APP}"
 SectionEnd

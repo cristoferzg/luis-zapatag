@@ -1,7 +1,7 @@
 {
   "name": "innovapp-pc",
   "productName": "InnovApp",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Innova Contratistas para Windows",
   "author": "Innova Contratistas",
   "main": "main.cjs",
@@ -20,6 +20,7 @@
     },
     "files": [
       "main.cjs",
+      "preload.cjs",
       "offline.html",
       "icon.png",
       "logo.png"

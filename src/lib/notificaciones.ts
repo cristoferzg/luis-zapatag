@@ -52,7 +52,8 @@ export async function notificar(titulo: string, cuerpo: string): Promise<void> {
       return;
     }
     const n = new Notification(titulo, { body: cuerpo, icon: '/pwa-192x192.png', badge: '/favicon-64.png', tag: `innova_${siguienteId++}` });
-    n.onclick = () => { try { window.focus(); n.close(); } catch { /* nada */ } };
+    // En el programa de PC la ventana puede estar oculta en la bandeja: se pide mostrarla.
+    n.onclick = () => { try { (window as any).innovaPC?.mostrar?.(); window.focus(); n.close(); } catch { /* nada */ } };
   } catch { /* sin soporte: se ignora */ }
 }
 
