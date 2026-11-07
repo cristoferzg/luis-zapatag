@@ -98,6 +98,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   AppUserModelID `pe.innovacontratistas.pc` → `registrarAvisosWindows()` en desktop/main.cjs lo arregla/crea al abrir.
   Cerrar la ventana la oculta en la bandeja (Tray; "Salir" cierra de verdad); "Iniciar con Windows" (`--oculto`) activo
   por defecto. `preload.cjs` expone solo `innovaPC.mostrar()` (al tocar un aviso de la web se muestra la ventana).
+- Programa de PC obligatorio: `config_ia/descargas.pc.obligatoria` (casilla en la fila Computadora del panel). Si el
+  programa es más antiguo que `pc.version`, `AvisoVersionApp` bloquea con "Descargar el programa nuevo" (admin exento).
 - Instalador de PC: el admin lo sube desde el panel (web/PC) a `descargas/pc` (Storage: lectura pública, escritura admin). En la app Android no se ofrecen otros instaladores; el aviso de actualización solo lleva a la ficha de Play (`enlacePlaySeguro`).
 - Simulación solo en DEV: `window.__descargasSimuladas`, `__avanceSimulado`, `__iaSimulada`, `__programadosSimulados`, `__escenaTechos` (incluirlos en el grep del dist).
 

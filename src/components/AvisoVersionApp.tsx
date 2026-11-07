@@ -51,6 +51,30 @@ export default function AvisoVersionApp({ sinRecordatorio = false, esAdmin = fal
     );
   }
 
+  // Programa de PC antiguo y el admin lo marcó obligatorio: no se puede seguir sin instalar el nuevo.
+  if (plat === 'pc' && programaPCDesactualizado(cfg) && cfg.pc?.obligatoria && !esAdmin) {
+    return (
+      <div className="fixed inset-0 z-[90] bg-slate-950/60 flex items-center justify-center p-3" role="dialog" aria-modal="true">
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-4 grid gap-3">
+          <div className="flex items-center gap-3">
+            <span className="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 grid place-items-center shrink-0"><Monitor className="w-5 h-5" /></span>
+            <div className="min-w-0">
+              <b className="block text-[15px] text-slate-900">Actualiza el programa de PC (v{cfg.pc!.version})</b>
+              <span className="block text-[11px] text-slate-400">Tienes la v{versionProgramaPC()}</span>
+              <span className="block text-xs text-slate-500">Debes instalar la versión nueva para seguir usando InnovApp en esta computadora.</span>
+            </div>
+          </div>
+          <ol className="text-[12px] text-slate-700 bg-slate-50 rounded-xl p-3 list-decimal pl-7 grid gap-0.5">
+            <li>Toca «Descargar el programa nuevo».</li>
+            <li>Abre el archivo descargado e instálalo encima del actual.</li>
+            <li>Tus datos se mantienen: están en la nube.</li>
+          </ol>
+          <button onClick={() => abrirEnlace(cfg.pc!.url)} className="min-h-[48px] rounded-xl bg-orange-500 text-white font-black flex items-center justify-center gap-2 cursor-pointer"><Download className="w-4 h-4" /> Descargar el programa nuevo</button>
+        </div>
+      </div>
+    );
+  }
+
   // Programa de PC antiguo: invita a descargar el instalador nuevo (se instala encima, sin perder nada).
   if (plat === 'pc' && !recordOculto && programaPCDesactualizado(cfg) && !avisoPCPospuesto(cfg.pc!.version!)) {
     const cerrarPC = () => { posponerAvisoPC(cfg.pc!.version!); setRecordOculto(true); };

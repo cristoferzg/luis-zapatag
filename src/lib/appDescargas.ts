@@ -13,7 +13,8 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { db } from './firebase';
 import { safeStorage } from './storageManager';
 
-export interface EnlaceApp { url: string; activo: boolean; nombre?: string; tamanoMb?: number; subidoEl?: string; version?: string }
+/** obligatoria (solo PC): quien tenga un programa más antiguo no puede usarlo hasta instalar este. */
+export interface EnlaceApp { url: string; activo: boolean; nombre?: string; tamanoMb?: number; subidoEl?: string; version?: string; obligatoria?: boolean }
 export interface ConfigDescargas {
   android?: EnlaceApp;
   pc?: EnlaceApp;

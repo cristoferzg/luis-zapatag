@@ -116,6 +116,11 @@ export default function DescargasAppPanel({ isAdmin, onAvisar }: { isAdmin: bool
                   </div>
                 )}
                 {f.id === 'pc' && subiendo !== null && <div className="h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full bg-emerald-500 transition-all" style={{ width: `${subiendo}%` }} /></div>}
+                {f.id === 'pc' && e.url && (
+                  e.version
+                    ? <label className="flex items-start gap-2 text-xs font-bold text-rose-700"><input type="checkbox" checked={!!e.obligatoria} onChange={ev => cambiar('pc', { obligatoria: ev.target.checked })} className="w-4 h-4 mt-0.5 shrink-0" /> <span>Obligatorio: quien tenga un programa anterior a la v{e.version} no podrá usarlo hasta instalar este. <span className="font-semibold text-slate-500">(Luego pulsa «Guardar enlaces».)</span></span></label>
+                    : <span className="text-[11px] text-amber-700">Para poder hacerlo obligatorio, sube el instalador con su versión en el nombre (InnovApp-Setup-2.1.0.exe).</span>
+                )}
               </div>
             );
           })}
