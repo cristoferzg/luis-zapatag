@@ -2,9 +2,31 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { esErrorDeVersion, recargarPorVersionNueva } from '../../lib/versionNueva';
+import { plataforma } from '../../lib/appDescargas';
 
 /** El navegador no pudo crear el lienzo 3D (tarjeta de video, drivers o demasiados 3D abiertos). */
 const esErrorWebGL = (e?: Error) => !!e && /webgl|context/i.test(e.message || '');
+
+/** Pasos según dónde se usa: cada lugar tiene los suyos (no se mezclan). */
+const pasosWebGL = (): string[] => {
+  const p = plataforma();
+  if (p === 'pc') return [
+    'Toca «Reiniciar Lienzo CAD».',
+    'Si sigue igual, cierra InnovApp del todo (clic derecho en el ícono junto al reloj → Salir) y vuelve a abrirlo.',
+    'Si tienes un programa anterior a la versión 2.1.1, instala el nuevo (Configuración → Descargar la app → Computadora).',
+    'Si la PC es antigua, actualiza el driver de la tarjeta de video (Windows Update → Actualizaciones opcionales).',
+  ];
+  if (p === 'android' || p === 'ios') return [
+    'Toca «Reiniciar Lienzo CAD».',
+    'Si sigue igual, cierra la app (quítala de las apps recientes) y vuelve a abrirla.',
+  ];
+  return [
+    'Toca «Reiniciar Lienzo CAD» (si tienes otras pestañas con 3D abiertas, ciérralas antes).',
+    'Si sigue igual, recarga la página con F5.',
+    'En Chrome: menú ⋮ → Configuración → Sistema → activa «Usar aceleración de gráficos cuando esté disponible» y toca «Reiniciar».',
+    'Si la PC es antigua, actualiza Chrome (menú ⋮ → Ayuda → Información de Google Chrome) y el driver de la tarjeta de video.',
+  ];
+};
 
 interface Props {
   children: ReactNode;
@@ -53,10 +75,7 @@ export class TechosErrorBoundary extends Component<Props, State> {
             </div>
             {esErrorWebGL(this.state.error) && (
               <ol className="text-left text-[11px] text-slate-300 bg-slate-900/70 rounded-xl p-3 pl-7 list-decimal space-y-1">
-                <li>Toca «Reiniciar Lienzo CAD» (si tenías otras pestañas con 3D abiertas, ciérralas antes).</li>
-                <li>Si sigue igual, cierra InnovApp y vuelve a abrirlo.</li>
-                <li>En Chrome: Configuración → Sistema → activa «Usar aceleración de gráficos cuando esté disponible» y reinicia Chrome.</li>
-                <li>Si la PC es antigua, actualiza el driver de la tarjeta de video (Windows Update → Actualizaciones opcionales).</li>
+                {pasosWebGL().map(t => <li key={t}>{t}</li>)}
               </ol>
             )}
 
