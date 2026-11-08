@@ -42,6 +42,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   los ajustes pequeños y en cada nueva vuelta de un mismo cambio).
 - Al entregar lo compilado, decir SIEMPRE (sin que lo pida) qué archivos del ZIP copiar y a qué carpeta,
   qué comandos correr y qué subir a Play.
+- Los instaladores .exe se entregan SIEMPRE dentro de un .zip (la app no deja descargar .exe sueltos).
 - El Manual SOLO se rehace y se envía si los cambios afectan lo que explica (pasos, textos, preguntas
   frecuentes). Si no cambia nada en el Manual, no se crea ni se manda.
 
