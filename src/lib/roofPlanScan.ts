@@ -16,6 +16,8 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from './firebase';
 import type { Node3D, Segment3D, RolEstructuralSegmento, CoverageZone3D } from '../components/techos/techosCadEngineTypes';
 import { armarDosAguas } from '../components/techos/techoDosAguasPlano';
+import { aplicarCortaviento } from '../components/techos/cortaviento';
+import { zonasDesdeCorreas } from '../components/techos/coberturaAuto';
 
 export interface RoofPlanColumna { x: number; z: number; }
 export interface RoofPlanViga { x1: number; z1: number; x2: number; z2: number; tipo: 'viga' | 'tijeral'; }
@@ -39,6 +41,8 @@ export interface RoofPlanData {
   aleroM?: number | null;           // ala por lado
   columnasCadaM?: number | null;    // separación escrita entre columnas
   medidasAcabadas?: boolean;        // anchoM/largoM incluyen los aleros
+  cortaviento?: boolean;            // sin cumbrera: un lado sube y vuela sobre el otro
+  aberturaCortavientoM?: number | null;
 }
 
 /** Lo que el usuario indica antes de leer el plano (lo que no esté, se lee del dibujo). */
@@ -51,6 +55,8 @@ export interface OpcionesPlano {
   correasCadaM: number;
   coberturaId: string;
   forma?: 'leer' | 'una_agua' | 'dos_aguas';
+  /** Techo a dos aguas con cortaviento: se lee del dibujo o lo fija el usuario. */
+  cortaviento?: 'leer' | 'si' | 'no';
   aleroM?: number | null;
   /** Lo que el cliente mandó por chat (medidas, columnas cada X, alero…): la IA lo usa como dato. */
   notas?: string;
@@ -58,7 +64,7 @@ export interface OpcionesPlano {
 
 export const OPCIONES_PLANO_DEFECTO: OpcionesPlano = {
   caida: 'leer', alturaBajaM: null, alturaAltaM: null, pendientePct: 10, columnasCadaM: 5, correasCadaM: 1, coberturaId: '',
-  forma: 'leer', aleroM: null, notas: '',
+  forma: 'leer', aleroM: null, notas: '', cortaviento: 'leer',
 };
 
 /**
@@ -126,7 +132,9 @@ export function buildSceneFromPlan(
 ): { nodes: Record<string, Node3D>; segments: Record<string, Segment3D>; zones: Record<string, CoverageZone3D>; resumen: string } {
   const o0 = { ...OPCIONES_PLANO_DEFECTO, ...opciones };
   const forma = o0.forma && o0.forma !== 'leer' ? o0.forma : plan.forma;
-  if (forma === 'dos_aguas') return dosAguasDesdePlano(plan, o0);
+  // Con cortaviento el techo es a dos aguas (aunque el dibujo no muestre bien el tijeral).
+  const pideCv = o0.cortaviento === 'si' || (o0.cortaviento !== 'no' && plan.cortaviento === true);
+  if (forma === 'dos_aguas' || (pideCv && forma !== 'una_agua' && forma !== 'plano')) return dosAguasDesdePlano(plan, o0);
   // La IA mide con Z hacia arriba de la hoja; en la planta de Techos Z crece hacia
   // abajo. Se refleja para que el diseño se vea igual que el dibujo en papel.
   const zs = [...(plan.perimetro || []).map(p => p.z), ...plan.columnas.map(c => c.z), ...plan.vigas.flatMap(v => [v.z1, v.z2])].filter(Number.isFinite);
@@ -339,6 +347,18 @@ function dosAguasDesdePlano(plan: RoofPlanData, o: OpcionesPlano): ReturnType<ty
   const H = o.alturaBajaM ?? plan.alturaBajaM ?? (plan.alturaColM > 0 ? plan.alturaColM : 3);
   const cumbrera = plan.alturaCumbreraM ?? Math.max(0.5, Math.round(((o.pendientePct || 20) / 100) * (ancho / 2 + alero) * 100) / 100);
   const r = armarDosAguas({ anchoM: ancho + 2 * alero, largoM: largo + 2 * alero, aleroAnchoM: alero, aleroLargoM: alero, columnasCadaM: cada, alturaColM: H, cumbreraM: cumbrera, coberturaId: o.coberturaId });
+  // Cortaviento (sin cumbrera): el lado derecho sube y vuela sobre el izquierdo.
+  const conCv = o.cortaviento === 'si' || (o.cortaviento !== 'no' && plan.cortaviento === true);
+  let cv = false;
+  if (conCv) {
+    const abertura = plan.aberturaCortavientoM ?? 0.5;
+    const c = aplicarCortaviento(r.nodes, r.segments, { abertura, vuelo: 0.3, ladoAlto: 'derecha', moverInferior: false });
+    if (c) {
+      r.nodes = c.nodes; r.segments = c.segs; cv = true;
+      const cob = Object.values(r.zones)[0]?.coberturaMaterialId || o.coberturaId || 'cob_aluzinc_030';
+      r.zones = zonasDesdeCorreas(r.nodes, r.segments, cob);
+    }
+  }
   if (girado) Object.values(r.nodes).forEach(n => { const x = n.x; n.x = n.z; n.z = x; });
-  return { nodes: r.nodes, segments: r.segments, zones: r.zones, resumen: `Techo a ${r.resumen}` };
+  return { nodes: r.nodes, segments: r.segments, zones: r.zones, resumen: `Techo a ${cv ? r.resumen.replace(/\.?\s*$/, ', con cortaviento (sin cumbrera).') : r.resumen}` };
 }

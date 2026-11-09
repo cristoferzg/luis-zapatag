@@ -613,6 +613,10 @@ export const analyzeRoofPlan = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 
       '- Un triángulo o arco grande con palitos verticales y diagonales dibujado sobre la planta o aparte es el TIJERAL visto de perfil.',
       '  Triángulo con la punta al centro = "forma": "dos_aguas" (la cumbrera corre a lo LARGO, el tijeral cruza el ANCHO).',
       '  Triángulo rectángulo (alto de un lado, bajo del otro) = "una_agua". Arco = "parabolico". Rectángulo plano = "plano".',
+      '- CORTAVIENTO (techo sin cumbrera): en el tijeral de perfil un lado termina más ARRIBA que el otro en la punta y pasa',
+      '  por encima, dejando un escalón o ranura (a veces con flechas de aire saliendo). También si los textos dicen "cortaviento",',
+      '  "corta viento", "sin cumbrera" o "ventilación en la cumbrera". Entonces "cortaviento": true y, si está escrito el alto de',
+      '  la ranura o escalón, "aberturaCortavientoM" (en metros; "50 cm" = 0.5). Sigue siendo "dos_aguas" (o "parabolico" si es arco).',
       '  "alto", "altura", "flecha" o "peralte" escrito en la punta del tijeral es "alturaCumbreraM" (cuánto sube la cumbrera sobre',
       '  el apoyo), NO la altura de las columnas.',
       '- "acabado", "terminado" o "total" junto a una medida significa que INCLUYE los aleros. "ala", "alero", "volado" o "voladizo"',
@@ -657,6 +661,7 @@ export const analyzeRoofPlan = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 
       '"vigas": [{"x1": number, "z1": number, "x2": number, "z2": number, "tipo": "viga"|"tijeral"}],',
       '"forma": "una_agua"|"dos_aguas"|"parabolico"|"plano"|null, "alturaCumbreraM": number|null,',
       '"aleroM": number|null, "columnasCadaM": number|null, "medidasAcabadas": boolean,',
+      '"cortaviento": boolean, "aberturaCortavientoM": number|null,',
       '"confianza": "alta"|"media"|"baja", "notas": string}',
       '',
       'Detalles de cada clave:',
@@ -749,6 +754,8 @@ export const analyzeRoofPlan = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 
       aleroM: (() => { const n = num(parsed.aleroM, null); return n !== null && n >= 0 && n <= 3 ? n : null; })(),
       columnasCadaM: (() => { const n = num(parsed.columnasCadaM, null); return n !== null && n >= 1 && n <= 15 ? n : null; })(),
       medidasAcabadas: parsed.medidasAcabadas === true,
+      cortaviento: parsed.cortaviento === true,
+      aberturaCortavientoM: (() => { const n = num(parsed.aberturaCortavientoM, null); return n !== null && n >= 0.2 && n <= 1.5 ? n : null; })(),
       confianza: ['alta', 'media', 'baja'].includes(parsed.confianza) ? parsed.confianza : 'media',
       notas: typeof parsed.notas === 'string' ? parsed.notas : ''
     };

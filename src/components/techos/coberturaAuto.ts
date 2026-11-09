@@ -3,7 +3,7 @@
 import type { Node3D, Segment3D, CoverageZone3D } from './techosCadEngineTypes';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 
-type NodoMin = { id: string; x: number; y: number; z: number; nodeLabel?: string };
+type NodoMin = { id: string; x: number; y: number; z: number; nodeLabel?: string; ladoCv?: 'alto' | 'bajo' };
 type SegMin = { id: string; nodeAId: string; nodeBId: string; rolEstructural: string };
 
 // Techo de UNA sola agua (plano), aunque se haya armado a mano con correas un
@@ -78,6 +78,7 @@ export function coberturaDesdeCorreas(nodes: Record<string, NodoMin>, segments: 
       else if (Math.abs(b.t) < 0.12 && Math.abs(a.t - L) < 0.12) { nA = o.B; nB = o.A; }
       else return;
       if (Math.abs(a.n - b.n) > 0.05) return; // no paralela
+      if (c.A.ladoCv && o.A.ladoCv && c.A.ladoCv !== o.A.ladoCv) return; // cortaviento: no cruza la ranura
       const dn = (a.n + b.n) / 2;
       if (Math.abs(dn) < 0.05 || Math.abs(dn) > 6.5) return;
       const dy = ((nA.y + nB.y) - (c.A.y + c.B.y)) / 2;

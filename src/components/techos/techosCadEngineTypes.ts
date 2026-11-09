@@ -111,6 +111,7 @@ export interface Node3D {
   selected?: boolean;
   numPernos?: number;           // Número de pernos de anclaje (4, 6, 8)
   boltDiameter?: string;        // Diámetro de pernos (ej. "5/8\"", "M16")
+  ladoCv?: 'alto' | 'bajo';     // Techo con cortaviento: de qué lado de la ranura queda (la cobertura no la cruza)
 }
 
 export type RolEstructuralSegmento =

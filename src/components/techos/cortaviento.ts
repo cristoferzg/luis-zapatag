@@ -64,7 +64,10 @@ export function aplicarCortaviento(
     if (esSup(s.rolEstructural)) { sup.add(s.nodeAId); sup.add(s.nodeBId); }
     if (ROLES_TIJERAL.has(s.rolEstructural || '')) { tij.add(s.nodeAId); tij.add(s.nodeBId); }
   });
-  const sube = (id: string) => sup.has(id) || (o.moverInferior && tij.has(id));
+  // Las correas van sobre la cara de arriba: sus nudos (también los que quedan entre tijerales) suben igual.
+  const enCorrea = new Set<string>();
+  Object.values(segs).forEach(s => { if (s.rolEstructural === 'correa') { enCorrea.add(s.nodeAId); enCorrea.add(s.nodeBId); } });
+  const sube = (id: string) => sup.has(id) || enCorrea.has(id) || (o.moverInferior && tij.has(id));
   const cumbre = Object.values(nodes).filter(n => enCumbrera(n) && sup.has(n.id));
   if (!cumbre.length) return null;
 
@@ -172,6 +175,11 @@ export function aplicarCortaviento(
     if (n0) nodes[n0].nodeLabel = `CORTAVIENTO-1`;
   }
 
+  // Lado de cada nudo de la cara de arriba (la cobertura automática no cruza la ranura).
+  Object.values(nodes).forEach(n => {
+    if (/_cv(_vuelo)?$/.test(n.id) || (n.x > xc + EPS && sube(n.id))) n.ladoCv = 'alto';
+    else if (sube(n.id) || enCorrea.has(n.id)) n.ladoCv = 'bajo';
+  });
   if (espejo) Object.values(nodes).forEach(n => { n.x = ex(n.x); });
   return { nodes, segs };
 }

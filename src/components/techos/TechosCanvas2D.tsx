@@ -3086,6 +3086,17 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                       ))}
                     </div>
                   </div>
+                  {(o.forma || 'leer') !== 'una_agua' && (
+                    <div>
+                      <label className={lbl}>¿Con cortaviento? (sin cumbrera, para dos aguas)</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {([['leer', 'Leer del dibujo'], ['si', '🌬️ Sí'], ['no', 'No']] as const).map(([v, t]) => (
+                          <button key={v} type="button" onClick={() => setOpc({ cortaviento: v })}
+                            className={`py-2 rounded-xl text-[11px] font-bold border cursor-pointer ${(o.cortaviento || 'leer') === v ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-white border-slate-200 text-slate-600'}`}>{t}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <label className={lbl}>Datos que te pasó el cliente (opcional)</label>
                     <textarea className={`${inp} font-medium min-h-[64px]`} maxLength={800} placeholder="Ej.: 11.80 de ancho y 32 de largo acabado, columnas cada 4.28, 1 m de ala por lado, tijeral de 1.20 de alto"
