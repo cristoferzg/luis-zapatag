@@ -83,6 +83,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   `TarjetaGooglePlay` en el Inicio: SOLO navegador de celular Android y SOLO si aún no tiene la app: la app anota
   `appAndroid {codigo, visto}` en el settings del usuario (App.tsx → `fijarAppEnCuenta`) y Chrome comprueba la app en
   el celular (`getInstalledRelatedApps`: `related_applications` en el manifest PWA + `asset_statements` en Android).
+  En Chrome (Android) la tarjeta además ofrece "Recargar con Yape o Plin" (si el cobro directo está listo y la IA activa);
+  a quien ya tiene la app le muestra solo "Recarga créditos con Yape o Plin aquí" (DEV: `__appEnCuentaSimulada`).
 
 ## Descargas de la app y versión nueva
 - `config_ia/descargas` (`src/lib/appDescargas.ts`): enlaces Android/PC/iPhone con `activo`,
