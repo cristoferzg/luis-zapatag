@@ -1,4 +1,5 @@
 import { aVigaSimple } from './vigaSimple';
+import { aplicarCortaviento, type OpcionesCortaviento } from './cortaviento';
 // Hook de Gestión de Estado Vectorial CAD y Trazado Libre (Node-to-Node / Line-to-Line)
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
 
@@ -80,6 +81,7 @@ export interface UseTechosCadEngineReturn {
   aplicarEdicion: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>) => void;
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
   pedirVigaSimple: (perfilId: string) => void;
+  pedirCortaviento: (o: OpcionesCortaviento) => void;
   setColorCobertura: (colorHex: number) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
   setLedVigas: (on: boolean) => void;
@@ -398,6 +400,20 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     if (!perfil || !Object.keys(segments).length) return;
     vigaSimplePendiente.current = null;
     const r = aVigaSimple(nodes, segments, perfil);
+    setNodes(r.nodes); setSegments(r.segs);
+    pushHistory(r.nodes, r.segs, coverageZones);
+  }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Techo con cortaviento (dos aguas / parabólico): igual que la viga simple, se pide antes
+  // de generar y se aplica cuando la nave queda armada.
+  const cortavientoPendiente = useRef<OpcionesCortaviento | null>(null);
+  const pedirCortaviento = useCallback((o: OpcionesCortaviento) => { cortavientoPendiente.current = o; }, []);
+  useEffect(() => {
+    const o = cortavientoPendiente.current;
+    if (!o || !Object.keys(segments).length) return;
+    cortavientoPendiente.current = null;
+    const r = aplicarCortaviento(nodes, segments, o);
+    if (!r) return;
     setNodes(r.nodes); setSegments(r.segs);
     pushHistory(r.nodes, r.segs, coverageZones);
   }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -4418,6 +4434,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     loadScene,
     replaceScene,
     pedirVigaSimple,
+    pedirCortaviento,
     setColorCobertura,
     setOcultos,
     setLedVigas,

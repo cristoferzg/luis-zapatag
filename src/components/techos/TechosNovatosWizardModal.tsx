@@ -73,6 +73,11 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [numTijeralesStr, setNumTijeralesStr] = useState<string>('5');
   // Viga simple (sin tijeral): pórticos de una sola viga de tubo rectangular (una agua / dos aguas).
   const [vigaSimple, setVigaSimple] = useState(false);
+  // Techo con cortaviento (sin cumbrera): solo a dos aguas y parabólico.
+  const [cortaviento, setCortaviento] = useState(false);
+  const [aberturaCvStr, setAberturaCvStr] = useState('0.50');
+  const [vueloCvStr, setVueloCvStr] = useState('0.30');
+  const [ladoAltoCv, setLadoAltoCv] = useState<'derecha' | 'izquierda'>('derecha');
   const [perfilVigaElegido, setPerfilVigaElegido] = useState<string>('');
 
   // Estados específicos para Dientes de Sierra y Cuatro Aguas
@@ -306,6 +311,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   // Viga simple (sin tijeral): en los modelos que se arman con tijerales.
   const admiteVigaSimple = !sinTijeral && !['mezzanine', 'cupula_domo', 'curvo_autoportante', 'dientes_sierra'].includes(tipo);
   const usaVigaSimple = admiteVigaSimple && vigaSimple;
+  const admiteCortaviento = tipo === 'dos_aguas' || tipo === 'parabolico';
+  const usaCortaviento = admiteCortaviento && cortaviento && !usaVigaSimple;
+  const aberturaCvM = Math.min(1.5, Math.max(0.2, parseFloat(aberturaCvStr) || 0.5));
+  const vueloCvM = Math.min(1.0, Math.max(0, parseFloat(vueloCvStr) || 0));
   const tramoVigaM = tipo === 'una_agua' ? luzM : tipo === 'dientes_sierra' ? luzM / Math.max(1, parseInt(numDientesStr) || 3) : luzM / 2;
   const perfilViga = perfilVigaElegido || perfilVigaSugerido(tramoVigaM);
   const numDientes = Math.max(1, parseInt(numDientesStr) || 3);
@@ -465,6 +474,9 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
 
     // Otros modelos: se arma la nave normal y el motor la deja con vigas simples.
     if (usaVigaSimple && tipo !== 'dos_aguas' && tipo !== 'una_agua') engineState.pedirVigaSimple(perfilViga);
+    if (usaCortaviento) engineState.pedirCortaviento({
+      abertura: aberturaCvM, vuelo: vueloCvM, ladoAlto: ladoAltoCv, moverInferior: tipo === 'parabolico',
+    });
 
     if (tipo === 'parabolico') {
       const peralteArco = trussHeightM || Math.max(0.50, Math.min(1.20, Number((luzM / 18).toFixed(2))));
@@ -1075,6 +1087,35 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {admiteCortaviento && !usaVigaSimple && (
+                <div className={`p-2.5 rounded-xl border space-y-2 shadow-2xs ${cortaviento ? 'bg-sky-50 border-sky-300' : 'bg-white border-slate-200/90'}`}>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" checked={cortaviento} onChange={(e) => { setCortaviento(e.target.checked); setHasUnsavedChanges(true); }} className="mt-0.5 w-4 h-4 accent-sky-600 cursor-pointer" />
+                    <span>
+                      <span className="block text-xs font-black text-slate-800">🌬️ Con cortaviento (sin cumbrera)</span>
+                      <span className="block text-[10px] text-slate-500 leading-snug">Un lado sube y pasa por encima del otro: queda una abertura a lo largo de la nave por donde sale el aire caliente y no entra la lluvia.</span>
+                    </span>
+                  </label>
+                  {cortaviento && (
+                    <div className="grid grid-cols-3 gap-2">
+                      <label className="text-[10px] font-bold text-slate-600">Abertura (m)
+                        <input type="text" inputMode="decimal" value={aberturaCvStr} onChange={(e) => setAberturaCvStr(e.target.value)} className="mt-0.5 w-full bg-white border border-sky-300 rounded-lg px-2 py-1 text-right font-mono font-black text-sky-900 text-xs focus:outline-none focus:border-sky-500" placeholder="0.50" />
+                      </label>
+                      <label className="text-[10px] font-bold text-slate-600">Vuelo (m)
+                        <input type="text" inputMode="decimal" value={vueloCvStr} onChange={(e) => setVueloCvStr(e.target.value)} className="mt-0.5 w-full bg-white border border-sky-300 rounded-lg px-2 py-1 text-right font-mono font-black text-sky-900 text-xs focus:outline-none focus:border-sky-500" placeholder="0.30" />
+                      </label>
+                      <label className="text-[10px] font-bold text-slate-600">Lado alto
+                        <select value={ladoAltoCv} onChange={(e) => setLadoAltoCv(e.target.value as 'derecha' | 'izquierda')} className="mt-0.5 w-full bg-white border border-sky-300 rounded-lg px-1 py-1 font-bold text-sky-900 text-[11px] cursor-pointer focus:outline-none">
+                          <option value="derecha">Derecho</option>
+                          <option value="izquierda">Izquierdo</option>
+                        </select>
+                      </label>
+                      <p className="col-span-3 text-[10px] text-slate-500 leading-snug">Deja el lado alto contra el viento que más sopla, así la abertura queda protegida. Abertura de 0.20 a 1.50 m; vuelo hasta 1.00 m.</p>
+                    </div>
+                  )}
                 </div>
               )}
 

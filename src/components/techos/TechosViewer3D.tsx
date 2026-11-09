@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import * as THREE from 'three';
 import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { panoUnaAgua } from './coberturaAuto';
+import { esCortaviento } from './cortaviento';
 import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Calidad3D } from '../../lib/calidad3d';
 import { INVENTARIO_COBERTURAS } from './techosCadCatalog';
 import { 
@@ -2683,6 +2684,29 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       .map(([xStr, y]) => ({ x: parseFloat(xStr), y }))
       .sort((a, b) => a.x - b.x);
 
+    // Techo con cortaviento (sin cumbrera): un perfil por cada lado, el alto vuela sobre el bajo.
+    const perfilesCortaviento: { x: number; y: number }[][] | null = (() => {
+      const cv = allNodeArray.filter(n => /_cv$/.test(n.id));
+      if (!cv.length || !esCortaviento(nodes)) return null;
+      const xc = cv[0].x;
+      const sCv = topSegments.find(s => /_cv$/.test(s.nodeAId) || /_cv$/.test(s.nodeBId));
+      const otro = sCv ? nodes[/_cv$/.test(sCv.nodeAId) ? sCv.nodeBId : sCv.nodeAId] : undefined;
+      if (!otro || Math.abs(otro.x - xc) < 0.01) return null;
+      const signo = /_vuelo$/.test(otro.id) ? -Math.sign(otro.x - xc) : Math.sign(otro.x - xc);
+      const alto = (id: string) => /_cv(_vuelo)?$/.test(id) || ((nodes[id]?.x ?? xc) - xc) * signo > 0.02;
+      const mapas: [Record<number, number>, Record<number, number>] = [{}, {}];
+      topSegments.forEach(s => {
+        const k = alto(s.nodeAId) || alto(s.nodeBId) ? 1 : 0;
+        [nodes[s.nodeAId], nodes[s.nodeBId]].forEach(n => {
+          if (!n) return;
+          const rx = Number(n.x.toFixed(2));
+          mapas[k][rx] = Math.max(mapas[k][rx] ?? -Infinity, n.y);
+        });
+      });
+      const perfiles = mapas.map(m => Object.entries(m).map(([x, y]) => ({ x: parseFloat(x), y })).sort((a, b) => a.x - b.x));
+      return perfiles.every(p => p.length >= 2) ? perfiles : null;
+    })();
+
     // Identificar tipología de cubierta para renderizado geométrico de alta fidelidad
     const isHipRoof = allNodeArray.some(n => 
       n.id.toLowerCase().includes('hip') || 
@@ -2972,6 +2996,19 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         });
         modeloGroup.add(grupo);
         panosRef.current = []; movilMetaRef.current = null;
+      } else if (!movil && perfilesCortaviento) {
+        // TECHO CON CORTAVIENTO: dos planchas separadas; la del lado alto vuela sobre la del
+        // lado bajo y entre ambas queda la ranura de ventilación (sin cumbrera metálica).
+        const minZNode = Math.min(...allNodeArray.map(n => n.z || 0));
+        const maxZNode = Math.max(...allNodeArray.map(n => n.z || 0));
+        const flatTop = (aluzincMatTop as THREE.MeshStandardMaterial).clone(); flatTop.flatShading = true;
+        const flatBottom = (aluzincMatBottom as THREE.MeshStandardMaterial).clone(); flatBottom.flatShading = true;
+        panosRef.current = []; movilMetaRef.current = null;
+        perfilesCortaviento.forEach(perfil => {
+          const mesh = new THREE.Mesh(createAdaptiveAluzincGeometry(perfil, minZNode, maxZNode, 0.30, 0.30, holguraTop), [flatTop, flatBottom]);
+          mesh.name = 'cobertura_malla';
+          modeloGroup.add(mesh);
+        });
       } else if (topProfilePoints.length >= 2) {
         const minZNode = Math.min(...allNodeArray.map(n => n.z || 0));
         const maxZNode = Math.max(...allNodeArray.map(n => n.z || 0));
