@@ -134,9 +134,9 @@ export interface UseTechosCadEngineReturn {
   generateRoof6Aguas: (luzM: number, largoM?: number, alturaColM?: number, alturaCuspideM?: number, tipoTijeral?: TipoTijeral, numAnillosCorreas?: number, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofMansarda: (luzM: number, largoM?: number, alturaColM?: number, alturaQuiebreM?: number, alturaCumbreraM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral) => void;
   generateRoofDome: (diametroM: number, alturaColM?: number, flechaCúpulaM?: number, numCostillasRadiales?: number, tipoTijeral?: TipoTijeral, customSpacingM?: number, orientacionTijeral?: OrientacionTijeral) => void;
-  generateRoofLShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
+  generateRoofLShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral, cortaviento?: OpcionesCortaviento) => void;
   /** Techo en U: nave principal con un ala en cada extremo (mismo lado). */
-  generateRoofUShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral) => void;
+  generateRoofUShaped: (luzPrincipalM: number, largoPrincipalM: number, luzAlaM: number, largoAlaM: number, alturaColM?: number, tipoTijeral?: TipoTijeral, orientacionTijeral?: OrientacionTijeral, cortaviento?: OpcionesCortaviento) => void;
   /** Marquesina / alero volado anclado a un muro. */
   generateMarquesina: (voladoM: number, largoM: number, alturaMuroM: number, pendientePct: number, soporte: 'tensores' | 'mensulas' | 'columnas') => void;
   /** Techo alpino (cabaña en A): dos aguas muy empinadas casi hasta el suelo. */
@@ -414,8 +414,11 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     cortavientoPendiente.current = null;
     const r = aplicarCortaviento(nodes, segments, o);
     if (!r) return;
-    setNodes(r.nodes); setSegments(r.segs);
-    pushHistory(r.nodes, r.segs, coverageZones);
+    // Si el modelo traía paños de cobertura (alpino), se rehacen sobre las dos aguas nuevas.
+    const z0 = Object.values(coverageZones)[0];
+    const zonas = z0 ? zonasDesdeCorreas(r.nodes, r.segs, z0.coberturaMaterialId) : coverageZones;
+    setNodes(r.nodes); setSegments(r.segs); if (z0) setCoverageZones(zonas);
+    pushHistory(r.nodes, r.segs, zonas);
   }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateNodeAnchorBolts = useCallback((nodeId: string, numPernos: number, boltDiameter: string) => {
@@ -3192,7 +3195,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     largoAlaM: number,
     alturaColM: number = 4.5,
     tipoTijeral: TipoTijeral = 'fink',
-    orientacionTijeral: OrientacionTijeral = 'vertical'
+    orientacionTijeral: OrientacionTijeral = 'vertical',
+    cortaviento?: OpcionesCortaviento
   ) => {
     const pend = 20;
     const luzAla = Math.min(luzAlaM, largoPrincipalM); // el ala no puede ser más ancha que la nave
@@ -3200,6 +3204,12 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const entra = luzAla / 2; // cuánto penetra el ala en la nave principal
     const ala = generateRoofGable(luzAla, largoAlaM + entra, alturaColM, pend, tipoTijeral, orientacionTijeral, undefined, undefined, undefined, undefined, undefined, false, undefined, true);
     if (!principal || !ala) return;
+    // Con cortaviento: cada nave (la principal y el ala) se parte en su propia cumbrera.
+    if (cortaviento) {
+      const p2 = aplicarCortaviento(principal.nodes, principal.segs, cortaviento), a2 = aplicarCortaviento(ala.nodes, ala.segs, cortaviento);
+      if (p2) { principal.nodes = p2.nodes; principal.segs = p2.segs; }
+      if (a2) { ala.nodes = a2.nodes; ala.segs = a2.segs; }
+    }
     const x0 = luzPrincipalM - entra;
     const newNodes: Record<string, Node3D> = { ...principal.nodes };
     const newSegs: Record<string, Segment3D> = { ...principal.segs };
@@ -3246,7 +3256,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     largoAlaM: number,
     alturaColM: number = 4.5,
     tipoTijeral: TipoTijeral = 'fink',
-    orientacionTijeral: OrientacionTijeral = 'vertical'
+    orientacionTijeral: OrientacionTijeral = 'vertical',
+    cortaviento?: OpcionesCortaviento
   ) => {
     const pend = 20;
     const luzAla = Math.min(luzAlaM, largoPrincipalM / 2); // las dos alas entran en el largo
@@ -3254,6 +3265,12 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const entra = luzAla / 2;
     const ala = generateRoofGable(luzAla, largoAlaM + entra, alturaColM, pend, tipoTijeral, orientacionTijeral, undefined, undefined, undefined, undefined, undefined, false, undefined, true);
     if (!principal || !ala) return;
+    // Con cortaviento: cada nave (la principal y el ala) se parte en su propia cumbrera.
+    if (cortaviento) {
+      const p2 = aplicarCortaviento(principal.nodes, principal.segs, cortaviento), a2 = aplicarCortaviento(ala.nodes, ala.segs, cortaviento);
+      if (p2) { principal.nodes = p2.nodes; principal.segs = p2.segs; }
+      if (a2) { ala.nodes = a2.nodes; ala.segs = a2.segs; }
+    }
     const x0 = luzPrincipalM - entra;
     const newNodes: Record<string, Node3D> = { ...principal.nodes };
     const newSegs: Record<string, Segment3D> = { ...principal.segs };

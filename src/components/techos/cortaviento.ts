@@ -44,21 +44,46 @@ export function aplicarCortaviento(
   const EPS = 0.02;
   const enCumbrera = (n: Node3D) => Math.abs(n.x - xc) < EPS;
 
-  // Nodos de cordón superior / del tijeral.
+  // Piezas de la cara de arriba (cordón superior o pares/vigas inclinadas) y del tijeral.
+  const esSup = (r?: string) => r === 'cordon_superior' || r === 'viga_principal';
+  // Si el cordón superior no tiene nudo justo en la cumbrera, se le pone uno.
+  Object.values(segs).forEach(s => {
+    if (!esSup(s.rolEstructural)) return;
+    const A = nodes[s.nodeAId], B = nodes[s.nodeBId];
+    if (!A || !B || Math.abs(A.z - B.z) > 0.01) return;
+    const [I, D] = A.x < B.x ? [A, B] : [B, A];
+    if (!(I.x < xc - EPS && D.x > xc + EPS)) return;
+    const t = (xc - I.x) / (D.x - I.x);
+    const id = `${s.id}_cumbre`;
+    nodes[id] = { id, x: xc, y: I.y + (D.y - I.y) * t, z: A.z, nodeLabel: 'CUMBRERA' };
+    segs[`${s.id}_b`] = { ...s, id: `${s.id}_b`, nodeAId: id, nodeBId: D.id };
+    segs[s.id] = { ...s, nodeAId: I.id, nodeBId: id };
+  });
   const sup = new Set<string>(), tij = new Set<string>();
   Object.values(segs).forEach(s => {
-    if (s.rolEstructural === 'cordon_superior') { sup.add(s.nodeAId); sup.add(s.nodeBId); }
+    if (esSup(s.rolEstructural)) { sup.add(s.nodeAId); sup.add(s.nodeBId); }
     if (ROLES_TIJERAL.has(s.rolEstructural || '')) { tij.add(s.nodeAId); tij.add(s.nodeBId); }
   });
   const sube = (id: string) => sup.has(id) || (o.moverInferior && tij.has(id));
-  // Debe haber nodo de cumbrera en cada pórtico (si no, la nave no se puede partir).
   const cumbre = Object.values(nodes).filter(n => enCumbrera(n) && sup.has(n.id));
   if (!cumbre.length) return null;
+
+  // Una pieza horizontal que cruza la nave (tirante del altillo del alpino) queda fija:
+  // el lado alto solo sube desde ahí hasta la cumbrera.
+  let xFin = xMax;
+  Object.values(segs).forEach(s => {
+    if (esSup(s.rolEstructural) || (o.moverInferior && ROLES_TIJERAL.has(s.rolEstructural || '')) || s.rolEstructural === 'columna') return;
+    const A = nodes[s.nodeAId], B = nodes[s.nodeBId];
+    if (!A || !B) return;
+    [[A, B], [B, A]].forEach(([d, i]) => {
+      if (d.x > xc + EPS && i.x < xc - EPS && sube(d.id)) xFin = Math.min(xFin, d.x);
+    });
+  });
 
   // 1) Lado alto: sube gradual hasta la cumbrera.
   const original = Object.fromEntries(Object.values(nodes).map(n => [n.id, { x: n.x, y: n.y }]));
   Object.values(nodes).forEach(n => {
-    if (n.x > xc + EPS && sube(n.id)) n.y += o.abertura * Math.max(0, (xMax - n.x) / (xMax - xc));
+    if (n.x > xc + EPS && sube(n.id)) n.y += o.abertura * Math.max(0, (xFin - n.x) / (xFin - xc));
   });
 
   // 2) Cumbrera: copia de cada nodo que sube, para el lado alto.
@@ -81,6 +106,22 @@ export function aplicarCortaviento(
       segs[`${s.id}_cv`] = { ...s, id: `${s.id}_cv`, nodeAId: a, nodeBId: b };
     }
   });
+
+  // Correas a lo largo de la cumbrera (lado bajo y lado alto) si la nave no las traía.
+  const perfilCorrea = Object.values(segs).find(q => q.rolEstructural === 'correa')?.profileId || '';
+  const unido = new Set(Object.values(segs).map(q => [q.nodeAId, q.nodeBId].sort().join('|')));
+  const filaCumbre = (ids: string[]) => {
+    const fila = ids.map(id => nodes[id]).sort((a, b) => a.z - b.z);
+    for (let i = 0; i + 1 < fila.length; i++) {
+      const k = [fila[i].id, fila[i + 1].id].sort().join('|');
+      if (unido.has(k)) continue;
+      const id = `s_cv_correa_${fila[i].id}`;
+      segs[id] = { id, nodeAId: fila[i].id, nodeBId: fila[i + 1].id, profileId: perfilCorrea, rolEstructural: 'correa' };
+      unido.add(k);
+    }
+  };
+  const bajos = Object.keys(copia).filter(id => sup.has(id));
+  filaCumbre(bajos); filaCumbre(bajos.map(id => copia[id]));
 
   // 3) Montantes verticales en la cumbrera de cada pórtico (une lado bajo y lado alto).
   const porZ = new Map<string, Node3D[]>();
@@ -107,7 +148,7 @@ export function aplicarCortaviento(
     Object.entries(copia).forEach(([orig, cv]) => {
       if (!sup.has(orig)) return;
       const T = nodes[cv];
-      const s = Object.values(segs).find(q => q.rolEstructural === 'cordon_superior' && (q.nodeAId === cv || q.nodeBId === cv));
+      const s = Object.values(segs).find(q => esSup(q.rolEstructural) && (q.nodeAId === cv || q.nodeBId === cv));
       if (!s) return;
       const R = nodes[s.nodeAId === cv ? s.nodeBId : s.nodeAId];
       if (!R || R.x <= T.x + 0.01) return;
@@ -115,7 +156,7 @@ export function aplicarCortaviento(
       const id = `${cv}_vuelo`;
       nodes[id] = { id, x: T.x - o.vuelo, y: T.y + m * o.vuelo, z: T.z, nodeLabel: `CORTAVIENTO-${puntas.length + 1}` };
       const sid = `s_cv_vuelo_${cv}`;
-      segs[sid] = { id: sid, nodeAId: cv, nodeBId: id, profileId: s.profileId, rolEstructural: 'cordon_superior' };
+      segs[sid] = { id: sid, nodeAId: cv, nodeBId: id, profileId: s.profileId, rolEstructural: s.rolEstructural };
       const correa = Object.values(segs).find(q => q.rolEstructural === 'correa');
       puntas.push({ z: T.z, id, prof: correa?.profileId || s.profileId });
     });

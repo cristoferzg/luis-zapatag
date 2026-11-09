@@ -311,7 +311,9 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   // Viga simple (sin tijeral): en los modelos que se arman con tijerales.
   const admiteVigaSimple = !sinTijeral && !['mezzanine', 'cupula_domo', 'curvo_autoportante', 'dientes_sierra'].includes(tipo);
   const usaVigaSimple = admiteVigaSimple && vigaSimple;
-  const admiteCortaviento = tipo === 'dos_aguas' || tipo === 'parabolico';
+  // Solo los techos con cumbrera al centro (los demás no tienen cumbrera o ya ventilan).
+  const admiteCortaviento = ['dos_aguas', 'parabolico', 'mansarda', 'curvo_autoportante', 'alpino', 'forma_l', 'forma_u'].includes(tipo);
+  const cortavientoEnNaves = tipo === 'forma_l' || tipo === 'forma_u';
   const usaCortaviento = admiteCortaviento && cortaviento && !usaVigaSimple;
   const aberturaCvM = Math.min(1.5, Math.max(0.2, parseFloat(aberturaCvStr) || 0.5));
   const vueloCvM = Math.min(1.0, Math.max(0, parseFloat(vueloCvStr) || 0));
@@ -474,9 +476,11 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
 
     // Otros modelos: se arma la nave normal y el motor la deja con vigas simples.
     if (usaVigaSimple && tipo !== 'dos_aguas' && tipo !== 'una_agua') engineState.pedirVigaSimple(perfilViga);
-    if (usaCortaviento) engineState.pedirCortaviento({
-      abertura: aberturaCvM, vuelo: vueloCvM, ladoAlto: ladoAltoCv, moverInferior: tipo === 'parabolico',
-    });
+    const opcCortaviento = usaCortaviento
+      ? { abertura: aberturaCvM, vuelo: vueloCvM, ladoAlto: ladoAltoCv, moverInferior: tipo === 'parabolico' }
+      : undefined;
+    // En L y en U cada nave se parte por su cuenta (lo hace el generador).
+    if (opcCortaviento && !cortavientoEnNaves) engineState.pedirCortaviento(opcCortaviento);
 
     if (tipo === 'parabolico') {
       const peralteArco = trussHeightM || Math.max(0.50, Math.min(1.20, Number((luzM / 18).toFixed(2))));
@@ -499,7 +503,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
     } else if (tipo === 'cuatro_aguas') {
       engineState.generateRoofHip(luzM, largoM, alturaColM, alturaCumbreraHipM, tipoTijeral, numTijerales, spacingParam, orientacionTijeral, parseFloat(anchoCaidaHipStr) || undefined);
     } else if (tipo === 'forma_u') {
-      engineState.generateRoofUShaped(luzM, largoM, luzAlaLM, largoAlaLM, alturaColM, tipoTijeral, orientacionTijeral);
+      engineState.generateRoofUShaped(luzM, largoM, luzAlaLM, largoAlaLM, alturaColM, tipoTijeral, orientacionTijeral, opcCortaviento);
     } else if (tipo === 'marquesina') {
       engineState.generateMarquesina(Math.max(0.5, parseFloat(voladoMarqStr) || 2.5), largoM, alturaColM, pendientePct, soporteMarq);
     } else if (tipo === 'sol_sombra') {
@@ -515,7 +519,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
     } else if (tipo === 'cupula_domo') {
       engineState.generateRoofDome(diametroDomoM, alturaColM, flechaDomoM, costillasDomo, tipoTijeral, spacingParam, orientacionTijeral);
     } else if (tipo === 'forma_l') {
-      engineState.generateRoofLShaped(luzM, largoM, luzAlaLM, largoAlaLM, alturaColM, tipoTijeral, orientacionTijeral);
+      engineState.generateRoofLShaped(luzM, largoM, luzAlaLM, largoAlaLM, alturaColM, tipoTijeral, orientacionTijeral, opcCortaviento);
     } else if (tipo === 'mariposa') {
       engineState.generateRoofButterfly(luzM, largoM, alturaColM, desnivelAlasM, tipoTijeral, numTijerales, orientacionTijeral);
     } else if (tipo === 'curvo_autoportante') {
