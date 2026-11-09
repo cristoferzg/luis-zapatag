@@ -175,3 +175,15 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Avance de obra con fotos: dentro de Proyectos (`avance/AvanceObraPanel.tsx`, `lib/avanceObra.ts`), datos en `project.avance`,
   fotos en Storage `obras/<ws>/<proyecto>/`.
 - IA: `disenarGasfiteria` / `disenarElectricidad` (functions/gasfiteriaIA.js, electricidadIA.js, plantaIA.js; 6 créditos cada uno).
+
+## Ventas de créditos
+- Bienvenida 20 créditos (`CREDITOS_BIENVENIDA` igual en cliente y functions). Referidos: al crear un acceso el admin elige
+  "¿Quién lo recomendó?" → `regalarCreditos` (20, `CREDITOS_REFERIDO`); tarjeta "Invita a un colega" en Membresía.
+- Primera recarga doble: `ai_access.primeraRecarga` + `config_ia/planes.primeraRecargaDoble` (≠ false = activa); se aplica en
+  `grantCreditos` (admin), `validarCompraPlay` y el pago en línea. Recarga de entrada 20 créditos S/ 3.90 (Play: `creditos_20`).
+- Pago en línea web/PC (nunca en la app Android): Mercado Pago, `functions/pagoEnLinea.js` (`crearPagoEnLinea`,
+  `webhookMercadoPago`), secreto `MP_ACCESS_TOKEN`, interruptor `config_ia/planes.pagoEnLinea`; pedidos en `pagos_en_linea`
+  (solo servidor). Prueba: `cd seguridad && npm run test:pago`. Vuelta con `?pago=ok|pendiente|error`.
+- Embudo: `embudo_ventas/<AAAA-MM-DD>` contadores (`lib/embudoVentas.ts`); panel admin `VentasIAPanel` (lista para vender).
+- Costo en botones de IA: `common/CostoIA.tsx`. Saldo + "Recargar" arriba (PC: menú; celular: barra).
+- DEV: `__pagoEnLineaSimulado`, `__primeraDobleSimulada`, `__embudoSimulado`, `__aiAccessSimulado` (incluir en el grep del dist).

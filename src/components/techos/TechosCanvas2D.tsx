@@ -56,6 +56,7 @@ import { caidaPrincipal } from './coberturaAuto';
 import { analyzeRoofPlanWithAI, buildSceneFromPlan, fileToBase64, OPCIONES_PLANO_DEFECTO, OpcionesPlano } from '../../lib/roofPlanScan';
 import { safeStorage } from '../../lib/storageManager';
 import { checkAIAccess, iaVisibleParaUI, motivoErrorIA, getAICtx, pedirPinSiLimitada, AVISO_CONFIRMA_PIN } from '../../lib/aiAccess';
+import CostoIA from '../common/CostoIA';
 import PlanesIAModal from '../PlanesIAModal';
 import TechosRevisionPanel, { useRevisionDiseno } from './TechosRevisionPanel';
 import { 
@@ -1650,6 +1651,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           >
             <Camera className="w-3.5 h-3.5 shrink-0" />
             <span className="text-xs font-black">{iaReading ? 'Leyendo…' : 'Leer plano'}</span>
+            {!iaReading && <CostoIA accion="croquis" />}
           </button>
         )}
         {/* BOTÓN ORTO 90°: fuerza el trazo a horizontal/vertical exacto */}

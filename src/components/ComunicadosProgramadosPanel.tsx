@@ -31,6 +31,15 @@ const MENSAJES_BASE: MensajeAuto[] = [
   ['🎓 Aprende algo nuevo esta semana', 'Revisa las clases de la Academia Técnica y los recursos que puedes descargar.'],
   ['🧾 Ordena tus gastos por obra', 'Registra boletas y gastos de cada proyecto y conoce cuánto ganas en cada uno.'],
 ].map(([title, message], i) => ({ id: 'base_' + (i + 1), title, message }));
+// Mensajes para vender créditos (se suman a la biblioteca con un botón; no repiten los que ya están).
+export const MENSAJES_VENTAS: MensajeAuto[] = [
+  ['🎁 Tienes créditos de regalo', 'Cada cuenta nueva trae créditos para probar la IA: sube la foto de tu plano a mano y mira cómo se arma tu techo.'],
+  ['💸 Tu primera recarga vale el DOBLE', 'Recarga créditos por primera vez y recibe el doble. Entra a Membresía → Recargar.'],
+  ['🌬️ Techo con cortaviento en 1 minuto', 'Dibuja tu techo a mano, súbelo y la IA lo arma con su cortaviento, columnas y cobertura.'],
+  ['🤝 Invita a un colega y gana 20 créditos', 'Comparte la app desde Membresía. Cuando tu colega tenga su acceso, se te suman 20 créditos.'],
+  ['⏱️ Cotiza mientras el cliente espera', 'Con la IA armas el plano y el presupuesto en minutos: el cliente ve su obra antes de irse.'],
+  ['🪙 Desde S/ 3.90 para probar', 'La recarga más pequeña te alcanza para 2 planos a mano. Los créditos que compras no vencen.'],
+].map(([title, message], i) => ({ id: 'ventas_' + (i + 1), title, message }));
 const CONFIG_BASE: ConfigAuto = { activo: false, frecuencia: 'semanal', dia: 2, hora: 9, prioridad: 'important', duracionHoras: 48, mensajes: MENSAJES_BASE };
 
 /** Fecha y hora (Lima, UTC-5 todo el año) → milisegundos. */
@@ -160,7 +169,13 @@ export default function ComunicadosProgramadosPanel() {
           <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">Próximo envío: {verLima(prox)} · «{siguiente.title}»</p>
         )}
         <div className="space-y-1.5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Biblioteca ({c.mensajes.length} mensajes)</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Biblioteca ({c.mensajes.length} mensajes)</p>
+            {MENSAJES_VENTAS.some(m => !c.mensajes.some(x => x.id === m.id)) && (
+              <button type="button" onClick={() => cambiar({ mensajes: [...c.mensajes, ...MENSAJES_VENTAS.filter(m => !c.mensajes.some(x => x.id === m.id))] })}
+                className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-black cursor-pointer hover:bg-amber-100">+ Mensajes para vender créditos ({MENSAJES_VENTAS.filter(m => !c.mensajes.some(x => x.id === m.id)).length})</button>
+            )}
+          </div>
           {c.mensajes.map((m, i) => (
             <div key={m.id} className={`rounded-xl border p-2.5 ${siguiente?.id === m.id && c.activo ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-100 bg-slate-50/60'}`}>
               {editando === m.id ? (

@@ -12,6 +12,7 @@ import { Sparkles, ImagePlus, X, Loader2 } from 'lucide-react';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app } from '../../lib/firebase';
 import { COSTO_CREDITOS, checkAIAccess, iaVisibleParaUI, motivoErrorIA, pedirPinSiLimitada, AVISO_CONFIRMA_PIN, getAICtx } from '../../lib/aiAccess';
+import CostoIA from '../common/CostoIA';
 import { fileToBase64 } from '../../lib/roofPlanScan';
 import PlanesIAModal from '../PlanesIAModal';
 import type { MuroRef, AmbientePlano } from './modeloGasfiteria';
@@ -80,7 +81,7 @@ export default function DisenoIAInstalacion<T extends PlantaIABase>({ accion, fu
   return (<>
     <button type="button" onClick={() => { setAbierto(true); setMsg(null); }} title="Arma el plano desde una descripción, un croquis o un plano"
       className={claseBoton || 'inline-flex items-center justify-center gap-1.5 min-h-[40px] px-2.5 sm:px-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black cursor-pointer'}>
-      <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">Diseñar con IA</span><span className="sm:hidden">IA</span>
+      <Sparkles className="w-4 h-4" /> <span className="hidden sm:inline">Diseñar con IA</span><span className="sm:hidden">IA</span> <CostoIA accion={accion} />
     </button>
     {abierto && (
       <div className="fixed inset-0 z-[85] bg-slate-950/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => !cargando && setAbierto(false)}>

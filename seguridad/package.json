@@ -6,7 +6,8 @@
     "test": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy npx firebase emulators:exec --only firestore --project demo-innova \"node seguridad/reglas.test.mjs\"",
     "test:app": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy npx firebase emulators:exec --only firestore,auth,functions --project innovacontratistas-434d2 \"bash seguridad/e2e.sh\"",
     "test:storage": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy npx firebase emulators:exec --only storage --project demo-innova \"node seguridad/storage.test.mjs\"",
-    "test:play": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy PLAY_API_SIMULADA=http://127.0.0.1:9311 npx firebase emulators:exec --only firestore,auth,functions --project innovacontratistas-434d2 \"node seguridad/play.test.mjs\""
+    "test:play": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy PLAY_API_SIMULADA=http://127.0.0.1:9311 npx firebase emulators:exec --only firestore,auth,functions --project innovacontratistas-434d2 \"node seguridad/play.test.mjs\"",
+    "test:pago": "cd .. && env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy npx firebase emulators:exec --only firestore --project demo-innova \"node seguridad/pagoEnLinea.test.mjs\""
   },
   "keywords": [],
   "author": "",

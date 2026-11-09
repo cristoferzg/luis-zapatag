@@ -1,12 +1,14 @@
+import { useEffect, useState } from 'react';
 // =============================================================================
 // MEMBRESÍA: deja claro que la licencia del sistema sigue activa para siempre
 // (todo lo que ya usa no se cobra) e invita a sumar las funciones Premium
 // (inteligentes) con un plan. Con un plan muestra el medidor de uso del mes,
 // cuándo se renueva y las recargas, al estilo de los planes de suscripción.
 // =============================================================================
-import { Crown, Infinity as InfinityIcon, Coins, CheckCircle2, Sparkles, ScanLine, PenTool, FileText, RefreshCw, CalendarClock, Zap } from 'lucide-react';
+import { Crown, Infinity as InfinityIcon, Coins, CheckCircle2, Sparkles, ScanLine, PenTool, FileText, RefreshCw, CalendarClock, Zap, Gift, Share2 } from 'lucide-react';
 import { useSaldoIA } from '../lib/saldoIA';
-import { COSTO_CREDITOS } from '../lib/aiAccess';
+import { COSTO_CREDITOS, CREDITOS_REFERIDO, getAICtx } from '../lib/aiAccess';
+import { enlacePlaySeguro } from '../lib/appDescargas';
 import { comprasIAPermitidas } from '../lib/plataforma';
 import { usaGooglePlay } from '../lib/pagosPlay';
 import { PlanesIAContenido } from './PlanesIAModal';
@@ -20,6 +22,47 @@ const PREMIUM = [
   { I: FileText, t: 'Redacción de propuestas y contratos', d: `Carta de presentación y condiciones listas · ${COSTO_CREDITOS.redaccion} créditos` },
 ];
 
+/** Invita a un colega: comparte la app por WhatsApp (o lo que tenga el celular). */
+function InvitarColega({ isAdmin }: { isAdmin: boolean }) {
+  const nombre = getAICtx().userName;
+  const texto = `Hola 👋 Te recomiendo InnovApp (Innova Contratistas): cotizo techos, obra civil, drywall y melamina, y con una foto de mi plano a mano me arma el techo. Descárgala aquí: ${enlacePlaySeguro()} · También funciona en la computadora: https://innovacontratistas-434d2.web.app\nCuando pidas tu acceso, di que te recomendó ${nombre || 'un colega'}.`;
+  const compartir = async () => {
+    try { if (navigator.share) { await navigator.share({ title: 'InnovApp', text: texto }); return; } } catch { /* canceló: se ofrece WhatsApp */ }
+    const a = document.createElement('a'); a.href = `https://wa.me/?text=${encodeURIComponent(texto)}`; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+  return (
+    <div className="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+      <div className="w-14 h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0"><Gift className="w-7 h-7" /></div>
+      <div className="min-w-0 flex-1">
+        <p className="text-base font-black text-emerald-950">Invita a un colega y gana {CREDITOS_REFERIDO} créditos</p>
+        <p className="text-xs text-emerald-900/80">Compártele la app. Cuando el administrador le dé su acceso y diga que tú lo recomendaste, se te suman {CREDITOS_REFERIDO} créditos de regalo (≈ {Math.floor(CREDITOS_REFERIDO / COSTO_CREDITOS.croquis)} planos a mano). Sin límite de invitados.</p>
+      </div>
+      <button onClick={compartir} disabled={isAdmin} title={isAdmin ? 'Vista previa: así lo ven tus usuarios' : 'Compartir por WhatsApp'}
+        className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-black cursor-pointer disabled:opacity-60 disabled:cursor-default">
+        <Share2 className="w-4 h-4" /> Invitar por WhatsApp
+      </button>
+    </div>
+  );
+}
+
+/** Aviso al volver de pagar en línea (Mercado Pago). */
+function AvisoPagoRetorno({ recargar }: { recargar: () => void }) {
+  const [estado, setEstado] = useState<string | null>(() => { try { return sessionStorage.getItem('innova_pago_retorno'); } catch { return null; } });
+  useEffect(() => {
+    if (!estado) return;
+    try { sessionStorage.removeItem('innova_pago_retorno'); } catch { /* nada */ }
+    // El aviso de Mercado Pago llega en segundos: se vuelve a leer el saldo un par de veces.
+    const t1 = setTimeout(recargar, 4000), t2 = setTimeout(recargar, 12000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!estado) return null;
+  const txt = estado === 'ok' ? { c: 'bg-emerald-50 border-emerald-300 text-emerald-900', t: '✓ ¡Pago recibido! Tus créditos se cargan en unos segundos.' }
+    : estado === 'pendiente' ? { c: 'bg-amber-50 border-amber-300 text-amber-900', t: '⏳ Tu pago está en proceso. Apenas se confirme, los créditos se cargan solos.' }
+    : { c: 'bg-rose-50 border-rose-300 text-rose-900', t: 'No se completó el pago. Puedes intentarlo de nuevo con otro medio.' };
+  return <div className={`rounded-2xl border p-4 text-sm font-bold flex items-center justify-between gap-3 ${txt.c}`}><span>{txt.t}</span><button onClick={() => setEstado(null)} className="text-xs underline cursor-pointer">Cerrar</button></div>;
+}
+
 export default function MembresiaView({ isAdmin }: { isAdmin: boolean }) {
   const { saldo, recargar } = useSaldoIA(true);
   const conPlan = !!saldo && !saldo.ilimitado && saldo.planId !== 'gratis';
@@ -29,6 +72,7 @@ export default function MembresiaView({ isAdmin }: { isAdmin: boolean }) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-5 pb-10">
+      <AvisoPagoRetorno recargar={recargar} />
       {/* Licencia permanente */}
       <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-5 sm:p-7 shadow-xl overflow-hidden relative">
         <div className="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-amber-400/10" />
@@ -109,6 +153,9 @@ export default function MembresiaView({ isAdmin }: { isAdmin: boolean }) {
         {/* En la app de Google Play no se puede mandar a pagar fuera de Play (ni mencionarlo). */}
         {!comprasIAPermitidas() && <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5"><Zap className="w-4 h-4" />Tu saldo se ve y se usa igual en el celular y en la computadora.</p>}
       </div>
+
+      {/* Referidos */}
+      <InvitarColega isAdmin={isAdmin} />
 
       {/* Planes y recargas */}
       <div id="planes-ia" className="scroll-mt-24 rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">

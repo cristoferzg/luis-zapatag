@@ -120,6 +120,15 @@ await caso('A lee su saldo', 'permite', () => getDoc(doc(A, 'ai_access/A')));
 await caso('A NO lee el saldo de B', 'niega', () => getDoc(doc(A, 'ai_access/B')));
 await caso('A NO se suma créditos', 'niega', () => updateDoc(doc(A, 'ai_access/A'), { creditosRestantes: 9999 }));
 
+console.log('\nVentas de créditos');
+await caso('A suma un contador del embudo', 'permite', () => setDoc(doc(A, 'embudo_ventas/2026-11-09'), { usaIA: 1 }, { merge: true }));
+await caso('A NO escribe otros campos en el embudo', 'niega', () => setDoc(doc(A, 'embudo_ventas/2026-11-09'), { nombre: 'x' }, { merge: true }));
+await caso('Sin PIN NO escribe el embudo', 'niega', () => setDoc(doc(anon, 'embudo_ventas/2026-11-09'), { usaIA: 1 }, { merge: true }));
+await caso('A NO lee el embudo', 'niega', () => getDoc(doc(A, 'embudo_ventas/2026-11-09')));
+await caso('Admin lee el embudo', 'permite', () => getDoc(doc(admin, 'embudo_ventas/2026-11-09')));
+await caso('A NO crea un pago en línea', 'niega', () => setDoc(doc(A, 'pagos_en_linea/x1'), { ws: 'A', entregado: true }));
+await caso('A NO lee los pagos en línea', 'niega', () => getDoc(doc(A, 'pagos_en_linea/x1')));
+
 console.log('\nDiseños de Techos');
 await caso('A lista sus diseños (consulta de la app)', 'permite', () => getDocs(query(collection(A, 'planos_techos'), where('authorUid', '==', 'A'))));
 await caso('A NO lista todos los diseños', 'niega', () => getDocs(collection(A, 'planos_techos')));

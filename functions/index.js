@@ -29,7 +29,7 @@
  * until you deploy it and switch the client over.
  */
 
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated, onDocumentUpdated, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getMessaging } from 'firebase-admin/messaging';
@@ -40,6 +40,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleAuth } from 'google-auth-library';
 import { crearDisenarDrywall } from './drywallIA.js';
+import { crearPagosEnLinea } from './pagoEnLinea.js';
 import { crearDisenarGasfiteria } from './gasfiteriaIA.js';
 import { crearDisenarElectricidad } from './electricidadIA.js';
 
@@ -179,7 +180,7 @@ function errorDeIA(e) {
 const CREDITOS_GRATIS_DEFAULT = 0; // la IA es de pago: el plan Gratis no trae créditos al mes
 // Regalo de bienvenida: créditos extra (no vencen) que recibe cada cuenta UNA vez,
 // al crearse su saldo. Igual que CREDITOS_BIENVENIDA del cliente (src/lib/aiAccess.ts).
-const CREDITOS_BIENVENIDA = 5;
+const CREDITOS_BIENVENIDA = 20;
 // Igual que PLANES_IA_DEFAULT del cliente (src/lib/aiAccess.ts).
 const PLANES_DEFAULT = [
   { id: 'gratis', creditosMes: 0 },
@@ -287,8 +288,13 @@ async function llamarPlay(ruta, metodo = 'GET') {
   }
   return texto ? JSON.parse(texto) : {};
 }
-const PACKS_DEFAULT = [{ creditos: 50 }, { creditos: 150 }, { creditos: 500 }]; // igual que PACKS_CREDITOS_DEFAULT del cliente
+const PACKS_DEFAULT = [{ creditos: 20 }, { creditos: 50 }, { creditos: 150 }, { creditos: 500 }]; // igual que PACKS_CREDITOS_DEFAULT del cliente
 const SUSCRIPCION_VIGENTE = ['SUBSCRIPTION_STATE_ACTIVE', 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD', 'SUBSCRIPTION_STATE_CANCELED'];
+
+// Pago en línea (web y PC) con Mercado Pago: ver functions/pagoEnLinea.js.
+const pagosEnLinea = crearPagosEnLinea({ onCall, onRequest, HttpsError, db, PLANES_DEFAULT, CREDITOS_BIENVENIDA, mesActual });
+export const crearPagoEnLinea = pagosEnLinea.crearPagoEnLinea;
+export const webhookMercadoPago = pagosEnLinea.webhookMercadoPago;
 
 export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
   const token = request.auth?.token || {};
@@ -320,19 +326,22 @@ export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, inv
     if (p.purchaseState !== 0) throw new HttpsError('failed-precondition', 'La compra fue cancelada o reembolsada.');
     if (p.obfuscatedExternalAccountId && p.obfuscatedExternalAccountId !== ws) throw new HttpsError('permission-denied', 'Esta compra pertenece a otra cuenta.');
     if (p.consumptionState === 1 && !previa) throw new HttpsError('failed-precondition', 'Esta compra ya se usó.');
-    let entregada = false;
+    let entregada = false, sumados = n;
     await db.runTransaction(async (tx) => {
       const c = await tx.get(refCompra);
       if (c.exists && c.data().entregado) return;
       const a = await tx.get(refAcceso);
       const base = a.exists ? a.data() : { userId: ws, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: CREDITOS_BIENVENIDA };
-      tx.set(refAcceso, { ...base, userId: ws, creditosExtra: (Number(base.creditosExtra) || 0) + n }, { merge: true });
-      tx.set(refCompra, { ws, productId, tipo: 'creditos', creditos: n, orderId: p.orderId || '', entregado: true, fecha: new Date().toISOString() });
+      // Promoción: la primera recarga de cada cuenta vale el doble (config_ia/planes.primeraRecargaDoble).
+      const suma = !base.primeraRecarga && cfg?.primeraRecargaDoble !== false ? n * 2 : n;
+      sumados = suma;
+      tx.set(refAcceso, { ...base, userId: ws, creditosExtra: (Number(base.creditosExtra) || 0) + suma, primeraRecarga: true }, { merge: true });
+      tx.set(refCompra, { ws, productId, tipo: 'creditos', creditos: suma, orderId: p.orderId || '', entregado: true, fecha: new Date().toISOString() });
       tx.set(db.collection('purchases').doc(), { userId: ws, userName: '', itemId: `ai_creditos_${n}`, itemName: `Recarga de ${n} créditos (Google Play)`, amount: 0, status: 'validada', origen: 'google_play', orderId: p.orderId || '', voucherUrl: '', createdAt: new Date().toISOString() });
       entregada = true;
     });
     try { await llamarPlay(`/products/${productId}/tokens/${tok}:consume`, 'POST'); } catch (e) { console.warn('[Play] no se pudo consumir', e?.message); }
-    return { ok: true, tipo: 'creditos', creditos: n, yaEntregada: !entregada };
+    return { ok: true, tipo: 'creditos', creditos: sumados, yaEntregada: !entregada };
   }
 
   // Suscripción (plan)

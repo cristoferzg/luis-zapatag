@@ -10,6 +10,7 @@ import { UploadProgressBar } from './common/UploadProgressBar';
 import { SystemUser } from '../types';
 import LectorComprobante, { DatosPago } from './common/LectorComprobante';
 import { simb } from '../lib/currency';
+import { regalarCreditos, CREDITOS_REFERIDO } from '../lib/aiAccess';
 export type { SystemUser };
 
 interface UsuariosViewProps {
@@ -75,6 +76,7 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
   const [name, setName] = useState('');
   const [currentPin, setCurrentPin] = useState(generatePIN());
   const [pago, setPago] = useState<DatosPago | null>(null);
+  const [invitadoPor, setInvitadoPor] = useState('');
   const [lectorKey, setLectorKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -125,9 +127,18 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
         ...(pago.fecha ? { fecha: pago.fecha } : {}),
         ...(pago.metodo ? { metodo: pago.metodo } : {}),
       } } : {}),
+      ...(invitadoPor ? { invitadoPor } : {}),
     };
     
     setUsuarios([...usuarios, newUser]);
+    // Referidos: el que lo recomendó recibe créditos de regalo.
+    if (invitadoPor) {
+      const quien = usuarios.find(u => u.id === invitadoPor);
+      regalarCreditos(invitadoPor, CREDITOS_REFERIDO)
+        .then(() => notify(`✓ ${quien?.name || 'El que lo invitó'} recibió ${CREDITOS_REFERIDO} créditos de regalo por recomendar la app`))
+        .catch(() => notify('No se pudieron regalar los créditos del referido. Revisa la conexión.', 'error'));
+      setInvitadoPor('');
+    }
     setName('');
     setPago(null); setLectorKey(k => k + 1);
     setCurrentPin(generatePIN());
@@ -688,6 +699,16 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
                 <LectorComprobante key={lectorKey} onLeido={setPago}
                   usados={usuarios.filter(u => u.pago?.nroOperacion).map(u => ({ codigo: u.pago!.nroOperacion!, quien: u.name }))} />
                 <p className="text-[10px] text-slate-400 mt-1">Sube la captura de Yape, Plin o transferencia: se extrae el N° de operación y se guarda con este acceso.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wider">¿Quién lo recomendó? (opcional)</label>
+                <select value={invitadoPor} onChange={e => setInvitadoPor(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:bg-white cursor-pointer">
+                  <option value="">Nadie / llegó solo</option>
+                  {usuarios.filter(u => u.isActive !== false && !/admin/i.test(u.role)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">🎁 El que lo recomendó recibe {CREDITOS_REFERIDO} créditos de regalo al crear este acceso.</p>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-500 leading-relaxed">

@@ -12,6 +12,7 @@ import { idProductoPack, idProductoPlan } from '../lib/pagosPlay';
 import { simb, enMoneda, aSoles } from '../lib/currency';
 import CampoNumero from './CampoNumero';
 import InputNumero from './common/InputNumero';
+import VentasIAPanel from './VentasIAPanel';
 
 const campo = 'w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none bg-white';
 const etiqueta = 'text-[11px] font-bold text-slate-500 uppercase tracking-wide';
@@ -70,6 +71,9 @@ export default function PlanesIAAdminPanel() {
         </div>
         <span className="self-start sm:self-auto shrink-0 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200">Solo Administrador</span>
       </div>
+
+      {/* Para vender: lista de control, promociones y embudo */}
+      <VentasIAPanel iaActiva={activa} comprasEnApp={enApp} googlePlay={conPlay} onError={async (e, a) => setError(await motivoError(e, a))} />
 
       {/* Interruptor: IA para usuarios */}
       <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${activa ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
@@ -164,13 +168,24 @@ export default function PlanesIAAdminPanel() {
 
       <div className="p-4 border border-slate-200 rounded-2xl space-y-3">
         <p className="text-sm font-black text-slate-800 flex items-center gap-2"><Coins className="w-4 h-4 text-amber-500" />Recargas de créditos</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {packs.map((k, i) => (
-            <div key={i} className="grid grid-cols-2 gap-2">
+            <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
               <div><label className={etiqueta}>Créditos</label><InputNumero type="number" min="1" value={k.creditos} onChange={e => updPack(i, { creditos: Math.round(n(e.target.value)) })} className={campo} /></div>
               <div><label className={etiqueta}>Precio {simb()}</label><CampoNumero step={0.1} min={0} value={enMoneda(k.precioSoles)} onCommit={v => updPack(i, { precioSoles: aSoles(v || 0) })} className={campo} /></div>
+              <button type="button" title="Quitar esta recarga" disabled={packs.length <= 1} onClick={() => { setPacks(prev => prev.filter((_, j) => j !== i)); setGuardado(false); }}
+                className="mb-1 w-8 h-9 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-300 cursor-pointer disabled:opacity-30">✕</button>
             </div>
           ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!packs.some(k => k.creditos <= 20) && (
+            <button type="button" onClick={() => { setPacks(prev => [{ id: 'p20', creditos: 20, precioSoles: 3.9 }, ...prev]); setGuardado(false); }}
+              className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-black cursor-pointer hover:bg-emerald-100">+ Recarga de entrada: 20 créditos por {simb()} 3.90</button>
+          )}
+          <button type="button" onClick={() => { setPacks(prev => [...prev, { id: `p${Date.now()}`, creditos: 100, precioSoles: 14.9 }]); setGuardado(false); }}
+            className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-100">+ Otra recarga</button>
+          <span className="text-[11px] text-slate-500 self-center">Luego pulsa Guardar. En Play Console crea el producto con el mismo número (p. ej. creditos_20).</span>
         </div>
       </div>
 

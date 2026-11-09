@@ -16,11 +16,13 @@
 import { doc, getDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { fijarComprasEnApp, fijarPagosPlay } from './plataforma';
+import { fijarPagoEnLinea } from './pagoEnLinea';
+import { registrarEmbudo } from './embudoVentas';
 
 export const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2, melamina: 5, obra: 8, drywall: 5, gasfiteria: 6, electricidad: 6 } as const;
 /** Regalo de bienvenida: créditos extra (no vencen) que cada cuenta recibe una sola vez,
  *  cuando se crea su saldo. Igual que CREDITOS_BIENVENIDA en functions/index.js. */
-export const CREDITOS_BIENVENIDA = 5;
+export const CREDITOS_BIENVENIDA = 20;
 export type AccionIA = keyof typeof COSTO_CREDITOS;
 
 export interface AIPlan {
@@ -48,6 +50,7 @@ export const PLANES_IA_DEFAULT: AIPlan[] = [
 ];
 
 export const PACKS_CREDITOS_DEFAULT: PackCreditos[] = [
+  { id: 'p20', creditos: 20, precioSoles: 3.90 },
   { id: 'p50', creditos: 50, precioSoles: 7.90 },
   { id: 'p150', creditos: 150, precioSoles: 19.90 },
   { id: 'p500', creditos: 500, precioSoles: 54.90 },
@@ -70,6 +73,7 @@ export async function cargarEstadoIA(): Promise<boolean> {
     _habilitadaUsuarios = s.exists() && (s.data() as any)?.habilitadaUsuarios === true;
     fijarComprasEnApp(s.exists() && (s.data() as any)?.comprasEnApp === true);
     fijarPagosPlay(s.exists() && (s.data() as any)?.pagosGooglePlay === true);
+    fijarPagoEnLinea(s.exists() && (s.data() as any)?.pagoEnLinea === true);
   } catch { _habilitadaUsuarios = false; }
   return _habilitadaUsuarios;
 }
@@ -107,6 +111,8 @@ export interface AIAccess {
   creditosExtra?: number;    // recargas compradas (no vencen)
   mes: string;               // 'YYYY-MM' del saldo vigente
   usosTotales?: number;
+  primeraRecarga?: boolean;  // ya recibió su primera recarga (la de regalo doble)
+  invitadoPor?: string;      // quién lo invitó (referidos)
 }
 
 // Contexto del usuario actual (lo setea App en cada render para no pasar props).
@@ -177,7 +183,9 @@ export async function checkAIAccess(accion: AccionIA = 'boleta'): Promise<AIChec
   const s = saldoEfectivo(a, planes);
   const total = s.mes + s.extra;
   const planNombre = planes.find(p => p.id === s.planId)?.nombre;
+  registrarEmbudo('usaIA');
   if (total >= COSTO_CREDITOS[accion]) return { ok: true, restantes: total, planId: s.planId, planNombre };
+  registrarEmbudo('sinCreditos');
   return { ok: false, motivo: 'agotado', restantes: total, planId: s.planId, planNombre };
 }
 
@@ -225,8 +233,29 @@ export async function grantAIPlan(userId: string, planId: string, periodo: 'mens
   await setDoc(doc(db, 'ai_access', userId), access);
 }
 
-/** Suma una recarga de créditos (no vence). Lo usa el admin al validar la compra. */
-export async function grantCreditos(userId: string, creditos: number): Promise<void> {
+/** ¿La primera recarga vale el doble? (interruptor del admin; prendido si no se tocó). Igual en el servidor. */
+export async function primeraRecargaDobleActiva(): Promise<boolean> {
+  if (import.meta.env.DEV && (window as any).__primeraDobleSimulada !== undefined) return !!(window as any).__primeraDobleSimulada;
+  try { const s = await getDoc(doc(db, 'config_ia', 'planes')); return (s.data() as any)?.primeraRecargaDoble !== false; } catch { return true; }
+}
+export async function setPrimeraRecargaDoble(v: boolean): Promise<void> {
+  await setDoc(doc(db, 'config_ia', 'planes'), { primeraRecargaDoble: v }, { merge: true });
+}
+
+/** Suma una recarga de créditos (no vence). Lo usa el admin al validar la compra.
+ *  La primera recarga de cada cuenta vale el doble (si la promoción está activa). Devuelve lo sumado. */
+export async function grantCreditos(userId: string, creditos: number): Promise<number> {
+  const previo = await getAIAccess(userId);
+  const base: AIAccess = previo || { userId, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: CREDITOS_BIENVENIDA };
+  const suma = !base.primeraRecarga && await primeraRecargaDobleActiva() ? creditos * 2 : creditos;
+  await setDoc(doc(db, 'ai_access', userId), { ...base, creditosExtra: (base.creditosExtra || 0) + suma, primeraRecarga: true });
+  return suma;
+}
+
+/** Créditos de regalo por recomendar la app a un colega (referidos). */
+export const CREDITOS_REFERIDO = 20;
+/** Regala créditos extra (no vencen) sin tocar la promoción de primera recarga. Solo admin. */
+export async function regalarCreditos(userId: string, creditos: number): Promise<void> {
   const previo = await getAIAccess(userId);
   const base: AIAccess = previo || { userId, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: CREDITOS_BIENVENIDA };
   await setDoc(doc(db, 'ai_access', userId), { ...base, creditosExtra: (base.creditosExtra || 0) + creditos });

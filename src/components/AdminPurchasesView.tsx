@@ -69,7 +69,7 @@ export default function AdminPurchasesView() {
     // 0b) ¿Es una RECARGA de créditos? (itemId = 'ai_creditos_<n>')
     if (purchase.itemId?.startsWith('ai_creditos_')) {
       const n = parseInt(purchase.itemId.replace('ai_creditos_', ''), 10);
-      if (n > 0) await grantCreditos(uid, n);
+      if (n > 0) { const suma = await grantCreditos(uid, n); if (suma > n) alert(`Primera recarga de este usuario: se sumaron ${suma} créditos (el doble de ${n}).`); }
       return;
     }
     // 1) ¿El ítem es un CURSO? (por id o por nombre)

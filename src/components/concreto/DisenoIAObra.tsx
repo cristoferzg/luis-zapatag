@@ -8,6 +8,7 @@ import { app } from '../../lib/firebase';
 import { COSTO_CREDITOS, checkAIAccess, iaVisibleParaUI, motivoErrorIA, pedirPinSiLimitada, AVISO_CONFIRMA_PIN, getAICtx } from '../../lib/aiAccess';
 import { fileToBase64 } from '../../lib/roofPlanScan';
 import PlanesIAModal from '../PlanesIAModal';
+import CostoIA from '../common/CostoIA';
 import type { TipoAbertura } from './geometriaObra';
 
 export interface PlantaIA {
@@ -59,7 +60,7 @@ export default function DisenoIAObra({ piso, onAplicar }: { piso: string; onApli
   return (<>
     <button type="button" onClick={() => setAbierto(true)} title="Arma la planta desde una descripción o un plano a mano"
       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black cursor-pointer">
-      <Sparkles className="w-3.5 h-3.5" /> Diseñar con IA
+      <Sparkles className="w-3.5 h-3.5" /> Diseñar con IA <CostoIA accion="obra" />
     </button>
     {abierto && (
       <div className="fixed inset-0 z-[85] bg-slate-950/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => !cargando && setAbierto(false)}>

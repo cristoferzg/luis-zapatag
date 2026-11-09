@@ -137,6 +137,8 @@ export interface SystemUser {
   userId?: string;
   // Pago con el que se dio el acceso (leído del comprobante; opcional).
   pago?: { nroOperacion?: string; monto?: number; fecha?: string; metodo?: string };
+  // Referidos: id del usuario que lo recomendó (recibió créditos de regalo).
+  invitadoPor?: string;
   materiales?: Material[];
   personal?: Worker[];
   cobros?: Cobro[];
