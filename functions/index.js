@@ -1163,6 +1163,22 @@ export const avisoTicketNuevo = onDocumentCreated({ ...opcionesAviso, document: 
   await enviarPush({ aAdmin: true }, '🎫 Ticket nuevo', `${t.authorName || 'Un usuario'}: ${t.title || ''}`, 'tickets');
 });
 
+// Compras: aviso al admin por cada pedido nuevo (p. ej. captura de Yape/Plin) y al comprador
+// cuando se valida o rechaza (solo a él; antes se publicaba un comunicado para todos).
+export const avisoCompraNueva = onDocumentCreated({ ...opcionesAviso, document: 'purchases/{id}' }, async (e) => {
+  const p = e.data?.data() || {};
+  if (p.status !== 'pendiente' || sinPrefijo(p.userId) === 'admin') return;
+  const monto = Number(p.amount) > 0 ? ` · S/ ${Number(p.amount).toFixed(2)}` : '';
+  const via = p.metodo === 'yape' ? ' (Yape)' : p.metodo === 'plin' ? ' (Plin)' : '';
+  await enviarPush({ aAdmin: true }, '💰 Pago por validar' + via, `${p.userName || 'Un usuario'}: ${p.itemName || ''}${monto}`, 'admin_purchases');
+});
+export const avisoCompraEstado = onDocumentUpdated({ ...opcionesAviso, document: 'purchases/{id}' }, async (e) => {
+  const antes = e.data?.before?.data() || {}; const p = e.data?.after?.data() || {};
+  if (!p.userId || antes.status === p.status || p.origen === 'google_play' || p.origen === 'mercado_pago') return;
+  if (p.status === 'validada') await enviarPush({ aWs: [p.userId] }, '✅ ¡Tu compra está lista!', `${p.itemName || 'Tu compra'}: ya puedes usarla.`, 'membresia');
+  else if (p.status === 'rechazada') await enviarPush({ aWs: [p.userId] }, 'Tu pago no se pudo validar', `${p.itemName || 'Tu compra'}: revisa el monto o escríbenos por Ayuda y soporte.`, 'membresia');
+});
+
 export const avisoTicketEstado = onDocumentUpdated({ ...opcionesAviso, document: 'tickets/{id}' }, async (e) => {
   const antes = e.data?.before?.data() || {}; const t = e.data?.after?.data() || {};
   if (!t.status || antes.status === t.status) return;

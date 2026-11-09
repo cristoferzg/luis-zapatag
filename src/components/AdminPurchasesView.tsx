@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { updateRecord, deleteRecord, useFirestoreArraySync } from '../lib/db';
 import { Check, X, Eye, Search, Sparkles, Coins, GraduationCap, ScanLine, Trash2 } from 'lucide-react';
 import LectorComprobante from './common/LectorComprobante';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import type { CourseCategory, TutorialVideo } from './UsabilidadVideosView';
 import { grantAIPlan, grantCreditos } from '../lib/aiAccess';
 import { precioPEN } from '../lib/currency';
@@ -44,15 +42,6 @@ export default function AdminPurchasesView() {
   const [abierto, setAbierto] = useState<string | null>(null); // compra con el lector abierto
   const [ocupado, setOcupado] = useState<string | null>(null);
 
-  const sendNotification = async (title: string, message: string) => {
-    await addDoc(collection(db, 'notificaciones'), {
-      title,
-      message,
-      createdAtTimestamp: Date.now(),
-      priority: 'info',
-      author: 'Administración',
-    });
-  };
 
   // Al validar una compra, HABILITA automáticamente el acceso: si el ítem es un
   // curso, se habilita el curso completo (todas sus clases); si es una clase
@@ -97,10 +86,7 @@ export default function AdminPurchasesView() {
     if (status === 'validada') {
       await grantAccess(purchase);
     }
-    const message = status === 'validada'
-      ? `¡Tu compra de "${purchase.itemName}" fue validada! Tu acceso ya está habilitado.`
-      : `Tu compra de ${purchase.itemName} ha sido rechazada.`;
-    await sendNotification('Actualización de Compra', message);
+    // El aviso le llega SOLO al comprador (avisoCompraEstado en el servidor); antes salía un comunicado para todos.
   };
 
   const ESTADOS: { k: Purchase['status']; l: string }[] = [{ k: 'pendiente', l: 'Pendientes' }, { k: 'validada', l: 'Validadas' }, { k: 'rechazada', l: 'Rechazadas' }];
@@ -171,6 +157,7 @@ export default function AdminPurchasesView() {
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.c}`}>{t.l}</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${BADGE[purchase.status]}`}>{purchase.status}</span>
+                  {(purchase as any).metodo && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-white ${(purchase as any).metodo === 'yape' ? 'bg-[#742284]' : 'bg-[#00b2a9]'}`}>{(purchase as any).metodo === 'yape' ? 'Yape' : 'Plin'} · captura</span>}
                   {esPrueba(purchase) && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Prueba del admin</span>}
                   {purchase.createdAt && <span className="text-[10px] text-slate-400">{fecha(purchase.createdAt)}</span>}
                   {purchase.nroOperacion && <span className="text-[10px] font-mono font-bold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">Op. {purchase.nroOperacion}{purchase.montoPagado !== undefined ? ` · S/ ${S(purchase.montoPagado)}` : ''}</span>}

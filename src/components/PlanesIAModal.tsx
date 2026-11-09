@@ -16,6 +16,8 @@ import { usaGooglePlay, iniciarPagosPlay, comprarEnPlay, precioPlay, idProductoP
 import { safeStorage } from '../lib/storageManager';
 import { pagoEnLineaDisponible, pagarEnLinea } from '../lib/pagoEnLinea';
 import { registrarEmbudo } from '../lib/embudoVentas';
+import { leerPagoDirecto, pagoDirectoListo, type ConfigPagoDirecto, type PedidoDirecto } from '../lib/pagoDirecto';
+import VentanaPagoDirecto from './VentanaPagoDirecto';
 import { precioPEN, precioConSoles } from '../lib/currency';
 
 const WA_ADMIN = '51966000500';
@@ -95,8 +97,13 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
 
   // El administrador tiene la IA ilimitada: aquí solo ve cómo lo ven los usuarios (no compra).
   const soloVista = () => { if (!ctx.isAdmin) return false; setMsgPlay({ ok: false, t: 'Vista previa: como administrador tienes la IA ilimitada, no se crea ninguna compra.' }); return true; };
+  // Web y PC: pago directo con Yape/Plin (captura → el admin valida). Tiene prioridad.
+  const [cfgDirecto, setCfgDirecto] = useState<ConfigPagoDirecto | null>(null);
+  const [pedidoDirecto, setPedidoDirecto] = useState<(PedidoDirecto & { clave: string }) | null>(null);
+  useEffect(() => { if (!play) leerPagoDirecto().then(setCfgDirecto); }, [play]);
+  const directo = !play && pagoDirectoListo(cfgDirecto);
   // Web y PC con pago en línea activo: Mercado Pago (Yape, tarjeta…) y los créditos se cargan solos.
-  const enLinea = !play && pagoEnLineaDisponible();
+  const enLinea = !play && !directo && pagoEnLineaDisponible();
   const pagarOnline = async (clave: string, pedido: Parameters<typeof pagarEnLinea>[0]) => {
     setComprando(clave); setMsgPlay(null); registrarEmbudo('pagoEnLinea');
     try { await pagarEnLinea(pedido); }
@@ -107,6 +114,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
     const periodo = anual && plan.precioAnualSoles ? 'anual' : 'mensual';
     registrarEmbudo('eligeCompra');
     if (play) return comprarPlay(plan.id, idProductoPlan(plan.id), periodo);
+    if (directo) return setPedidoDirecto({ clave: plan.id, itemId: `ai_plan_${plan.id}${periodo === 'anual' ? '__anual' : ''}`, itemName: `Plan ${plan.nombre} (${periodo})`, amount: (periodo === 'anual' ? plan.precioAnualSoles : plan.precioSoles) || 0 });
     if (enLinea) return pagarOnline(plan.id, { tipo: 'plan', planId: plan.id, periodo });
     try { if (ctx.userId) await solicitarPlanIA(ctx.userId, ctx.userName, plan, periodo); } catch { /* ignore */ }
     setEnviado(plan.id);
@@ -118,6 +126,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
     if (!acepto || soloVista()) return;
     registrarEmbudo('eligeCompra');
     if (play) return comprarPlay(p.id, idProductoPack(p.creditos));
+    if (directo) return setPedidoDirecto({ clave: p.id, itemId: `ai_creditos_${p.creditos}`, itemName: `Recarga de ${p.creditos} créditos`, amount: p.precioSoles });
     if (enLinea) return pagarOnline(p.id, { tipo: 'pack', creditos: p.creditos });
     try { if (ctx.userId) await solicitarCreditos(ctx.userId, ctx.userName, p); } catch { /* ignore */ }
     setEnviado(p.id);
@@ -157,6 +166,14 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
             )}
           </div>
 
+          {directo && (
+            <div className="rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-teal-50 px-3 py-2 flex flex-wrap items-center gap-2 text-[11px] font-bold text-slate-800">
+              <span>📲 Paga al instante con</span>
+              {cfgDirecto?.yape?.numero && <span className="px-2.5 py-0.5 rounded-full bg-[#742284] text-white font-black">Yape</span>}
+              {cfgDirecto?.plin?.numero && <span className="px-2.5 py-0.5 rounded-full bg-[#00b2a9] text-white font-black">Plin</span>}
+              <span className="text-slate-600 font-semibold">· eliges, pagas y subes la captura aquí mismo</span>
+            </div>
+          )}
           {enLinea && (
             <div className="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 flex flex-wrap items-center gap-2 text-[11px] font-bold text-sky-900">
               <span>💳 Paga al instante:</span>
@@ -186,7 +203,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
                   </ul>
                   <button disabled={deshabilitado || !acepto || comprando !== null} onClick={() => pedirPlan(p)}
                     className={`mt-4 w-full py-2.5 rounded-xl text-sm font-black cursor-pointer active:scale-95 disabled:cursor-not-allowed ${enviado === p.id ? 'bg-emerald-500 text-white' : p.destacado ? 'bg-amber-400 hover:bg-amber-300 text-amber-950' : 'bg-slate-900 hover:bg-slate-700 text-white'}`}>
-                    {comprando === p.id ? (play ? 'Abriendo Google Play…' : 'Abriendo el pago…') : enviado === p.id ? (play ? '✓ Plan activo' : '✓ Solicitud enviada') : saldo?.planId === p.id ? 'Renovar' : 'Elegir plan'}
+                    {comprando === p.id ? (play ? 'Abriendo Google Play…' : 'Abriendo el pago…') : enviado === p.id ? (play ? '✓ Plan activo' : directo ? '✓ En revisión' : '✓ Solicitud enviada') : saldo?.planId === p.id ? 'Renovar' : 'Elegir plan'}
                   </button>
                 </div>
               );
@@ -211,7 +228,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
                     {i === 0 && <span className="block text-[9px] font-black uppercase text-amber-700">Para probar</span>}
                     <span className="block text-lg font-black text-slate-900">{bono ? <><s className="text-slate-400 text-sm mr-1">+{k.creditos}</s><span className="text-emerald-600">+{k.creditos * 2}</span></> : `+${k.creditos}`}</span>
                     <span className="block text-[11px] text-slate-500">créditos · ≈ {Math.max(1, Math.floor((bono ? k.creditos * 2 : k.creditos) / COSTO_CREDITOS.croquis))} plano{Math.floor((bono ? k.creditos * 2 : k.creditos) / COSTO_CREDITOS.croquis) === 1 ? '' : 's'}</span>
-                    <span className="block text-sm font-black text-slate-800 mt-1">{comprando === k.id ? '…' : enviado === k.id ? (play ? '✓ Sumados' : '✓ Enviado') : precio(k.precioSoles, idProductoPack(k.creditos))}</span>
+                    <span className="block text-sm font-black text-slate-800 mt-1">{comprando === k.id ? '…' : enviado === k.id ? (play ? '✓ Sumados' : directo ? '✓ En revisión' : '✓ Enviado') : precio(k.precioSoles, idProductoPack(k.creditos))}</span>
                   </button>
                 ))}
               </div>
@@ -231,7 +248,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
                 <li>Los créditos del plan se renuevan cada mes mientras el plan esté vigente y no se acumulan; las recargas no vencen.</li>
                 <li>El resultado es una propuesta: revisa y corrige medidas, cantidades y montos antes de usarlos en una cotización o en obra. No reemplaza el criterio de un profesional.</li>
                 <li>Sube solo fotos tuyas o de tus clientes con su permiso. Las imágenes se usan solo para leerlas y no se publican.</li>
-                <li>{play ? 'El pago lo hace Google Play con tu cuenta de Google; las suscripciones se renuevan solas y las cancelas en Google Play → Pagos y suscripciones.' : enLinea ? 'El pago en línea lo procesa Mercado Pago; los planes pagados en línea no se renuevan solos.' : 'Los pagos se validan por el administrador.'} No hay devoluciones de créditos ya usados.</li>
+                <li>{play ? 'El pago lo hace Google Play con tu cuenta de Google; las suscripciones se renuevan solas y las cancelas en Google Play → Pagos y suscripciones.' : directo ? 'Los pagos con Yape o Plin se revisan (monto y N° de operación) antes de cargar los créditos; una captura ya usada no se acepta. Los planes no se renuevan solos.' : enLinea ? 'El pago en línea lo procesa Mercado Pago; los planes pagados en línea no se renuevan solos.' : 'Los pagos se validan por el administrador.'} No hay devoluciones de créditos ya usados.</li>
               </ul>
               <label className="mt-2 flex items-center gap-2 font-bold text-slate-800 cursor-pointer">
                 <input type="checkbox" checked={acepto} onChange={e => aceptar(e.target.checked)} /> Leí y acepto las condiciones de uso
@@ -240,8 +257,11 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
           )}
           {comprasIAPermitidas() && !acepto && <p className="text-[11px] font-bold text-amber-700">Acepta las condiciones de uso para pedir un plan o una recarga.</p>}
 
+          {pedidoDirecto && cfgDirecto && (
+            <VentanaPagoDirecto cfg={cfgDirecto} pedido={pedidoDirecto} onClose={() => setPedidoDirecto(null)} onEnviado={() => { setEnviado(pedidoDirecto.clave); registrarEmbudo('pagoEnLinea'); }} />
+          )}
           {comprasIAPermitidas() && <p className="text-[11px] text-slate-400 leading-snug">
-            {play ? 'El pago se hace con Google Play. Apenas Google lo confirma, los créditos se cargan solos.' : enLinea ? 'Pagas en línea con Yape, tarjeta o transferencia (Mercado Pago). Apenas se confirma el pago, los créditos se cargan solos.' : 'Al elegir se envía tu pedido al administrador por WhatsApp. Cuando valide tu pago, los créditos se cargan solos.'} Los créditos del plan se renuevan cada mes mientras esté vigente.
+            {play ? 'El pago se hace con Google Play. Apenas Google lo confirma, los créditos se cargan solos.' : directo ? 'Pagas con Yape o Plin y subes la captura aquí. Apenas revisamos el pago, tus créditos se cargan solos y te llega un aviso.' : enLinea ? 'Pagas en línea con Yape, tarjeta o transferencia (Mercado Pago). Apenas se confirma el pago, los créditos se cargan solos.' : 'Al elegir se envía tu pedido al administrador por WhatsApp. Cuando valide tu pago, los créditos se cargan solos.'} Los créditos del plan se renuevan cada mes mientras esté vigente.
           </p>}
         </div>
   );

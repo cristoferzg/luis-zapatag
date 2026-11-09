@@ -12,7 +12,7 @@ export const PASOS_EMBUDO: { k: PasoEmbudo; t: string }[] = [
   { k: 'sinCreditos', t: 'Se quedan sin créditos' },
   { k: 'abreTienda', t: 'Abren la tienda' },
   { k: 'eligeCompra', t: 'Eligen un plan o recarga' },
-  { k: 'pagoEnLinea', t: 'Van a pagar en línea' },
+  { k: 'pagoEnLinea', t: 'Envían su pago' },
 ];
 const dia = (d = new Date()) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 

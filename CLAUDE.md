@@ -184,6 +184,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Pago en línea web/PC (nunca en la app Android): Mercado Pago, `functions/pagoEnLinea.js` (`crearPagoEnLinea`,
   `webhookMercadoPago`), secreto `MP_ACCESS_TOKEN`, interruptor `config_ia/planes.pagoEnLinea`; pedidos en `pagos_en_linea`
   (solo servidor). Prueba: `cd seguridad && npm run test:pago`. Vuelta con `?pago=ok|pendiente|error`.
+- Cobro DIRECTO Yape/Plin (web/PC, prioridad sobre Mercado Pago y WhatsApp): `config_ia/pago_directo` {activo, yape/plin
+  {numero, titular, qr (dataURL)}} (`lib/pagoDirecto.ts`, editor en `VentasIAPanel`). El usuario sube la captura
+  (`VentanaPagoDirecto`) → `purchases` pendiente con `voucherUrl` (dataURL), `metodo`, `origen: 'pago_directo'`. El admin
+  la lee gratis (LectorComprobante, N° de operación repetido) y valida. Push: `avisoCompraNueva` (admin) y
+  `avisoCompraEstado` (solo el comprador; ya NO se publica un comunicado general al validar). DEV: `__pagoDirectoSimulado`.
 - Embudo: `embudo_ventas/<AAAA-MM-DD>` contadores (`lib/embudoVentas.ts`); panel admin `VentasIAPanel` (lista para vender).
 - Costo en botones de IA: `common/CostoIA.tsx`. Saldo + "Recargar" arriba (PC: menú; celular: barra).
 - DEV: `__pagoEnLineaSimulado`, `__primeraDobleSimulada`, `__embudoSimulado`, `__aiAccessSimulado` (incluir en el grep del dist).
