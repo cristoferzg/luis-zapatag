@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { panoUnaAgua } from './coberturaAuto';
 import { esCortaviento } from './cortaviento';
+import { CATALOGO_ACCESORIOS, crearAccesorio3D, nombreAccesorio } from './accesoriosTecho';
 import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Calidad3D } from '../../lib/calidad3d';
 import { INVENTARIO_COBERTURAS } from './techosCadCatalog';
 import { 
@@ -38,7 +39,8 @@ import {
   Footprints,
   Palette,
   Droplets,
-  Camera
+  Camera,
+  Flame
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
@@ -48,7 +50,7 @@ import { movilDe, TIPOS_MOVIL, zonaPrincipal } from './mecanismoMovil';
 import { canaletaActiva, posicionesBajadas, cfgCanaleta, tramosCanaleta, NOMBRE_FORMA, NOMBRE_LADOS, NOMBRE_BAJADA } from './canaletas';
 import { safeStorage } from '../../lib/storageManager';
 import { guardarFotoPropuesta, fotoPropuesta } from './fotoPropuesta';
-import type { TechoMovil, CoverageZone3D } from './techosCadEngineTypes';
+import type { TechoMovil, CoverageZone3D, AccesorioTecho } from './techosCadEngineTypes';
 
 interface TechosViewer3DProps {
   engineState?: UseTechosCadEngineReturn;
@@ -366,7 +368,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const colorEstructuraRef = useRef(colorEstructura);
   const setColorEstructura = (c: number) => { colorEstructuraRef.current = c; setColorEstructuraSt(c); safeStorage.setItem('innova_techos_color_estructura', c); };
   // Un solo panel abierto a la vez (antes cada uno tenía su estado y se encimaban).
-  const [panel3d, setPanel3d] = useState<'movil' | 'canaleta' | 'colores' | 'perfil' | null>(null);
+  const [panel3d, setPanel3d] = useState<'movil' | 'canaleta' | 'colores' | 'perfil' | 'accesorios' | null>(null);
   const panelColores = panel3d === 'colores';
   // Foto real de fondo (el patio del cliente) para mostrar el techo encima.
   const [fotoFondo, setFotoFondo] = useState<string | null>(null);
@@ -435,6 +437,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const movilClave = movil ? `${movil.tipo}|${movil.panos}|${movil.accionamiento}|${movil.abreHacia || 'inicio'}` : '';
   const panelMovil = panel3d === 'movil';
   const panelCanaleta = panel3d === 'canaleta';
+  const panelAccesorios = panel3d === 'accesorios';
+  const accesorios: AccesorioTecho[] = zonaPrincipal(zonasCob)?.accesorios || [];
   const [apertura, setApertura] = useState(0);
   const aperturaRef = useRef(0);
   const panosRef = useRef<{ g: THREE.Group; k: number; zPiv: number; yPiv: number }[]>([]);
@@ -489,7 +493,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     setPanel3d(null);
   };
   // El mismo botón abre y cierra; abrir uno cierra el otro. En el celular se pliega la barra.
-  const alternarPanel3d = (k: 'movil' | 'canaleta' | 'colores' | 'perfil') => {
+  const alternarPanel3d = (k: 'movil' | 'canaleta' | 'colores' | 'perfil' | 'accesorios') => {
     if (panel3d === k) { cerrarPanel3d(); return; }
     if (panel3d === 'movil' && movilPrueba) { cancelAnimationFrame(animRef.current); setMovilPrueba(null); setApertura(0); }
     setPanel3d(k);
@@ -3125,6 +3129,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       }
     }
 
+    // 5b. ACCESORIOS BAJO EL TECHO (horno, parrilla, mesa…): solo de referencia.
+    (zonaPrincipal(zonasCob)?.accesorios || []).forEach(acc => modeloGroup.add(crearAccesorio3D(acc)));
+
     // 6a. CANALETAS Y BAJADAS: modelo (sección), bordes elegidos y bajada (tubo o gárgola).
     if (mostrarCobertura && !movil && canaletaActiva(zonasCob) && !isHipRoof && !is6AguasRoof && !isDomeRoof) {
       const cfg = cfgCanaleta(zonasCob);
@@ -3875,6 +3882,56 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         );
       })()}
 
+      {panelAccesorios && (() => {
+        const xs = Object.values(nodes).map(n => n.x), zs = Object.values(nodes).map(n => n.z || 0);
+        const cx = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : 0, cz = zs.length ? (Math.min(...zs) + Math.max(...zs)) / 2 : 0;
+        const guardar = (lista: AccesorioTecho[]) => {
+          const ok = engineState?.setAccesorios?.(lista);
+          if (!ok) alert('Este diseño no tiene correas para colocar la cobertura: agrégalas o usa el Asistente.');
+        };
+        const agregar = (tipo: AccesorioTecho['tipo']) => {
+          const k = accesorios.length;
+          guardar([...accesorios, { id: `acc_${Date.now().toString(36)}`, tipo, x: Math.round((cx + (k % 3 - 1) * 2.2) * 10) / 10, z: Math.round((cz + Math.floor(k / 3) * 2.2) * 10) / 10, rot: 180 }]);
+        };
+        const mover = (id: string, p: Partial<AccesorioTecho>) => guardar(accesorios.map(a => a.id === id ? { ...a, ...p } : a));
+        const btn = 'w-7 h-7 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-black text-slate-700 cursor-pointer';
+        return (
+          <PanelDock3D titulo="Accesorios bajo el techo" icono={<Flame className="w-4 h-4" />} tono="text-orange-800" top={altoBarra3d} onClose={cerrarPanel3d}>
+            <p className="text-[10px] font-black text-slate-500 uppercase">Agregar</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {CATALOGO_ACCESORIOS.map(c => (
+                <button key={c.tipo} onClick={() => agregar(c.tipo)} className="px-2 py-1.5 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 text-left cursor-pointer">
+                  <span className="block text-[11px] font-black text-orange-900">{c.emoji} {c.nombre}</span>
+                  <span className="block text-[10px] text-slate-500">{c.medida}</span>
+                </button>
+              ))}
+            </div>
+            {accesorios.length > 0 && (<>
+              <p className="text-[10px] font-black text-slate-500 uppercase pt-1">En el techo ({accesorios.length})</p>
+              <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                {accesorios.map(a => (
+                  <div key={a.id} className="p-1.5 rounded-xl border border-slate-200 bg-white">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[11px] font-black text-slate-800 truncate">{CATALOGO_ACCESORIOS.find(c => c.tipo === a.tipo)?.emoji} {nombreAccesorio(a.tipo)}</span>
+                      <button onClick={() => guardar(accesorios.filter(q => q.id !== a.id))} className="text-[10px] font-bold text-rose-600 hover:underline cursor-pointer">Quitar</button>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <button className={btn} title="Mover a la izquierda" onClick={() => mover(a.id, { x: Math.round((a.x - 0.5) * 10) / 10 })}>←</button>
+                      <button className={btn} title="Mover a la derecha" onClick={() => mover(a.id, { x: Math.round((a.x + 0.5) * 10) / 10 })}>→</button>
+                      <button className={btn} title="Mover hacia el fondo" onClick={() => mover(a.id, { z: Math.round((a.z - 0.5) * 10) / 10 })}>↑</button>
+                      <button className={btn} title="Mover hacia adelante" onClick={() => mover(a.id, { z: Math.round((a.z + 0.5) * 10) / 10 })}>↓</button>
+                      <button className={btn} title="Girar 90°" onClick={() => mover(a.id, { rot: ((a.rot || 0) + 90) % 360 })}>⟳</button>
+                      <span className="ml-auto text-[10px] font-mono text-slate-500">x {a.x.toFixed(1)} · z {a.z.toFixed(1)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>)}
+            <p className="text-[10px] text-slate-500 bg-orange-50 rounded-lg p-2">Se guardan con el diseño y salen en la foto para el cliente. Son de referencia: no suman al presupuesto del techo. Cada toque mueve 50 cm.</p>
+          </PanelDock3D>
+        );
+      })()}
+
       {panelMovil && (() => {
         const base: TechoMovil = movil || { tipo: 'corredizo', panos: 3, accionamiento: 'manual', abreHacia: 'inicio' };
         const cambiar = (p: Partial<TechoMovil>) => guardarMovil({ ...base, ...p });
@@ -4104,6 +4161,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             </button>
           ); })()}
 
+          {/* Accesorios bajo el techo: horno, parrilla, mesa y sillas */}
+          <button onClick={() => alternarPanel3d('accesorios')} aria-pressed={panelAccesorios}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${panelAccesorios ? 'bg-orange-600 text-white border-orange-500 font-bold' : accesorios.length ? 'bg-orange-50 text-orange-800 border-orange-300 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+            title="Accesorios bajo el techo: horno, parrilla, mesa y sillas">
+            <Flame className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Accesorios</span>
+          </button>
 </>)}
           {/* Colores y acabados */}
           <button onClick={() => alternarPanel3d('colores')} aria-pressed={panelColores}

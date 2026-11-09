@@ -158,6 +158,10 @@ export interface Segment3D {
 export type FormaCanaleta = 'rectangular' | 'media_cana' | 'moldura' | 'cajon' | 'escondida';
 export type LadosCanaleta = 'caida' | 'caida_lados' | 'perimetro';
 export type BajadaCanaleta = 'tubo' | 'gargola';
+/** Accesorio bajo el techo (referencia para el cliente; no suma al presupuesto). */
+export type TipoAccesorioTecho = 'horno' | 'parrilla' | 'mesa' | 'silla' | 'banca';
+export interface AccesorioTecho { id: string; tipo: TipoAccesorioTecho; x: number; z: number; rot: number }
+
 export interface CanaletaCfg {
   activa: boolean;
   material?: 'galvanizada' | 'pvc';
@@ -176,6 +180,7 @@ export interface CoverageZone3D {
   selected?: boolean;
   movil?: TechoMovil;           // Techo movible (opcional): mecanismo de apertura
   canaleta?: CanaletaCfg; // canaletas y bajadas (apagadas si no se activan)
+  accesorios?: AccesorioTecho[]; // horno, parrilla, mesa… bajo el techo (solo de referencia)
   colorHex?: number;      // color elegido en el 3D de Techos (Obra Civil y Drywall lo respetan)
 }
 
