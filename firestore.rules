@@ -67,6 +67,8 @@ service cloud.firestore {
     // Compras con Google Play: las registra solo el servidor (validarCompraPlay); el admin las ve.
     match /compras_play/{id} { allow read: if isAdmin(); allow write: if false; }
     // Pagos en línea (Mercado Pago): solo el servidor escribe; el admin puede revisarlos.
+    // Capturas de pago Yape/Plin (aparte de la compra para que la lista no pese): dueño crea y lee la suya; admin todo.
+    match /comprobantes/{id} { allow read: if lecturaPropia(); allow create: if creacionPropia(); allow update, delete: if isAdmin(); }
     match /pagos_en_linea/{id} { allow read: if isAdmin(); allow write: if false; }
     // Embudo de ventas de la IA: solo contadores por día (sin datos personales); el admin los lee.
     match /embudo_ventas/{dia} {

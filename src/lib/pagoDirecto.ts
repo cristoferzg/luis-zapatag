@@ -5,6 +5,8 @@
 // la valida con un toque en Compras; los créditos se cargan solos y al comprador le llega su aviso.
 // Configuración en config_ia/pago_directo (solo admin escribe; la leen los usuarios con sesión).
 import { addDoc, collection, doc, getDoc, setDoc } from 'firebase/firestore';
+// La captura va en comprobantes/<idCompra> (NO dentro de la compra): la lista de compras se
+// guarda en el equipo y con imágenes adentro se volvía pesada y lenta.
 import { db } from './firebase';
 
 export interface CuentaPago { numero: string; titular: string; qr?: string }
@@ -45,8 +47,14 @@ export interface PedidoDirecto { itemId: string; itemName: string; amount: numbe
 /** Crea la compra pendiente con la captura del pago (la valida el admin). */
 export async function enviarComprobante(userId: string, userName: string, p: PedidoDirecto, metodo: 'yape' | 'plin', captura: string): Promise<void> {
   if (import.meta.env.DEV && (window as any).__pagoDirectoSimulado) return;
-  await addDoc(collection(db, 'purchases'), {
+  const ref = await addDoc(collection(db, 'purchases'), {
     userId, userName: userName || '', itemId: p.itemId, itemName: p.itemName, amount: p.amount,
-    status: 'pendiente', voucherUrl: captura, metodo, origen: 'pago_directo', createdAt: new Date().toISOString(),
+    status: 'pendiente', voucherUrl: '', tieneComprobante: true, metodo, origen: 'pago_directo', createdAt: new Date().toISOString(),
   });
+  await setDoc(doc(db, 'comprobantes', ref.id), { userId, img: captura, createdAt: new Date().toISOString() });
+}
+
+/** Captura de una compra (solo se descarga al pedirla). */
+export async function leerComprobante(idCompra: string): Promise<string | null> {
+  try { const s = await getDoc(doc(db, 'comprobantes', idCompra)); return (s.data() as any)?.img || null; } catch { return null; }
 }

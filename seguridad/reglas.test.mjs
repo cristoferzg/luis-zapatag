@@ -134,6 +134,8 @@ await caso('A lee sus propias compras (consulta del aviso)', 'permite', () => ge
 await caso('A NO lee las compras de B', 'niega', () => getDocs(query(collection(A, 'purchases'), where('userId', '==', 'B'))));
 await caso('A envía su comprobante (compra pendiente)', 'permite', () => setDoc(doc(A, 'purchases/pA1'), { userId: 'A', status: 'pendiente', itemId: 'ai_creditos_20', voucherUrl: 'data:image/jpeg;base64,xx', metodo: 'yape' }));
 await caso('A NO se valida su propia compra', 'niega', () => setDoc(doc(A, 'purchases/pA2'), { userId: 'A', status: 'validada', itemId: 'ai_creditos_500' }));
+await caso('A guarda la captura de su pago', 'permite', () => setDoc(doc(A, 'comprobantes/pA1'), { userId: 'A', img: 'data:image/jpeg;base64,xx' }));
+await caso('A NO lee la captura de otro', 'niega', () => getDoc(doc(A, 'comprobantes/pB1')));
 await caso('A NO publica comunicados para todos', 'niega', () => setDoc(doc(A, 'notificaciones/x'), { title: 'Actualización de Compra' }));
 
 console.log('\nDiseños de Techos');

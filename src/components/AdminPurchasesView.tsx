@@ -5,6 +5,7 @@ import LectorComprobante from './common/LectorComprobante';
 import type { CourseCategory, TutorialVideo } from './UsabilidadVideosView';
 import { grantAIPlan, grantCreditos } from '../lib/aiAccess';
 import { precioPEN } from '../lib/currency';
+import { leerComprobante } from '../lib/pagoDirecto';
 
 interface Purchase {
   id: string;
@@ -175,6 +176,9 @@ export default function AdminPurchasesView() {
                 className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold cursor-pointer border ${abierto === purchase.id ? 'bg-violet-600 text-white border-violet-600' : 'bg-white text-violet-700 border-violet-200 hover:bg-violet-50'}`}>
                 <ScanLine className="w-4 h-4" /> <span className="hidden min-[380px]:inline">Comprobante</span>
               </button>
+              {(purchase as any).tieneComprobante && !purchase.voucherUrl && (
+                <button onClick={async () => { const img = await leerComprobante(purchase.id); if (img) setSelectedVoucher(img); else alert('No se encontró la captura.'); }} title="Ver captura del pago" className="p-2 rounded-xl text-blue-600 bg-white border border-slate-200 hover:bg-blue-50 cursor-pointer"><Eye className="w-4 h-4" /></button>
+              )}
               {purchase.voucherUrl && (
                 <button onClick={() => setSelectedVoucher(purchase.voucherUrl)} title="Ver voucher" className="p-2 rounded-xl text-blue-600 bg-white border border-slate-200 hover:bg-blue-50 cursor-pointer"><Eye className="w-4 h-4" /></button>
               )}
