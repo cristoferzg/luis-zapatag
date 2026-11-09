@@ -58,15 +58,11 @@ export const subscribeToCollection = <T>(
       
       // Merge intelligently with existing local items so nested collections (materiales, personal, cobros)
       // are never accidentally wiped out if a remote doc was written with empty arrays or missing fields
+      // Solo se mezcla con la copia propia (antes se leían 4 copias en cada cambio y trababa).
       const currentCached = safeStorage.getItem<T[]>(cacheKey, []) || [];
-      const sharedCached = safeStorage.getItem<T[]>(`sync_cache_${collectionName}_shared`, []) || [];
-      const adminCached = safeStorage.getItem<T[]>(`sync_cache_${collectionName}_admin`, []) || [];
-      const backupCached = safeStorage.getItem<T[]>(`${collectionName}_backup_snapshot_data`, []) || [];
 
       const lookupMap = new Map<string, any>();
-      const cachedLists = isPrivateCollection 
-        ? [currentCached] 
-        : [backupCached, sharedCached, adminCached, currentCached];
+      const cachedLists = [currentCached];
 
       cachedLists.forEach((list: any[]) => {
         list.forEach((it: any) => {
@@ -111,13 +107,9 @@ export const subscribeToCollection = <T>(
         };
       }) as T[];
 
-      // Save to local cache for instant future loads across all cache variants
+      // UNA sola copia en el equipo (antes se escribían 4 en cada cambio).
       safeStorage.setItem(cacheKey, items);
-      if (!isPrivateCollection) {
-        safeStorage.setItem(`sync_cache_${collectionName}_shared`, items);
-        safeStorage.setItem(`sync_cache_${collectionName}_admin`, items);
-        safeStorage.setItem(`${collectionName}_backup_snapshot_data`, items);
-      }
+      limpiarCopiasViejas(collectionName, cacheKey);
       callback(items);
     }, (error) => {
       handleFirestoreError(error, 'list', collectionName);
@@ -143,6 +135,19 @@ export const subscribeToCollection = <T>(
     return () => {};
   }
 };
+
+// Copias repetidas de versiones anteriores: se borran una vez que existe la copia propia.
+// La lista de usuarios no se toca (Accesos usa usuarios_backup_snapshot_data como respaldo)
+// y las privadas (projects, clients, finances, settings) solo tienen su copia.
+const CON_COPIAS_VIEJAS = new Set(['cursos', 'tutoriales', 'biblioteca', 'tickets', 'asesorias', 'notificaciones', 'config_flags', 'purchases']);
+const limpiadas = new Set<string>();
+function limpiarCopiasViejas(collectionName: string, cacheKey: string) {
+  if (!CON_COPIAS_VIEJAS.has(collectionName) || limpiadas.has(cacheKey)) return;
+  limpiadas.add(cacheKey);
+  [`sync_cache_${collectionName}_shared`, `sync_cache_${collectionName}_admin`, `sync_cache_${collectionName}_global`, `${collectionName}_backup_snapshot_data`]
+    .filter(k => k !== cacheKey)
+    .forEach(k => { try { safeStorage.removeItem(k); } catch { /* nada */ } });
+}
 
 const removeUndefined = (obj: any): any => {
   if (Array.isArray(obj)) {
@@ -315,8 +320,13 @@ export function useFirestoreArraySync<T extends {id: string}>(
   collectionName: string, 
   userId: string | undefined, 
   isGlobal: boolean = false,
-  isAdmin: boolean = false
+  isAdmin: boolean = false,
+  // Listas que no hacen falta para el Inicio: se conectan `diferirMs` después de abrir
+  // (mientras tanto se muestra la copia del equipo) o al instante si `ahora` es true.
+  opciones: { diferirMs?: number; ahora?: boolean } = {}
 ): [T[], React.Dispatch<React.SetStateAction<T[]>>] {
+  // Una vez conectada, queda conectada (no se corta al salir del apartado).
+  const [habilitado, setHabilitado] = useState(!opciones.diferirMs || !!opciones.ahora);
   const isPrivateCollection = !isGlobal && ['projects', 'clients', 'finances', 'settings'].includes(collectionName);
   
   const cacheKey = isPrivateCollection 
@@ -334,6 +344,8 @@ export function useFirestoreArraySync<T extends {id: string}>(
     }
 
     const primary = safeStorage.getItem<T[]>(cacheKey, []);
+    // Con copia propia se muestra al instante sin leer ni mezclar las demás.
+    if (primary.length > 0) return primary;
     const admin = safeStorage.getItem<T[]>(`sync_cache_${collectionName}_admin`, []);
     const shared = safeStorage.getItem<T[]>(`sync_cache_${collectionName}_shared`, []);
     const backup = safeStorage.getItem<T[]>(`${collectionName}_backup_snapshot_data`, []);
@@ -364,6 +376,13 @@ export function useFirestoreArraySync<T extends {id: string}>(
   const currentDataRef = useRef<T[]>(data);
   currentDataRef.current = data;
   const sesion = useSesionConPin();
+  useEffect(() => {
+    if (habilitado) return;
+    if (opciones.ahora) { setHabilitado(true); return; }
+    if (!sesion) return; // la espera cuenta desde que entra con su PIN
+    const t = setTimeout(() => setHabilitado(true), opciones.diferirMs);
+    return () => clearTimeout(t);
+  }, [opciones.ahora, habilitado, sesion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // If not authenticated and not global and not admin, do not leak admin data
@@ -391,6 +410,7 @@ export function useFirestoreArraySync<T extends {id: string}>(
       if (cancelled) return;
       // Sin PIN (pantalla de ingreso o sesión anónima antigua) se queda lo guardado en el equipo.
       if (!sesion) return;
+      if (!habilitado) return; // lista diferida: todavía se muestra la copia del equipo
       unsubscribe = subscribeToCollection<T>(collectionName, userId, (freshItems) => {
         setData(freshItems);
       }, isGlobal, isAdmin);
@@ -400,7 +420,7 @@ export function useFirestoreArraySync<T extends {id: string}>(
       cancelled = true;
       if (unsubscribe) unsubscribe();
     };
-  }, [collectionName, userId, isGlobal, isAdmin, cacheKey, sesion]);
+  }, [collectionName, userId, isGlobal, isAdmin, cacheKey, sesion, habilitado]);
 
   const updateData: React.Dispatch<React.SetStateAction<T[]>> = (action) => {
     setData((prev) => {
@@ -408,14 +428,9 @@ export function useFirestoreArraySync<T extends {id: string}>(
       
       const isPrivate = !isGlobal && ['projects', 'clients', 'finances', 'settings'].includes(collectionName);
 
-      // Update local caches strictly scoped
+      // Una sola copia en el equipo.
       safeStorage.setItem(cacheKey, next);
-      if ((isAdmin || isGlobal) && !isPrivate) {
-        safeStorage.setItem(`sync_cache_${collectionName}_admin`, next);
-        safeStorage.setItem(`${collectionName}_backup_snapshot_data`, next);
-        safeStorage.setItem(`sync_cache_${collectionName}_shared`, next);
-      }
-      if (userId) {
+      if (isPrivate && userId && `sync_cache_${collectionName}_${userId}` !== cacheKey) {
         safeStorage.setItem(`sync_cache_${collectionName}_${userId}`, next);
       }
 

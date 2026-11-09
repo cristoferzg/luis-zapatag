@@ -1635,12 +1635,17 @@ export default function App() {
   const [settings, setSettings] = useFirestoreArraySync<SystemConfig>('settings', activeUid, false, isAdmin);
 
   // Global collections:
-  const [usuarios, setUsuarios] = useFirestoreArraySync<SystemUser>('usuarios', activeUid, true, isAdmin);
-  const [cursos, setCursos] = useFirestoreArraySync<CourseCategory>('cursos', activeUid, true, isAdmin);
-  const [tickets, setTickets] = useFirestoreArraySync<Ticket>('tickets', activeUid, true, isAdmin);
-  const [asesorias, setAsesorias] = useFirestoreArraySync<Asesoria>('asesorias', activeUid, true, isAdmin);
-  const [biblioteca, setBiblioteca] = useFirestoreArraySync<BibliotecaItem>('biblioteca', activeUid, true, isAdmin);
-  const [tutoriales, setTutoriales] = useFirestoreArraySync<TutorialVideo>('tutoriales', activeUid, true, isAdmin);
+  // Listas que el Inicio no necesita: se conectan 8 s después de entrar (se ve la copia del
+  // equipo mientras tanto) o al instante si se abre su apartado. Así el Inicio carga primero
+  // proyectos, clientes, finanzas, ajustes y comunicados.
+  const DIFERIR_MS = 8000;
+  const enVista = (...vs: string[]) => ({ diferirMs: DIFERIR_MS, ahora: vs.includes(currentView) });
+  const [usuarios, setUsuarios] = useFirestoreArraySync<SystemUser>('usuarios', activeUid, true, isAdmin, enVista('usuarios', 'supervision', 'settings', 'clients'));
+  const [cursos, setCursos] = useFirestoreArraySync<CourseCategory>('cursos', activeUid, true, isAdmin, enVista('usabilidad', 'settings'));
+  const [tickets, setTickets] = useFirestoreArraySync<Ticket>('tickets', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
+  const [asesorias, setAsesorias] = useFirestoreArraySync<Asesoria>('asesorias', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
+  const [biblioteca, setBiblioteca] = useFirestoreArraySync<BibliotecaItem>('biblioteca', activeUid, true, isAdmin, enVista('biblioteca', 'settings'));
+  const [tutoriales, setTutoriales] = useFirestoreArraySync<TutorialVideo>('tutoriales', activeUid, true, isAdmin, enVista('usabilidad', 'settings'));
   const [todosLosComunicados, setGlobalNotifs] = useFirestoreArraySync<GlobalNotification>('notificaciones', 'global', true);
   // Los avisos viejos de compras (se publicaban para todos) no se muestran en el carrusel ni en la campana.
   const globalNotifs = useMemo(() => todosLosComunicados.filter(n => !esAvisoCompraViejo(n)), [todosLosComunicados]);
@@ -1967,10 +1972,14 @@ export default function App() {
       const today = new Date().toISOString().split('T')[0];
 
       if (lastBackupDate !== today) {
-        performAdminBackup().then(() => {
-          localStorage.setItem('lastBackupDate', today);
-          console.log('Backup automático completado');
-        }).catch(err => console.error('Error en backup automático:', err));
+        // Un minuto después de entrar (antes corría al abrir y competía con la carga del Inicio).
+        const t = setTimeout(() => {
+          performAdminBackup().then(() => {
+            localStorage.setItem('lastBackupDate', today);
+            console.log('Backup automático completado');
+          }).catch(err => console.error('Error en backup automático:', err));
+        }, 60000);
+        return () => clearTimeout(t);
       }
     }
   }, [isAdmin]);

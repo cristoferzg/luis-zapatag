@@ -13,7 +13,8 @@ export function useAvisosCompras(userId: string | undefined, uidBandeja: string 
     if (!activo || !userId || !uidBandeja) return;
     const clave = 'innova_compras_estado_' + uidBandeja;
     let des: (() => void) | undefined;
-    try {
+    // No hace falta para el Inicio: se conecta 8 s después de entrar.
+    const t = setTimeout(() => { try {
       des = onSnapshot(query(collection(db, 'purchases'), where('userId', '==', userId)), snap => {
         const vistos = safeStorage.getItem<Record<string, string> | null>(clave, null);
         const ahora: Record<string, string> = {};
@@ -30,8 +31,8 @@ export function useAvisosCompras(userId: string | undefined, uidBandeja: string 
         agregarABandeja(uidBandeja, avisos);
         avisos.forEach(a => notificar(a.titulo, a.cuerpo));
       }, () => { /* sin permiso o sin conexión: no pasa nada */ });
-    } catch { /* sin Firestore */ }
-    return () => { try { des?.(); } catch { /* nada */ } };
+    } catch { /* sin Firestore */ } }, 8000);
+    return () => { clearTimeout(t); try { des?.(); } catch { /* nada */ } };
   }, [userId, uidBandeja, activo]);
 }
 

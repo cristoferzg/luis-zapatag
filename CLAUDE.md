@@ -197,3 +197,12 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Embudo: `embudo_ventas/<AAAA-MM-DD>` contadores (`lib/embudoVentas.ts`); panel admin `VentasIAPanel` (lista para vender).
 - Costo en botones de IA: `common/CostoIA.tsx`. Saldo + "Recargar" arriba (PC: menú; celular: barra).
 - DEV: `__pagoEnLineaSimulado`, `__primeraDobleSimulada`, `__embudoSimulado`, `__aiAccessSimulado` (incluir en el grep del dist).
+
+## Rapidez al entrar
+- `useFirestoreArraySync(..., { diferirMs, ahora })`: usuarios, cursos, tutoriales, biblioteca, tickets y asesorías se conectan
+  8 s después de entrar (o al instante si se abre su apartado; luego quedan conectadas). El Inicio solo espera projects,
+  clients, finances, settings, notificaciones y config_flags. Aviso de compras (purchases) también a los 8 s.
+- UNA copia por lista en el equipo (`sync_cache_<col>_<clave>`); las copias viejas (_shared/_admin/_global/_backup_snapshot_data)
+  se borran solas (menos usuarios: Accesos usa usuarios_backup_snapshot_data). El respaldo diario del admin corre 60 s después.
+- Medición: `firebase emulators:exec --only firestore,auth,functions --project innovacontratistas-434d2 "bash seguridad/medir.sh"`
+  (requiere `functions/.secret.local` con ADMIN_PIN de prueba; no se sube).
