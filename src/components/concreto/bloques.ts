@@ -112,6 +112,20 @@ export const MUEBLES: Mueble[] = [
   { id: 'moto', nombre: 'Moto (estacionamiento)', emoji: '🏍️', grupo: 'Exterior', ancho: 0.8, fondo: 2.1, alto: 1.1, planta: [R(0.25, 0, 0.3, 2.1, 0.12), L(0, 0.5, 0.8, 0.5)], cajas: [{ u: 0.25, v: 0, y: 0.25, w: 0.3, d: 2.1, h: 0.55, color: 0x475569 }] },
   { id: 'lavadero_ropa', nombre: 'Lavadero de ropa', emoji: '🧺', grupo: 'Exterior', ancho: 0.6, fondo: 0.55, alto: 0.9, planta: [R(0, 0, 0.6, 0.55), R(0.06, 0.06, 0.48, 0.3, 0.04), L(0.06, 0.4, 0.54, 0.4)], cajas: [{ u: 0, v: 0, y: 0, w: 0.6, d: 0.55, h: 0.9, color: 0x9ca3af }] },
   { id: 'parrilla', nombre: 'Parrilla / zona BBQ', emoji: '🍖', grupo: 'Exterior', ancho: 1.5, fondo: 0.7, alto: 0.9, planta: [R(0, 0, 1.5, 0.7), R(0.15, 0.1, 0.8, 0.5)], cajas: [{ u: 0, v: 0, y: 0, w: 1.5, d: 0.7, h: 0.9, color: 0xb45309 }, { u: 0.15, v: 0.1, y: 0.9, w: 0.8, d: 0.5, h: 0.05, color: OSCURO }] },
+  // Horno de barro (leña) sobre base de ladrillo; la cúpula va en anillos que se achican.
+  { id: 'horno_barro', nombre: 'Horno de barro (leña)', emoji: '🔥', grupo: 'Exterior', ancho: 1.4, fondo: 1.4, alto: 2.0,
+    planta: [R(0, 0, 1.4, 1.4), { t: 'circ', u: 0.7, v: 0.7, r: 0.6 }, R(0.5, 1.25, 0.4, 0.15)],
+    cajas: [{ u: 0, v: 0, y: 0, w: 1.4, d: 1.4, h: 0.9, color: 0xa4472b }, { u: -0.05, v: -0.05, y: 0.9, w: 1.5, d: 1.5, h: 0.06, color: 0xb8b3a8 },
+      { u: 0.1, v: 0.1, y: 0.96, w: 1.2, d: 1.2, h: 0.3, color: 0xc2703d, cil: true }, { u: 0.22, v: 0.22, y: 1.26, w: 0.96, d: 0.96, h: 0.18, color: 0xc2703d, cil: true },
+      { u: 0.4, v: 0.4, y: 1.44, w: 0.6, d: 0.6, h: 0.12, color: 0xc2703d, cil: true }, { u: 0.5, v: 1.22, y: 0.96, w: 0.4, d: 0.12, h: 0.24, color: 0x1f2937 },
+      { u: 0.63, v: 0.35, y: 1.5, w: 0.14, d: 0.14, h: 0.5, color: 0x9ca3af, cil: true }, { u: 0.25, v: 1.3, y: 0.1, w: 0.9, d: 0.1, h: 0.25, color: 0x6b4423 }] },
+  // Parrilla de ladrillo con mesada, campana metálica y chimenea.
+  { id: 'parrilla_campana', nombre: 'Parrilla con campana', emoji: '🍖', grupo: 'Exterior', ancho: 1.8, fondo: 0.8, alto: 3.4,
+    planta: [R(0, 0, 1.8, 0.8), R(0.2, 0.15, 1.4, 0.55), L(0.2, 0.42, 1.6, 0.42)],
+    cajas: [{ u: 0, v: 0, y: 0, w: 1.8, d: 0.12, h: 1.86, color: 0xa4472b }, { u: 0, v: 0.12, y: 0, w: 0.12, d: 0.68, h: 1.86, color: 0xa4472b }, { u: 1.68, v: 0.12, y: 0, w: 0.12, d: 0.68, h: 1.86, color: 0xa4472b },
+      { u: -0.05, v: 0, y: 0.9, w: 1.9, d: 0.85, h: 0.06, color: 0xb8b3a8 }, { u: 0.2, v: 0.15, y: 0.96, w: 1.4, d: 0.55, h: 0.04, color: 0x1f2937 },
+      { u: 0.1, v: 0.05, y: 1.86, w: 1.6, d: 0.75, h: 0.2, color: 0x9ca3af }, { u: 0.35, v: 0.15, y: 2.06, w: 1.1, d: 0.5, h: 0.2, color: 0x9ca3af },
+      { u: 0.6, v: 0.22, y: 2.26, w: 0.6, d: 0.35, h: 0.2, color: 0x9ca3af }, { u: 0.77, v: 0.27, y: 2.46, w: 0.26, d: 0.26, h: 0.94, color: 0x9ca3af }] },
   { id: 'mesa_jardin', nombre: 'Mesa de jardín con sombrilla', emoji: '⛱️', grupo: 'Exterior', ancho: 1.0, fondo: 1.0, alto: 2.2, planta: [{ t: 'circ', u: 0.5, v: 0.5, r: 0.45 }, { t: 'circ', u: 0.5, v: 0.5, r: 0.04 }], cajas: [{ u: 0.05, v: 0.05, y: 0.72, w: 0.9, d: 0.9, h: 0.03, color: BLANCO, cil: true }, { u: 0.48, v: 0.48, y: 0, w: 0.04, d: 0.04, h: 2.2, color: ACERO, cil: true }, { u: -0.4, v: -0.4, y: 2.0, w: 1.8, d: 1.8, h: 0.1, color: 0xf59e0b, cil: true }] },
 ];
 export const muebleDe = (id: string) => MUEBLES.find(m => m.id === id);
