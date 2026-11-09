@@ -129,6 +129,13 @@ await caso('Admin lee el embudo', 'permite', () => getDoc(doc(admin, 'embudo_ven
 await caso('A NO crea un pago en línea', 'niega', () => setDoc(doc(A, 'pagos_en_linea/x1'), { ws: 'A', entregado: true }));
 await caso('A NO lee los pagos en línea', 'niega', () => getDoc(doc(A, 'pagos_en_linea/x1')));
 
+console.log('\nCompras (avisos solo al comprador)');
+await caso('A lee sus propias compras (consulta del aviso)', 'permite', () => getDocs(query(collection(A, 'purchases'), where('userId', '==', 'A'))));
+await caso('A NO lee las compras de B', 'niega', () => getDocs(query(collection(A, 'purchases'), where('userId', '==', 'B'))));
+await caso('A envía su comprobante (compra pendiente)', 'permite', () => setDoc(doc(A, 'purchases/pA1'), { userId: 'A', status: 'pendiente', itemId: 'ai_creditos_20', voucherUrl: 'data:image/jpeg;base64,xx', metodo: 'yape' }));
+await caso('A NO se valida su propia compra', 'niega', () => setDoc(doc(A, 'purchases/pA2'), { userId: 'A', status: 'validada', itemId: 'ai_creditos_500' }));
+await caso('A NO publica comunicados para todos', 'niega', () => setDoc(doc(A, 'notificaciones/x'), { title: 'Actualización de Compra' }));
+
 console.log('\nDiseños de Techos');
 await caso('A lista sus diseños (consulta de la app)', 'permite', () => getDocs(query(collection(A, 'planos_techos'), where('authorUid', '==', 'A'))));
 await caso('A NO lista todos los diseños', 'niega', () => getDocs(collection(A, 'planos_techos')));

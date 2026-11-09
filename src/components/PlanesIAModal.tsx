@@ -11,7 +11,7 @@ import {
   AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, getAIAccess, saldoEfectivo,
   solicitarPlanIA, solicitarCreditos, getAICtx, primeraRecargaDobleActiva,
 } from '../lib/aiAccess';
-import { comprasIAPermitidas } from '../lib/plataforma';
+import { comprasIAPermitidas, esAppAndroid } from '../lib/plataforma';
 import { usaGooglePlay, iniciarPagosPlay, comprarEnPlay, precioPlay, idProductoPack, idProductoPlan } from '../lib/pagosPlay';
 import { safeStorage } from '../lib/storageManager';
 import { pagoEnLineaDisponible, pagarEnLinea } from '../lib/pagoEnLinea';
@@ -101,7 +101,8 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
   const [cfgDirecto, setCfgDirecto] = useState<ConfigPagoDirecto | null>(null);
   const [pedidoDirecto, setPedidoDirecto] = useState<(PedidoDirecto & { clave: string }) | null>(null);
   useEffect(() => { if (!play) leerPagoDirecto().then(setCfgDirecto); }, [play]);
-  const directo = !play && pagoDirectoListo(cfgDirecto);
+  // Nunca dentro de la app de Android (Google Play exige cobrar solo con Google).
+  const directo = !esAppAndroid() && !play && pagoDirectoListo(cfgDirecto);
   // Web y PC con pago en línea activo: Mercado Pago (Yape, tarjeta…) y los créditos se cargan solos.
   const enLinea = !play && !directo && pagoEnLineaDisponible();
   const pagarOnline = async (clave: string, pedido: Parameters<typeof pagarEnLinea>[0]) => {

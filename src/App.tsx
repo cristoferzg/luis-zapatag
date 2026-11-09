@@ -32,6 +32,7 @@ import { ClipboardList } from 'lucide-react';
 import BandejaAvisos from './components/BandejaAvisos';
 import TarjetaGooglePlay from './components/TarjetaGooglePlay';
 import { agregarABandeja } from './lib/bandejaAvisos';
+import { useAvisosCompras, esAvisoCompraViejo } from './lib/avisosCompras';
 import { visibleClase, visibleRecurso } from './lib/accesoContenido';
 import { OfflineIndicator } from './components/pwa/OfflineIndicator';
 import type { BibliotecaItem } from './components/BibliotecaPremiumView';
@@ -1639,7 +1640,9 @@ export default function App() {
   const [asesorias, setAsesorias] = useFirestoreArraySync<Asesoria>('asesorias', activeUid, true, isAdmin);
   const [biblioteca, setBiblioteca] = useFirestoreArraySync<BibliotecaItem>('biblioteca', activeUid, true, isAdmin);
   const [tutoriales, setTutoriales] = useFirestoreArraySync<TutorialVideo>('tutoriales', activeUid, true, isAdmin);
-  const [globalNotifs, setGlobalNotifs] = useFirestoreArraySync<GlobalNotification>('notificaciones', 'global', true);
+  const [todosLosComunicados, setGlobalNotifs] = useFirestoreArraySync<GlobalNotification>('notificaciones', 'global', true);
+  // Los avisos viejos de compras (se publicaban para todos) no se muestran en el carrusel ni en la campana.
+  const globalNotifs = useMemo(() => todosLosComunicados.filter(n => !esAvisoCompraViejo(n)), [todosLosComunicados]);
 
   // Interruptores globales de apartados "en desarrollo": el admin decide qué
   // secciones se ocultan para los usuarios. Colección global (visible por todos).
@@ -1928,6 +1931,9 @@ export default function App() {
     agregarABandeja(activeUid, avisos.map(([titulo, cuerpo, id, vista]) => ({ id, titulo, cuerpo, vista })));
     avisos.slice(0, 3).forEach(([t, c]) => { notificar(t, c); });
   }, [activeUid, globalNotifs, tickets, asesorias, tutoriales, biblioteca, cursos]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Compras validadas o rechazadas: aviso SOLO para el comprador (campana + notificación).
+  useAvisosCompras(user?.id, activeUid, !!user && !isAdmin);
 
   // RESCATE: la pantalla Configuración no recibía el usuario y guardaba en
   // "settings_default". Si ese documento es de ESTE usuario (su userId) y el suyo propio
