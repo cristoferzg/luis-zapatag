@@ -124,6 +124,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Google Play: `cd android && gradle bundleRelease` firma con `android/keystore.properties` (fuera del repo).
 
 ## Compras con Google Play (app Android)
+- CANDADO: en la app de Android NUNCA se vende por fuera de Google (`comprasPermitidas()` = solo web/PC; `comprasIAPermitidas()`
+  en Android = Google Play activo). El viejo interruptor `comprasEnApp` ya no tiene efecto (en el panel es un aviso 🔒).
+  Yape/Plin directo y Mercado Pago también se excluyen con `esAppAndroid()`. "Recargar" se oculta si no se puede comprar.
 - `cordova-plugin-purchase` (Billing 9). Cliente `src/lib/pagosPlay.ts`; interruptor `config_ia/planes.pagosGooglePlay`
   (Configuración → Planes y créditos). Con él activo, en Android los planes/recargas de IA se pagan SOLO con Google.
 - IDs: `creditos_<n>` (consumible) y `plan_<id>` (suscripción, planes base `mensual`/`anual`).

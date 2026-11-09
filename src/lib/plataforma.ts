@@ -5,19 +5,19 @@
 import { Capacitor } from '@capacitor/core';
 
 export const esAppAndroid = (): boolean => Capacitor.isNativePlatform();
-// Interruptor del admin (config_ia/planes.comprasEnApp): la app que se reparte como APK
-// (fuera de Play Store) SÍ puede vender por WhatsApp/Yape. Si algún día la app se publica
-// en Play Store, se apaga desde Configuración → Planes y créditos, sin recompilar.
-// Por seguridad con Google Play: apagado salvo que el admin lo encienda explícitamente.
+// CANDADO GOOGLE PLAY: en la app de Android NUNCA se vende por fuera de Google (ni WhatsApp,
+// ni Yape/Plin, ni Mercado Pago, ni precios de cursos o recursos). El antiguo interruptor
+// config_ia/planes.comprasEnApp ya no tiene efecto (queda solo para leerlo). En la web y en el
+// programa de PC se vende como siempre.
 let _comprasEnApp = false;
 export const fijarComprasEnApp = (v: boolean) => { _comprasEnApp = v; };
 export const comprasEnAppActivas = () => _comprasEnApp;
-export const comprasPermitidas = (): boolean => !esAppAndroid() || _comprasEnApp;
+export const comprasPermitidas = (): boolean => !esAppAndroid();
 // Interruptor del admin (config_ia/planes.pagosGooglePlay): en la app de Android los planes y
 // recargas de IA se compran con Google Play. Se enciende cuando los productos ya existen en Play Console.
 let _pagosPlay = false;
 export const fijarPagosPlay = (v: boolean) => { _pagosPlay = v; };
 export const pagosPlayActivos = () => _pagosPlay;
-/** ¿Se pueden comprar planes y recargas de IA aquí? Con Google Play activo, en Android solo
- *  se compra con Google (nunca por WhatsApp/Yape); en la web y la PC, como siempre. */
-export const comprasIAPermitidas = (): boolean => esAppAndroid() && _pagosPlay ? !!(window as any).CdvPurchase : comprasPermitidas();
+/** ¿Se pueden comprar planes y recargas de IA aquí? En Android SOLO con Google Play (si está
+ *  activo y el cobro de Google cargó); si no, en Android solo se ve el saldo. Web y PC: siempre. */
+export const comprasIAPermitidas = (): boolean => esAppAndroid() ? (_pagosPlay && !!(window as any).CdvPurchase) : true;

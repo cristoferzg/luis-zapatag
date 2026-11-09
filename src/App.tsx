@@ -21,6 +21,7 @@ import { cambiarEspacioDeTrabajo, fijarDuenoSiFalta } from './lib/espacioUsuario
 import { quitarComunicado } from './lib/comunicados';
 import { useFirestoreArraySync, updateRecord } from './lib/db';
 import { plataforma as plataformaApp, CODIGO_ANDROID, fijarAppEnCuenta } from './lib/appDescargas';
+import { comprasIAPermitidas } from './lib/plataforma';
 import { setAICtx, cargarEstadoIA, getConfigIA, COSTO_CREDITOS } from './lib/aiAccess';
 import { usaGooglePlay, iniciarPagosPlay } from './lib/pagosPlay';
 import { useSaldoIA } from './lib/saldoIA';
@@ -1742,6 +1743,8 @@ export default function App() {
   // "Recargar" va directo a las recargas (con poco saldo el botón se pone en rojo).
   const irARecargas = () => { setCurrentView('membresia'); setTimeout(() => document.getElementById('recargas-ia')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 450); };
   const saldoBajo = !!saldoIA && !saldoIA.ilimitado && saldoIA.total < COSTO_CREDITOS.croquis;
+  // "Recargar" solo donde se puede comprar (en Android, solo con Google Play activo).
+  const puedeRecargar = comprasIAPermitidas();
   useEffect(() => {
     if (!user) return;
     cargarEstadoIA().then(v => {
@@ -2775,10 +2778,10 @@ export default function App() {
               className={`flex-1 min-w-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black cursor-pointer ${saldoBajo ? 'bg-rose-500/15 border border-rose-400/40 text-rose-200' : 'bg-amber-400/15 border border-amber-400/30 text-amber-200 hover:bg-amber-400/25'}`}>
               <Coins className="w-4 h-4 shrink-0" /><span className="truncate">{saldoIA.total.toLocaleString('es-PE')} créditos</span>
             </button>
-            <button onClick={irARecargas} title="Comprar más créditos"
+            {puedeRecargar && <button onClick={irARecargas} title="Comprar más créditos"
               className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-black text-white cursor-pointer ${saldoBajo ? 'bg-rose-500 hover:bg-rose-600 animate-pulse' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
               <Plus className="w-3.5 h-3.5" />Recargar
-            </button>
+            </button>}
           </div>
         )}
         <div className={`flex-1 overflow-y-auto py-4 ${isSidebarCollapsed ? 'px-2' : 'px-3'} custom-scrollbar`}>
@@ -2879,10 +2882,10 @@ export default function App() {
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[10px] font-black cursor-pointer hover:bg-amber-400/25">
                           <Coins className="w-3 h-3" />{saldoIA.total.toLocaleString('es-PE')} créditos · {saldoIA.planId === 'gratis' ? 'Gratis' : saldoIA.planNombre}
                         </button>
-                        <button onClick={() => { irARecargas(); setIsMobileMenuOpen(false); }} title="Comprar más créditos"
+                        {puedeRecargar && <button onClick={() => { irARecargas(); setIsMobileMenuOpen(false); }} title="Comprar más créditos"
                           className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-black cursor-pointer ${saldoBajo ? 'bg-rose-500 text-white animate-pulse' : 'bg-emerald-500 text-white hover:bg-emerald-400'}`}>
                           <Plus className="w-3 h-3" />Recargar
-                        </button>
+                        </button>}
                       </span>
                     )}
                   </div>
@@ -2929,10 +2932,10 @@ export default function App() {
               <p className="text-[11px] leading-tight text-slate-500 truncate">{currentSettings.appName}{isAdmin ? ' · Admin' : user?.name && user.name !== currentSettings.appName ? ` · ${user.name}` : ''}</p>
             </div>
             {conMembresia && saldoIA && !saldoIA.ilimitado && (
-              <button onClick={() => { tocar(); irARecargas(); }} title="Tus créditos · tocar para recargar"
+              <button onClick={() => { tocar(); puedeRecargar ? irARecargas() : irAPlanes(); }} title="Tus créditos"
                 className={`shrink-0 inline-flex items-center gap-1 pl-3 pr-1 h-9 rounded-full border text-xs font-black cursor-pointer ${saldoBajo ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
                 <Coins className="w-4 h-4 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')}
-                <span className={`ml-0.5 w-7 h-7 rounded-full flex items-center justify-center text-white ${saldoBajo ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`}><Plus className="w-4 h-4" /></span>
+{puedeRecargar && <span className={`ml-0.5 w-7 h-7 rounded-full flex items-center justify-center text-white ${saldoBajo ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`}><Plus className="w-4 h-4" /></span>}
               </button>
             )}
             <BandejaAvisos uid={activeUid} onIr={v => setCurrentView(v as ViewType)} />
@@ -2972,10 +2975,10 @@ export default function App() {
                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full border text-xs font-black cursor-pointer ${saldoBajo ? 'bg-rose-50 border-rose-300 text-rose-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
                    <Coins className="w-3.5 h-3.5 text-amber-500" />{saldoIA.total.toLocaleString('es-PE')} créditos
                  </button>
-                 <button onClick={irARecargas} title="Comprar más créditos"
+                 {puedeRecargar && <button onClick={irARecargas} title="Comprar más créditos"
                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black text-white cursor-pointer ${saldoBajo ? 'bg-rose-500 hover:bg-rose-600 animate-pulse' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
                    <Plus className="w-3.5 h-3.5" />Recargar
-                 </button>
+                 </button>}
                </span>
              )}
           </header>

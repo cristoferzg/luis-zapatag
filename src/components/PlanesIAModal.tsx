@@ -35,10 +35,10 @@ const COSTOS: [string, number | 'gratis'][] = [
   ['Diseño de melamina', COSTO_CREDITOS.melamina], ['Diseño de drywall', COSTO_CREDITOS.drywall], ['Gasfitería o electricidad', COSTO_CREDITOS.gasfiteria],
   ['Planta de obra civil', COSTO_CREDITOS.obra], ['Plano a mano de techo', COSTO_CREDITOS.croquis],
 ];
-function TablaCostos() {
+function TablaCostos({ titulo = true }: { titulo?: boolean }) {
   return (
     <div>
-      <p className="text-xs font-black text-slate-700 mb-1.5">¿Cuánto cuesta cada función?</p>
+      {titulo && <p className="text-xs font-black text-slate-700 mb-1.5">¿Cuánto cuesta cada función?</p>}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
         {COSTOS.map(([t, n]) => (
           <div key={t} className="rounded-xl bg-slate-50 border border-slate-200 px-2.5 py-1.5 flex items-center justify-between gap-2">
@@ -155,7 +155,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
           )}
 
           {!comprasIAPermitidas() ? (
-            <div className="space-y-2"><TablaCostos /><p className="text-sm text-slate-600">Los créditos de tu plan se renuevan cada mes.</p></div>
+            <div className="space-y-2"><TablaCostos titulo={false} /><p className="text-sm text-slate-600">Los créditos de tu plan se renuevan cada mes.</p></div>
           ) : (<>
           <TablaCostos />
           <div className="flex flex-wrap items-center justify-end gap-3">

@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { auth } from '../lib/firebase';
 import { Sparkles, Save, Check, Coins } from 'lucide-react';
-import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios, setComprasEnApp, setPagosGooglePlay } from '../lib/aiAccess';
+import { AIPlan, PackCreditos, COSTO_CREDITOS, getConfigIA, setConfigIA, PLANES_IA_DEFAULT, PACKS_CREDITOS_DEFAULT, cargarEstadoIA, setIAHabilitadaUsuarios, setPagosGooglePlay } from '../lib/aiAccess';
 import { comprasEnAppActivas, pagosPlayActivos } from '../lib/plataforma';
 import { idProductoPack, idProductoPlan } from '../lib/pagosPlay';
 import { simb, enMoneda, aSoles } from '../lib/currency';
@@ -100,18 +100,13 @@ export default function PlanesIAAdminPanel() {
         )}
       </div>
 
-      {/* Interruptor: compras dentro de la app de Android */}
-      <div className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${enApp ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+      {/* Candado Google Play: en Android no se vende por fuera de Google (antes era un interruptor). */}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">
+        <span className="text-xl leading-none">🔒</span>
         <div>
-          <p className="text-sm font-black text-slate-800">Compras dentro de la app de Android: {enApp ? <span className="text-emerald-700">PERMITIDAS</span> : <span className="text-slate-500">SOLO EN LA WEB</span>}</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            {enApp ? 'Desde la app se pueden pedir planes, recargas, cursos y recursos (pago por WhatsApp/Yape). Apágalo si publicas la app en Play Store: Google exige su propio cobro.' : 'En la app solo se ve el saldo; para comprar hay que entrar a la web.'}
-          </p>
+          <p className="text-sm font-black text-slate-800">App de Android: solo Google Play</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Por las reglas de Google Play, en la app de Android nunca se muestra pedir por WhatsApp, Yape, Plin ni Mercado Pago, ni precios de cursos o recursos. Allí se compra solo con Google Play (actívalo abajo); si está apagado, en la app solo se ve el saldo. En la web y en el programa de PC se vende con todas las opciones.</p>
         </div>
-        <button onClick={async () => { setError(null); try { await setComprasEnApp(!enApp); setEnApp(!enApp); } catch (e) { setError(await motivoError(e, 'cambiar las compras en la app')); } }}
-          className={`shrink-0 px-4 py-2 rounded-xl text-sm font-black cursor-pointer ${enApp ? 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}>
-          {enApp ? 'Solo en la web' : 'Permitir en la app'}
-        </button>
       </div>
 
       {/* Interruptor: cobrar con Google Play en la app de Android */}

@@ -34,7 +34,7 @@ function CuentaEditor({ nombre, color, c, onChange }: { nombre: string; color: s
   );
 }
 
-export default function VentasIAPanel({ iaActiva, comprasEnApp, googlePlay, onError }: { iaActiva: boolean; comprasEnApp: boolean; googlePlay: boolean; onError: (e: unknown, accion: string) => void }) {
+export default function VentasIAPanel({ iaActiva, googlePlay, onError }: { iaActiva: boolean; comprasEnApp?: boolean; googlePlay: boolean; onError: (e: unknown, accion: string) => void }) {
   const [enLinea, setEnLinea] = useState(pagoEnLineaDisponible());
   const [doble, setDoble] = useState(true);
   const [embudo, setEmbudo] = useState<{ dia: string; datos: Partial<Record<PasoEmbudo, number>> }[]>([]);
@@ -47,8 +47,7 @@ export default function VentasIAPanel({ iaActiva, comprasEnApp, googlePlay, onEr
 
   const checks: { ok: boolean; t: string; d: string }[] = [
     { ok: iaActiva, t: 'Funciones inteligentes activadas para usuarios', d: 'Sin esto los usuarios no ven créditos ni planes: nadie puede comprar.' },
-    { ok: googlePlay, t: 'Cobro con Google Play en la app de Android', d: 'Con los productos creados y activos en Play Console (incluida la recarga creditos_20).' },
-    { ok: comprasEnApp || googlePlay, t: 'Compras visibles en la app de Android', d: 'Con Google Play activo se muestran solas.' },
+    { ok: googlePlay, t: 'Cobro con Google Play en la app de Android', d: 'Es la ÚNICA forma de vender dentro de la app (candado de Google Play). Con los productos creados y activos en Play Console, incluida la recarga creditos_20.' },
     { ok: pagoDirectoListo(directo) || enLinea, t: 'Cobro en la web y la PC (Yape / Plin)', d: 'El usuario paga a tu Yape o Plin y sube la captura en la app; tú validas con un toque en Compras. Sin esto, la compra va por WhatsApp.' },
   ];
   const listos = checks.filter(c => c.ok).length;
