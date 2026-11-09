@@ -16,7 +16,6 @@ import {
   CoverageZone3D, 
   TechoMovil,
   CanaletaCfg,
-  AccesorioTecho,
   ToolModoCad, 
   RolEstructuralSegmento,
   FullTechosBomReport,
@@ -124,7 +123,6 @@ export interface UseTechosCadEngineReturn {
   setTechoMovil: (movil: TechoMovil | null) => boolean;
   /** Canaletas y bajadas: activas / material (en la cobertura principal). */
   setCanaleta: (c: CanaletaCfg) => boolean;
-  setAccesorios: (lista: AccesorioTecho[]) => boolean;
 
   // Generadores Paramétricos Automáticos que generan Nodos y Segmentos reales en PROJECT_MODEL
   generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => string | void;
@@ -987,17 +985,6 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(nodes, segments, newZones);
     return true;
   }, [nodes, segments, coverageZones, pushHistory]);
-
-  // Accesorios bajo el techo (horno, parrilla, mesa…): van en la zona principal, como las canaletas.
-  const setAccesorios = useCallback((lista: AccesorioTecho[]) => {
-    const base = zonaPrincipal(coverageZones) ? coverageZones : { ...coverageZones, ...zonasDesdeCorreas(nodes, segments, activeCoverageId || 'cob_aluzinc_030') };
-    const z = zonaPrincipal(base);
-    if (!z) return false;
-    const newZones = { ...base, [z.id]: { ...z, accesorios: lista } };
-    setCoverageZones(newZones);
-    pushHistory(nodes, segments, newZones);
-    return true;
-  }, [nodes, segments, coverageZones, pushHistory, activeCoverageId]);
 
   // Eliminar Elementos Seleccionados
   const deleteSelectedElements = useCallback(() => {
@@ -4473,7 +4460,6 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     assignCoverageToSelectedZones,
     setTechoMovil,
     setCanaleta,
-    setAccesorios,
     generateTrussFreehand,
     generateRoofGable,
     generateRoofMonoslope,
