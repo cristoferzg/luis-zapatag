@@ -182,7 +182,7 @@ export function crearWhatsappBot({ onRequest, onCall, HttpsError, db, Anthropic,
     if (iaSimulada) return iaSimulada.leerCaptura(img);
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || '' });
     const msg = await anthropic.messages.create({
-      model: modelo, max_tokens: 600,
+      model: modelo, max_tokens: 3000, output_config: { effort: 'low' },
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: img.mime, data: img.base64 } },
         { type: 'text', text: 'Si la imagen es una captura de un pago por billetera o transferencia (Yape, Plin, BCP, Interbank, BBVA…), responde SOLO un JSON {"esPago": true, "monto": number, "moneda": "PEN"|"USD", "nroOperacion": string|null, "destinatario": string|null, "fecha": "YYYY-MM-DD"|null, "metodo": string|null}. "destinatario" es a quién se le pagó. Si no es una captura de pago, responde {"esPago": false}.' },
