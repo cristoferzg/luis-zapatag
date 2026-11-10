@@ -291,10 +291,13 @@ async function llamarPlay(ruta, metodo = 'GET') {
 const PACKS_DEFAULT = [{ creditos: 20 }, { creditos: 50 }, { creditos: 150 }, { creditos: 500 }]; // igual que PACKS_CREDITOS_DEFAULT del cliente
 const SUSCRIPCION_VIGENTE = ['SUBSCRIPTION_STATE_ACTIVE', 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD', 'SUBSCRIPTION_STATE_CANCELED'];
 
-// Pago en línea (web y PC) con Mercado Pago: ver functions/pagoEnLinea.js.
-const pagosEnLinea = crearPagosEnLinea({ onCall, onRequest, HttpsError, db, PLANES_DEFAULT, CREDITOS_BIENVENIDA, mesActual });
-export const crearPagoEnLinea = pagosEnLinea.crearPagoEnLinea;
-export const webhookMercadoPago = pagosEnLinea.webhookMercadoPago;
+// Pago en línea (web y PC) con Mercado Pago: ver functions/pagoEnLinea.js. APAGADO: el dueño cobra con
+// Yape/Plin directo. Para activarlo: firebase functions:secrets:set MP_ACCESS_TOKEN, descomentar las
+// 3 líneas de abajo, desplegar functions y prender "Mercado Pago" en Configuración → Planes y créditos.
+// const pagosEnLinea = crearPagosEnLinea({ onCall, onRequest, HttpsError, db, PLANES_DEFAULT, CREDITOS_BIENVENIDA, mesActual });
+// export const crearPagoEnLinea = pagosEnLinea.crearPagoEnLinea;
+// export const webhookMercadoPago = pagosEnLinea.webhookMercadoPago;
+void crearPagosEnLinea; void onRequest;
 
 export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
   const token = request.auth?.token || {};

@@ -186,7 +186,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   "¿Quién lo recomendó?" → `regalarCreditos` (20, `CREDITOS_REFERIDO`); tarjeta "Invita a un colega" en Membresía.
 - Primera recarga doble: `ai_access.primeraRecarga` + `config_ia/planes.primeraRecargaDoble` (≠ false = activa); se aplica en
   `grantCreditos` (admin), `validarCompraPlay` y el pago en línea. Recarga de entrada 20 créditos S/ 3.90 (Play: `creditos_20`).
-- Pago en línea web/PC (nunca en la app Android): Mercado Pago, `functions/pagoEnLinea.js` (`crearPagoEnLinea`,
+- Pago en línea web/PC (nunca en la app Android): Mercado Pago (APAGADO: exports comentados en index.js para no pedir el secreto al desplegar), `functions/pagoEnLinea.js` (`crearPagoEnLinea`,
   `webhookMercadoPago`), secreto `MP_ACCESS_TOKEN`, interruptor `config_ia/planes.pagoEnLinea`; pedidos en `pagos_en_linea`
   (solo servidor). Prueba: `cd seguridad && npm run test:pago`. Vuelta con `?pago=ok|pendiente|error`.
 - Cobro DIRECTO Yape/Plin (web/PC, prioridad sobre Mercado Pago y WhatsApp): `config_ia/pago_directo` {activo, yape/plin
