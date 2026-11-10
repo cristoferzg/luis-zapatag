@@ -124,10 +124,12 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Comunicados: `src/lib/comunicados.ts` (publicar/quitar uno por uno). No reescribir la lista
   `notificaciones` con el setter del hook (borraba los que faltaban en la copia local).
 - Google Play: `cd android && gradle bundleRelease` firma con `android/keystore.properties` (fuera del repo).
-  El equipo de trabajo en la nube se reinicia y BORRA la llave: el dueño la guarda (ZIP "LLAVE_DE_FIRMA_InnovApp", alias
-  `innovapp-upload`, creada el 10/11/2026 al perderse la anterior; se pidió a Google restablecer la clave de subida con su
-  upload_certificate.pem) y la adjunta al compilar. Nunca subirla al repo. Si Maven Central da 429, usar el espejo de Google
-  (~/.gradle/init.d con maven-central.storage-download.googleapis.com). SDK: /opt/android-sdk + android/local.properties.
+  El equipo de trabajo en la nube se reinicia y BORRA la llave. LLAVE CORRECTA (registrada en Play): ZIP del dueño
+  "llave_google_play.zip" → `innovapp-upload.jks`, alias `innovapp`, creada el 04/11/2026, SHA-256 01:D3:26:…:74:33; la
+  contraseña está en su LEEME_llave_google_play.txt (la misma para almacén y llave). Al compilar, PEDIRLE al dueño ese ZIP
+  (no inventar otra llave). La llave del 10/11 (alias innovapp-upload, 95:A5:…) NO está registrada: no usarla.
+  Nunca subir llaves al repo. Si Maven Central da 429, usar el espejo de Google (~/.gradle/init.d con
+  maven-central.storage-download.googleapis.com). SDK: /opt/android-sdk + android/local.properties.
 
 ## Compras con Google Play (app Android)
 - CANDADO: en la app de Android NUNCA se vende por fuera de Google (`comprasPermitidas()` = solo web/PC; `comprasIAPermitidas()`
