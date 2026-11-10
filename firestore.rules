@@ -70,6 +70,13 @@ service cloud.firestore {
     // Capturas de pago Yape/Plin (aparte de la compra para que la lista no pese): dueño crea y lee la suya; admin todo.
     match /comprobantes/{id} { allow read: if lecturaPropia(); allow create: if creacionPropia(); allow update, delete: if isAdmin(); }
     match /pagos_en_linea/{id} { allow read: if isAdmin(); allow write: if false; }
+    // Asistente de WhatsApp: solo el servidor escribe (webhook y aprobación); el admin lee.
+    match /wa_conversaciones/{tel} { allow read: if isAdmin(); allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sinLeer', 'pausado', 'necesitaDueno', 'duenoHasta']); allow create, delete: if false; }
+    match /wa_pedidos/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /wa_capturas/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /wa_uso/{dia} { allow read: if isAdmin(); allow write: if false; }
+    match /wa_eventos/{id} { allow read, write: if false; }
+    match /wa_config/{id} { allow read, write: if isAdmin(); }
     // Embudo de ventas de la IA: solo contadores por día (sin datos personales); el admin los lee.
     match /embudo_ventas/{dia} {
       allow read: if isAdmin();

@@ -29,7 +29,7 @@ import { versionApp } from './lib/version';
 import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
 import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, SlidersHorizontal, Armchair, Droplets, Zap, PaintRoller, Hammer, AppWindow } from 'lucide-react';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, MessageCircle } from 'lucide-react';
 import BandejaAvisos from './components/BandejaAvisos';
 import TarjetaGooglePlay from './components/TarjetaGooglePlay';
 import { agregarABandeja } from './lib/bandejaAvisos';
@@ -61,6 +61,7 @@ const DiseñadorView = lazy(() => import('./components/DiseñadorView'));
 const HerreriaModuleView = lazy(() => import('./components/herreria/HerreriaModuleView'));
 const TechosModuleView = lazy(() => import('./components/techos/TechosModuleView'));
 const AdminPurchasesView = lazy(() => import('./components/AdminPurchasesView'));
+const WhatsAppAdminView = lazy(() => import('./components/WhatsAppAdminView'));
 const ReporteMesView = lazy(() => import('./components/ReporteMesView'));
 const SupervisionView = lazy(() => import('./components/SupervisionView'));
 const ContratosYEPPView = lazy(() => import('./components/ContratosYEPPView'));
@@ -1640,7 +1641,7 @@ export default function App() {
   // proyectos, clientes, finanzas, ajustes y comunicados.
   const DIFERIR_MS = 8000;
   const enVista = (...vs: string[]) => ({ diferirMs: DIFERIR_MS, ahora: vs.includes(currentView) });
-  const [usuarios, setUsuarios] = useFirestoreArraySync<SystemUser>('usuarios', activeUid, true, isAdmin, enVista('usuarios', 'supervision', 'settings', 'clients'));
+  const [usuarios, setUsuarios] = useFirestoreArraySync<SystemUser>('usuarios', activeUid, true, isAdmin, enVista('usuarios', 'supervision', 'settings', 'clients', 'whatsapp'));
   const [cursos, setCursos] = useFirestoreArraySync<CourseCategory>('cursos', activeUid, true, isAdmin, enVista('usabilidad', 'settings'));
   const [tickets, setTickets] = useFirestoreArraySync<Ticket>('tickets', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
   const [asesorias, setAsesorias] = useFirestoreArraySync<Asesoria>('asesorias', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
@@ -2333,6 +2334,7 @@ export default function App() {
         </div>
       )}<DashboardView projects={proyectosBalance} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} /></div>;
       case 'admin_purchases': return <AdminPurchasesView />;
+      case 'whatsapp': return isAdmin ? <WhatsAppAdminView usuarios={usuarios} /> : null;
       case 'reporte': return <ReporteMesView projects={proyectosBalance} finances={filteredFinances} />;
       case 'supervision': return isAdmin ? (
         <SupervisionView usuarios={usuarios} projects={projects} clients={clients} finances={finances} settings={settings}
@@ -2546,6 +2548,7 @@ export default function App() {
     { id: 'precios', label: 'Precios', icon: DollarSign },
     { id: 'usabilidad', label: 'Academia Técnica', icon: Video, badge: clasesNuevas.length || undefined },
     { id: 'admin_purchases', label: 'Validar Compras', icon: ShieldCheck, adminOnly: true },
+    { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, adminOnly: true },
     { id: 'supervision', label: 'Supervisión', icon: Eye, adminOnly: true },
     { id: 'biblioteca', label: 'Recursos Técnicos', icon: BookOpen, badge: recursosNuevos.length || undefined },
     { id: 'contracts', label: 'Contratos & EPP', icon: FileSignature },
@@ -2590,7 +2593,7 @@ export default function App() {
     { seccion: 'Opcional', id: 'familia', label: 'Finanzas personales', corto: 'Finanzas', icon: Wallet, apartado: 'finanzas', miembros: [{ id: 'familia', label: 'Familia' }, { id: 'inversion', label: 'Inversiones' }, { id: 'deuda', label: 'Deudas' }] },
     { seccion: 'Cuenta', id: 'soporte', label: 'Ayuda y soporte', icon: Headset, miembros: [{ id: 'soporte', label: 'Ayuda' }] },
     { seccion: 'Cuenta', id: 'settings', label: 'Configuración', icon: Settings, miembros: [{ id: 'settings', label: 'Configuración' }, { id: 'precios', label: 'Precios' }] },
-    { seccion: 'Administración', id: 'usuarios', label: 'Administración', icon: ShieldCheck, miembros: [{ id: 'usuarios', label: 'Accesos' }, { id: 'admin_purchases', label: 'Compras' }, { id: 'supervision', label: 'Supervisión' }] },
+    { seccion: 'Administración', id: 'usuarios', label: 'Administración', icon: ShieldCheck, miembros: [{ id: 'usuarios', label: 'Accesos' }, { id: 'admin_purchases', label: 'Compras' }, { id: 'whatsapp', label: 'WhatsApp' }, { id: 'supervision', label: 'Supervisión' }] },
   ];
   // Cada grupo con solo lo que este usuario puede ver; el grupo entra por su primer miembro visible.
   const gruposVisibles = GRUPOS_MENU.map(g => {

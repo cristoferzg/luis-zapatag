@@ -43,6 +43,7 @@ import { crearDisenarDrywall } from './drywallIA.js';
 import { crearPagosEnLinea } from './pagoEnLinea.js';
 import { crearDisenarGasfiteria } from './gasfiteriaIA.js';
 import { crearDisenarElectricidad } from './electricidadIA.js';
+import { crearWhatsappBot } from './whatsappBot.js';
 
 initializeApp();
 const db = getFirestore();
@@ -297,7 +298,7 @@ const SUSCRIPCION_VIGENTE = ['SUBSCRIPTION_STATE_ACTIVE', 'SUBSCRIPTION_STATE_IN
 // const pagosEnLinea = crearPagosEnLinea({ onCall, onRequest, HttpsError, db, PLANES_DEFAULT, CREDITOS_BIENVENIDA, mesActual });
 // export const crearPagoEnLinea = pagosEnLinea.crearPagoEnLinea;
 // export const webhookMercadoPago = pagosEnLinea.webhookMercadoPago;
-void crearPagosEnLinea; void onRequest;
+void crearPagosEnLinea;
 
 export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
   const token = request.auth?.token || {};
@@ -1391,3 +1392,14 @@ export const comunicadosAutomaticos = onSchedule({ schedule: 'every 15 minutes',
   });
   if (pick) await publicarComunicadoAuto(pick, 'biblioteca');
 });
+
+// =============================================================================
+// ASISTENTE DE WHATSAPP (functions/whatsappBot.js): responde en el número del dueño, revisa las
+// capturas de Yape/Plin y deja el pedido "por aprobar"; con el "sí" del admin crea el acceso (PIN)
+// o carga los créditos y se lo envía al cliente. Antes de desplegar, guardar los secretos:
+//   firebase functions:secrets:set WA_TOKEN · WA_APP_SECRET · WA_VERIFY_TOKEN
+// Interruptor sin recompilar: wa_config/ajustes.activo (Administración → WhatsApp → Ajustes).
+// =============================================================================
+const whatsapp = crearWhatsappBot({ onRequest, onCall, HttpsError, db, Anthropic, enviarPush, modelo: RECEIPT_MODEL, guia: GUIA_INNOVAPP, CREDITOS_BIENVENIDA });
+export const whatsappWebhook = whatsapp.whatsappWebhook;
+export const aprobarPedidoWA = whatsapp.aprobarPedidoWA;

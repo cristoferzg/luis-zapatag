@@ -212,3 +212,18 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   se borran solas (menos usuarios: Accesos usa usuarios_backup_snapshot_data). El respaldo diario del admin corre 60 s después.
 - Medición: `firebase emulators:exec --only firestore,auth,functions --project innovacontratistas-434d2 "bash seguridad/medir.sh"`
   (requiere `functions/.secret.local` con ADMIN_PIN de prueba; no se sube).
+
+## Asistente de WhatsApp (fase 1)
+- `functions/whatsappBot.js` (fábrica `crearWhatsappBot`, exportada en index.js): `whatsappWebhook` (onRequest, firma
+  X-Hub-Signature-256 con `WA_APP_SECRET`; GET de verificación con `WA_VERIFY_TOKEN`) y `aprobarPedidoWA` (callable admin).
+  Secretos: `WA_TOKEN`, `WA_APP_SECRET`, `WA_VERIFY_TOKEN` (+ `ANTHROPIC_API_KEY`, `ADMIN_PIN`). Guía: `docs/Guia_WhatsApp_asistente.md`.
+- Mismo número del dueño (coexistencia con la app WhatsApp Business). Campo `smb_message_echoes`: si el dueño escribe, el
+  asistente calla 1 h en ese chat. Se presenta como "Asistente de InnovApp"; si preguntan, dice que es automático (nunca humano,
+  nunca el proveedor/modelo). Herramienta forzada `responder` (mensaje + acción).
+- Captura → `wa_pedidos` por_aprobar (monto, N° de operación repetido contra wa_pedidos/purchases/usuarios.pago, titular) +
+  push al admin. NADA se entrega sin el "sí": aprobar crea `usuarios` con PIN único (origen whatsapp) o suma créditos (primera
+  doble) y envía el PIN por WhatsApp (plantillas `innovapp_acceso`/`innovapp_creditos` fuera de 24 h). El PIN no se guarda en el chat.
+- Datos: `wa_config/ajustes` {activo, precioAcceso (50), nombreAsistente, modoTransmision, avisarDudas, topeDia, notas} (solo admin),
+  `wa_conversaciones`, `wa_pedidos`, `wa_capturas`, `wa_uso` (solo servidor escribe; admin lee), `wa_eventos` (dedupe).
+- UI: Administración → WhatsApp (`WhatsAppAdminView`, `lib/whatsappBot.ts`). DEV: `__waSimulado` (incluir en el grep del dist).
+- Prueba: `cd seguridad && npm run test:whatsapp` (Meta e IA simuladas).

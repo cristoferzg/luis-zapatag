@@ -128,6 +128,16 @@ await caso('A NO lee el embudo', 'niega', () => getDoc(doc(A, 'embudo_ventas/202
 await caso('Admin lee el embudo', 'permite', () => getDoc(doc(admin, 'embudo_ventas/2026-11-09')));
 await caso('A NO crea un pago en línea', 'niega', () => setDoc(doc(A, 'pagos_en_linea/x1'), { ws: 'A', entregado: true }));
 await caso('A NO lee los pagos en línea', 'niega', () => getDoc(doc(A, 'pagos_en_linea/x1')));
+// Asistente de WhatsApp: solo el servidor escribe; solo el admin lee.
+await caso('A NO lee los pedidos de WhatsApp', 'niega', () => getDoc(doc(A, 'wa_pedidos/p1')));
+await caso('A NO crea un pedido de WhatsApp', 'niega', () => setDoc(doc(A, 'wa_pedidos/p1'), { estado: 'aprobado' }));
+await caso('Admin lee los pedidos de WhatsApp', 'permite', () => getDoc(doc(admin, 'wa_pedidos/p1')));
+await caso('Admin NO aprueba escribiendo directo (solo el servidor)', 'niega', () => setDoc(doc(admin, 'wa_pedidos/p1'), { estado: 'aprobado' }));
+await caso('A NO lee las conversaciones de WhatsApp', 'niega', () => getDoc(doc(A, 'wa_conversaciones/51911')));
+await caso('A NO lee las capturas de WhatsApp', 'niega', () => getDoc(doc(A, 'wa_capturas/p1')));
+await caso('A NO lee los ajustes del asistente', 'niega', () => getDoc(doc(A, 'wa_config/ajustes')));
+await caso('A NO cambia los ajustes del asistente', 'niega', () => setDoc(doc(A, 'wa_config/ajustes'), { activo: true }));
+await caso('Admin guarda los ajustes del asistente', 'permite', () => setDoc(doc(admin, 'wa_config/ajustes'), { activo: false }));
 
 console.log('\nCompras (avisos solo al comprador)');
 await caso('A lee sus propias compras (consulta del aviso)', 'permite', () => getDocs(query(collection(A, 'purchases'), where('userId', '==', 'A'))));
