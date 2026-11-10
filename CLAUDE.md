@@ -124,6 +124,10 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Comunicados: `src/lib/comunicados.ts` (publicar/quitar uno por uno). No reescribir la lista
   `notificaciones` con el setter del hook (borraba los que faltaban en la copia local).
 - Google Play: `cd android && gradle bundleRelease` firma con `android/keystore.properties` (fuera del repo).
+  El equipo de trabajo en la nube se reinicia y BORRA la llave: el dueño la guarda (ZIP "LLAVE_DE_FIRMA_InnovApp", alias
+  `innovapp-upload`, creada el 10/11/2026 al perderse la anterior; se pidió a Google restablecer la clave de subida con su
+  upload_certificate.pem) y la adjunta al compilar. Nunca subirla al repo. Si Maven Central da 429, usar el espejo de Google
+  (~/.gradle/init.d con maven-central.storage-download.googleapis.com). SDK: /opt/android-sdk + android/local.properties.
 
 ## Compras con Google Play (app Android)
 - CANDADO: en la app de Android NUNCA se vende por fuera de Google (`comprasPermitidas()` = solo web/PC; `comprasIAPermitidas()`
