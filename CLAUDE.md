@@ -120,7 +120,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 ## Versión y comunicados
 - Versión única automática `AAAA.MM.DD.HHmm` (Lima) generada por Vite (`__VERSION__`, `dist/version.txt`);
   Gradle la lee de `android/app/src/main/assets/public/version.txt` (tras `npx cap sync`) para
-  versionName. versionCode = contador en `android/app/codigo-version.txt` (subir 1 por cada versión a Play; NO usar fechas: Play rechaza saltos grandes).
+  versionName. versionCode = contador en `android/app/codigo-version.txt` (subir 1 por cada versión a Play). En Play ya existe el código 26110417 (una versión vieja hecha con fecha), así que el contador sigue desde 26110418 (+1 cada vez); nunca bajar de ahí o Play da "no permite que los usuarios actualicen".
 - Comunicados: `src/lib/comunicados.ts` (publicar/quitar uno por uno). No reescribir la lista
   `notificaciones` con el setter del hook (borraba los que faltaban en la copia local).
 - Google Play: `cd android && gradle bundleRelease` firma con `android/keystore.properties` (fuera del repo).
