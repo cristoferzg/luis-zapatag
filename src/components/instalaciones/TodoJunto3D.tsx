@@ -14,7 +14,7 @@ import { dibujarElectricidad } from '../electricidad/Electricidad3D';
 import { dibujarGasfiteria } from '../gasfiteria/Gasfiteria3D';
 import { leerCotizacionActual as leerEle, esEspecial, KEY_ORIGEN, CotizacionEle } from '../electricidad/modeloElectricidad';
 import { infoRutas, cuadroCargas, sugerirCircuitos, trazarAutomatico } from '../electricidad/calculoElectricidad';
-import { leerCotizacionActual as leerGas, KEY_ORIGEN_GAS } from '../gasfiteria/modeloGasfiteria';
+import { leerCotizacionActual as leerGas, KEY_ORIGEN_GAS, murosDeObra, pisosObra, MuroRef } from '../gasfiteria/modeloGasfiteria';
 import { empalmes as calcEmpalmes } from '../gasfiteria/calculoGasfiteria';
 import { perfilSuperior, VUELO_ALERO_M } from '../techos/canaletas';
 
@@ -36,8 +36,37 @@ function tubo(a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material
   return m;
 }
 
+export type OrigenTodo = 'techos' | 'obra';
+const H_MURO = 2.5;
+
+/** Luz de la cotización actual si su fondo es el de este plano (sin tuberías: trazado automático de vista previa). */
+function luzCon(tipo: 'techos' | 'obra') {
+  const e = leerEle();
+  if (e.fondo.tipo !== tipo || !e.puntos.some(p => !esEspecial(p.tipo))) return null;
+  let c = e;
+  if (!c.rutas.length && c.puntos.some(p => p.tipo === 'tablero')) {
+    if (c.puntos.some(p => !esEspecial(p.tipo) && !c.circuitos.some(k => k.id === p.circuito))) c = { ...c, ...sugerirCircuitos(c) };
+    const t = trazarAutomatico(c); if (t.rutas.length) c = { ...c, rutas: t.rutas, puntos: t.puntos };
+  }
+  return { cot: c, info: infoRutas(c, cuadroCargas(c).seccionAlim) };
+}
+function aguaCon(tipo: 'techos' | 'obra') {
+  const g = leerGas();
+  return g.fondo.tipo === tipo && (g.aparatos.length || g.tramos.length) ? { cot: g, empalmes: calcEmpalmes(g.tramos, g.aparatos) } : null;
+}
+
+/** Obra Civil / Drywall: los muros y tabiques del piso con su luz y su agua (mismas coordenadas del plano). */
+function leerObra() {
+  const ele = luzCon('obra'), gas = aguaCon('obra');
+  const nivel = ele?.cot.fondo.nivel || gas?.cot.fondo.nivel || pisosObra()[0];
+  const muros = murosDeObra(nivel);
+  if (!muros.length && !ele && !gas) return null;
+  return { tipo: 'obra' as const, nivel, muros, ele, gas, escena: null as Escena | null, x0: 0, z0: 0, hTecho: H_MURO };
+}
+
 /** Lee el techo, la luz y el agua y los deja en el mismo sistema de coordenadas. */
-function leerTodo() {
+function leerTodo(origen: OrigenTodo = 'techos') {
+  if (origen === 'obra') return leerObra();
   const escena = safeStorage.getItem<Escena | null>('innova_techos_escena_actual', null);
   const N = escena?.nodes || {};
   const ns = Object.values(N).filter(n => isFinite(n.x) && isFinite(n.z));
@@ -47,20 +76,9 @@ function leerTodo() {
   const cols = segs.filter(s => s.rolEstructural === 'columna');
   const topes = cols.map(s => Math.max(N[s.nodeAId]?.y ?? 0, N[s.nodeBId]?.y ?? 0)).filter(y => y > 0.5);
   const hTecho = topes.length ? Math.min(...topes) : 2.8; // a la altura del alero (debajo del tijeral)
-  // Electricidad: solo si su fondo es este techo. Sin tuberías: el trazado automático como vista previa.
-  let ele: { cot: CotizacionEle; info: ReturnType<typeof infoRutas> } | null = null;
-  const e = leerEle();
-  if (e.fondo.tipo === 'techos' && e.puntos.some(p => !esEspecial(p.tipo))) {
-    let c = e;
-    if (!c.rutas.length && c.puntos.some(p => p.tipo === 'tablero')) {
-      if (c.puntos.some(p => !esEspecial(p.tipo) && !c.circuitos.some(k => k.id === p.circuito))) c = { ...c, ...sugerirCircuitos(c) };
-      const t = trazarAutomatico(c); if (t.rutas.length) c = { ...c, rutas: t.rutas, puntos: t.puntos };
-    }
-    ele = { cot: c, info: infoRutas(c, cuadroCargas(c).seccionAlim) };
-  }
-  const g = leerGas();
-  const gas = g.fondo.tipo === 'techos' && (g.aparatos.length || g.tramos.length) ? { cot: g, empalmes: calcEmpalmes(g.tramos, g.aparatos) } : null;
-  return { escena: escena!, x0, z0, hTecho, ele, gas };
+  const ele: { cot: CotizacionEle; info: ReturnType<typeof infoRutas> } | null = luzCon('techos');
+  const gas = aguaCon('techos');
+  return { tipo: 'techos' as const, nivel: '', muros: [] as MuroRef[], escena: escena as Escena | null, x0, z0, hTecho, ele, gas };
 }
 
 function Escena3D({ datos, ver }: { datos: NonNullable<ReturnType<typeof leerTodo>>; ver: Record<string, boolean> }) {
@@ -106,6 +124,44 @@ function Escena3D({ datos, ver }: { datos: NonNullable<ReturnType<typeof leerTod
     const primera = c.grupo.children.length === 0;
     liberar(c.grupo); c.grupo.clear();
     const { escena, x0, z0, hTecho, ele, gas } = datos;
+    if (datos.tipo === 'obra') {
+      // Piso que encierra muros, luz y agua; muros con sus vanos (puertas y ventanas).
+      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+      const add = (x: number, y: number) => { bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x); by1 = Math.max(by1, y); };
+      datos.muros.forEach(m => { add(m.x1, m.y1); add(m.x2, m.y2); });
+      ele?.cot.puntos.forEach(p => add(p.x, p.y)); gas?.cot.aparatos.forEach(a => add(a.x, a.y));
+      if (!isFinite(bx0)) { bx0 = 0; by0 = 0; bx1 = 4; by1 = 3; }
+      const piso = new THREE.Mesh(new THREE.PlaneGeometry(bx1 - bx0 + 2, by1 - by0 + 2), new THREE.MeshStandardMaterial({ color: '#e7e2d9', roughness: 1, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide }));
+      piso.rotation.x = -Math.PI / 2; piso.position.set((bx0 + bx1) / 2, 0, (by0 + by1) / 2); piso.userData.sinAjuste = true; c.grupo.add(piso);
+      if (ver.estructura) {
+        const mm = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, transparent: true, opacity: ver.calamina ? 0.55 : 0.18, depthWrite: false });
+        const borde = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.6 });
+        datos.muros.forEach(m => {
+          const Lm = Math.hypot(m.x2 - m.x1, m.y2 - m.y1); if (Lm < 0.01) return;
+          const ux = (m.x2 - m.x1) / Lm, uy = (m.y2 - m.y1) / Lm, ang = Math.atan2(uy, ux);
+          const piezas: [number, number, number, number][] = []; let t = 0;
+          [...(m.vanos || [])].sort((p, q) => p.t - q.t).forEach(v => {
+            const a = Math.max(t, v.t - v.w / 2), bb = Math.min(Lm, v.t + v.w / 2); if (bb <= a) return;
+            if (a > t) piezas.push([t, a, 0, H_MURO]);
+            if (v.puerta) piezas.push([a, bb, 2.1, H_MURO]); else piezas.push([a, bb, 0, 0.9], [a, bb, 2.1, H_MURO]);
+            t = bb;
+          });
+          if (t < Lm) piezas.push([t, Lm, 0, H_MURO]);
+          piezas.forEach(([a, bb, y0, y1]) => {
+            const g = new THREE.BoxGeometry(bb - a, y1 - y0, m.a);
+            const mesh = new THREE.Mesh(g, mm);
+            mesh.position.set(m.x1 + ux * (a + bb) / 2, (y0 + y1) / 2, m.y1 + uy * (a + bb) / 2); mesh.rotation.y = -ang;
+            mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), borde));
+            c.grupo.add(mesh);
+          });
+        });
+      }
+      if (ele && ver.luz) dibujarElectricidad(c.grupo, ele.cot, {}, ele.info, { conTecho: true, hTecho: H_MURO });
+      if (gas && ver.agua) dibujarGasfiteria(c.grupo, gas.cot, { fria: true, caliente: true, desague: true, ventilacion: true, aparatos: true, muros: false }, gas.empalmes, { conTecho: true });
+      if (primera) c.ajustar(); else c.render();
+      return;
+    }
+    if (!escena) return;
     const N = escena.nodes || {};
     const P = (n: { x: number; y: number; z: number }) => new THREE.Vector3(n.x - x0, n.y, n.z - z0);
     const ns = Object.values(N);
@@ -155,11 +211,12 @@ function Escena3D({ datos, ver }: { datos: NonNullable<ReturnType<typeof leerTod
   );
 }
 
-export default function VentanaTodoJunto3D({ onClose }: { onClose: () => void }) {
-  const datos = useMemo(() => leerTodo(), []);
+export default function VentanaTodoJunto3D({ onClose, origen = 'techos' }: { onClose: () => void; origen?: OrigenTodo }) {
+  const datos = useMemo(() => leerTodo(origen), [origen]);
+  const esObra = datos?.tipo === 'obra' || (!datos && origen === 'obra');
   const [ver, setVer] = useState({ estructura: true, calamina: true, luz: true, agua: true });
   const ir = (vista: 'electricidad' | 'gasfiteria') => {
-    safeStorage.setItem(vista === 'electricidad' ? KEY_ORIGEN : KEY_ORIGEN_GAS, 'techos');
+    safeStorage.setItem(vista === 'electricidad' ? KEY_ORIGEN : KEY_ORIGEN_GAS, esObra ? 'obra' : 'techos');
     onClose(); window.dispatchEvent(new CustomEvent('innova_navigate_tab', { detail: vista }));
   };
   const chip = (k: keyof typeof ver, label: string, icono: React.ReactNode, hay = true) => (
@@ -174,23 +231,23 @@ export default function VentanaTodoJunto3D({ onClose }: { onClose: () => void })
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2"><Box className="w-5 h-5 text-amber-600" />Todo en 3D</p>
-            <p className="text-[11px] text-slate-500 truncate">El techo con su instalación eléctrica y de agua, para mostrar al cliente</p>
+            <p className="text-[11px] text-slate-500 truncate">{esObra ? 'Los muros con su instalación eléctrica y de agua' : 'El techo con su instalación eléctrica y de agua'}, para mostrar al cliente</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-5 h-5" /></button>
         </div>
         {!datos ? (
-          <div className="flex-1 flex items-center justify-center p-6 text-center text-sm text-slate-500">Primero arma el techo en Techos Metálicos.</div>
+          <div className="flex-1 flex items-center justify-center p-6 text-center text-sm text-slate-500">{esObra ? 'Primero dibuja los muros en el plano de Obra Civil o Drywall.' : 'Primero arma el techo en Techos Metálicos.'}</div>
         ) : (<>
           <div className="px-3 py-2 flex flex-wrap items-center gap-1.5 bg-slate-50 border-b border-slate-200">
-            {chip('estructura', 'Estructura', <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />)}
-            {chip('calamina', 'Calamina', <span className="w-2.5 h-2.5 rounded-full bg-sky-700" />)}
+            {chip('estructura', esObra ? 'Muros' : 'Estructura', <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />)}
+            {chip('calamina', esObra ? 'Muros sólidos' : 'Calamina', <span className="w-2.5 h-2.5 rounded-full bg-sky-700" />)}
             {chip('luz', 'Luz', <Zap className="w-3.5 h-3.5 text-amber-500" />, !!datos.ele)}
             {chip('agua', 'Agua y desagüe', <Droplets className="w-3.5 h-3.5 text-sky-500" />, !!datos.gas)}
           </div>
           {(!datos.ele || !datos.gas) && (
             <div className="px-3 py-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-600 bg-amber-50 border-b border-amber-200">
-              {!datos.ele && <span className="inline-flex items-center gap-1.5">Falta la luz de este techo: <button type="button" onClick={() => ir('electricidad')} className="px-2 py-1 rounded-lg bg-amber-400 text-slate-950 font-black cursor-pointer">⚡ Poner la luz</button></span>}
-              {!datos.gas && <span className="inline-flex items-center gap-1.5">Falta el agua de este techo: <button type="button" onClick={() => ir('gasfiteria')} className="px-2 py-1 rounded-lg bg-sky-600 text-white font-black cursor-pointer">💧 Poner el agua</button></span>}
+              {!datos.ele && <span className="inline-flex items-center gap-1.5">Falta la luz de {esObra ? 'esta obra' : 'este techo'}: <button type="button" onClick={() => ir('electricidad')} className="px-2 py-1 rounded-lg bg-amber-400 text-slate-950 font-black cursor-pointer">⚡ Poner la luz</button></span>}
+              {!datos.gas && <span className="inline-flex items-center gap-1.5">Falta el agua de {esObra ? 'esta obra' : 'este techo'}: <button type="button" onClick={() => ir('gasfiteria')} className="px-2 py-1 rounded-lg bg-sky-600 text-white font-black cursor-pointer">💧 Poner el agua</button></span>}
             </div>
           )}
           <div className="flex-1 min-h-[300px] bg-slate-100"><Escena3D datos={datos} ver={ver} /></div>

@@ -22,6 +22,7 @@ import DisenoIAObra, { PlantaIA } from './concreto/DisenoIAObra';
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { MousePointer, Columns, Square, Minus, Trash2, Download, Hand, Grid3x3, Plus, Layers, Eye, Undo2, Redo2, Maximize, Minimize, BrickWall, DoorOpen, Armchair, RotateCw, FlipHorizontal2, BoxSelect, Copy, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, X as XIcon, ChevronsUp, Zap, ChevronDown, ChevronRight, PanelLeft } from 'lucide-react';
 import AtajosTeclado from './common/AtajosTeclado';
+import { useModoTechos, GLOSARIO_TECHOS } from './techos/modoTechos';
 import { escalera, datosAligerada, PuntoInstalacion, TipoInstalacion, INSTALACIONES, KEY_INSTALACIONES, leerInstalaciones, metradoInstalaciones, AcabadoAmbiente, ACABADO_VACIO, KEY_ACABADOS, leerAcabados, PISOS, metradoAcabado, LineaExtra, COLORES_PINTURA } from './concreto/extrasObra';
 import { precio as precioCat } from '../lib/catalogoPrecios';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
@@ -172,6 +173,8 @@ function calcElem(e: PlanoElem): Resultado {
 // tabiques de drywall/OSB, aberturas y cielo raso, y su metrado detallado.
 export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { onEditarEnTechos?: (d: SavedTechosDesign) => void; modo?: 'obra' | 'drywall' } = {}) {
   const esDrywall = modo === 'drywall';
+  // Modo sencillo (el mismo interruptor de Techos): sin atajos, sin AutoCAD ni coordenadas.
+  const sencillo = useModoTechos() === 'sencillo';
   // En Drywall lo de Obra Civil (columnas, vigas, losas, muros de ladrillo) y la
   // estructura de Techos se ven de FONDO y no se tocan: aquí solo se dibujan y
   // editan tabiques de drywall/OSB (también fuera del perímetro), vanos y cielos.
@@ -1022,6 +1025,16 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
+  // Qué hace cada herramienta, en simple (al pasar el mouse o mantener el dedo).
+  const AYUDA: Record<string, string> = {
+    columna: GLOSARIO_TECHOS.columna.explica, zapata: GLOSARIO_TECHOS.zapata.explica, viga: GLOSARIO_TECHOS.viga.explica,
+    cimiento: GLOSARIO_TECHOS.cimiento.explica, losa: GLOSARIO_TECHOS.losa.explica, placa: GLOSARIO_TECHOS.placa.explica,
+    muro: esDrywall ? 'Dibuja un tabique de drywall: toca el inicio y el final.' : 'Dibuja un muro de ladrillo: toca el inicio y el final.',
+    instalacion: 'Puntos básicos de luz y agua para el metrado. Para la instalación completa (circuitos, tuberías, 3D) usa los botones Luz y Agua de arriba.',
+    abertura: 'Pon una puerta o ventana en un muro.', bloque: 'Muebles y accesorios (cocina, baño, horno, parrilla…).',
+    escalera: 'Escalera de concreto entre pisos.', grupo: 'Selecciona varias piezas a la vez.', pan: 'Mueve la vista del plano.',
+  };
+  const ayudaDe = (t: { id: string; label: string }) => AYUDA[t.id] ? `${t.label}: ${AYUDA[t.id]}` : t.label;
   const HERRAMIENTAS: { id: Herramienta; label: string; icon: any }[] = [
     { id: 'select', label: 'Selec.', icon: MousePointer },
     { id: 'grupo', label: 'Grupo', icon: BoxSelect },
@@ -1033,7 +1046,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     { id: 'escalera', label: 'Escalera', icon: ChevronsUp },
     { id: 'muro', label: esDrywall ? 'Tabique' : 'Muro', icon: BrickWall },
     { id: 'placa', label: 'Placa', icon: PanelLeft },
-    { id: 'instalacion', label: 'Instalac.', icon: Zap },
+    { id: 'instalacion', label: 'Puntos', icon: Zap },
     { id: 'abertura', label: 'Puerta/Ventana', icon: DoorOpen },
     { id: 'bloque', label: 'Accesorios', icon: Armchair },
     { id: 'pan', label: 'Mover', icon: Hand },
@@ -1132,8 +1145,8 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
   const gruposAtajos = [
     { titulo: 'Herramientas', atajos: HERRAMIENTAS.filter(h => TECLA_HERR[h.id]).map(h => ({ teclas: [TECLA_HERR[h.id]!], accion: h.id === 'select' ? 'Seleccionar' : h.id === 'grupo' ? 'Seleccionar en grupo (recuadro)' : h.id === 'pan' ? 'Mover el plano' : h.label })) },
     { titulo: 'Edición', atajos: [
-      { teclas: ['Ctrl', 'Z'], accion: 'Atrás (deshacer)' },
-      { teclas: ['Ctrl', 'Y'], accion: 'Adelante (rehacer)' },
+      { teclas: ['Ctrl', 'Z'], accion: 'Deshacer' },
+      { teclas: ['Ctrl', 'Y'], accion: 'Rehacer' },
       { teclas: ['Supr'], accion: 'Borrar lo seleccionado' },
       { teclas: ['Esc'], accion: 'Cancelar / quitar selección' },
     ] },
@@ -1351,34 +1364,34 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           <Maximize className="w-3.5 h-3.5" />
         </button>
         {/* Atrás / Adelante siempre a la vista en PC (en 2D y en 3D) */}
-        <button onClick={undo} disabled={!canUndo} title="Atrás: deshacer (Ctrl+Z)"
+        <button onClick={undo} disabled={!canUndo} title="Deshacer (Ctrl+Z)"
           className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
-          <Undo2 className="w-3.5 h-3.5" /> Atrás
+          <Undo2 className="w-3.5 h-3.5" /> Deshacer
         </button>
-        <button onClick={redo} disabled={!canRedo} title="Adelante: rehacer (Ctrl+Y)"
+        <button onClick={redo} disabled={!canRedo} title="Rehacer (Ctrl+Y)"
           className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-200 cursor-pointer hover:bg-slate-100 disabled:opacity-35 disabled:cursor-default">
-          <Redo2 className="w-3.5 h-3.5" /> Adelante
+          <Redo2 className="w-3.5 h-3.5" /> Rehacer
         </button>
-        <AtajosTeclado grupos={gruposAtajos} alinear="izquierda" />
+        {!sencillo && <AtajosTeclado grupos={gruposAtajos} alinear="izquierda" />}
         <div className="max-sm:hidden h-5 w-px bg-slate-200 mx-1" />
         {(selUid || selAb || selBloque || selInst) && (
           <button onClick={() => selInst ? (setInstalaciones(prev => prev.filter(q => q.uid !== selInst)), setSelInst(null)) : selBloque ? (setBloques(prev => prev.filter(x => x.uid !== selBloque)), setSelBloque(null)) : selAb ? removeAbertura(selAb.uid, selAb.id) : removeSel()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-pointer hover:bg-rose-100">
             <Trash2 className="w-3.5 h-3.5" /> Eliminar
           </button>
         )}
-        <button onClick={() => { if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Vaciar el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}
+        <button onClick={() => { if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Borrar todo el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}
           className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-500 border border-slate-200 cursor-pointer hover:bg-slate-100">
-          <Trash2 className="w-3.5 h-3.5" /> Vaciar
+          <Trash2 className="w-3.5 h-3.5" /> Borrar todo
         </button>
         <button onClick={exportar} disabled={elems.length === 0}
           className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-stone-700 text-white cursor-pointer hover:bg-stone-800 disabled:opacity-40">
           <Download className="w-3.5 h-3.5" /> Exportar
         </button>
-        <button onClick={exportarDxf} disabled={elems.length === 0} title="Plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
+        {!sencillo && <button onClick={exportarDxf} disabled={elems.length === 0} title="Plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
           className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 text-white cursor-pointer hover:bg-blue-700 disabled:opacity-40">
           <Download className="w-3.5 h-3.5" /> DXF AutoCAD
-        </button>
-        {!vista3d && (
+        </button>}
+        {!vista3d && !sencillo && (
           <span className="max-sm:hidden inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded-lg">
             <Grid3x3 className="w-3.5 h-3.5" /> {cursor.x.toFixed(2)}, {cursor.y.toFixed(2)} m
           </span>
@@ -1495,7 +1508,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               <button onClick={() => { setHojaHerr(false); encuadrar(); }} disabled={elems.length === 0 && !plantaTechos.lineas.length}><Maximize className="w-4 h-4 text-slate-600 shrink-0" /> Ver todo</button>
               <button onClick={() => { setHojaHerr(false); exportar(); }} disabled={elems.length === 0}><Download className="w-4 h-4 text-stone-700 shrink-0" /> Exportar</button>
               <button onClick={() => { setHojaHerr(false); exportarDxf(); }} disabled={elems.length === 0}><Download className="w-4 h-4 text-blue-600 shrink-0" /> DXF AutoCAD</button>
-              <button onClick={() => { setHojaHerr(false); if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Vaciar el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}><Trash2 className="w-4 h-4 text-rose-600 shrink-0" /> Vaciar plano</button>
+              <button onClick={() => { setHojaHerr(false); if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Borrar todo el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}><Trash2 className="w-4 h-4 text-rose-600 shrink-0" /> Borrar todo</button>
             </div>
           </div>
         </div>
@@ -1932,7 +1945,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               const act = tool === t.id;
               const col = (t.id in META) ? META[t.id as PlanoTipo].color : t.id === 'abertura' ? '#0284c7' : t.id === 'bloque' ? '#7c3aed' : '#0f172a';
               return (
-                <button key={t.id} type="button" title={t.label}
+                <button key={t.id} type="button" title={ayudaDe(t)}
                   onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }}
                   className={`flex flex-col items-center justify-center gap-0.5 ${esPC ? 'w-14 py-1.5' : 'w-12 py-1'} rounded-xl text-[10px] font-bold cursor-pointer transition-all ${act ? 'text-white shadow' : 'text-slate-600 hover:bg-slate-100'}`}
                   style={act ? { backgroundColor: col } : undefined}>
@@ -1962,7 +1975,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
                   <div onMouseDown={parar} onClick={parar} onTouchStart={parar} onTouchMove={parar} onTouchEnd={parar} onWheel={parar}
                     className="absolute left-0 right-0 bottom-0 z-20 flex items-stretch overflow-x-auto bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(15,42,74,0.06)] px-0.5 [scrollbar-width:none]">
                     {[...principales, ...(activaEnMas ? [activaEnMas] : [])].map(t => { const Ic = t.icon; const A = tool === t.id; const ic = icono(A, (t.id in META) ? META[t.id as PlanoTipo].color : t.id === 'abertura' ? '#0284c7' : t.id === 'bloque' ? '#7c3aed' : '#0f172a'); return (
-                      <button key={t.id} type="button" onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }} className={item} title={t.label}>
+                      <button key={t.id} type="button" onClick={() => { setTool(t.id); setPending(null); if (t.id !== 'grupo') setGrupo([]); }} className={item} title={ayudaDe(t)}>
                         <span {...ic}><Ic className="w-[18px] h-[18px]" /></span>
                         <span className={`text-[10px] leading-none ${A ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{etiqueta(t)}</span>
                       </button>

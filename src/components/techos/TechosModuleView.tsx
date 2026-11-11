@@ -37,8 +37,7 @@ import useTechosDimensions from './useTechosDimensions';
 import CadToolbox from './CadToolbox';
 import CanvasArea from './CanvasArea';
 import PropiedadesCad from './PropiedadesCad';
-import BotonGasfiteria from '../gasfiteria/BotonGasfiteria';
-import BotonTodoJunto3D from '../instalaciones/BotonTodoJunto3D';
+import BarraInstalaciones from '../instalaciones/BarraInstalaciones';
 import { SelectorModoTechos, esModoSencillo, useModoTechos } from './modoTechos';
 import { useTechosCadEngineState } from './useTechosCadEngineState';
 import { TechosDespieceView } from './TechosDespieceView';
@@ -69,7 +68,6 @@ import {
 } from '../../lib/techosDesignsRepo';
 import type { TechosDelProyecto } from '../../types';
 import { simb } from '../../lib/currency';
-import BotonElectricidad from '../electricidad/BotonElectricidad';
 
 interface ProjectOption {
   id: string;
@@ -1068,9 +1066,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
         {/* Botones de Acción Principal. En móvil solo "Guardar" + menú "⋯";
             el resto se oculta para dejar la barra limpia (solo lo esencial). */}
         <div ref={accionesDeslizables} className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5 relative">
-          <BotonElectricidad origen="techos" compacto />
-          <BotonGasfiteria />
-          <BotonTodoJunto3D />
+          <BarraInstalaciones origen="techos" />
           {/* [ SUBIR ARCHIVO / AUTOCAD ] — solo escritorio */}
           <button
             onClick={() => setShowUploadModal(true)}

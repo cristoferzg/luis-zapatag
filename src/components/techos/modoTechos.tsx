@@ -60,6 +60,21 @@ export const GLOSARIO_TECHOS: Record<string, { palabra: string; explica: string 
   arriostre: { palabra: 'Arriostre', explica: 'Refuerzos en cruz (X) que evitan que el techo se mueva de lado con el viento.' },
   cumbrera: { palabra: 'Cumbrera', explica: 'La parte más alta del techo, donde se juntan las dos caídas.' },
   perfil: { palabra: 'Perfil', explica: 'El tipo y la medida del tubo o fierro (por ejemplo, tubo 2"×1" de 2 mm).' },
+  // Obra Civil
+  zapata: { palabra: 'Zapata', explica: 'El bloque de concreto enterrado bajo cada columna que reparte el peso al suelo.' },
+  columna: { palabra: 'Columna', explica: 'El pilar de concreto con fierro que sostiene vigas y techos.' },
+  viga: { palabra: 'Viga', explica: 'La pieza horizontal de concreto que une las columnas y carga el techo o la losa.' },
+  cimiento: { palabra: 'Cimiento corrido', explica: 'La franja de concreto enterrada bajo los muros, a lo largo de todo el muro.' },
+  sobrecimiento: { palabra: 'Sobrecimiento', explica: 'La franja de concreto sobre el cimiento, que sale un poco del piso y protege el muro de la humedad.' },
+  losa: { palabra: 'Losa aligerada', explica: 'El techo o entrepiso de concreto con ladrillos de techo (huecos) para que pese menos.' },
+  placa: { palabra: 'Placa', explica: 'Un muro de concreto armado (con fierro) que resiste sismos.' },
+  encofrado: { palabra: 'Encofrado', explica: 'Los moldes de madera o metal donde se vacía el concreto hasta que endurece.' },
+  // Drywall
+  rh: { palabra: 'Placa RH', explica: 'Placa verde que resiste la humedad: para baños y cocinas.' },
+  rf: { palabra: 'Placa RF', explica: 'Placa rosada que resiste el fuego: para cocinas, cocheras y escapes.' },
+  forro: { palabra: 'Forro', explica: 'Drywall pegado a un muro o columna que ya existe, para taparlo o dejarlo liso.' },
+  cenefa: { palabra: 'Cenefa', explica: 'Cajón de drywall junto al techo para esconder cortinas o luz LED.' },
+  parante: { palabra: 'Parante', explica: 'Los perfiles metálicos verticales dentro del tabique donde se atornillan las placas.' },
 };
 
 /** Botoncito "?" que explica una palabra del techo. */
@@ -104,3 +119,15 @@ export const TIJERAL_SENCILLO: Record<string, { titulo: string; para: string }> 
   parabolico_bowstring: { titulo: 'Arco con tirante abajo', para: 'Un tubo recto une las columnas y evita que se abran hacia afuera. Bueno si las columnas son delgadas.' },
   simple_arco: { titulo: 'Arco simple (un solo tubo)', para: 'Solo para techos livianos y chicos: cocheras y terrazas de hasta 8 m.' },
 };
+
+/** Fila "¿Qué es?" con varias palabras (cada una abre su explicación). */
+export function PalabrasQueEs({ terminos, className = '' }: { terminos: (keyof typeof GLOSARIO_TECHOS)[]; className?: string }) {
+  return (
+    <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-slate-500 ${className}`}>
+      <span className="font-bold text-slate-400">¿Qué es?</span>
+      {terminos.map(t => GLOSARIO_TECHOS[t] && (
+        <span key={t} className="inline-flex items-center gap-1 font-semibold text-slate-600">{GLOSARIO_TECHOS[t].palabra}<QueEs termino={t} /></span>
+      ))}
+    </div>
+  );
+}

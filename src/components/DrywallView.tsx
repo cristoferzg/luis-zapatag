@@ -30,7 +30,8 @@ import {
 import DisenoIADrywall from './drywall/DisenoIADrywall';
 import { CotizacionDrywall, KEY_COT_ACTUAL, KEY_COT_LISTA, cotizacionVacia, leerCotizacionActual, leerCotizaciones } from './drywall/cotizacionDrywall';
 import { simb } from '../lib/currency';
-import BotonElectricidad from './electricidad/BotonElectricidad';
+import BarraInstalaciones from './instalaciones/BarraInstalaciones';
+import { SelectorModoTechos, PalabrasQueEs } from './techos/modoTechos';
 import InputNumero from './common/InputNumero';
 
 const Drywall3D = lazy(() => import('./drywall/Drywall3D'));
@@ -73,9 +74,9 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
 
   const tabs: { id: Pestana; label: string; corto: string; icon: any }[] = [
     { id: 'cotizar', label: 'Cotizar', corto: 'Cotizar', icon: Calculator },
-    { id: 'elevacion', label: 'Muro en elevación', corto: 'Elevación', icon: Ruler },
+    { id: 'elevacion', label: 'Ver muro de frente', corto: 'De frente', icon: Ruler },
     { id: '3d', label: 'Vista 3D', corto: '3D', icon: Box },
-    { id: 'plano', label: 'Plano con Techos', corto: 'Plano', icon: PenTool },
+    { id: 'plano', label: 'Plano', corto: 'Plano', icon: PenTool },
     { id: 'presupuesto', label: 'Presupuesto', corto: 'Presupuesto', icon: ClipboardList },
   ];
   const Cabecera = (
@@ -85,7 +86,7 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
         <div className="p-1.5 lg:p-2 rounded-xl bg-violet-500/10 text-violet-600"><PanelsTopLeft className="w-4 h-4 lg:w-5 lg:h-5" /></div>
         <div className="min-w-0">
           <h2 className="text-sm font-black text-slate-900 uppercase leading-tight">Drywall</h2>
-          <p className="hidden lg:block text-[11px] text-slate-500">Cotiza tabiques, cielos rasos y cenefas en minutos; mira cada muro de frente con sus planchas.</p>
+          <p className="hidden 2xl:block text-[11px] text-slate-500 truncate">Cotiza tabiques, cielos rasos y cenefas en minutos.</p>
         </div>
       </div>
       <div className="flex w-full lg:w-auto lg:inline-flex p-0.5 lg:p-1 bg-slate-100 rounded-xl gap-0.5 lg:shrink-0">
@@ -100,7 +101,10 @@ export default function DrywallView({ onIrATechos, onIrAPrecios }: { onIrATechos
           );
         })}
       </div>
-      <BotonElectricidad origen="drywall" />
+      <div className="flex items-center gap-1.5 shrink-0">
+        <SelectorModoTechos />
+        <BarraInstalaciones origen="drywall" />
+      </div>
     </div>
   );
 
@@ -308,6 +312,7 @@ function Cotizar({ cot, setCot, total, onVerMuro, onVer3D, onPresupuesto, plano,
       {/* Agregar partida */}
       <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
         <p className="text-xs font-black text-slate-800">¿Qué vas a construir? <span className="font-semibold text-slate-400">Toca para agregar</span></p>
+        <PalabrasQueEs terminos={['rh', 'rf', 'forro', 'cenefa', 'parante']} />
         {FAMILIAS.map(f => (
           <div key={f.id}>
             <p className="text-[10px] font-black text-slate-400 uppercase mb-1.5">{f.titulo}</p>
@@ -483,7 +488,7 @@ function Cotizar({ cot, setCot, total, onVerMuro, onVer3D, onPresupuesto, plano,
       ) : (
         <div className="rounded-2xl p-3 border border-dashed border-slate-300 text-[11px] text-slate-500">
           <p className="font-bold text-slate-700 mb-0.5">¿Tienes el plano?</p>
-          Dibuja los tabiques y cielos en <button onClick={onVerPlano} className="font-bold text-violet-700 underline cursor-pointer">Plano con Techos</button> y se suman solos aquí.
+          Dibuja los tabiques y cielos en <button onClick={onVerPlano} className="font-bold text-violet-700 underline cursor-pointer">Plano</button> y se suman solos aquí.
         </div>
       )}
     </aside>
@@ -804,7 +809,7 @@ function Presupuesto({ cot, setCot, onIrAPrecios }: { cot: CotizacionDrywall; se
           </div>
         </div>
 
-        {vacio && <p className="py-10 text-center text-sm text-slate-400">Agrega partidas en “Cotizar” (o dibuja en “Plano con Techos”) para ver el presupuesto.</p>}
+        {vacio && <p className="py-10 text-center text-sm text-slate-400">Agrega partidas en “Cotizar” (o dibuja en “Plano”) para ver el presupuesto.</p>}
 
         {cot.partidas.length > 0 && (
           <div className="space-y-3">

@@ -90,8 +90,18 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   useEffect(() => { encuadrar(); }, [tam.w, tam.h]); // eslint-disable-line react-hooks/exhaustive-deps
   // Abierto desde Techos (botón 💧): el techo queda de fondo.
   useEffect(() => {
-    if (safeStorage.getItem<string>(KEY_ORIGEN_GAS, '') !== 'techos') return;
+    const origen = safeStorage.getItem<string>(KEY_ORIGEN_GAS, '');
+    if (!origen) return;
     safeStorage.removeItem?.(KEY_ORIGEN_GAS);
+    if (origen === 'obra' || origen === 'drywall') {
+      // Desde Obra Civil o Drywall: los muros del plano de fondo.
+      const nivel = cot.fondo.nivel || pisos[0];
+      const c2 = { ...cot, fondo: { ...cot.fondo, tipo: 'obra' as const, nivel, muros: murosDeObra(nivel), ambientes: undefined } };
+      commit(() => c2); encuadrar(c2);
+      avisar(c2.fondo.muros.length ? `✓ Plano de ${origen === 'drywall' ? 'Drywall / Obra Civil' : 'Obra Civil'} de fondo (${c2.fondo.muros.length} muros). Pon los aparatos y toca "Trazar".` : 'No hay muros dibujados en el plano de Obra Civil todavía.', 6000);
+      return;
+    }
+    if (origen !== 'techos') return;
     const f = fondoDesdeTechos();
     if (!f) { avisar('Techos no tiene un techo armado. Ármalo y vuelve con el botón 💧.'); return; }
     const c2 = { ...cot, fondo: f };

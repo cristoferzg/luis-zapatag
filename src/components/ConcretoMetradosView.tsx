@@ -33,7 +33,8 @@ import {
 import { SistemaPisoPanel } from './concreto/SistemaPisoPanel';
 import { AdminCatalogosMateriales } from './concreto/AdminCatalogosMateriales';
 import { simb } from '../lib/currency';
-import BotonElectricidad from './electricidad/BotonElectricidad';
+import BarraInstalaciones from './instalaciones/BarraInstalaciones';
+import { SelectorModoTechos, PalabrasQueEs } from './techos/modoTechos';
 
 import { CATALOGO_ELEMENTOS, DIAMETROS_KGM, LARGO_VARILLA_M, desgloseVarillas, nuevaInstancia, costoMaterialesConcreto } from './concreto/elementosConcreto';
 import type { Instancia } from './concreto/elementosConcreto';
@@ -219,11 +220,11 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
     <div className="flex w-full lg:w-auto lg:inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
       <button onClick={() => setModo('lista')}
         className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'lista' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
-        <List className="w-3.5 h-3.5" /> Lista
+        <List className="w-3.5 h-3.5" /> Por partidas
       </button>
       <button onClick={() => setModo('cad')}
         className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'cad' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
-        <PenTool className="w-3.5 h-3.5 text-stone-500" /> Plano CAD
+        <PenTool className="w-3.5 h-3.5 text-stone-500" /> Dibujar plano
       </button>
     </div>
   );
@@ -239,12 +240,13 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
               <Box className="w-4 h-4 lg:w-5 lg:h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-black text-slate-900 uppercase leading-tight truncate">Obra Civil<span className="hidden lg:inline"> · Plano CAD</span></h2>
+              <h2 className="text-sm font-black text-slate-900 uppercase leading-tight truncate">Obra Civil<span className="hidden lg:inline"> · Plano</span></h2>
               <p className="hidden lg:block text-[11px] text-slate-500">Dibuja columnas, zapatas, vigas y cimientos; el metrado sale solo.</p>
             </div>
           </div>
           {ModoToggle}
-          <BotonElectricidad origen="obra" />
+          <SelectorModoTechos className="hidden lg:flex" />
+          <BarraInstalaciones origen="obra" />
         </div>
         <div className="flex-1 min-h-0">
           <ConcretoPlanoCad onEditarEnTechos={d => { setActiveTechosDesignToLoad(d); onIrATechos?.(); }} />
@@ -268,6 +270,8 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
         </div>
         <div className="flex items-center gap-2 lg:shrink-0 flex-wrap">
           {ModoToggle}
+          <SelectorModoTechos />
+          <BarraInstalaciones origen="obra" />
           <button onClick={() => setShowPrecios(s => !s)} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold cursor-pointer flex items-center gap-1.5">
             <Calculator className="w-4 h-4" /> Precios
           </button>
@@ -346,6 +350,7 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
             </button>
           ))}
         </div>
+        <PalabrasQueEs className="mt-2.5 px-1" terminos={['zapata', 'columna', 'viga', 'cimiento', 'sobrecimiento', 'losa', 'placa', 'encofrado']} />
       </div>
 
       {/* Lista de elementos */}
