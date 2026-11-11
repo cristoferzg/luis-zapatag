@@ -38,7 +38,8 @@ import {
   Footprints,
   Palette,
   Droplets,
-  Camera
+  Camera,
+  Sparkles
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
@@ -226,6 +227,85 @@ function getMallaTexture(): THREE.CanvasTexture {
 // Gota redonda pequeña y suave (cabeza de cada hilo de lluvia).
 let cachedGotaTexture: THREE.CanvasTexture | null = null;
 // Rótulo plano sobre el suelo (ADELANTE · CALLE, ATRÁS…), legible desde arriba.
+// ── VISTA PARA EL CLIENTE ─────────────────────────────────────────────────────
+// Colores por tipo de pieza (como en las láminas de presentación): tijerales rojos,
+// correas azules, vigas verdes, columnas naranjas; refuerzos amarillos.
+const COLOR_PIEZA: Record<string, number> = {
+  cordon_superior: 0xdc2626, cordon_inferior: 0xdc2626, diagonal: 0xdc2626, montante: 0xdc2626,
+  correa: 0x1d4ed8, viga_principal: 0x16a34a, viga_secundaria: 0x16a34a,
+  columna: 0xea580c, arriostre: 0xeab308, tensor_viento: 0x334155,
+};
+export type MurosCliente = 'ninguno' | 'laterales' | 'tres' | 'todo';
+let texLadrillo: THREE.CanvasTexture | null = null;
+/** Textura de ladrillo caravista (dibujada, sin descargar imágenes). 1 repetición = 1 m × 0.5 m. */
+function texturaLadrillo(): THREE.CanvasTexture {
+  if (texLadrillo) return texLadrillo;
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#d6cfc4'; g.fillRect(0, 0, 256, 128); // mortero
+  const filas = 8, alto = 128 / filas, largo = 256 / 4;
+  for (let f = 0; f < filas; f++) {
+    const off = f % 2 ? largo / 2 : 0;
+    for (let k = -1; k < 5; k++) {
+      const x = k * largo + off;
+      const t = 0.82 + ((f * 7 + k * 13) % 9) / 40;
+      g.fillStyle = `rgb(${Math.round(176 * t)}, ${Math.round(92 * t)}, ${Math.round(64 * t)})`;
+      g.fillRect(x + 2, f * alto + 2, largo - 4, alto - 4);
+    }
+  }
+  texLadrillo = new THREE.CanvasTexture(c);
+  texLadrillo.wrapS = texLadrillo.wrapT = THREE.RepeatWrapping;
+  texLadrillo.colorSpace = THREE.SRGBColorSpace;
+  return texLadrillo;
+}
+/** Muros de ladrillo entre las columnas del borde, con columnas y viga de amarre de concreto. */
+function murosDeLadrillo(nodes: Record<string, { x: number; y: number; z?: number }>, segments: Record<string, { nodeAId: string; nodeBId: string; rolEstructural?: string }>, cuales: MurosCliente): THREE.Group {
+  const g = new THREE.Group(); g.name = 'muros_cliente';
+  if (cuales === 'ninguno') return g;
+  // Columnas: base (x, z) y tope (altura del alero).
+  const cols: { x: number; z: number; top: number }[] = [];
+  Object.values(segments).forEach(s => {
+    if (s.rolEstructural !== 'columna') return;
+    const a = nodes[s.nodeAId], b = nodes[s.nodeBId]; if (!a || !b) return;
+    if (Math.hypot(a.x - b.x, (a.z || 0) - (b.z || 0)) > 0.05) return;
+    cols.push({ x: a.x, z: a.z || 0, top: Math.max(a.y, b.y) });
+  });
+  if (cols.length < 2) return g;
+  const xs = cols.map(c => c.x), zs = cols.map(c => c.z);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
+  const hMuro = Math.max(1.5, Math.min(...cols.map(c => c.top)) - 0.25); // bajo la viga del techo
+  const esp = 0.15, cerca = (a: number, b: number) => Math.abs(a - b) < 0.08;
+  const lados: { fijo: 'x' | 'z'; v: number }[] = [];
+  lados.push({ fijo: 'x', v: x0 }, { fijo: 'x', v: x1 });
+  if (cuales === 'tres' || cuales === 'todo') lados.push({ fijo: 'z', v: z1 });
+  if (cuales === 'todo') lados.push({ fijo: 'z', v: z0 });
+  const tex = texturaLadrillo();
+  const matConcreto = new THREE.MeshStandardMaterial({ color: 0xea7a2c, roughness: 0.85 });
+  const borde = new THREE.LineBasicMaterial({ color: 0x1f2937, transparent: true, opacity: 0.7 });
+  const caja = (w: number, h: number, d: number, x: number, y: number, z: number, mat: THREE.Material) => {
+    const geo = new THREE.BoxGeometry(w, h, d); const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z);
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), borde)); g.add(m); return m;
+  };
+  lados.forEach(({ fijo, v }) => {
+    const enLado = cols.filter(c => cerca(fijo === 'x' ? c.x : c.z, v)).sort((a, b) => fijo === 'x' ? a.z - b.z : a.x - b.x);
+    // Si el frente/fondo no tiene columnas intermedias, se usan las esquinas.
+    const pts = enLado.length >= 2 ? enLado : [{ x: fijo === 'x' ? v : x0, z: fijo === 'x' ? z0 : v, top: hMuro }, { x: fijo === 'x' ? v : x1, z: fijo === 'x' ? z1 : v, top: hMuro }];
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const A = pts[i], B = pts[i + 1];
+      const L = Math.hypot(B.x - A.x, B.z - A.z); if (L < 0.3) continue;
+      const mat = new THREE.MeshStandardMaterial({ map: tex.clone(), roughness: 0.9 });
+      (mat.map as THREE.Texture).needsUpdate = true; (mat.map as THREE.Texture).repeat.set(L, hMuro * 2);
+      const cx = (A.x + B.x) / 2, cz = (A.z + B.z) / 2;
+      if (fijo === 'x') caja(esp, hMuro, L, cx, hMuro / 2, cz, mat); else caja(L, hMuro, esp, cx, hMuro / 2, cz, mat);
+      // Viga de amarre (solera) de concreto sobre el muro y una franja a media altura.
+      [hMuro - 0.1, hMuro / 2].forEach(y => { if (fijo === 'x') caja(esp + 0.04, 0.2, L, cx, y, cz, matConcreto); else caja(L, 0.2, esp + 0.04, cx, y, cz, matConcreto); });
+    }
+    // Columnas de concreto (confinamiento) en cada apoyo del muro.
+    pts.forEach(P => caja(0.25, hMuro, 0.25, P.x, hMuro / 2, P.z, matConcreto));
+  });
+  return g;
+}
+
 const cacheRotulos = new Map<string, THREE.CanvasTexture>();
 function rotuloSuelo(texto: string, color: string, alto = 0.55): THREE.Mesh {
   let tex = cacheRotulos.get(texto + color);
@@ -1105,6 +1185,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   // MODO RENDER: sombras suaves del sol, suelo que recibe la sombra (sobre la
   // foto real solo queda la sombra) y tono de cámara más realista.
   const [modoRender, setModoRender] = useState(false);
+  // Vista para el cliente: colores por pieza, bordes marcados, sombra, muros de ladrillo y cámara desde la esquina.
+  const [presentacion, setPresentacionSt] = useState(false);
+  const presentacionRef = useRef(false);
+  const [murosCliente, setMurosClienteSt] = useState<MurosCliente>(() => (safeStorage.getItem<string>('innova_techos_muros_cliente', 'tres') as MurosCliente) || 'tres');
+  const murosClienteRef = useRef<MurosCliente>(murosCliente);
+  murosClienteRef.current = murosCliente;
+  const setMurosCliente = (m: MurosCliente) => { murosClienteRef.current = m; setMurosClienteSt(m); safeStorage.setItem('innova_techos_muros_cliente', m); };
   const modoRenderRef = useRef(false);
   modoRenderRef.current = modoRender;
   const aplicarRender = (sc: THREE.Scene) => {
@@ -1127,7 +1214,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // En render: sin esferas de nudos ni contornos de dibujo técnico.
     modelo?.traverse(o => {
       if (o.name.startsWith('joint_')) o.visible = !on;
-      else if ((o as THREE.LineSegments).isLineSegments && o.parent?.parent?.name === 'tubes_group') o.visible = !on;
+      else if ((o as THREE.LineSegments).isLineSegments && o.parent?.parent?.name === 'tubes_group') o.visible = !on || presentacionRef.current;
     });
     modelo?.traverse(o => {
       const m = o as THREE.Mesh;
@@ -1190,6 +1277,28 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       await guardarFotoPropuesta(cv, fotoFondoRef.current, ajusteFotoRef.current, '#' + (CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor.toString(16).padStart(6, '0'));
       if (!silencioso) { setAvisoFoto('✓ Imagen guardada para la propuesta al cliente (Presupuesto → Propuesta visual)'); window.setTimeout(() => setAvisoFoto(null), 3500); }
     } catch { if (!silencioso) setAvisoFoto('No se pudo tomar la imagen'); }
+  };
+  // Vista para el cliente: un toque deja colores por pieza, bordes, sombra, muros y la cámara desde la esquina.
+  const alternarPresentacion = () => {
+    const on = !presentacionRef.current;
+    presentacionRef.current = on; setPresentacionSt(on);
+    setModoRender(on);
+    if (on) {
+      setMostrarCobertura(false); // la estructura a la vista, como en las láminas de presentación
+      cameraAngleThetaRef.current = 0.78; cameraAnglePhiRef.current = 0.52;
+      cameraRadiusRef.current = Math.max(10, cameraRadiusRef.current * 0.95);
+      updateCameraPos();
+    }
+  };
+  const descargarFotoCliente = async () => {
+    await tomarFotoPropuesta(true);
+    const cv = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
+    if (!cv) return;
+    try {
+      const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = 'techo_para_el_cliente.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setAvisoFoto('✓ Foto descargada y guardada en la propuesta al cliente'); window.setTimeout(() => setAvisoFoto(null), 3500);
+    } catch { setAvisoFoto('No se pudo descargar la foto'); }
   };
   // La primera vez que se ve el techo cubierto, se guarda una imagen automática.
   useEffect(() => {
@@ -2506,6 +2615,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         altoM = 0.25;
       }
 
+      if (presentacionRef.current && !esConcreto3D) {
+        const minimo = seg.rolEstructural === 'columna' ? 0.14 : seg.rolEstructural === 'correa' ? 0.06 : 0.07;
+        anchoM = Math.max(anchoM, minimo); altoM = Math.max(altoM, minimo);
+      }
       const radiusM = anchoM * 0.5;
 
       // Registrar conectividad y ancho máximo en cada nodo
@@ -2537,16 +2650,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         tubeMat.emissive = new THREE.Color(0x06b6d4);
         tubeMat.emissiveIntensity = 0.9;
       }
+      const colorPieza = presentacionRef.current && !esConcreto3D ? COLOR_PIEZA[seg.rolEstructural || ''] : undefined;
+      if (colorPieza !== undefined) { tubeMat.color.setHex(colorPieza); tubeMat.metalness = 0.15; tubeMat.roughness = 0.5; }
       const tubeMesh = new THREE.Mesh(geom, tubeMat);
-      tubeMesh.userData.colorBase = esConcreto3D ? 0x9a938c : colorEstructuraRef.current;
+      tubeMesh.userData.colorBase = esConcreto3D ? 0x9a938c : (colorPieza ?? colorEstructuraRef.current);
 
       // Contornos nítidos para visibilidad perfecta de cada tubo y pieza individual
       if (!isWire) {
         const edgesGeo = new THREE.EdgesGeometry(geom, 22);
         const edgeLineMat = new THREE.LineBasicMaterial({
-          color: modoIluminacion === 'claro' ? 0x1e293b : 0x38bdf8,
+          color: presentacionRef.current ? 0x0f172a : modoIluminacion === 'claro' ? 0x1e293b : 0x38bdf8,
           transparent: true,
-          opacity: refuerzoBordes() ? 0.8 : modoIluminacion === 'claro' ? 0.38 : 0.55
+          opacity: presentacionRef.current ? 0.95 : refuerzoBordes() ? 0.8 : modoIluminacion === 'claro' ? 0.38 : 0.55
         });
         const tubeLines = new THREE.LineSegments(edgesGeo, edgeLineMat);
         tubeMesh.add(tubeLines);
@@ -3125,6 +3240,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       }
     }
 
+    // 5b. VISTA PARA EL CLIENTE: muros de ladrillo con su concreto bajo el techo.
+    if (presentacionRef.current && murosClienteRef.current !== 'ninguno') modeloGroup.add(murosDeLadrillo(nodes as never, segments as never, murosClienteRef.current));
+
     // 6a. CANALETAS Y BAJADAS: modelo (sección), bordes elegidos y bajada (tubo o gárgola).
     if (mostrarCobertura && !movil && canaletaActiva(zonasCob) && !isHipRoof && !is6AguasRoof && !isDomeRoof) {
       const cfg = cfgCanaleta(zonasCob);
@@ -3288,7 +3406,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     scene.add(rainLines);
     rainLinesRef.current = rainLines;
 
-  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, zonasCob, movilClave, colorEstructura, modoIluminacion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [nodes, segments, selectedModeloId, aluzincOpacity, aluzincColorHex, mostrarPlataforma, mostrarPernosAnclaje, mostrarCobertura, mostrarConcreto, zonasCob, movilClave, colorEstructura, modoIluminacion, presentacion, murosCliente]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inicialización de WebGL
   useEffect(() => {
@@ -3753,6 +3871,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       </div>
       <input ref={fotoFondoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { elegirFotoFondo(e.target.files?.[0]); e.target.value = ''; }} />
 
+      {presentacion && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-1.5rem)] bg-white/95 backdrop-blur-md border border-rose-200 rounded-2xl shadow-xl p-2 flex flex-wrap items-center justify-center gap-1.5">
+          <span className="text-[11px] font-black text-rose-700 px-1">Muros:</span>
+          {([['ninguno', 'Sin muros'], ['laterales', 'Costados'], ['tres', 'Costados y fondo'], ['todo', 'Todo alrededor']] as [MurosCliente, string][]).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setMurosCliente(k)}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${murosCliente === k ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>{l}</button>
+          ))}
+          <span className="w-px h-5 bg-slate-200 mx-0.5" />
+          <button type="button" onClick={() => setMostrarCobertura(v => !v)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border bg-white text-slate-700 border-slate-200 hover:bg-slate-50">{mostrarCobertura ? 'Quitar calamina' : 'Poner calamina'}</button>
+          <button type="button" onClick={descargarFotoCliente} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer bg-slate-900 text-white"><Camera className="w-3.5 h-3.5" />Foto para el cliente</button>
+        </div>
+      )}
       {avisoFoto && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 shadow-lg">{avisoFoto}</div>
       )}
@@ -4026,6 +4156,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           </div>
 
           <div className="h-4 w-px bg-slate-200 mx-0.5 shrink-0" />
+
+          {/* Vista para el cliente (colores por pieza, sombra, muros y cámara desde la esquina) */}
+          <button onClick={alternarPresentacion} aria-pressed={presentacion}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${presentacion ? 'bg-rose-600 text-white border-rose-600' : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'}`}
+            title="Vista para el cliente: colores por pieza, sombra en el piso y muros de ladrillo">
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline text-[11px] font-bold">Para el cliente</span>
+          </button>
 
           {/* Alternar Modo Claro / Oscuro */}
           <button
