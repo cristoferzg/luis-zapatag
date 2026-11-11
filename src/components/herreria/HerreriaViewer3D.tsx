@@ -228,7 +228,7 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
     const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
     if (!canvas) return;
     grabandoRef.current = true;
-    const g = grabarEnFases(canvas, 'carpimetal_3d', {
+    const g = grabarEnFases(() => rendererRef.current?.domElement as HTMLCanvasElement | undefined, 'carpimetal_3d', {
       fondo: () => ({ color: colorFondo() }),
       fases: [{ nombre: 'Vista completa', aplicar: () => {} }],
       alSegundo: setSegGrab,

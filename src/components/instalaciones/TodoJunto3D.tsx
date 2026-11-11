@@ -245,7 +245,7 @@ export default function VentanaTodoJunto3D({ onClose, origen = 'techos' }: { onC
     if (grab.current) { grab.current.detener(); return; }
     if (!canvas.current || !datos) return;
     const antes = ver;
-    grab.current = grabarEnFases(canvas.current, esObra ? 'obra_luz_agua_3d' : 'techo_luz_agua_3d', {
+    grab.current = grabarEnFases(() => canvas.current, esObra ? 'obra_luz_agua_3d' : 'techo_luz_agua_3d', {
       fondo: () => ({ color: '#eef2f7' }),
       fases: [
         { nombre: esObra ? '1. Muros' : '1. Estructura', aplicar: () => setVer({ estructura: true, calamina: false, luz: false, agua: false }) },

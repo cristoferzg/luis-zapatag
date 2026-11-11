@@ -845,7 +845,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     if (!c) return;
     const antes = abiertoRef.current;
     girar.current = true; setListo(null);
-    grabacion.current = grabarEnFases(c, 'obra_3d', {
+    grabacion.current = grabarEnFases(() => canvasRef.current, 'obra_3d', {
       fondo: () => ({ color: '#ffffff' }),
       fases: [
         { nombre: '1. Puertas cerradas', aplicar: () => abrirTodoRef.current(false) },

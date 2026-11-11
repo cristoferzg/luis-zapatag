@@ -1082,7 +1082,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     if (!canvas) return;
     const coberturaAntes = mostrarCobertura;
     grabandoRef.current = true;
-    const g = grabarEnFases(canvas, 'techo_3d', {
+    const g = grabarEnFases(() => rendererRef.current?.domElement as HTMLCanvasElement | undefined, 'techo_3d', {
       fondo: fondoCaptura,
       fases: [
         { nombre: '1. Estructura', aplicar: () => setMostrarCobertura(false) },

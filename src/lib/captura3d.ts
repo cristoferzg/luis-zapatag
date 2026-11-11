@@ -76,10 +76,14 @@ export const puedeGrabar3D = () => puedeGrabar(document.createElement('canvas'))
  * los segundos que faltan y a `alCambiarFase` con la fase actual. Al terminar
  * descarga el MP4 y llama a `alTerminar`. Devuelve null si el equipo no puede grabar.
  */
-export function grabarEnFases(gl: HTMLCanvasElement, nombre: string, o: {
+/** `gl` puede ser una función: algunos visores rehacen el lienzo al cambiar de fase (Techos al poner la calamina). */
+export function grabarEnFases(glIn: HTMLCanvasElement | (() => HTMLCanvasElement | null | undefined), nombre: string, o: {
   fondo: () => FondoCaptura; fases: Fase[];
   alCambiarFase?: (i: number, f: Fase) => void; alSegundo?: (faltan: number) => void; alTerminar?: (ext: string) => void;
 }): { detener: () => void } | null {
+  const lienzo = () => (typeof glIn === 'function' ? glIn() : glIn) || null;
+  const gl = lienzo();
+  if (!gl) return null;
   const k = Math.min(1, MAX_LADO_VIDEO / Math.max(gl.width || 1, gl.height || 1));
   const w = Math.max(2, Math.round((gl.width * k) / 2) * 2), h = Math.max(2, Math.round((gl.height * k) / 2) * 2);
   const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -99,7 +103,8 @@ export function grabarEnFases(gl: HTMLCanvasElement, nombre: string, o: {
     if (i !== fase) { fase = i; fases[i].aplicar(); o.alCambiarFase?.(i, fases[i]); }
     const faltan = Math.max(0, Math.ceil((total - t) / 1000));
     if (faltan !== ultimoSeg) { ultimoSeg = faltan; o.alSegundo?.(faltan); }
-    dibujar(g, gl, w, h, o.fondo(), img, fases[i].nombre || undefined);
+    const actual = lienzo();
+    if (actual && actual.width && actual.height) dibujar(g, actual, w, h, o.fondo(), img, fases[i].nombre || undefined);
     raf = requestAnimationFrame(paso);
   };
   paso();
