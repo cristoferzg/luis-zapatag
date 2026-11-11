@@ -1285,10 +1285,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     setModoRender(on);
     if (on) {
       setMostrarCobertura(false); // la estructura a la vista, como en las láminas de presentación
-      resetCamera(); // encuadre del techo completo
-      cameraAngleThetaRef.current = 0.72; cameraAnglePhiRef.current = 1.08; // desde la esquina, a media altura
-      cameraRadiusRef.current *= 0.95;
-      updateCameraPos();
+      resetCamera(); // encuadre del techo completo, desde la esquina
     }
   };
   const descargarFotoCliente = async () => {
@@ -1330,8 +1327,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       cameraTargetRef.current.set(6, 3.5, 6);
       cameraRadiusRef.current = 16;
     }
-    cameraAngleThetaRef.current = 0.65;
-    cameraAnglePhiRef.current = 0.48;
+    // Vista para el cliente: desde la esquina y a media altura (como las láminas de presentación).
+    cameraAngleThetaRef.current = presentacionRef.current ? 0.72 : 0.65;
+    cameraAnglePhiRef.current = presentacionRef.current ? 1.08 : 0.48;
+    if (presentacionRef.current) cameraRadiusRef.current *= 0.95;
     updateCameraPos();
   }, [nodes, updateCameraPos]);
 
@@ -2617,7 +2616,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       }
 
       if (presentacionRef.current && !esConcreto3D && seg.rolEstructural !== 'arriostre' && seg.rolEstructural !== 'tensor_viento') {
-        const minimo = seg.rolEstructural === 'columna' ? 0.14 : seg.rolEstructural === 'correa' ? 0.06 : 0.07;
+        const minimo = seg.rolEstructural === 'columna' ? 0.18 : seg.rolEstructural === 'correa' ? 0.07 : 0.09;
         anchoM = Math.max(anchoM, minimo); altoM = Math.max(altoM, minimo);
       }
       const radiusM = anchoM * 0.5;
@@ -2662,7 +2661,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const edgeLineMat = new THREE.LineBasicMaterial({
           color: presentacionRef.current ? 0x0f172a : modoIluminacion === 'claro' ? 0x1e293b : 0x38bdf8,
           transparent: true,
-          opacity: presentacionRef.current ? 0.95 : refuerzoBordes() ? 0.8 : modoIluminacion === 'claro' ? 0.38 : 0.55
+          opacity: presentacionRef.current ? 0.55 : refuerzoBordes() ? 0.8 : modoIluminacion === 'claro' ? 0.38 : 0.55
         });
         const tubeLines = new THREE.LineSegments(edgesGeo, edgeLineMat);
         tubeMesh.add(tubeLines);
