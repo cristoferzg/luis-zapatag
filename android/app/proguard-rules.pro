@@ -19,3 +19,15 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ---- InnovApp ----
+# Plugins nativos propios (Imprimir, Archivos) y de Capacitor: los registra Capacitor por reflexión.
+-keep class pe.innovacontratistas.app.** { *; }
+# Compras con Google Play (cordova-plugin-purchase): Cordova crea el plugin por su nombre (config.xml).
+-keep class cc.fovea.** { *; }
+-keep class org.apache.cordova.** { *; }
+# Puente JS ↔ nativo del WebView.
+-keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }
+# Informes de errores legibles en Play Console (se sube mapping.txt).
+-keepattributes SourceFile,LineNumberTable,*Annotation*,Signature,InnerClasses,EnclosingMethod
+-renamesourcefileattribute SourceFile
