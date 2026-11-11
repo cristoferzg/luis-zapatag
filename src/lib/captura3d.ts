@@ -79,6 +79,14 @@ function dibujarMarca(g: CanvasRenderingContext2D, w: number, h: number, fs: num
   const cy = y + alto / 2 - (tel ? f2 * 0.62 : 0);
   g.textBaseline = 'middle'; g.fillStyle = '#0f172a'; g.font = `800 ${f1}px system-ui, sans-serif`; g.fillText(nombre, tx, cy);
   if (tel) { g.fillStyle = '#475569'; g.font = `600 ${f2}px system-ui, sans-serif`; g.fillText(tel, tx, cy + f1 * 0.62 + f2 * 0.55); }
+  // Con la marca del usuario, un "hecho con InnovApp" pequeño encima de la placa.
+  if (marca.nombre) {
+    const f3 = Math.max(10, Math.round(fs * 0.5)), credito = 'hecho con InnovApp';
+    g.font = `700 ${f3}px system-ui, sans-serif`;
+    const cw = g.measureText(credito).width;
+    g.fillStyle = 'rgba(255, 255, 255, 0.85)'; redondeado(g, x + ancho - cw - f3 * 1.2, y - f3 * 1.9, cw + f3 * 1.2, f3 * 1.5, f3 * 0.5); g.fill();
+    g.fillStyle = '#64748b'; g.fillText(credito, x + ancho - cw - f3 * 0.6, y - f3 * 1.15);
+  }
 }
 function redondeado(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
