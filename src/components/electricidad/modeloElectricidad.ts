@@ -269,7 +269,7 @@ export function desdeMelamina(): FondoImportado {
 
 /** Techos: el área cubierta y sus columnas; se sugieren luminarias y reflectores debajo. */
 export function desdeTechos(): FondoImportado {
-  const e = safeStorage.getItem<{ nodes?: Record<string, { x: number; y: number; z: number }>; segments?: Record<string, { nodeAId: string; nodeBId: string }> } | null>('innova_techos_escena_actual', null);
+  const e = safeStorage.getItem<{ nodes?: Record<string, { x: number; y: number; z: number }>; segments?: Record<string, { nodeAId: string; nodeBId: string; rolEstructural?: string }> } | null>('innova_techos_escena_actual', null);
   const N = e?.nodes || {};
   const ns = Object.values(N).filter(n => isFinite(n.x) && isFinite(n.z));
   if (ns.length < 2) return { muros: [], refs: [], sugerencias: [], vacio: true, texto: 'Techos no tiene un diseño abierto.' };
@@ -278,7 +278,12 @@ export function desdeTechos(): FondoImportado {
   if (W < 0.5 || L < 0.5) return { muros: [], refs: [], sugerencias: [], vacio: true, texto: 'El techo abierto no tiene área en planta.' };
   const refs: RefFondo[] = [{ tipo: 'area', x: r3(W / 2), y: r3(L / 2), w: r3(W), d: r3(L), rot: 0, etiqueta: 'Área techada' }];
   const vistos = new Set<string>();
-  Object.values(e?.segments || {}).forEach(s => {
+  // Columnas: las piezas marcadas como columna (los montantes del tijeral también son verticales
+  // y antes se contaban como columnas). Diseños sin roles: cualquier pieza vertical.
+  const segs = Object.values(e?.segments || {});
+  const conRol = segs.some(s => s.rolEstructural);
+  segs.forEach(s => {
+    if (conRol && s.rolEstructural !== 'columna') return;
     const a = N[s.nodeAId], b = N[s.nodeBId]; if (!a || !b) return;
     if (Math.hypot(a.x - b.x, a.z - b.z) > 0.01 || Math.abs(a.y - b.y) < 0.3) return;
     const k = `${a.x.toFixed(2)}_${a.z.toFixed(2)}`; if (vistos.has(k)) return; vistos.add(k);
