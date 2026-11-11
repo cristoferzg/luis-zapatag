@@ -37,6 +37,7 @@ import useTechosDimensions from './useTechosDimensions';
 import CadToolbox from './CadToolbox';
 import CanvasArea from './CanvasArea';
 import PropiedadesCad from './PropiedadesCad';
+import { SelectorModoTechos, esModoSencillo, useModoTechos } from './modoTechos';
 import { useTechosCadEngineState } from './useTechosCadEngineState';
 import { TechosDespieceView } from './TechosDespieceView';
 import { TechosMaterialesView } from './TechosMaterialesView';
@@ -520,7 +521,12 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // La barra tiene overflow-x-auto, que recortaría un menú absoluto: se ubica fijo bajo el botón.
   const [mobileActionsPos, setMobileActionsPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
   const [savedDesignsList, setSavedDesignsList] = useState<SavedTechosDesign[]>([]);
-  const [showInspector, setShowInspector] = useState<boolean>(true);
+  // En modo sencillo el panel de piezas empieza cerrado (se abre con su botón).
+  const [showInspector, setShowInspector] = useState<boolean>(() => !esModoSencillo());
+  const modoTechos = useModoTechos();
+  // Al cambiar de modo: experto abre el panel de piezas; sencillo lo cierra.
+  const modoPrevio = React.useRef(modoTechos);
+  useEffect(() => { if (modoPrevio.current !== modoTechos) { modoPrevio.current = modoTechos; setShowInspector(modoTechos === 'experto'); } }, [modoTechos]);
 
   // States for Smart Save and Client Portfolio
   const [currentEditingDesignId, setCurrentEditingDesignId] = useState<string | null>(() => safeStorage.getItem<string | null>('innova_techos_diseno_actual', null));
@@ -1037,11 +1043,12 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h1 className="text-xs sm:text-base font-extrabold text-slate-900 tracking-wide truncate">
-                TECHOS METÁLICOS
+                <span className="sm:hidden">TECHOS</span><span className="hidden sm:inline">TECHOS METÁLICOS</span>
               </h1>
-              <span className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 text-[9px] font-mono font-bold border border-amber-200">
+              {modoTechos === 'experto' && <span className="hidden sm:inline-block px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 text-[9px] font-mono font-bold border border-amber-200">
                 CAD RNE
-              </span>
+              </span>}
+              <SelectorModoTechos className="ml-1" />
             </div>
             <div className="flex items-center gap-1 text-[11px] text-slate-500">
               <span className="hidden sm:inline">Proyecto:</span>

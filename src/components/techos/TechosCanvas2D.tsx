@@ -65,6 +65,17 @@ import {
   CATALOGO_TIJERALES_INFO
 } from './techosCadColors';
 import InputNumero from '../common/InputNumero';
+import { useModoTechos, GLOSARIO_TECHOS } from './modoTechos';
+
+// Qué hace cada herramienta, en simple (se ve al pasar el mouse o mantener el dedo).
+const AYUDA_HERRAMIENTA: Record<string, string> = {
+  draw_line: 'Dibuja un tubo recto entre dos puntos.',
+  draw_col: 'Pone una columna: el poste que sostiene el techo.',
+  draw_tijeral: GLOSARIO_TECHOS.tijeral.explica,
+  draw_correa: GLOSARIO_TECHOS.correa.explica,
+  draw_arriostre: GLOSARIO_TECHOS.arriostre.explica,
+  measure: 'Mide la distancia entre dos puntos.',
+};
 
 export type { VistaTechoCAD };
 
@@ -158,6 +169,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
 
   // Datos que el usuario conoce del techo (lo que deje vacío se lee del dibujo).
   const [showOpcionesPlano, setShowOpcionesPlano] = useState(false);
+  // Modo sencillo: sin códigos de nudos ni coordenadas técnicas en el dibujo.
+  const sencillo = useModoTechos() === 'sencillo';
   const [verGuiaBoceto, setVerGuiaBoceto] = useState(false);
   const [opcionesPlano, setOpcionesPlano] = useState<OpcionesPlano>(() => ({
     ...OPCIONES_PLANO_DEFECTO, coberturaId: INVENTARIO_COBERTURAS[0]?.id || '',
@@ -1580,8 +1593,8 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             title="Vista en Planta Superior (X-Z)"
           >
             <Layers className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-            <span>Planta</span>
-            <span className="hidden md:inline text-[10px] text-slate-400 font-normal ml-0.5">(X-Z)</span>
+            <span>{sencillo ? 'Arriba' : 'Planta'}</span>
+            {!sencillo && <span className="hidden md:inline text-[10px] text-slate-400 font-normal ml-0.5">(X-Z)</span>}
           </button>
 
           <button
@@ -1594,9 +1607,10 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             title="Vista de Elevación / Sección (X-Y)"
           >
             <Columns className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            {sencillo ? <span>Frente</span> : <>
             <span className="sm:hidden">Elev.</span>
             <span className="hidden sm:inline">Elevación</span>
-            <span className="hidden md:inline text-[10px] text-slate-400 font-normal ml-0.5">(X-Y)</span>
+            <span className="hidden md:inline text-[10px] text-slate-400 font-normal ml-0.5">(X-Y)</span></>}
           </button>
 
           <button
@@ -1610,7 +1624,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           >
             <Eye className="w-3.5 h-3.5 shrink-0" />
             <span>3D</span>
-            <span className="hidden sm:inline text-[10px] ml-0.5 font-bold">Aluzinc</span>
+            {!sencillo && <span className="hidden sm:inline text-[10px] ml-0.5 font-bold">Aluzinc</span>}
           </button>
         </div>
 
@@ -1621,7 +1635,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
         {vista === 'seccion' && (
           <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-amber-50 border border-amber-300 rounded-xl shrink-0 shadow-2xs"
             title="Profundidad de trabajo en el eje Z (hacia el fondo del techo). En Planta la pones con el cursor; aquí la fijas para dibujar en elevación.">
-            <span className="text-[10px] font-black text-amber-800 uppercase tracking-wide">Prof. Z</span>
+            <span className="text-[10px] font-black text-amber-800 uppercase tracking-wide">{sencillo ? 'Fondo' : 'Prof. Z'}</span>
             <InputNumero
               type="number"
               step="0.25"
@@ -2275,7 +2289,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                         className="group-hover:stroke-amber-400 group-hover:brightness-110 transition-colors shadow-sm"
                       />
 
-                      {n.nodeLabel && (isSelected || isBeingDragged || etiquetaLibre(cx + 10 + n.nodeLabel.length * 2.7, cy, n.nodeLabel.length * 5.6 + 4, 12)) && (
+                      {n.nodeLabel && (isSelected || isBeingDragged || (!sencillo && etiquetaLibre(cx + 10 + n.nodeLabel.length * 2.7, cy, n.nodeLabel.length * 5.6 + 4, 12))) && (
                         <text x={cx + 10} y={cy + 3} fill="#475569" fontSize="9" fontWeight="bold" fontFamily="monospace" className="pointer-events-none">
                           {n.nodeLabel}
                         </text>
@@ -2454,7 +2468,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                         textAnchor="middle"
                         fontFamily="sans-serif"
                       >
-                        {activeSnap.label}
+                        {sencillo ? activeSnap.label.replace(/^COORD \(([-\d.]+), ([-\d.]+)\)$/, '$1 m · $2 m') : activeSnap.label}
                       </text>
                     </g>
                   </g>
@@ -3280,7 +3294,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                   const A = activeTool === t.id;
                   const Icon = t.Icon;
                   return (
-                    <button key={t.id} onClick={() => toggleTool(t.id)} title={A && t.id !== 'select' ? `${t.label} (clic para desactivar)` : t.label}
+                    <button key={t.id} onClick={() => toggleTool(t.id)} title={A && t.id !== 'select' ? `${t.label} (clic para desactivar)` : AYUDA_HERRAMIENTA[t.id] ? `${t.label}: ${AYUDA_HERRAMIENTA[t.id]}` : t.label}
                       className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${A ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>
                       <Icon className="w-[18px] h-[18px]" />
                     </button>
@@ -3312,7 +3326,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                 const A = activeTool === t.id;
                 const Icon = t.Icon;
                 return (
-                  <button key={t.id} onClick={() => toggleTool(t.id)} title={t.label} aria-label={t.label} className={item}>
+                  <button key={t.id} onClick={() => toggleTool(t.id)} title={AYUDA_HERRAMIENTA[t.id] ? `${t.label}: ${AYUDA_HERRAMIENTA[t.id]}` : t.label} aria-label={t.label} className={item}>
                     <span className={icono(A)}><Icon className="w-5 h-5" /></span>
                     <span className={`text-[10px] leading-none ${A ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>{t.label === 'Seleccionar' ? 'Selec.' : t.label}</span>
                   </button>

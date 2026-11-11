@@ -2,6 +2,7 @@
 // Cohesivo con el diseño amigable de la plataforma Innova Contratistas
 // Permite modificar libremente medidas exactas de vigas, columnas y nodos sin bloqueos al borrar números
 import React, { useState, useEffect } from 'react';
+import { useModoTechos } from './modoTechos';
 import { 
   Building2, 
   X, 
@@ -45,6 +46,8 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
   onClose
 }) => {
   const [activeTab, setActiveTab] = useState<'activos' | 'seleccion' | 'perfiles' | 'generadores'>('activos');
+  // Modo sencillo: mismos controles, con palabras simples.
+  const sencillo = useModoTechos() === 'sencillo';
   const [selectedTrussGen, setSelectedTrussGen] = useState<TipoTijeral>('warren');
 
   // Estado para filtrado de elementos activos
@@ -151,12 +154,12 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
       columna: { label: 'Columnas Estructurales', icon: '🏛️', colorBadge: 'bg-blue-50 text-blue-700 border-blue-200' },
       viga_principal: { label: 'Vigas Principales', icon: '📏', colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
       viga_secundaria: { label: 'Vigas Secundarias / Viguetas', icon: '📐', colorBadge: 'bg-teal-50 text-teal-700 border-teal-200' },
-      cordon_superior: { label: 'Cordones Superiores (Tijeral)', icon: '🔺', colorBadge: 'bg-amber-50 text-amber-700 border-amber-200' },
-      cordon_inferior: { label: 'Cordones Inferiores (Tijeral)', icon: '🔻', colorBadge: 'bg-orange-50 text-orange-700 border-orange-200' },
-      montante: { label: 'Montantes Verticales', icon: '📍', colorBadge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-      diagonal: { label: 'Diagonales de Celosía', icon: '⚡', colorBadge: 'bg-purple-50 text-purple-700 border-purple-200' },
-      correa: { label: 'Correas / Tubos de Tejido', icon: '🪵', colorBadge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
-      arriostre: { label: 'Arriostres y Cruces San Andrés', icon: '⛓️', colorBadge: 'bg-slate-100 text-slate-800 border-slate-300' },
+      cordon_superior: { label: sencillo ? 'Tubo de arriba del tijeral' : 'Cordones Superiores (Tijeral)', icon: '🔺', colorBadge: 'bg-amber-50 text-amber-700 border-amber-200' },
+      cordon_inferior: { label: sencillo ? 'Tubo de abajo del tijeral' : 'Cordones Inferiores (Tijeral)', icon: '🔻', colorBadge: 'bg-orange-50 text-orange-700 border-orange-200' },
+      montante: { label: sencillo ? 'Palitos verticales del tijeral' : 'Montantes Verticales', icon: '📍', colorBadge: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      diagonal: { label: sencillo ? 'Diagonales del tijeral' : 'Diagonales de Celosía', icon: '⚡', colorBadge: 'bg-purple-50 text-purple-700 border-purple-200' },
+      correa: { label: sencillo ? 'Correas (donde va la calamina)' : 'Correas / Tubos de Tejido', icon: '🪵', colorBadge: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+      arriostre: { label: sencillo ? 'Refuerzos en cruz (X)' : 'Arriostres y Cruces San Andrés', icon: '⛓️', colorBadge: 'bg-slate-100 text-slate-800 border-slate-300' },
       tensor_viento: { label: 'Tensores (varilla / cable)', icon: '🪢', colorBadge: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
       piso_deck: { label: 'Piso Metal Deck / Mezzanine', icon: '🏁', colorBadge: 'bg-slate-50 text-slate-700 border-slate-200' }
     };
@@ -218,7 +221,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
     });
 
     return Object.values(map).sort((a, b) => b.items.length - a.items.length);
-  }, [engineState?.segments, engineState?.nodes]);
+  }, [engineState?.segments, engineState?.nodes, sencillo]);
 
   const handleBulkUpdateGroupProfile = (segIds: string[], newProfileId: string) => {
     if (!engineState || !segIds.length) return;
@@ -395,7 +398,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
             <Building2 className="w-4 h-4" />
           </div>
           <h3 className="text-xs font-black tracking-wide text-slate-900 uppercase">
-            Inspector Paramétrico CAD
+            {sencillo ? 'Piezas del techo' : 'Inspector Paramétrico CAD'}
           </h3>
         </div>
         {onClose ? (
@@ -426,7 +429,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
-          Activos ({Object.keys(segments).length})
+          {sencillo ? 'Todas' : 'Activos'} ({Object.keys(segments).length})
         </button>
         <button
           onClick={() => setActiveTab('seleccion')}
@@ -436,7 +439,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
-          Selección ({selectedIds.length})
+          {sencillo ? 'Elegidas' : 'Selección'} ({selectedIds.length})
         </button>
         <button
           onClick={() => setActiveTab('perfiles')}
@@ -446,7 +449,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
-          Perfiles
+          {sencillo ? 'Tubos' : 'Perfiles'}
         </button>
         <button
           onClick={() => setActiveTab('generadores')}
@@ -456,7 +459,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
           }`}
         >
-          Tijeral Interno
+          {sencillo ? 'Dentro del tijeral' : 'Tijeral Interno'}
         </button>
       </div>
 
@@ -471,7 +474,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               <div className="flex items-center justify-between">
                 <span className="font-extrabold text-slate-900 text-xs flex items-center gap-1.5">
                   <SlidersHorizontal className="w-3.5 h-3.5 text-amber-600" />
-                  Elementos Activos ({Object.keys(segments).length})
+                  {sencillo ? 'Piezas del techo' : 'Elementos Activos'} ({Object.keys(segments).length})
                 </span>
                 <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full border border-amber-200">
                   {gruposElementosActivos.length} Grupos
@@ -522,7 +525,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
             {/* Asignación Global de Perfil a Todo el Modelo */}
             <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1.5">
               <span className="block text-[10px] font-black text-amber-950 uppercase tracking-wide">
-                ⚡ Cambiar Perfil a TODOS los Elementos del Modelo:
+                ⚡ {sencillo ? 'Cambiar el tubo de todo el techo:' : 'Cambiar Perfil a TODOS los Elementos del Modelo:'}
               </span>
               <select
                 defaultValue=""
@@ -609,7 +612,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                         {/* Cambiar Perfil del Grupo Completo */}
                         <div>
                           <label className="block text-[10px] text-slate-500 font-bold mb-0.5">
-                            Cambiar Perfil de todo el grupo ({grp.label}):
+                            {sencillo ? 'Cambiar el tubo de todo el grupo' : 'Cambiar Perfil de todo el grupo'} ({grp.label}):
                           </label>
                           <select
                             value={grp.mostCommonProfileId}

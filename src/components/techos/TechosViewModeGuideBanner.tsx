@@ -12,6 +12,7 @@ import {
   Redo2
 } from 'lucide-react';
 import AtajosTeclado, { GrupoAtajos } from '../common/AtajosTeclado';
+import { useModoTechos } from './modoTechos';
 
 // Comandos de teclado de Techos (los mismos que atiende TechosCanvas2D).
 const ATAJOS_TECHOS: GrupoAtajos[] = [
@@ -71,6 +72,7 @@ export const TechosViewModeGuideBanner: React.FC<TechosViewModeGuideBannerProps>
   canRedo = false
 }) => {
   const [isCollapsedMobile, setIsCollapsedMobile] = useState<boolean>(false);
+  const sencillo = useModoTechos() === 'sencillo';
 
   return (
     <div className="bg-slate-900 text-white border-b border-slate-800 text-xs select-none transition-all">
@@ -91,11 +93,11 @@ export const TechosViewModeGuideBanner: React.FC<TechosViewModeGuideBannerProps>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="font-extrabold text-white uppercase tracking-wider text-[10px] sm:text-xs truncate">
-                {vista === 'planta' && 'Planta (X-Z / Suelo y Correas)'}
-                {vista === 'seccion' && `Elevación (X-Y / H = ${colHeightSetting.toFixed(2)}m)`}
-                {vista === '3d' && 'Visor 3D WebGL'}
+                {vista === 'planta' && (sencillo ? 'Vista de arriba' : 'Planta (X-Z / Suelo y Correas)')}
+                {vista === 'seccion' && (sencillo ? 'Vista de frente' : `Elevación (X-Y / H = ${colHeightSetting.toFixed(2)}m)`)}
+                {vista === '3d' && (sencillo ? 'Vista en 3D' : 'Visor 3D WebGL')}
               </span>
-              <span className="hidden xl:inline-block px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-800 text-slate-300 border border-slate-700">
+              <span className={`${sencillo ? 'hidden' : 'hidden xl:inline-block'} px-1.5 py-0.2 rounded text-[9px] font-mono bg-slate-800 text-slate-300 border border-slate-700`}>
                 {totalNodos} nodos • {totalSegmentos} perfiles
               </span>
             </div>
@@ -103,7 +105,7 @@ export const TechosViewModeGuideBanner: React.FC<TechosViewModeGuideBannerProps>
             {!isCollapsedMobile && (
               <p className="text-[10px] text-slate-300 truncate hidden md:block">
                 {vista === 'planta' && 'Mirando desde arriba: ubica el terreno, las zapatas de columnas y la separación de tijerales.'}
-                {vista === 'seccion' && `Mirando de frente: el suelo está en Y=0.00m, las columnas suben hasta Y=${colHeightSetting.toFixed(2)}m y el arco apoya arriba.`}
+                {vista === 'seccion' && (sencillo ? 'Como si estuvieras parado en la calle mirando el techo: el piso abajo y el techo arriba.' : `Mirando de frente: el suelo está en Y=0.00m, las columnas suben hasta Y=${colHeightSetting.toFixed(2)}m y el arco apoya arriba.`)}
                 {vista === '3d' && 'Gira con el ratón o con gestos táctiles para inspeccionar todas las uniones en 360°.'}
               </p>
             )}

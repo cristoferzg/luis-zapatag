@@ -21,6 +21,7 @@ import { aVigaSimple, perfilVigaSugerido, PERFILES_VIGA_SIMPLE } from './vigaSim
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { calculateE090Requirements } from '../../lib/e090StructuralAnalysis';
 import InputNumero from '../common/InputNumero';
+import { useModoTechos, QueEs, TIJERAL_SENCILLO } from './modoTechos';
 
 interface TechosNovatosWizardModalProps {
   isOpen: boolean;
@@ -61,6 +62,11 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
 }) => {
   const [tipo, setTipo] = useState<TipoTechoWizard>('parabolico');
   const [tipoTijeral, setTipoTijeral] = useState<TipoTijeral>('parabolico_warren');
+  // Modo sencillo: palabras simples, tijeral recomendado y las opciones de experto plegadas.
+  const sencillo = useModoTechos() === 'sencillo';
+  const [verTiposTecnicos, setVerTiposTecnicos] = useState(false);
+  const [verOpcionesExperto, setVerOpcionesExperto] = useState(false);
+  const expertoVisible = !sencillo || verOpcionesExperto;
   const [orientacionTijeral, setOrientacionTijeral] = useState<OrientacionTijeral>('transversal');
   
   // Estados numéricos almacenados como Strings para permitir al usuario borrar completamente sin bloqueos
@@ -454,6 +460,18 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   };
 
   const recomendacion = getRecomendacionTijeral();
+  // Tipos de tijeral que se ofrecen en modo sencillo (el recomendado primero).
+  const opcionesTijeralSencillas: TipoTijeral[] = (() => {
+    const base: TipoTijeral[] = tipo === 'parabolico' ? ['parabolico_warren', 'parabolico_pratt', 'parabolico_bowstring', 'simple_arco']
+      : tipo === 'dos_aguas' ? ['fink', 'pratt', 'howe', 'warren', 'escalera_vierendeel']
+      : tipo === 'una_agua' ? ['pratt', 'warren', 'howe', 'escalera_vierendeel']
+      : tipo === 'dientes_sierra' ? ['warren', 'pratt', 'escalera_vierendeel']
+      : ['mansarda', 'forma_l', 'forma_u', 'mariposa', 'mezzanine'].includes(tipo) ? ['fink', 'pratt', 'warren', 'escalera_vierendeel']
+      : ['escalera_vierendeel'];
+    const lista = [recomendacion.id, ...base.filter(x => x !== recomendacion.id)];
+    if (!lista.includes(tipoTijeral)) lista.push(tipoTijeral);
+    return lista.filter(id => TIJERAL_SENCILLO[id]);
+  })();
 
   if (!isOpen) return null;
 
@@ -573,10 +591,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
             </div>
             <div>
               <h2 className="text-sm sm:text-lg font-black text-white tracking-wide">
-                Asistente de Techos Paramétrico
+                Arma tu techo con medidas
               </h2>
               <p className="text-[11px] sm:text-xs text-amber-100 font-medium">
-                Ingresa tus medidas exactas y genera la estructura 100% acoplada
+                Elige la forma, pon las medidas y el techo se arma solo
               </p>
             </div>
           </div>
@@ -886,9 +904,9 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
                 <span className="w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] flex items-center justify-center">2</span>
-                Ingresa las Medidas Reales
+                Medidas de tu techo
               </label>
-              <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200 flex items-center gap-1">
+              <span className={`${sencillo ? 'hidden ' : ''}text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold border border-emerald-200 flex items-center gap-1`}>
                 <CheckCircle2 className="w-3 h-3" />
                 Edición de texto libre
               </span>
@@ -899,7 +917,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {/* LUZ LIBRE (ANCHO FRONTAL) */}
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">Luz / Ancho Frontal (L):</span>
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1">Ancho (luz) <QueEs termino="luz" /></span>
                   <div className="flex items-center gap-1">
                     <input
                       type="text"
@@ -938,7 +956,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {/* LARGO / FONDO DE LA NAVE */}
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">Largo / Fondo (Z):</span>
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1">Largo (fondo) <QueEs termino="largo" /></span>
                   <div className="flex items-center gap-1">
                     <input
                       type="text"
@@ -977,7 +995,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {/* ALTURA DE COLUMNAS */}
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">{tipo === 'alpino' ? 'Altura del arranque (zócalo):' : 'Altura de Columnas (H):'}</span>
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1">{tipo === 'alpino' ? 'Altura del arranque (zócalo)' : 'Altura de las columnas'} <QueEs termino="altura" /></span>
                   <div className="flex items-center gap-1">
                     <input
                       type="text"
@@ -1017,7 +1035,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {tipo === 'parabolico' && (
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Flecha del Arco (F):</span>
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1">Altura del arco (flecha) <QueEs termino="flecha" /></span>
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
@@ -1057,7 +1075,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {tipo === 'dos_aguas' && (
                 <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800">Pendiente Cumbrera (%):</span>
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1">Inclinación (pendiente %) <QueEs termino="pendiente" /></span>
                     <div className="flex items-center gap-1">
                       <input
                         type="text"
@@ -1510,7 +1528,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 <>
                   <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-800">Flecha del Arco (F):</span>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1">Altura del arco (flecha) <QueEs termino="flecha" /></span>
                       <div className="flex items-center gap-1">
                         <input
                           type="text"
@@ -1657,7 +1675,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {/* CANTIDAD DE TIJERALES / PÓRTICOS */}
               <div className={`${sinTijeral ? 'hidden ' : ''}p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs sm:col-span-2`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">{usaVigaSimple ? 'Cantidad de pórticos (vigas):' : 'Cantidad de Tijerales / Ejes (Pórticos):'}</span>
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1">{usaVigaSimple ? '¿Cuántas vigas (pórticos)?' : '¿Cuántos tijerales (pórticos)?'} <QueEs termino="portico" /></span>
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
@@ -1685,7 +1703,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     </button>
                   ))}
                   <span className="text-[10px] text-slate-400 ml-auto">
-                    Separación: {numTijerales > 1 ? (largoM / (numTijerales - 1)).toFixed(2) : 0}m e/e
+                    Uno cada {numTijerales > 1 ? (largoM / (numTijerales - 1)).toFixed(2) : 0} m
                   </span>
                 </div>
                 {numTijeralesBajo && (
@@ -1754,17 +1772,17 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
           {/* PASO 3: SELECCIONAR TIPO DE TIJERAL Y RECOMENDACIÓN DE INGENIERÍA (no aplica a pérgola, sol y sombra ni marquesina) */}
           {admiteVigaSimple && (
             <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
-              <p className="text-xs font-black uppercase text-slate-700 tracking-wider">¿Lleva tijeral?</p>
+              <p className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1">¿Lleva tijeral? <QueEs termino="tijeral" /></p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button type="button" onClick={() => setVigaSimple(false)}
                   className={`min-h-[44px] px-3 py-2 rounded-xl border text-left text-xs font-bold cursor-pointer ${!vigaSimple ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-amber-50'}`}>
                   Con tijeral (celosía)
-                  <span className="block text-[10px] font-semibold opacity-80">Para luces grandes: Warren, Pratt, Howe…</span>
+                  <span className="block text-[10px] font-semibold opacity-80">Para techos anchos: sale más liviano y económico</span>
                 </button>
                 <button type="button" onClick={() => setVigaSimple(true)}
                   className={`min-h-[44px] px-3 py-2 rounded-xl border text-left text-xs font-bold cursor-pointer ${vigaSimple ? 'bg-amber-500 border-amber-500 text-slate-950' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-amber-50'}`}>
                   Viga simple (sin tijeral)
-                  <span className="block text-[10px] font-semibold opacity-80">Una sola viga de tubo rectangular por pórtico</span>
+                  <span className="block text-[10px] font-semibold opacity-80">Un solo tubo grande por pórtico; para techos chicos</span>
                 </button>
               </div>
               {vigaSimple && (
@@ -1792,14 +1810,40 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] flex items-center justify-center">3</span>
-                  Selecciona la Tipología del Tijeral
+                  Tipo de tijeral <QueEs termino="tijeral" />
                 </label>
-                <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full font-bold border border-amber-300 flex items-center gap-1">
+                <span className={`${sencillo ? 'hidden ' : ''}text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full font-bold border border-amber-300 flex items-center gap-1`}>
                   <Lightbulb className="w-3 h-3 text-amber-600" />
                   Asistente Estructural
                 </span>
               </div>
 
+              {/* MODO SENCILLO: el recomendado y opciones con palabras simples */}
+              {sencillo && !verTiposTecnicos && (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-slate-600">Ya elegimos uno que funciona bien para tu techo de <b>{luzM.toFixed(1)} m</b>. Puedes cambiarlo si quieres:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {opcionesTijeralSencillas.map(id => {
+                      const info = TIJERAL_SENCILLO[id];
+                      const activo = tipoTijeral === id;
+                      return (
+                        <button key={id} type="button" onClick={() => setTipoTijeral(id)}
+                          className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${activo ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-black text-slate-900">{activo ? '✓ ' : ''}{info.titulo}</span>
+                            {id === recomendacion.id && <span className="text-[9px] font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-md shrink-0">👍 Recomendado</span>}
+                          </span>
+                          <span className="block text-[11px] text-slate-600 mt-0.5 leading-snug">{info.para}</span>
+                          <span className="block text-[9px] text-slate-400 mt-1">Nombre técnico: {CATALOGO_TIJERALES_INFO[id]?.nombre || id}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button type="button" onClick={() => setVerTiposTecnicos(true)} className="text-[11px] font-bold text-slate-500 underline cursor-pointer">Ver todos los tipos con detalles técnicos</button>
+                </div>
+              )}
+
+              {(!sencillo || verTiposTecnicos) && (<>
               {/* TARJETA DE RECOMENDACIÓN INTELIGENTE */}
               <div className="mb-3 bg-gradient-to-r from-blue-50 via-indigo-50 to-sky-50 border border-blue-200 rounded-2xl p-3 shadow-2xs">
                 <div className="flex items-start justify-between gap-2.5">
@@ -1846,7 +1890,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {/* OPCIONES DE TIJERALES SEGÚN TIPO DE TECHO */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* CONFIGURACIÓN AVANZADA DE TIJERALES (MIXTO) */}
-                <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                {expertoVisible && <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                   <span className="block text-xs font-black text-slate-800 uppercase tracking-wide">
                     Configuración Avanzada (Mixto / Perimetral)
                   </span>
@@ -1874,7 +1918,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                       <option value="escalera_vierendeel">Escalera (Vierendeel)</option>
                     </select>
                   </div>
-                </div>
+                </div>}
 
                 {tipo === 'parabolico' && (
                   <>
@@ -2360,8 +2404,11 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 )}
               </div>
 
+              {sencillo && <button type="button" onClick={() => setVerTiposTecnicos(false)} className="mt-2 text-[11px] font-bold text-slate-500 underline cursor-pointer">Volver a la vista sencilla</button>}
+              </>)}
+
               {/* SELECTOR DE DISPOSICIÓN Y ORIENTACIÓN DEL TIJERAL (Transversal, Longitudinal, Perimetral, Completo) */}
-              <div className="mt-3 pt-3 border-t border-slate-200/80">
+              {expertoVisible && <div className="mt-3 pt-3 border-t border-slate-200/80">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                     <span>🌐</span> Disposición y Orientación Estructural:
@@ -2423,12 +2470,21 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     <span className="text-[9.5px] text-slate-500 leading-tight mt-0.5">Transversal + Long. + Perímetro</span>
                   </button>
                 </div>
-              </div>
+              </div>}
             </div>
           )}
 
+          {/* MODO SENCILLO: lo de experto queda plegado (ya viene bien puesto) */}
+          {sencillo && tipo !== 'alpino' && (
+            <button type="button" onClick={() => setVerOpcionesExperto(v => !v)}
+              className="w-full text-left px-3 py-2.5 rounded-2xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer">
+              <span className="block text-xs font-black text-slate-700">⚙️ {verOpcionesExperto ? 'Ocultar opciones de experto' : 'Opciones de experto'}</span>
+              <span className="block text-[11px] text-slate-500">Refuerzos, orientación y espacios dentro del tijeral. Ya vienen bien puestas: no necesitas tocarlas.</span>
+            </button>
+          )}
+
           {/* PASO 4: CONFIGURACIÓN DE ESPACIOS Y MODULACIÓN ENTRE MONTANTES */}
-          {tipo !== 'alpino' && (
+          {tipo !== 'alpino' && expertoVisible && (
           <div className="bg-slate-50/95 p-3.5 sm:p-4 rounded-2xl border border-slate-200 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
               <label className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
@@ -2584,10 +2640,10 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
           {/* PASO 5: ANÁLISIS E.090 Y SELECCIÓN DE PERFILES */}
           <div className="bg-red-50/80 border border-red-200 rounded-2xl p-3.5 sm:p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded-full bg-red-600 text-white font-black text-[10px] flex items-center justify-center shrink-0 flex-col">5</div>
+              <div className="w-4 h-4 rounded-full bg-red-600 text-white font-black text-[10px] flex items-center justify-center shrink-0 flex-col">{tipo !== 'alpino' && expertoVisible ? 5 : 4}</div>
               <div className="flex-1">
-                <h3 className="text-xs font-black uppercase text-red-900 tracking-wider">Análisis E.090 - Perfiles Estructurales</h3>
-                <p className="text-[10px] text-red-700 mt-0.5">Valida perfiles contra Norma E.090 Peruana de Diseño en Acero</p>
+                <h3 className="text-xs font-black uppercase text-red-900 tracking-wider">{sencillo ? '¿Aguantan los tubos? (norma E.090)' : 'Análisis E.090 - Perfiles Estructurales'}</h3>
+                <p className="text-[10px] text-red-700 mt-0.5">{sencillo ? 'Revisa qué tubos pide la norma peruana para tu techo' : 'Valida perfiles contra Norma E.090 Peruana de Diseño en Acero'}</p>
               </div>
               <button
                 type="button"
@@ -2673,15 +2729,15 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
           <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-3 text-xs text-amber-950 space-y-1.5">
             <div className="flex items-center gap-1.5 font-bold text-amber-900">
               <Info className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Resumen de la Estructura Generada:</span>
+              <span>{sencillo ? 'Resumen de tu techo:' : 'Resumen de la Estructura Generada:'}</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-700">
               <div className="bg-white/80 p-1.5 rounded-lg border border-amber-200/60">
-                <span className="text-slate-500 block text-[10px]">Área de Cobertura:</span>
+                <span className="text-slate-500 block text-[10px]">{sencillo ? 'Área a techar:' : 'Área de Cobertura:'}</span>
                 <strong className="text-slate-900">{(luzM * largoM).toFixed(1)} m²</strong>
               </div>
               <div className="bg-white/80 p-1.5 rounded-lg border border-amber-200/60">
-                <span className="text-slate-500 block text-[10px]">Cúspide / Altura Total:</span>
+                <span className="text-slate-500 block text-[10px]">{sencillo ? 'Altura total:' : 'Cúspide / Altura Total:'}</span>
                 <strong className="text-slate-900">
                   {tipo === 'parabolico' ? `${(alturaColM + flechaM).toFixed(2)} m` :
                    tipo === 'dos_aguas' ? `${(alturaColM + (luzM * (pendientePct / 100) / 2)).toFixed(2)} m` :
@@ -2689,13 +2745,13 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                 </strong>
               </div>
               <div className="bg-white/80 p-1.5 rounded-lg border border-amber-200/60">
-                <span className="text-slate-500 block text-[10px]">N° Tijerales / Ejes:</span>
-                <strong className="text-slate-900">{Math.max(2, Math.round(largoM / 4.5) + 1)} pórticos</strong>
+                <span className="text-slate-500 block text-[10px]">{sencillo ? 'Pórticos:' : 'N° Tijerales / Ejes:'}</span>
+                <strong className="text-slate-900">{['parabolico', 'dos_aguas', 'una_agua', 'dientes_sierra', 'cuatro_aguas', 'mansarda', 'mariposa', 'monitor'].includes(tipo) ? numTijerales : Math.max(2, Math.round(largoM / 4.5) + 1)} pórticos</strong>
               </div>
               <div className="bg-white/80 p-1.5 rounded-lg border border-amber-200/60">
-                <span className="text-slate-500 block text-[10px]">Tijeral Seleccionado:</span>
+                <span className="text-slate-500 block text-[10px]">{sencillo ? 'Tipo de tijeral:' : 'Tijeral Seleccionado:'}</span>
                 <strong className="text-slate-900 truncate block" title={CATALOGO_TIJERALES_INFO[tipoTijeral]?.nombre || tipoTijeral}>
-                  {CATALOGO_TIJERALES_INFO[tipoTijeral]?.nombre || tipoTijeral}
+                  {sinTijeral || usaVigaSimple ? 'Sin tijeral' : sencillo && TIJERAL_SENCILLO[tipoTijeral] ? TIJERAL_SENCILLO[tipoTijeral].titulo : (CATALOGO_TIJERALES_INFO[tipoTijeral]?.nombre || tipoTijeral)}
                 </strong>
               </div>
             </div>
@@ -2719,7 +2775,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
             className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-95"
           >
             <Sparkles className="w-4 h-4 text-slate-950" />
-            <span>Generar y Ensamblar Techo</span>
+            <span>Armar mi techo</span>
             <ArrowRight className="w-4 h-4 text-slate-950" />
           </button>
         </div>
