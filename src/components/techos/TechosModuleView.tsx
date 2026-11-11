@@ -51,7 +51,7 @@ import { TechosTutorialModal } from './TechosTutorialModal';
 import { TechosInteractiveTutorial } from './TechosInteractiveTutorial';
 import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
-import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { perfilesQueCumplen } from './memoriaCalculo';
 import { safeStorage } from '../../lib/storageManager';
@@ -215,273 +215,187 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
     };
   }, [segmentList, nodes]);
 
+  // Piezas por función (lo que un principiante necesita entender: qué es cada pieza y con qué tubo va).
+  const NOMBRE_ROL: Record<string, string> = {
+    columna: 'Columnas', cordon_superior: 'Cordón superior (tijeral)', cordon_inferior: 'Cordón inferior (tijeral)',
+    montante: 'Montantes (tijeral)', diagonal: 'Diagonales (tijeral)', correa: 'Correas (llevan la calamina)',
+    viga_principal: 'Vigas', viga_secundaria: 'Vigas secundarias', arriostre: 'Arriostres (cruces)', tensor_viento: 'Tensores',
+  };
+  const COLOR_ROL: Record<string, string> = {
+    columna: 'bg-slate-800', cordon_superior: 'bg-orange-500', cordon_inferior: 'bg-emerald-500', montante: 'bg-violet-500',
+    diagonal: 'bg-pink-500', correa: 'bg-sky-500', viga_principal: 'bg-amber-500', viga_secundaria: 'bg-amber-300', arriostre: 'bg-teal-500', tensor_viento: 'bg-slate-400',
+  };
+  const porRol = React.useMemo(() => {
+    const m: Record<string, { rol: string; piezas: number; metros: number; perfiles: Record<string, number> }> = {};
+    segmentList.forEach((sg: any) => {
+      const rol = sg.rolEstructural || 'viga_principal';
+      if (rol === 'columna_concreto') return;
+      const a = nodes[sg.nodeAId], b = nodes[sg.nodeBId];
+      const l = a && b ? Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0)) : 0;
+      const r = (m[rol] ||= { rol, piezas: 0, metros: 0, perfiles: {} });
+      r.piezas++; r.metros += l; r.perfiles[sg.profileId] = (r.perfiles[sg.profileId] || 0) + 1;
+    });
+    const orden = Object.keys(NOMBRE_ROL);
+    return Object.values(m).sort((x, y) => (orden.indexOf(x.rol) + 99) % 99 - (orden.indexOf(y.rol) + 99) % 99);
+  }, [segmentList, nodes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nombreCorto = (id: string) => {
+    const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id);
+    return p ? p.nombre.replace(/\s*\[[^\]]*\]/, '').replace(/\s*\((?:\d|LA|ASTM)[^)]*\)/g, '').replace(/ Espesor/, '') : id;
+  };
+  const barrasDe: Record<string, number> = {};
+  (engineState?.bomReport?.despiecePerfiles || []).forEach((d: any) => { barrasDe[d.profileId] = d.totalBarrasComerciales6m; });
+  const estimadas: any[] = coberturas.length ? [] : (engineState?.bomReport?.coberturaEstimada || []);
+  const planchasMostrar = (coberturas.length ? coberturas : estimadas).reduce((x: number, c: any) => x + Math.ceil(c.totalPlanchasEstimadas || 0), 0);
+  const areaMostrar = (coberturas.length ? coberturas : estimadas).reduce((x: number, c: any) => x + (c.areaRealSuperficieM2 || 0), 0) || areaCob;
+  const experto = useModoTechos() === 'experto';
+  const kpi = (valor: React.ReactNode, unidad: string, titulo: string, nota: string, tono: string) => (
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wide">{titulo}</p>
+      <p className={`mt-1 font-black leading-none ${tono}`}><span className="text-2xl sm:text-3xl">{valor}</span> <span className="text-xs font-bold text-slate-400">{unidad}</span></p>
+      <p className="text-[11px] text-slate-500 mt-1.5">{nota}</p>
+    </div>
+  );
+
   return (
-    <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-6 font-sans select-none">
-      
-      {/* Cabecera del Panel */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            <ClipboardList className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-black text-slate-900 uppercase">Panel de Auditoría de Componentes y Metrados</h2>
-            <p className="text-xs text-slate-500">Revisión consolidada y metrados de perfiles 2D/3D, nodos, coberturas y herrajes.</p>
+    <div className="w-full h-full bg-slate-50 text-slate-800 p-4 sm:p-6 overflow-y-auto space-y-5 font-sans select-none">
+
+      {/* Cabecera */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0"><ClipboardList className="w-6 h-6" /></div>
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-black text-slate-900">Resumen del techo</h2>
+            <p className="text-xs text-slate-500">Qué piezas lleva, con qué tubo, cuánto comprar y cuánto cuesta.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg">
-            Proyecto Activo: <strong className="text-slate-800 font-extrabold">{nombreProyecto}</strong>
-          </span>
-        </div>
+        <span className="text-[11px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg truncate">Proyecto: <strong className="text-slate-800">{nombreProyecto}</strong></span>
       </div>
 
-      {/* Tarjetas de Resumen Rápidas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center font-bold text-lg shrink-0">
-            {nodeList.length}
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase">Nodos Totales</p>
-            <p className="text-sm font-bold text-slate-800">Conexiones & Columnas</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-lg shrink-0">
-            {segmentList.length}
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase">Tramos Dibujados</p>
-            <p className="text-sm font-bold text-slate-800">Vigas, Correas y Arriostres</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center font-bold text-lg shrink-0">
-            {totalStructuralWeight.toFixed(1)} <span className="text-xs">kg</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase">Peso de Estructura</p>
-            <p className="text-sm font-bold text-slate-800">Peso Total Acero</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center font-bold text-lg shrink-0">
-            {areaCob.toFixed(1)} <span className="text-xs">m²</span>
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase">Área de Cobertura</p>
-            <p className="text-sm font-bold text-slate-800">Techo Proyectado</p>
-          </div>
-        </div>
+      {/* Números principales */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {kpi(totalStructuralWeight.toLocaleString('es-PE', { maximumFractionDigits: 0 }), 'kg', 'Acero', `${segmentList.length} piezas · ${nodeList.length} uniones`, 'text-emerald-700')}
+        {kpi(`${simb()} ${totalStructuralCost.toLocaleString('es-PE', { maximumFractionDigits: 0 })}`, '', 'Tubos (perfilería)', `${profileStats.length} medidas de tubo distintas`, 'text-amber-700')}
+        {kpi(planchasMostrar || '—', planchasMostrar ? 'planchas' : '', 'Cobertura', estimadas.length ? 'Estimado (aún sin cobertura elegida)' : (porCobertura[0]?.nombre || 'Sin cobertura'), 'text-sky-700')}
+        {kpi(areaMostrar.toFixed(1), 'm²', 'Área del techo', 'Medida con la pendiente', 'text-violet-700')}
       </div>
 
       {/* METRADO DE CONCRETO (solo si hay columnas de concreto) */}
       {concretoMetrado.columnas > 0 && (
         <div className="bg-white border border-stone-300 rounded-2xl shadow-xs overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-stone-200 bg-stone-100/70 flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-stone-500 text-white flex items-center justify-center font-black text-sm shrink-0">
-              {concretoMetrado.columnas}
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-stone-800 uppercase">Metrado de Concreto</h3>
-              <p className="text-[11px] text-stone-500">
-                {concretoMetrado.columnas} columnas de concreto · sección {concretoMetrado.seccionCm}×{concretoMetrado.seccionCm} cm · {concretoMetrado.longitudTotalM.toFixed(2)} m lineales
-              </p>
-            </div>
+          <div className="px-5 py-3.5 border-b border-stone-200 bg-stone-100/70">
+            <h3 className="text-sm font-black text-stone-800">Concreto de columnas</h3>
+            <p className="text-[11px] text-stone-500">{concretoMetrado.columnas} columnas · sección {concretoMetrado.seccionCm}×{concretoMetrado.seccionCm} cm · {concretoMetrado.longitudTotalM.toFixed(2)} m</p>
           </div>
-          <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
-              <p className="text-lg font-black text-stone-800">{concretoMetrado.volumenM3.toFixed(2)}</p>
-              <p className="text-[10px] font-bold text-stone-500 uppercase">m³ Concreto</p>
-            </div>
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
-              <p className="text-lg font-black text-stone-800">{Math.ceil(concretoMetrado.cementoBolsas)}</p>
-              <p className="text-[10px] font-bold text-stone-500 uppercase">Bolsas cemento</p>
-            </div>
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
-              <p className="text-lg font-black text-stone-800">{concretoMetrado.arenaM3.toFixed(2)}</p>
-              <p className="text-[10px] font-bold text-stone-500 uppercase">m³ Arena</p>
-            </div>
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
-              <p className="text-lg font-black text-stone-800">{concretoMetrado.piedraM3.toFixed(2)}</p>
-              <p className="text-[10px] font-bold text-stone-500 uppercase">m³ Piedra</p>
-            </div>
-            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3 text-center">
-              <p className="text-lg font-black text-stone-800">{Math.round(concretoMetrado.aguaL)}</p>
-              <p className="text-[10px] font-bold text-stone-500 uppercase">Litros agua</p>
-            </div>
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+            {[[concretoMetrado.volumenM3.toFixed(2), 'm³ concreto'], [Math.ceil(concretoMetrado.cementoBolsas), 'bolsas cemento'], [concretoMetrado.arenaM3.toFixed(2), 'm³ arena'], [concretoMetrado.piedraM3.toFixed(2), 'm³ piedra'], [Math.round(concretoMetrado.aguaL), 'litros agua']].map(([v, t]) => (
+              <div key={String(t)} className="bg-stone-50 border border-stone-200 rounded-xl p-3"><p className="text-lg font-black text-stone-800">{v}</p><p className="text-[10px] font-bold text-stone-500 uppercase">{t}</p></div>
+            ))}
           </div>
-          <p className="px-4 pb-3 text-[10px] text-stone-400 leading-snug">
-            Estimado referencial para concreto f'c=210 kg/cm² (dosificación 1:2:3). Sección asumida {concretoMetrado.seccionCm}×{concretoMetrado.seccionCm} cm. No incluye acero de refuerzo ni encofrado.
-          </p>
+          <p className="px-4 pb-3 text-[10px] text-stone-400">Referencial f'c=210 kg/cm² (1:2:3). No incluye acero de refuerzo ni encofrado.</p>
         </div>
       )}
 
-      {/* Grid de Tablas de Inspección */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Columna 1 & 2: Perfiles y Coberturas en Uso */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* TABLA DE PERFILES EN USO */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <Box className="w-4 h-4 text-amber-600" />
-                1. Perfilería Estructural Consolidada (2D/3D)
-              </h3>
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
-                {profileStats.length} Modelos de Perfil
-              </span>
-            </div>
-
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
+        {/* Piezas por función */}
+        <div className="xl:col-span-3 bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+            <Box className="w-4 h-4 text-amber-600" />
+            <h3 className="text-sm font-black text-slate-800">Piezas del techo y su tubo</h3>
+          </div>
+          {porRol.length === 0 ? <p className="p-6 text-center text-slate-400 text-xs">Aún no hay piezas. Arma tu techo con el Asistente.</p> : (
             <div className="divide-y divide-slate-100">
-              {profileStats.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 text-xs italic">
-                  No hay perfiles trazados en el lienzo CAD.
-                </div>
-              ) : (
-                profileStats.map(({ profile, count, totalLength, totalWeight, totalCost }) => (
-                  <div key={profile.id} className="p-4 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900">{profile.nombre}</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5">
-                        Categoría: <span className="capitalize">{profile.categoria.replace('_', ' ')}</span> | Código: <strong className="font-mono">{profile.codigoComercial}</strong>
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500">
-                        <span>Cant. Tramos: <strong className="text-slate-800">{count}</strong></span>
-                        <span>Longitud Total: <strong className="text-slate-800">{totalLength.toFixed(2)} m</strong></span>
-                        <span>Peso: <strong className="text-slate-800">{totalWeight.toFixed(1)} kg</strong></span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="inline-block bg-slate-100 border border-slate-200 rounded-lg px-2.5 py-1 text-[10px] font-black text-slate-700">
-                        {simb()} {totalCost.toFixed(2)}
-                      </span>
-                      <p className="text-[9px] text-slate-400 mt-1">{simb()} {(profile.costoMetroSol).toFixed(2)}/m</p>
-                    </div>
+              {porRol.map(r => (
+                <div key={r.rol} className="px-5 py-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 items-center">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${COLOR_ROL[r.rol] || 'bg-slate-300'}`} />
+                    <span className="font-bold text-[13px] text-slate-900 truncate">{NOMBRE_ROL[r.rol] || r.rol}</span>
                   </div>
-                ))
-              )}
+                  <span className="text-[11px] font-bold text-slate-500 text-right whitespace-nowrap">{r.piezas} pzas · {r.metros.toFixed(1)} m</span>
+                  <div className="col-span-2 pl-[18px] flex flex-wrap gap-1.5">
+                    {Object.entries(r.perfiles).map(([id, n]) => (
+                      <span key={id} className="text-[11px] text-slate-700 bg-slate-50 border border-slate-200 rounded-md px-2 py-0.5">{nombreCorto(id)}{Object.keys(r.perfiles).length > 1 ? ` (${n})` : ''}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+        </div>
 
+        {/* Qué comprar */}
+        <div className="xl:col-span-2 space-y-5">
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+              <Package className="w-4 h-4 text-amber-600" />
+              <h3 className="text-sm font-black text-slate-800">Tubos a comprar (barras de 6 m)</h3>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {profileStats.map(({ profile, totalLength, totalWeight, totalCost }) => (
+                <div key={profile.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-[12px] text-slate-900 leading-snug">{nombreCorto(profile.id)}</p>
+                    <p className="text-[10px] text-slate-500">{totalLength.toFixed(1)} m · {totalWeight.toFixed(0)} kg · {simb()} {totalCost.toFixed(2)}</p>
+                  </div>
+                  <span className="shrink-0 text-right"><span className="block font-mono font-black text-lg leading-none text-amber-700">{barrasDe[profile.id] ?? Math.ceil(totalLength / 6)}</span><span className="text-[10px] font-bold text-slate-400">barras</span></span>
+                </div>
+              ))}
+            </div>
             {profileStats.length > 0 && (
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs">
-                <span className="font-bold text-slate-600">Total Perfilería:</span>
-                <span className="font-mono font-black text-amber-700 text-sm">{simb()} {totalStructuralCost.toFixed(2)}</span>
+              <div className="px-5 py-3 bg-amber-50 border-t border-amber-100 flex justify-between items-center text-xs">
+                <span className="font-bold text-amber-900">Total en tubos</span>
+                <span className="font-mono font-black text-amber-800 text-sm">{simb()} {totalStructuralCost.toFixed(2)}</span>
               </div>
             )}
           </div>
 
-          {/* TABLA DE COBERTURAS Y FIJACIONES */}
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <Package className="w-4 h-4 text-blue-600" />
-                2. Planchas de Cobertura y Consumibles Proyectados
-              </h3>
+            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+              <Package className="w-4 h-4 text-sky-600" />
+              <h3 className="text-sm font-black text-slate-800">Planchas y fijaciones</h3>
             </div>
-
-            <div className="p-5 space-y-4">
-              {porCobertura.length === 0 ? (
-                <p className="text-xs text-slate-500">El techo aún no tiene cobertura. Elígela en el 3D (lista de planchas) o con el botón Cobertura, y aquí verás las planchas y su costo.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  {porCobertura.map(c => {
-                    const info = INVENTARIO_COBERTURAS.find(x => x.id === c.id);
-                    return (
-                      <div key={c.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                        <span className="block font-black text-slate-400 text-[9px] uppercase">Cobertura elegida</span>
-                        <p className="font-black text-slate-900 text-[13px] leading-snug">{c.nombre}</p>
-                        <div className="grid grid-cols-3 gap-2 pt-1">
-                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">Área</p><p className="font-mono font-black text-slate-800">{c.area.toFixed(1)} m²</p></div>
-                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">{/rollo/i.test(c.nombre) ? 'Paños' : 'Planchas'}</p><p className="font-mono font-black text-blue-700">{Math.ceil(c.planchas)}</p></div>
-                          <div><p className="text-[9px] font-bold text-slate-400 uppercase">Costo</p><p className="font-mono font-black text-amber-700">{simb()} {c.costo.toFixed(2)}</p></div>
-                        </div>
-                        {info && <p className="text-[10px] text-slate-500">Plancha de {(info.anchoTotalMm / 1000).toFixed(2)} m (útil {(info.anchoUtilMm / 1000).toFixed(2)} m) × {info.longitudComercialM?.toFixed(2) || '—'} m · traslape {(info.traslapeTransversalMinMm || 200) / 10} cm</p>}
-                      </div>
-                    );
-                  })}
-                  {pernosEpdm > 0 && <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                    <span className="block font-black text-slate-400 text-[9px] uppercase">Fijaciones</span>
-                    <p className="font-black text-slate-900 text-[13px]">Pernos autoperforantes con arandela EPDM</p>
-                    <div className="flex justify-between items-center pt-1"><span className="text-slate-500">Cantidad</span><strong className="text-blue-700 font-mono font-black">{pernosEpdm} und</strong></div>
-                  </div>}
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Columna 3: Auditoría de Nodos / Coordenadas de Dibujo */}
-        <div className="space-y-6">
-          
-          {/* MATRIX DE NODOS */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col max-h-[500px]">
-            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <Activity className="w-4 h-4 text-purple-600" />
-                3. Matriz de Nodos / Coordenadas 3D
-              </h3>
-            </div>
-
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 scrollbar-none">
-              {nodeList.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 text-xs italic">
-                  No hay nodos trazados.
-                </div>
-              ) : (
-                nodeList.map((node: any, idx) => (
-                  <div key={node.id} className="p-3.5 flex items-center justify-between text-xs hover:bg-slate-50/50 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 flex items-center justify-center font-mono text-[9px] font-black">
-                        N{idx + 1}
-                      </span>
-                      <div>
-                        <span className="font-bold text-slate-800 text-[11px] font-mono">{node.id}</span>
-                        {node.isColumna && <span className="ml-2 bg-purple-100 text-purple-800 text-[8px] font-black px-1 rounded-full">Columna</span>}
-                      </div>
-                    </div>
-                    <div className="font-mono text-[10px] text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
-                      X: <strong className="text-slate-800">{node.x.toFixed(2)}</strong> | Y: <strong className="text-slate-800">{node.y.toFixed(2)}</strong> | Z: <strong className="text-slate-800">{(node.z || 0).toFixed(2)}</strong>
-                    </div>
+            <div className="p-4 space-y-2.5 text-xs">
+              {porCobertura.length === 0 && !estimadas.length && <p className="text-slate-500">Arma el techo con correas para calcular las planchas.</p>}
+              {(porCobertura.length ? porCobertura.map(c => ({ ...c, est: false })) : estimadas.map((c: any) => ({ id: c.coberturaMaterialId, nombre: c.nombreCobertura, area: c.areaEfectivaCalculadaM2, planchas: c.totalPlanchasEstimadas, costo: c.costoTotalCoberturaSoles, est: true }))).map((c: any) => (
+                <div key={c.id} className={`p-3 rounded-xl border ${c.est ? 'bg-amber-50/60 border-amber-200' : 'bg-sky-50/60 border-sky-200'}`}>
+                  <div className="flex justify-between items-start gap-3">
+                    <p className="font-bold text-slate-900 leading-snug">{c.nombre}</p>
+                    <span className="shrink-0 text-right"><span className="block font-mono font-black text-lg leading-none text-sky-800">{Math.ceil(c.planchas)}</span><span className="text-[10px] font-bold text-slate-400">{/rollo/i.test(c.nombre) ? 'paños' : 'planchas'}</span></span>
                   </div>
-                ))
+                  <p className="text-[10px] text-slate-500 mt-1">{c.area.toFixed(1)} m² {c.est ? '· estimado: elige la cobertura en el 3D para sumarla al presupuesto' : `· ${simb()} ${c.costo.toFixed(2)}`}</p>
+                </div>
+              ))}
+              {pernosEpdm > 0 && (
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex justify-between items-center">
+                  <span className="font-bold text-slate-800">Pernos autoperforantes con arandela EPDM</span>
+                  <strong className="font-mono font-black text-slate-800">{pernosEpdm} und</strong>
+                </div>
               )}
             </div>
           </div>
 
-          {/* PARÁMETROS GENERALES */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Sliders className="w-4 h-4 text-slate-500" />
-              Parámetros de Diseño Activos
-            </h4>
-            <div className="space-y-2.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Normativa de Diseño:</span>
-                <strong className="text-slate-800 font-bold">RNE E.090 Metálicas</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Carga Viva de Techo:</span>
-                <strong className="text-slate-800 font-bold">0.30 kN/m² (RNE E.020)</strong>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Sobrecarga de Viento:</span>
-                <strong className="text-slate-800 font-bold">75 km/h (Costa Peruana)</strong>
-              </div>
-            </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs text-xs space-y-2">
+            <h4 className="font-black text-slate-800 flex items-center gap-2"><Sliders className="w-4 h-4 text-slate-500" />Con qué se diseñó</h4>
+            <div className="flex justify-between"><span className="text-slate-500">Norma</span><strong>RNE E.090 (estructuras metálicas)</strong></div>
+            <div className="flex justify-between"><span className="text-slate-500">Carga viva de techo</span><strong>30 kg/m² (E.020)</strong></div>
+            <div className="flex justify-between"><span className="text-slate-500">Viento</span><strong>75 km/h (costa)</strong></div>
           </div>
-
         </div>
-
       </div>
 
+      {/* Coordenadas: solo para quien diseña a detalle */}
+      {experto && nodeList.length > 0 && (
+        <details className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+          <summary className="px-5 py-3.5 cursor-pointer text-sm font-black text-slate-800 flex items-center gap-2"><Activity className="w-4 h-4 text-purple-600" />Coordenadas de las uniones ({nodeList.length})</summary>
+          <div className="max-h-[420px] overflow-y-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-slate-100 border-t border-slate-100">
+            {nodeList.map((node: any, idx) => (
+              <div key={node.id} className="bg-white px-4 py-2 flex items-center justify-between gap-2 text-[11px]">
+                <span className="font-mono text-slate-700 truncate"><b className="text-purple-700">N{idx + 1}</b> {node.nodeLabel || node.id}</span>
+                <span className="font-mono text-[10px] text-slate-500 whitespace-nowrap">{node.x.toFixed(2)} · {node.y.toFixed(2)} · {(node.z || 0).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
@@ -524,6 +438,9 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   // En modo sencillo el panel de piezas empieza cerrado (se abre con su botón).
   const [showInspector, setShowInspector] = useState<boolean>(() => !esModoSencillo());
   const modoTechos = useModoTechos();
+  // Modo SENCILLO: sin botones técnicos (CAD, DXF, exportar, pasar a Obra Civil, análisis RNE) y pestañas con nombres cortos.
+  const sencillo = modoTechos === 'sencillo';
+  useEffect(() => { if (sencillo && activeTab === 'estructural') setActiveTab('cad'); }, [sencillo, activeTab]);
   // Al cambiar de modo: experto abre el panel de piezas; sencillo lo cierra.
   const modoPrevio = React.useRef(modoTechos);
   useEffect(() => { if (modoPrevio.current !== modoTechos) { modoPrevio.current = modoTechos; setShowInspector(modoTechos === 'experto'); } }, [modoTechos]);
@@ -1068,6 +985,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
         <div ref={accionesDeslizables} className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5 relative">
           <BarraInstalaciones origen="techos" />
           {/* [ SUBIR ARCHIVO / AUTOCAD ] — solo escritorio */}
+          {!sencillo && (
           <button
             onClick={() => setShowUploadModal(true)}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
@@ -1076,6 +994,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <UploadCloud className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="text-[11px] font-bold hidden md:inline">Subir CAD</span>
           </button>
+          )}
 
           {/* [ + NUEVO ] — solo escritorio */}
           <button
@@ -1120,6 +1039,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           </button>
 
           {/* [ EXPORTAR ] — solo escritorio */}
+          {!sencillo && (
           <button
             onClick={handleExportar}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
@@ -1128,8 +1048,10 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <Download className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="text-[11px] font-bold hidden md:inline">Exportar</span>
           </button>
+          )}
 
           {/* [ DXF AUTOCAD ] */}
+          {!sencillo && (
           <button
             onClick={handleExportDxf}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
@@ -1138,8 +1060,10 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <Download className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="text-[11px] font-bold hidden md:inline">DXF AutoCAD</span>
           </button>
+          )}
 
           {/* [ ENVIAR A CONCRETO ] — puente de cimentación, solo escritorio */}
+          {!sencillo && (
           <button
             onClick={handleEnviarAConcreto}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
@@ -1148,8 +1072,10 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <Box className="w-3.5 h-3.5 text-stone-600 shrink-0" />
             <span className="text-[11px] font-bold hidden lg:inline">→ Obra Civil</span>
           </button>
+          )}
 
           {/* [ ENVIAR A OBRA POR PISOS ] — solo escritorio */}
+          {!sencillo && (
           <button
             onClick={handleEnviarAObraPisos}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold border border-stone-300 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
@@ -1158,6 +1084,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <Layers className="w-3.5 h-3.5 text-stone-600 shrink-0" />
             <span className="text-[11px] font-bold hidden lg:inline">→ Obra por pisos</span>
           </button>
+          )}
 
           {/* [ AYUDA Y TUTORIAL ] — solo escritorio */}
           <button
@@ -1195,7 +1122,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                     { l: '→ Obra Civil', I: Box, on: handleEnviarAConcreto },
                     { l: '→ Obra por pisos', I: Layers, on: handleEnviarAObraPisos },
                     { l: 'Ayuda', I: HelpCircle, on: () => setShowTutorialModal(true) },
-                  ].map(a => {
+                  ].filter(a => !sencillo || !['Subir CAD', 'Exportar', 'DXF AutoCAD', '→ Obra Civil', '→ Obra por pisos'].includes(a.l)).map(a => {
                     const Icon = a.I;
                     return (
                       <button key={a.l} onClick={() => { a.on(); setShowMobileActions(false); }}
@@ -1224,7 +1151,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             { id: 'disenar', label: 'Diseñar', tabs: [{ id: 'cad', label: 'Plano 2D / 3D' }] },
             { id: 'materiales', label: 'Materiales', tabs: [{ id: 'despiece', label: 'Despiece y cortes' }, { id: 'materiales', label: 'Agrupados' }] },
             { id: 'presupuesto', label: 'Presupuesto', tabs: [{ id: 'costos', label: 'Costos' }, { id: 'presupuesto', label: 'Presupuesto formal' }, { id: 'resumen', label: 'Resumen' }] },
-            { id: 'calculo', label: 'Plano y cálculo', corto: 'Cálculo', tabs: [{ id: 'plano', label: 'Plano CM-02' }, { id: 'estructural', label: 'Análisis RNE' }] },
+            sencillo ? { id: 'calculo', label: 'Plano', tabs: [{ id: 'plano', label: 'Plano' }] }
+              : { id: 'calculo', label: 'Plano y cálculo', corto: 'Cálculo', tabs: [{ id: 'plano', label: 'Plano CM-02' }, { id: 'estructural', label: 'Análisis RNE' }] },
           ];
           const actual = SECC.find(x => x.tabs.some(t => t.id === activeTab)) || SECC[0];
           return (
@@ -1257,7 +1185,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           >
             <Layers className="w-4 h-4" />
             <span className="sm:hidden truncate max-w-full">Diseño</span>
-            <span className="hidden sm:inline">1. DISEÑO CAD (2D / 3D)</span>
+            <span className="hidden sm:inline">{sencillo ? '1. Diseño' : '1. DISEÑO CAD (2D / 3D)'}</span>
           </button>
 
           <button
@@ -1270,7 +1198,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           >
             <Scissors className="w-4 h-4" />
             <span className="sm:hidden truncate max-w-full">Despiece</span>
-            <span className="hidden sm:inline">2. DESPIECE Y CORTES</span>
+            <span className="hidden sm:inline">{sencillo ? '2. Cortes' : '2. DESPIECE Y CORTES'}</span>
           </button>
 
           <button
@@ -1283,7 +1211,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           >
             <Package className="w-4 h-4" />
             <span className="sm:hidden truncate max-w-full">Material</span>
-            <span className="hidden sm:inline">3. MATERIALES AGRUPADOS</span>
+            <span className="hidden sm:inline">{sencillo ? '3. Materiales' : '3. MATERIALES AGRUPADOS'}</span>
           </button>
 
           <button
@@ -1296,7 +1224,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           >
             <DollarSign className="w-4 h-4" />
             <span className="sm:hidden truncate max-w-full">Costos</span>
-            <span className="hidden sm:inline">4. ESTRUCTURA DE COSTOS</span>
+            <span className="hidden sm:inline">{sencillo ? '4. Costos' : '4. ESTRUCTURA DE COSTOS'}</span>
           </button>
 
           <button
@@ -1309,7 +1237,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           >
             <FileText className="w-4 h-4" />
             <span className="sm:hidden truncate max-w-full">Presup.</span>
-            <span className="hidden sm:inline">5. PRESUPUESTO FORMAL</span>
+            <span className="hidden sm:inline">{sencillo ? '5. Presupuesto' : '5. PRESUPUESTO FORMAL'}</span>
           </button>
 
           <button
@@ -1322,9 +1250,10 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           >
             <Compass className="w-4 h-4" />
             <span className="sm:hidden truncate max-w-full">Plano</span>
-            <span className="hidden sm:inline">6. PLANO CM-02</span>
+            <span className="hidden sm:inline">{sencillo ? '6. Plano' : '6. PLANO CM-02'}</span>
           </button>
 
+          {!sencillo && (
           <button
             onClick={() => setActiveTab('estructural')}
             className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 py-1.5 sm:py-2.5 px-0 sm:px-3.5 border-b-2 text-[9px] sm:text-xs leading-tight font-bold transition-all whitespace-nowrap cursor-pointer min-w-0 ${
@@ -1337,6 +1266,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             <span className="sm:hidden truncate max-w-full">Análisis</span>
             <span className="hidden sm:inline">7. ANÁLISIS ESTRUCTURAL RNE</span>
           </button>
+          )}
 
           <button
             onClick={() => setActiveTab('resumen')}
@@ -1348,7 +1278,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           >
             <ClipboardList className="w-4 h-4 text-amber-600" />
             <span className="sm:hidden truncate max-w-full">Resumen</span>
-            <span className="hidden sm:inline">📊 RESUMEN COMPONENTES 2D/3D</span>
+            <span className="hidden sm:inline">{sencillo ? '7. Resumen' : '📊 RESUMEN COMPONENTES 2D/3D'}</span>
           </button>
         </div>
       </nav>

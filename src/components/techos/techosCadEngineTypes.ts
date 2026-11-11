@@ -298,6 +298,8 @@ export interface ResumenCálculoCobertura {
   numColumnasAnchoUtil: number;
   numFilasLargoPlancha: number;
   totalPlanchasEstimadas: number;
+  /** Largo de cada plancha que se compra (m). */
+  largoPlanchaM?: number;
   pesoTotalCoberturaKg: number;
   costoTotalCoberturaSoles: number;
   pernosEpdmRequeridosUnidades: number;
@@ -306,6 +308,8 @@ export interface ResumenCálculoCobertura {
 export interface FullTechosBomReport {
   despiecePerfiles: ResumenDespiecePerfil1D[];
   resumenCoberturas: ResumenCálculoCobertura[];
+  /** Planchas estimadas con las correas cuando aún no se eligió la cobertura (no suman al costo). */
+  coberturaEstimada?: ResumenCálculoCobertura[];
   placasBaseTotalesUnids: number;
   pernosAnclajeJTotalesUnids: number;
   cajasPernosEpdmTotales: number;

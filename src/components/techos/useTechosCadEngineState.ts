@@ -1,4 +1,5 @@
 import { aVigaSimple } from './vigaSimple';
+import { aplicarPerfilesAptos } from './perfilesAptos';
 import { aplicarCortaviento, type OpcionesCortaviento } from './cortaviento';
 // Hook de Gestión de Estado Vectorial CAD y Trazado Libre (Node-to-Node / Line-to-Line)
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
@@ -81,6 +82,7 @@ export interface UseTechosCadEngineReturn {
   aplicarEdicion: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>) => void;
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
   pedirVigaSimple: (perfilId: string) => void;
+  pedirPerfilesAptos: () => void;
   pedirCortaviento: (o: OpcionesCortaviento) => void;
   setColorCobertura: (colorHex: number) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
@@ -394,12 +396,15 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   // Viga simple (sin tijeral) para cualquier modelo del Asistente: se pide antes de generar
   // y, cuando la nave queda armada, se dejan solo las vigas de un tubo rectangular.
   const vigaSimplePendiente = useRef<string | null>(null);
+  // Otro ajuste cambió la nave en este mismo paso: los perfiles aptos esperan al siguiente.
+  const ajusteEnCurso = useRef(false);
   const pedirVigaSimple = useCallback((perfilId: string) => { vigaSimplePendiente.current = perfilId; }, []);
   useEffect(() => {
     const perfil = vigaSimplePendiente.current;
     if (!perfil || !Object.keys(segments).length) return;
     vigaSimplePendiente.current = null;
     const r = aVigaSimple(nodes, segments, perfil);
+    ajusteEnCurso.current = true;
     setNodes(r.nodes); setSegments(r.segs);
     pushHistory(r.nodes, r.segs, coverageZones);
   }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -414,11 +419,27 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     cortavientoPendiente.current = null;
     const r = aplicarCortaviento(nodes, segments, o);
     if (!r) return;
+    ajusteEnCurso.current = true;
     // Si el modelo traía paños de cobertura (alpino), se rehacen sobre las dos aguas nuevas.
     const z0 = Object.values(coverageZones)[0];
     const zonas = z0 ? zonasDesdeCorreas(r.nodes, r.segs, z0.coberturaMaterialId) : coverageZones;
     setNodes(r.nodes); setSegments(r.segs); if (z0) setCoverageZones(zonas);
     pushHistory(r.nodes, r.segs, zonas);
+  }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Perfiles aptos: el Asistente los pide antes de generar; cuando la nave queda armada, los tubos
+  // "de relleno" (3 × 3 cm) se cambian por los adecuados según luz, altura y separación de pórticos.
+  const perfilesAptosPendiente = useRef(false);
+  const pedirPerfilesAptos = useCallback(() => { perfilesAptosPendiente.current = true; }, []);
+  useEffect(() => {
+    if (!perfilesAptosPendiente.current || !Object.keys(segments).length) return;
+    if (ajusteEnCurso.current) { ajusteEnCurso.current = false; return; }
+    if (vigaSimplePendiente.current || cortavientoPendiente.current) return;
+    perfilesAptosPendiente.current = false;
+    const r = aplicarPerfilesAptos(nodes, segments);
+    if (!r.cambios) return;
+    setSegments(r.segs);
+    pushHistory(nodes, r.segs, coverageZones);
   }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateNodeAnchorBolts = useCallback((nodeId: string, numPernos: number, boltDiameter: string) => {
@@ -4451,6 +4472,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     loadScene,
     replaceScene,
     pedirVigaSimple,
+    pedirPerfilesAptos,
     pedirCortaviento,
     setColorCobertura,
     setOcultos,

@@ -1881,6 +1881,7 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
           )}
 
           {/* BOTÓN GENERAL MOSTRAR/OCULTAR PANEL CAD FLOTANTE */}
+          {!sencillo && (
           <button
             onClick={() => setShowFloatingToolsPanel(prev => !prev)}
             className={`hidden sm:flex p-1 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${
@@ -1893,12 +1894,13 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
             <PenTool className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">Panel CAD</span>
           </button>
+          )}
 
           {/* (El botón "Controles" se movió al menú "⋯ Más" para no duplicar
               accesos de ayuda; también está disponible desde el banner guía.) */}
 
           {/* BOTÓN PROPIEDADES ESCRITORIO (No invasivo, en la barra de herramientas) */}
-          {isDesktop && setShowInspector && (
+          {isDesktop && setShowInspector && !sencillo && (
             <button
               onClick={() => setShowInspector(prev => !prev)}
               className={`p-1 sm:px-2.5 sm:py-1 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shadow-2xs border shrink-0 ${

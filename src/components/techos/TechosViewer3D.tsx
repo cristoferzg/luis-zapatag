@@ -382,6 +382,39 @@ function getSplashTexture(): THREE.CanvasTexture {
 
 // Etiquetas y colores descriptivos por rol estructural
 /**
+ * Arco (parabólico, curvo): el perfil llega como una poligonal de los nudos del tijeral y la
+ * plancha salía en facetas planas con un tono distinto cada una (franjas de sombra). Si el perfil
+ * es curvo (varios quiebres suaves) se rehace como curva suave cada ~30 cm (Hermite con tangentes
+ * de Catmull-Rom). La curva pasa por los nudos y en un arco queda por encima de los tubos.
+ * Los techos a dos aguas, una agua, etc. no cambian (solo un quiebre: la cumbrera).
+ */
+function suavizarArco(pts: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (pts.length < 5) return pts;
+  const ang = (i: number) => {
+    const a = Math.atan2(pts[i].y - pts[i - 1].y, pts[i].x - pts[i - 1].x), b = Math.atan2(pts[i + 1].y - pts[i].y, pts[i + 1].x - pts[i].x);
+    return Math.abs(b - a) * 180 / Math.PI;
+  };
+  let suaves = 0;
+  for (let i = 1; i < pts.length - 1; i++) { const k = ang(i); if (k > 0.3 && k < 25) suaves++; else if (k >= 25) return pts; }
+  if (suaves < 3) return pts;
+  const n = pts.length;
+  const m = pts.map((_, i) => i === 0 ? (pts[1].y - pts[0].y) / (pts[1].x - pts[0].x || 1e-6)
+    : i === n - 1 ? (pts[n - 1].y - pts[n - 2].y) / (pts[n - 1].x - pts[n - 2].x || 1e-6)
+    : (pts[i + 1].y - pts[i - 1].y) / (pts[i + 1].x - pts[i - 1].x || 1e-6));
+  const out: { x: number; y: number }[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const A = pts[i], B = pts[i + 1], h = B.x - A.x;
+    const pasos = Math.max(1, Math.ceil(Math.hypot(h, B.y - A.y) / 0.3));
+    for (let k = 0; k < pasos; k++) {
+      const t = k / pasos, t2 = t * t, t3 = t2 * t;
+      out.push({ x: A.x + h * t, y: (2 * t3 - 3 * t2 + 1) * A.y + (t3 - 2 * t2 + t) * h * m[i] + (-2 * t3 + 3 * t2) * B.y + (t3 - t2) * h * m[i + 1] });
+    }
+  }
+  out.push(pts[n - 1]);
+  return out;
+}
+
+/**
  * Panel acoplado del visor 3D (canaletas, techo movible, colores y perfil del tubo).
  * PC: tarjeta compacta a la izquierda, debajo de la barra del 3D (no tapa el centro).
  * Celular: hoja inferior de máx. 45 % de alto con asa (deslizar hacia abajo cierra) y X.
@@ -1656,6 +1689,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const normals: number[] = [];
     const uvs: number[] = [];
     const indices: number[] = [];
+    topPoints = suavizarArco(topPoints);
 
     const activeModel = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
     const isSandwich = activeModel.tipo === 'termoacustico';
@@ -2580,6 +2614,22 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // Contabilizar grado de conectividad por nodo para generar nudos de unión sólidos
     const nodeDegreeMap: Record<string, { count: number; maxProfileWidth: number }> = {};
 
+    // Piezas "principales" (columna, vigas, cordones, correas): en cada nudo se alargan hasta
+    // cubrir a la otra pieza, así las esquinas quedan cerradas (sin huecos ni muescas en "V").
+    const ROL_PRINCIPAL = /^(columna|viga_principal|viga|cordon_superior|cordon_inferior|correa|viga_collar|solera)$/;
+    const ladoVisible = (seg: typeof segments[string]) => {
+      const pc = perfilTechos(seg.profileId);
+      let lado = pc ? Math.max(pc.anchoMm, pc.altoMm || pc.anchoMm) / 1000 : 0.08;
+      if (seg.rolEstructural === 'columna_concreto') lado = 0.25;
+      return lado;
+    };
+    const ladosNudo: Record<string, { id: string; l: number }[]> = {};
+    Object.values(segments).forEach(seg => {
+      if (!ROL_PRINCIPAL.test(seg.rolEstructural || '')) return;
+      const l = ladoVisible(seg);
+      [seg.nodeAId, seg.nodeBId].forEach(id => { (ladosNudo[id] ||= []).push({ id: seg.id, l }); });
+    });
+
     Object.values(segments).forEach(seg => {
       const nA = nodes[seg.nodeAId];
       const nB = nodes[seg.nodeBId];
@@ -2621,10 +2671,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         altoM = 0.25;
       }
 
-      if (presentacionRef.current && !esConcreto3D && seg.rolEstructural !== 'arriostre' && seg.rolEstructural !== 'tensor_viento') {
-        const minimo = seg.rolEstructural === 'columna' ? 0.18 : seg.rolEstructural === 'correa' ? 0.07 : 0.09;
-        anchoM = Math.max(anchoM, minimo); altoM = Math.max(altoM, minimo);
-      }
+      // La vista para el cliente usa las MISMAS medidas que la estructura (antes engrosaba los tubos
+      // y no coincidía con lo que se fabrica); los perfiles aptos del Asistente ya se ven bien.
       const radiusM = anchoM * 0.5;
 
       // Registrar conectividad y ancho máximo en cada nodo
@@ -2640,14 +2688,27 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       });
 
       let geom: THREE.BufferGeometry;
+      // Alargue en cada punta (solo piezas principales, en nudos donde llega otra principal).
+      const principal = ROL_PRINCIPAL.test(seg.rolEstructural || '') && !isWire;
+      // Hasta cubrir la mitad de la pieza más gruesa de las OTRAS que llegan al nudo (no más).
+      const alarguePunta = (id: string) => {
+        if (!principal) return 0;
+        const otras = (ladosNudo[id] || []).filter(o => o.id !== seg.id);
+        return otras.length ? Math.max(0, Math.min(0.12, Math.max(...otras.map(o => o.l)) / 2) - 0.004) : 0; // 4 mm antes de la cara: sin caras superpuestas
+      };
+      // La columna no se alarga hacia abajo (placa base).
+      const esCol = seg.rolEstructural === 'columna';
+      const alargueA = esCol && pA.y < pB.y ? 0 : alarguePunta(seg.nodeAId);
+      const alargueB = esCol && pB.y < pA.y ? 0 : alarguePunta(seg.nodeBId);
 
       if (isRedondo && !esConcreto3D) {
         geom = new THREE.CylinderGeometry(radiusM, radiusM, distance, 16);
         geom.rotateX(Math.PI / 2);
-      } else if (isRectangular) {
-        geom = new THREE.BoxGeometry(anchoM, altoM, distance);
       } else {
-        geom = new THREE.BoxGeometry(anchoM, altoM, distance);
+        // Cordones y vigas: se alargan un poco en cada punta para que en los quiebres
+        // (arco, cumbrera) los tubos se junten sin dejar una muesca en "V" arriba.
+        geom = new THREE.BoxGeometry(anchoM, altoM, distance + alargueA + alargueB);
+        geom.translate(0, 0, (alargueB - alargueA) / 2);
       }
 
       const isSelected = seg.id === activeSelectedSegId;
@@ -2677,8 +2738,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       tubeMesh.position.copy(midPoint);
 
       const dir = new THREE.Vector3().subVectors(pB, pA).normalize();
-      const zAxis = new THREE.Vector3(0, 0, 1);
-      tubeMesh.quaternion.setFromUnitVectors(zAxis, dir);
+      // Orientación SIN giro sobre su eje: la cara de arriba del tubo mira hacia arriba (y las
+      // verticales quedan alineadas a los ejes). Antes el tubo inclinado quedaba "torcido" y sus
+      // esquinas sobresalían de la calamina o dejaban huecos en las uniones.
+      {
+        const ref = Math.abs(dir.y) > 0.98 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+        const ejeX = new THREE.Vector3().crossVectors(ref, dir).normalize();
+        const ejeY = new THREE.Vector3().crossVectors(dir, ejeX).normalize();
+        tubeMesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ejeX, ejeY, dir));
+      }
       
       const isCriticalZone = seg.rolEstructural === 'diagonal' || 
                              seg.rolEstructural === 'montante' ||
@@ -2774,7 +2842,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // La plancha va sobre la cara de arriba del perfil más alto (pares de 100 mm, etc.).
     const holguraTop = Math.max(0.04, ...topSegments.map(s => {
       const pf = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === s.profileId);
-      return pf ? Math.max(pf.altoMm || pf.anchoMm, pf.anchoMm) / 2000 + 0.008 : 0;
+      return pf ? Math.max(pf.altoMm || pf.anchoMm, pf.anchoMm) / 2000 + 0.012 : 0;
     }));
     if (topSegments.length > 0) {
       topSegments.forEach(s => {
@@ -3220,7 +3288,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             opacity: finalOpacity,
           });
           const ridgeMesh = new THREE.Mesh(ridgeGeo, ridgeMat);
-          ridgeMesh.position.set(peakPoint.x, peakPoint.y + 0.07, (minZNode + maxZNode) / 2);
+          // Encima de la plancha: holgura sobre el tubo + alto de la onda + mitad de la tapa.
+          const modCum = MODELOS_ALUZINC_PERU.find(m => m.id === selectedModeloId) || MODELOS_ALUZINC_PERU[0];
+          ridgeMesh.position.set(peakPoint.x, peakPoint.y + holguraTop + (modCum.ribHeightMm || 35) / 1000 + 0.03, (minZNode + maxZNode) / 2);
           ridgeMesh.name = 'cumbrera_techo';
           modeloGroup.add(ridgeMesh);
         }
@@ -3425,11 +3495,14 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     if (import.meta.env.DEV) (window as any).__escenaTechos = scene; // solo para pruebas en desarrollo
+    if (import.meta.env.DEV) (window as any).__camaraTechos = (t: [number, number, number], r: number, th: number, ph: number) => { // solo pruebas
+      cameraTargetRef.current.set(...t); cameraRadiusRef.current = r; cameraAngleThetaRef.current = th; cameraAnglePhiRef.current = ph; updateCameraPos();
+    };
 
     const cfgIlum = CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro;
     scene.background = fotoFondoRef.current ? null : new THREE.Color(cfgIlum.bgColor);
 
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 500);
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.08, 500);
     cameraRef.current = camera;
 
     const renderer = crearRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });

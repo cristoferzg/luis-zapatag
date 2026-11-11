@@ -26,6 +26,7 @@ import { esTensor, metradoTensores } from './tensores';
 import { metradoMovil } from './mecanismoMovil';
 import { metradoCanaletas } from './canaletas';
 import { metradoLed } from './iluminacionLed';
+import { zonasDesdeCorreas } from './coberturaAuto';
 
 // 1. CÁLCULO DE DISTANCIA EUCLIDIANA 3D ENTRE NODOS
 export function calcularLongitudSegmento3D(nodoA: Node3D, nodoB: Node3D): number {
@@ -260,6 +261,7 @@ export function calcularMetradoCoberturas(
       areaEfectivaCalculadaM2: Math.round(areaCompradaM2 * 100) / 100,
       numColumnasAnchoUtil: numColsAncho,
       numFilasLargoPlancha: numRowsLargo,
+      largoPlanchaM,
       totalPlanchasEstimadas: Math.ceil(totalPlanchas - 1e-6),
       pesoTotalCoberturaKg: Math.round(pesoTotalKg * 10) / 10,
       costoTotalCoberturaSoles: Math.round(costoTotalSol * 100) / 100,
@@ -291,6 +293,13 @@ export function generarReportePresupuestoBom(
   const costoLedSoles = iluminacionLed.reduce((x, l) => x + l.subtotal, 0);
   const despiecePerfiles = calcularDespieceOptimizado1D(segsPerfil, nodes, 0.003);
   const resumenCoberturas = calcularMetradoCoberturas(coverageZones, nodes);
+  // Sin cobertura elegida todavía: se ESTIMAN las planchas con las correas (lo mismo que dibuja el 3D),
+  // solo para mostrarlas; no entran al costo hasta que el usuario elija la cobertura.
+  const hayPropia = Object.keys(coverageZones).some(id => !/^tq[0-9a-z]+_/.test(id));
+  let coberturaEstimada: ResumenCálculoCobertura[] = [];
+  if (!hayPropia) {
+    try { coberturaEstimada = calcularMetradoCoberturas(zonasDesdeCorreas(nodes, segments, 'cob_aluzinc_tr4_040'), nodes); } catch { coberturaEstimada = []; }
+  }
 
   // Contar columnas apoyadas para Placas Base y Pernos J
   const numColumnas = Object.values(nodes).filter(n => n.isFixedSupport).length || 4;
@@ -339,6 +348,7 @@ export function generarReportePresupuestoBom(
   return {
     despiecePerfiles,
     resumenCoberturas,
+    coberturaEstimada,
     placasBaseTotalesUnids: placasBaseTotales,
     pernosAnclajeJTotalesUnids: pernosAnclajeJ,
     cajasPernosEpdmTotales: cajasPernosEpdm,

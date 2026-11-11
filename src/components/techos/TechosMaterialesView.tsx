@@ -321,17 +321,39 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
               2. Coberturas de Aluzinc & Cumbrera
             </h3>
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between items-center p-3 bg-sky-50/70 rounded-xl border border-sky-200">
-                <div>
-                  <div className="font-bold text-slate-950">Planchas de Aluzinc TR-4 (Ancho útil 1.10m)</div>
-                  <div className="text-[10px] text-slate-600">Área total proyectada del techo con pendiente</div>
-                </div>
-                <div className="text-right">
-                  <span className="font-mono font-black text-sky-800 block text-sm">
-                    {design.resumenCoberturas?.[0]?.areaTotalM2 ? `${design.resumenCoberturas[0].areaTotalM2.toFixed(1)} m²` : 'Calculado s/ modelo'}
-                  </span>
-                </div>
-              </div>
+              {(() => {
+                const propias: any[] = design.resumenCoberturas || [];
+                const lista: any[] = propias.length ? propias : (design.coberturaEstimada || []);
+                const estimada = !propias.length;
+                if (!lista.length) return (
+                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900">
+                    Para saber cuántas planchas necesitas, el techo debe tener correas. Agrégalas o usa el Asistente.
+                  </div>
+                );
+                return lista.map((c: any, i: number) => (
+                  <div key={c.coberturaMaterialId + i} className={`p-3 rounded-xl border ${estimada ? 'bg-amber-50/60 border-amber-200' : 'bg-sky-50/70 border-sky-200'}`}>
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-950">{c.nombreCobertura}</div>
+                        <div className="text-[10px] text-slate-600 mt-0.5">
+                          {c.numColumnasAnchoUtil} a lo ancho × {Number(c.numFilasLargoPlancha).toLocaleString('es-PE', { maximumFractionDigits: 2 })} a lo largo
+                          {c.largoPlanchaM ? ` · planchas de ${Number(c.largoPlanchaM).toFixed(2)} m` : ''}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Techo con pendiente: {Number(c.areaRealSuperficieM2).toFixed(1)} m² · se compran {Number(c.areaEfectivaCalculadaM2).toFixed(1)} m²</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className={`font-mono font-black block text-lg leading-none ${estimada ? 'text-amber-800' : 'text-sky-800'}`}>{Math.ceil(c.totalPlanchasEstimadas)}</span>
+                        <span className="text-[10px] font-bold text-slate-500">planchas</span>
+                      </div>
+                    </div>
+                    {estimada && (
+                      <div className="mt-2 text-[10px] font-semibold text-amber-800">
+                        Estimado con Aluzinc TR-4 según las correas. Elige la cobertura en el 3D para que entre al presupuesto.
+                      </div>
+                    )}
+                  </div>
+                ));
+              })()}
 
               <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <div>

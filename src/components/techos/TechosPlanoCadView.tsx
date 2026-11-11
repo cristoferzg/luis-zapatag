@@ -190,7 +190,8 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
       rolCount[s.rolEstructural] = (rolCount[s.rolEstructural] || 0) + 1;
       if (!perfMap.has(s.rolEstructural)) perfMap.set(s.rolEstructural, new Set());
       const p = INVENTARIO_PERFILES_TUBULARES.find(pp => pp.id === s.profileId);
-      if (p) perfMap.get(s.rolEstructural)!.add(p.nombre);
+      // Nombre de taller corto: 'Tubo Cuadrado 4" x 4" x 2.5mm' (sin [Liviano], (100x100…), 'Espesor').
+      if (p) perfMap.get(s.rolEstructural)!.add(p.nombre.replace(/\s*\[[^\]]*\]/, '').replace(/\s*\((?:\d|LA|ASTM)[^)]*\)/g, '').replace(/ Espesor/, '').trim());
     });
     const cuadro = Array.from(perfMap.entries()).map(([rol, set]) => ({
       rol,
@@ -543,25 +544,33 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
 
             {/* Cuadro de perfiles reales + notas RNE */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-2 text-[10px] min-w-0">
-                <div className="font-black uppercase text-slate-800 border-b border-slate-300 pb-1 flex flex-wrap items-center justify-between gap-x-2">
-                  <span>CUADRO DE ELEMENTOS Y PERFILES (DEL DISEÑO)</span>
+              <div className="border border-slate-300 rounded-xl bg-white text-[10px] min-w-0 overflow-hidden">
+                <div className="font-black uppercase text-slate-800 px-4 py-2 bg-slate-50 border-b border-slate-300 flex flex-wrap items-center justify-between gap-x-2">
+                  <span>CUADRO DE ELEMENTOS Y PERFILES</span>
                   <span className="text-amber-700 font-bold">RNE E.090</span>
                 </div>
-                <div className="space-y-1 font-mono text-[9.5px]">
-                  {(info.cuadro as any[]).map((c) => (
-                    <div key={c.rol} className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2 border-b border-slate-200 pb-1 min-w-0">
-                      <span className="font-bold flex items-center gap-1.5 sm:whitespace-nowrap shrink-0">
-                        <span className="inline-block w-3 h-[3px] rounded shrink-0" style={{ background: ROL_COLOR[c.rol] || '#334155' }} />
-                        {c.label} <span className="text-slate-400">({c.cantidad})</span>:
-                      </span>
-                      {/* Un perfil por línea; en celular debajo del nombre, sin salirse del cuadro. */}
-                      <span className="text-slate-800 sm:text-right min-w-0 break-words pl-4 sm:pl-0">
-                        {String(c.perfiles || '').split(' · ').map((pf: string, i: number) => <span key={i} className="block">{pf}</span>)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-[9px] uppercase text-slate-500 border-b border-slate-200">
+                      <th className="text-left font-black px-3 py-1.5">Elemento</th>
+                      <th className="text-center font-black px-2 py-1.5 w-12">Cant.</th>
+                      <th className="text-left font-black px-3 py-1.5">Perfil</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(info.cuadro as any[]).map((c) => (
+                      <tr key={c.rol} className="border-b border-slate-100 last:border-0 align-top">
+                        <td className="px-3 py-1.5 font-bold text-slate-800">
+                          <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 h-[3px] rounded shrink-0" style={{ background: ROL_COLOR[c.rol] || '#334155' }} />{c.label}</span>
+                        </td>
+                        <td className="px-2 py-1.5 text-center font-mono font-black text-slate-700">{c.cantidad}</td>
+                        <td className="px-3 py-1.5 text-slate-800">
+                          {String(c.perfiles || '').split(' · ').map((pf: string, i: number) => <span key={i} className="block leading-snug">{pf}</span>)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
 
               <div className="border border-slate-300 p-4 rounded-xl bg-slate-50/70 space-y-1.5 text-[10px]">

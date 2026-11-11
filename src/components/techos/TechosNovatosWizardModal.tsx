@@ -492,6 +492,8 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
 
   const handleGenerarEstructura = () => {
     if (!engineState) return;
+    // Perfiles aptos según el tamaño del techo (columnas, cordones, correas…), no todo en 3 × 3 cm.
+    engineState.pedirPerfilesAptos?.();
 
     // N° de espacios → separación equivalente para los tipos que trabajan por
     // separación (parabólico, una agua, cuatro aguas…); a dos aguas usa el N° directo.
