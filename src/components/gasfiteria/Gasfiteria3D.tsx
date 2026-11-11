@@ -90,6 +90,119 @@ function aparatoObj(a: Aparato, mats: Record<string, THREE.Material>): THREE.Gro
 
 export interface Visibles { fria: boolean; caliente: boolean; desague: boolean; ventilacion: boolean; aparatos: boolean; muros: boolean }
 
+/** Dibuja la gasfitería en un grupo de three.js. Con `conTecho` no pone piso ni muros (los da el techo). */
+export function dibujarGasfiteria(grupo: THREE.Group, cot: CotizacionGas, ver: Visibles, empalmes: Empalme[], opt: { conTecho?: boolean } = {}) {
+  const mats = {
+    loza: new THREE.MeshStandardMaterial({ color: '#fbfbfa', roughness: 0.35 }),
+    metal: new THREE.MeshStandardMaterial({ color: '#a8b3bf', roughness: 0.3, metalness: 0.8 }),
+    bronce: new THREE.MeshStandardMaterial({ color: '#c08a3e', roughness: 0.35, metalness: 0.7 }),
+    oscuro: new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.6 }),
+    concreto: new THREE.MeshStandardMaterial({ color: '#b9b4ab', roughness: 0.95 }),
+    concretoT: new THREE.MeshStandardMaterial({ color: '#a8a29e', roughness: 0.95, transparent: true, opacity: 0.45, depthWrite: false }),
+    granito: new THREE.MeshStandardMaterial({ color: '#8f8a85', roughness: 0.6 }),
+    agua: new THREE.MeshStandardMaterial({ color: '#bae6fd', roughness: 0.1 }),
+    naranja: new THREE.MeshStandardMaterial({ color: '#f97316', roughness: 0.5 }),
+    tapa: new THREE.MeshStandardMaterial({ color: '#78716c', roughness: 0.8 }),
+    azul: new THREE.MeshStandardMaterial({ color: '#1d4ed8', roughness: 0.6 }),
+    mueble: new THREE.MeshStandardMaterial({ color: '#e7e1d8', roughness: 0.8 }),
+  } as Record<string, THREE.Material>;
+  const b = limites(cot);
+  // Piso semitransparente (se ve el desagüe debajo) y muros tenues.
+  const pw = b.x1 - b.x0 + 1, pl = b.y1 - b.y0 + 1;
+  const conTecho = !!opt.conTecho;
+  if (!conTecho) {
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(pw, pl), new THREE.MeshStandardMaterial({ color: '#e7e2d9', roughness: 1, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
+  piso.rotation.x = -Math.PI / 2; piso.position.set((b.x0 + b.x1) / 2, 0, (b.y0 + b.y1) / 2); piso.userData.sinAjuste = true; grupo.add(piso);
+  const rejilla = new THREE.GridHelper(Math.ceil(Math.max(pw, pl)), Math.ceil(Math.max(pw, pl)), '#cbd5e1', '#dfe5ec');
+  rejilla.position.set((b.x0 + b.x1) / 2, 0.001, (b.y0 + b.y1) / 2); rejilla.userData.sinAjuste = true; (rejilla.material as THREE.Material).transparent = true; (rejilla.material as THREE.Material).opacity = 0.5; grupo.add(rejilla);
+  }
+  // Fondo de Techos: las columnas del techo (el techo de verdad lo pone la vista "todo junto").
+  if (!conTecho && ver.muros && cot.fondo.tipo === 'techos') {
+    const mc = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.8 });
+    (cot.fondo.columnas || []).forEach(k => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.15, 2.8, 0.15), mc); m.position.set(k.x, 1.4, k.y); grupo.add(m); });
+    const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cot.fondo.ancho, 0.01, cot.fondo.largo)), new THREE.LineBasicMaterial({ color: '#d97706' }));
+    e.position.set(cot.fondo.ancho / 2, 2.85, cot.fondo.largo / 2); grupo.add(e);
+  }
+  if (!conTecho && ver.muros) {
+    const mm = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, transparent: true, opacity: 0.16, depthWrite: false });
+    const borde = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.45 });
+    const H = 2.5;
+    cot.fondo.muros.forEach(m => {
+      const L = Math.hypot(m.x2 - m.x1, m.y2 - m.y1); if (L < 0.01) return;
+      const ux = (m.x2 - m.x1) / L, uy = (m.y2 - m.y1) / L, ang = Math.atan2(uy, ux);
+      const piezas: [number, number, number, number][] = []; // desde, hasta, y0, y1
+      let t = 0;
+      [...(m.vanos || [])].sort((p, q) => p.t - q.t).forEach(v => {
+        const a = Math.max(t, v.t - v.w / 2), bb = Math.min(L, v.t + v.w / 2); if (bb <= a) return;
+        if (a > t) piezas.push([t, a, 0, H]);
+        if (v.puerta) piezas.push([a, bb, 2.1, H]); else { piezas.push([a, bb, 0, 0.9], [a, bb, 2.1, H]); }
+        t = bb;
+      });
+      if (t < L) piezas.push([t, L, 0, H]);
+      piezas.forEach(([a, bb, y0, y1]) => {
+        const g = new THREE.BoxGeometry(bb - a, y1 - y0, m.a);
+        const mesh = new THREE.Mesh(g, mm);
+        const cx = m.x1 + ux * (a + bb) / 2, cz = m.y1 + uy * (a + bb) / 2;
+        mesh.position.set(cx, (y0 + y1) / 2, cz); mesh.rotation.y = -ang;
+        mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), borde));
+        grupo.add(mesh);
+      });
+    });
+  }
+  // Tuberías.
+  const matRed: Record<Red, THREE.MeshStandardMaterial> = {
+    fria: new THREE.MeshStandardMaterial({ color: REDES.fria.color, roughness: 0.45 }),
+    caliente: new THREE.MeshStandardMaterial({ color: REDES.caliente.color, roughness: 0.45 }),
+    desague: new THREE.MeshStandardMaterial({ color: '#a26a3a', roughness: 0.55 }),
+    ventilacion: new THREE.MeshStandardMaterial({ color: REDES.ventilacion.color, roughness: 0.5 }),
+  };
+  const matNudo: Record<Red, THREE.MeshStandardMaterial> = {
+    fria: new THREE.MeshStandardMaterial({ color: '#1e3a8a', roughness: 0.4 }), caliente: new THREE.MeshStandardMaterial({ color: '#7f1d1d', roughness: 0.4 }),
+    desague: new THREE.MeshStandardMaterial({ color: '#5b3a1e', roughness: 0.5 }), ventilacion: new THREE.MeshStandardMaterial({ color: '#14532d', roughness: 0.5 }),
+  };
+  const V3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const poner = (m: THREE.Object3D | null) => { if (m) grupo.add(m); };
+  (['fria', 'caliente', 'desague'] as const).forEach(fam => {
+    const g = grafoRed(cot.tramos, cot.aparatos, fam);
+    const alt = fam === 'desague' ? profundidades(g, raicesDe(g, 'desague')) : g.nudos.map(() => (fam === 'fria' ? ALTURA_FRIA : ALTURA_CALIENTE));
+    g.aristas.forEach(e => {
+      if (!ver[e.tramo.red]) return;
+      const A = g.nudos[e.a], B = g.nudos[e.b];
+      poner(cilindro(V3(A.x, alt[e.a], A.y), V3(B.x, alt[e.b], B.y), radio(e.tramo.diam), matRed[e.tramo.red]));
+    });
+    g.nudos.forEach((n, i) => {
+      const es = n.aristas.map(k => g.aristas[k]).filter(e => ver[e.tramo.red]);
+      if (!es.length) return;
+      const r = Math.max(...es.map(e => radio(e.tramo.diam)));
+      const red = es[0].tramo.red;
+      if (es.length >= 2 || n.aparatos.length) { const s = new THREE.Mesh(new THREE.SphereGeometry(r * 1.35, 14, 10), matNudo[red]); s.position.set(n.x, alt[i], n.y); grupo.add(s); }
+      // Subida / bajada al aparato.
+      n.aparatos.forEach(({ ap, red: rr }) => {
+        const d = defAparato(ap.tipo);
+        if (esAgua(rr)) { const h = d.fuente === 'fria' ? -0.1 : d.hAgua; poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, h, n.y), r, matRed[rr])); }
+        else if (!d.colector) poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, d.hDes + 0.02, n.y), r, matRed.desague));
+        else poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, alt[i] - 0.15, n.y), r, matRed.desague));
+      });
+      // Ventilación libre: sube por el muro hasta el techo con su sombrero.
+      if (es.length === 1 && !n.aparatos.length && es[0].tramo.red === 'ventilacion') {
+        poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, 2.75, n.y), r, matRed.ventilacion));
+        const som = new THREE.Mesh(new THREE.ConeGeometry(r * 2.4, r * 2.2, 14), matNudo.ventilacion); som.position.set(n.x, 2.8, n.y); grupo.add(som);
+      }
+    });
+  });
+  // Llaves de paso (cubos negros) del agua.
+  empalmes.filter(e => e.tipo === 'llave' && ver[e.red]).forEach(e => {
+    const y = e.red === 'fria' ? ALTURA_FRIA : ALTURA_CALIENTE;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), matNudo.ventilacion.clone()); (m.material as THREE.MeshStandardMaterial).color.set('#111827');
+    m.position.set(e.x, y, e.y); grupo.add(m);
+    const man = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.03), mats.naranja); man.position.set(e.x, y + 0.05, e.y); grupo.add(man);
+  });
+  // Aparatos.
+  if (ver.aparatos) cot.aparatos.forEach(a => {
+    const o = aparatoObj(a, mats); o.position.set(a.x, 0, a.y); o.rotation.y = (-a.rot * Math.PI) / 180; grupo.add(o);
+  });
+}
+
 export default function Gasfiteria3D({ cot, ver, empalmes }: { cot: CotizacionGas; ver: Visibles; empalmes: Empalme[] }) {
   const host = useRef<HTMLDivElement>(null);
   const ctx = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; persp: THREE.PerspectiveCamera; orto: THREE.OrthographicCamera; cam: THREE.Camera; controls: OrbitControls; grupo: THREE.Group; render: () => void; ajustar: (iso?: boolean) => void } | null>(null);
@@ -164,105 +277,7 @@ export default function Gasfiteria3D({ cot, ver, empalmes }: { cot: CotizacionGa
     const c = ctx.current; if (!c) return;
     const primera = c.grupo.children.length === 0;
     liberar(c.grupo); c.grupo.clear();
-    const mats = {
-      loza: new THREE.MeshStandardMaterial({ color: '#fbfbfa', roughness: 0.35 }),
-      metal: new THREE.MeshStandardMaterial({ color: '#a8b3bf', roughness: 0.3, metalness: 0.8 }),
-      bronce: new THREE.MeshStandardMaterial({ color: '#c08a3e', roughness: 0.35, metalness: 0.7 }),
-      oscuro: new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.6 }),
-      concreto: new THREE.MeshStandardMaterial({ color: '#b9b4ab', roughness: 0.95 }),
-      concretoT: new THREE.MeshStandardMaterial({ color: '#a8a29e', roughness: 0.95, transparent: true, opacity: 0.45, depthWrite: false }),
-      granito: new THREE.MeshStandardMaterial({ color: '#8f8a85', roughness: 0.6 }),
-      agua: new THREE.MeshStandardMaterial({ color: '#bae6fd', roughness: 0.1 }),
-      naranja: new THREE.MeshStandardMaterial({ color: '#f97316', roughness: 0.5 }),
-      tapa: new THREE.MeshStandardMaterial({ color: '#78716c', roughness: 0.8 }),
-      azul: new THREE.MeshStandardMaterial({ color: '#1d4ed8', roughness: 0.6 }),
-      mueble: new THREE.MeshStandardMaterial({ color: '#e7e1d8', roughness: 0.8 }),
-    } as Record<string, THREE.Material>;
-    const b = limites(cot);
-    // Piso semitransparente (se ve el desagüe debajo) y muros tenues.
-    const pw = b.x1 - b.x0 + 1, pl = b.y1 - b.y0 + 1;
-    const piso = new THREE.Mesh(new THREE.PlaneGeometry(pw, pl), new THREE.MeshStandardMaterial({ color: '#e7e2d9', roughness: 1, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
-    piso.rotation.x = -Math.PI / 2; piso.position.set((b.x0 + b.x1) / 2, 0, (b.y0 + b.y1) / 2); piso.userData.sinAjuste = true; c.grupo.add(piso);
-    const rejilla = new THREE.GridHelper(Math.ceil(Math.max(pw, pl)), Math.ceil(Math.max(pw, pl)), '#cbd5e1', '#dfe5ec');
-    rejilla.position.set((b.x0 + b.x1) / 2, 0.001, (b.y0 + b.y1) / 2); rejilla.userData.sinAjuste = true; (rejilla.material as THREE.Material).transparent = true; (rejilla.material as THREE.Material).opacity = 0.5; c.grupo.add(rejilla);
-    if (ver.muros) {
-      const mm = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, transparent: true, opacity: 0.16, depthWrite: false });
-      const borde = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.45 });
-      const H = 2.5;
-      cot.fondo.muros.forEach(m => {
-        const L = Math.hypot(m.x2 - m.x1, m.y2 - m.y1); if (L < 0.01) return;
-        const ux = (m.x2 - m.x1) / L, uy = (m.y2 - m.y1) / L, ang = Math.atan2(uy, ux);
-        const piezas: [number, number, number, number][] = []; // desde, hasta, y0, y1
-        let t = 0;
-        [...(m.vanos || [])].sort((p, q) => p.t - q.t).forEach(v => {
-          const a = Math.max(t, v.t - v.w / 2), bb = Math.min(L, v.t + v.w / 2); if (bb <= a) return;
-          if (a > t) piezas.push([t, a, 0, H]);
-          if (v.puerta) piezas.push([a, bb, 2.1, H]); else { piezas.push([a, bb, 0, 0.9], [a, bb, 2.1, H]); }
-          t = bb;
-        });
-        if (t < L) piezas.push([t, L, 0, H]);
-        piezas.forEach(([a, bb, y0, y1]) => {
-          const g = new THREE.BoxGeometry(bb - a, y1 - y0, m.a);
-          const mesh = new THREE.Mesh(g, mm);
-          const cx = m.x1 + ux * (a + bb) / 2, cz = m.y1 + uy * (a + bb) / 2;
-          mesh.position.set(cx, (y0 + y1) / 2, cz); mesh.rotation.y = -ang;
-          mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), borde));
-          c.grupo.add(mesh);
-        });
-      });
-    }
-    // Tuberías.
-    const matRed: Record<Red, THREE.MeshStandardMaterial> = {
-      fria: new THREE.MeshStandardMaterial({ color: REDES.fria.color, roughness: 0.45 }),
-      caliente: new THREE.MeshStandardMaterial({ color: REDES.caliente.color, roughness: 0.45 }),
-      desague: new THREE.MeshStandardMaterial({ color: '#a26a3a', roughness: 0.55 }),
-      ventilacion: new THREE.MeshStandardMaterial({ color: REDES.ventilacion.color, roughness: 0.5 }),
-    };
-    const matNudo: Record<Red, THREE.MeshStandardMaterial> = {
-      fria: new THREE.MeshStandardMaterial({ color: '#1e3a8a', roughness: 0.4 }), caliente: new THREE.MeshStandardMaterial({ color: '#7f1d1d', roughness: 0.4 }),
-      desague: new THREE.MeshStandardMaterial({ color: '#5b3a1e', roughness: 0.5 }), ventilacion: new THREE.MeshStandardMaterial({ color: '#14532d', roughness: 0.5 }),
-    };
-    const V3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-    const poner = (m: THREE.Object3D | null) => { if (m) c.grupo.add(m); };
-    (['fria', 'caliente', 'desague'] as const).forEach(fam => {
-      const g = grafoRed(cot.tramos, cot.aparatos, fam);
-      const alt = fam === 'desague' ? profundidades(g, raicesDe(g, 'desague')) : g.nudos.map(() => (fam === 'fria' ? ALTURA_FRIA : ALTURA_CALIENTE));
-      g.aristas.forEach(e => {
-        if (!ver[e.tramo.red]) return;
-        const A = g.nudos[e.a], B = g.nudos[e.b];
-        poner(cilindro(V3(A.x, alt[e.a], A.y), V3(B.x, alt[e.b], B.y), radio(e.tramo.diam), matRed[e.tramo.red]));
-      });
-      g.nudos.forEach((n, i) => {
-        const es = n.aristas.map(k => g.aristas[k]).filter(e => ver[e.tramo.red]);
-        if (!es.length) return;
-        const r = Math.max(...es.map(e => radio(e.tramo.diam)));
-        const red = es[0].tramo.red;
-        if (es.length >= 2 || n.aparatos.length) { const s = new THREE.Mesh(new THREE.SphereGeometry(r * 1.35, 14, 10), matNudo[red]); s.position.set(n.x, alt[i], n.y); c.grupo.add(s); }
-        // Subida / bajada al aparato.
-        n.aparatos.forEach(({ ap, red: rr }) => {
-          const d = defAparato(ap.tipo);
-          if (esAgua(rr)) { const h = d.fuente === 'fria' ? -0.1 : d.hAgua; poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, h, n.y), r, matRed[rr])); }
-          else if (!d.colector) poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, d.hDes + 0.02, n.y), r, matRed.desague));
-          else poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, alt[i] - 0.15, n.y), r, matRed.desague));
-        });
-        // Ventilación libre: sube por el muro hasta el techo con su sombrero.
-        if (es.length === 1 && !n.aparatos.length && es[0].tramo.red === 'ventilacion') {
-          poner(cilindro(V3(n.x, alt[i], n.y), V3(n.x, 2.75, n.y), r, matRed.ventilacion));
-          const som = new THREE.Mesh(new THREE.ConeGeometry(r * 2.4, r * 2.2, 14), matNudo.ventilacion); som.position.set(n.x, 2.8, n.y); c.grupo.add(som);
-        }
-      });
-    });
-    // Llaves de paso (cubos negros) del agua.
-    empalmes.filter(e => e.tipo === 'llave' && ver[e.red]).forEach(e => {
-      const y = e.red === 'fria' ? ALTURA_FRIA : ALTURA_CALIENTE;
-      const m = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), matNudo.ventilacion.clone()); (m.material as THREE.MeshStandardMaterial).color.set('#111827');
-      m.position.set(e.x, y, e.y); c.grupo.add(m);
-      const man = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.03), mats.naranja); man.position.set(e.x, y + 0.05, e.y); c.grupo.add(man);
-    });
-    // Aparatos.
-    if (ver.aparatos) cot.aparatos.forEach(a => {
-      const o = aparatoObj(a, mats); o.position.set(a.x, 0, a.y); o.rotation.y = (-a.rot * Math.PI) / 180; c.grupo.add(o);
-    });
+    dibujarGasfiteria(c.grupo, cot, ver, empalmes);
     if (primera) c.ajustar(iso); else c.render();
   }, [cot.aparatos, cot.tramos, cot.fondo, ver, empalmes]); // eslint-disable-line react-hooks/exhaustive-deps
 

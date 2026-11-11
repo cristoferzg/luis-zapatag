@@ -30,6 +30,125 @@ function cilindro(a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Mate
 const R_TUBO = 0.022;
 export type Visibles3D = Record<string, boolean>;
 
+/** Dibuja la instalación eléctrica en un grupo de three.js. Con `conTecho` no pone piso ni
+ * referencias (las da el techo de verdad) y `hTecho` sube luces y tuberías a esa altura. */
+export function dibujarElectricidad(grupo: THREE.Group, cot: CotizacionEle, ver: Visibles3D, info: Map<string, InfoRuta>, opt: { hTecho?: number; conTecho?: boolean } = {}) {
+  const b = limites(cot);
+  const hT = opt.hTecho ?? H_TECHO;
+  const conTecho = !!opt.conTecho;
+  const pw = b.x1 - b.x0 + 1, pl = b.y1 - b.y0 + 1;
+  if (!conTecho) {
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(pw, pl), new THREE.MeshStandardMaterial({ color: '#e7e2d9', roughness: 1, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+  piso.rotation.x = -Math.PI / 2; piso.position.set((b.x0 + b.x1) / 2, 0, (b.y0 + b.y1) / 2); piso.userData.sinAjuste = true; grupo.add(piso);
+  const rejilla = new THREE.GridHelper(Math.ceil(Math.max(pw, pl)), Math.ceil(Math.max(pw, pl)), '#cbd5e1', '#dfe5ec');
+  rejilla.position.set((b.x0 + b.x1) / 2, 0.001, (b.y0 + b.y1) / 2); rejilla.userData.sinAjuste = true; (rejilla.material as THREE.Material).transparent = true; (rejilla.material as THREE.Material).opacity = 0.5; grupo.add(rejilla);
+  }
+  if (ver.muros !== false) {
+    const mm = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, transparent: true, opacity: 0.14, depthWrite: false });
+    const borde = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.4 });
+    cot.fondo.muros.forEach(m => {
+      const L = Math.hypot(m.x2 - m.x1, m.y2 - m.y1); if (L < 0.01) return;
+      const ux = (m.x2 - m.x1) / L, uy = (m.y2 - m.y1) / L, ang = Math.atan2(uy, ux);
+      const piezas: [number, number, number, number][] = [];
+      let t = 0;
+      [...(m.vanos || [])].sort((p, q) => p.t - q.t).forEach(v => {
+        const a = Math.max(t, v.t - v.w / 2), bb = Math.min(L, v.t + v.w / 2); if (bb <= a) return;
+        if (a > t) piezas.push([t, a, 0, H_TECHO]);
+        if (v.puerta) piezas.push([a, bb, 2.1, H_TECHO]); else piezas.push([a, bb, 0, 0.9], [a, bb, 2.1, H_TECHO]);
+        t = bb;
+      });
+      if (t < L) piezas.push([t, L, 0, H_TECHO]);
+      piezas.forEach(([a, bb, y0, y1]) => {
+        const g = new THREE.BoxGeometry(bb - a, y1 - y0, m.a);
+        const mesh = new THREE.Mesh(g, mm);
+        mesh.position.set(m.x1 + ux * (a + bb) / 2, (y0 + y1) / 2, m.y1 + uy * (a + bb) / 2); mesh.rotation.y = -ang;
+        mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), borde));
+        grupo.add(mesh);
+      });
+    });
+    // Referencias del fondo (aparatos, muebles, columnas, área de techo).
+    const mr = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.9, transparent: true, opacity: 0.55 });
+    if (!conTecho) cot.fondo.refs.forEach(rf => {
+      if (rf.tipo === 'area') {
+        const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(rf.w, 0.01, rf.d)), new THREE.LineBasicMaterial({ color: '#d97706' }));
+        e.position.set(rf.x, H_TECHO + 0.3, rf.y); grupo.add(e); return;
+      }
+      const h = rf.tipo === 'columna' ? H_TECHO : rf.alto ? 0.7 : 0.85;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(rf.w, h, rf.d), rf.tipo === 'columna' ? new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.8 }) : mr);
+      m.position.set(rf.x, rf.alto ? 1.5 + h / 2 : h / 2, rf.y); m.rotation.y = (-rf.rot * Math.PI) / 180; grupo.add(m);
+    });
+  }
+  const mats = new Map<string, THREE.MeshStandardMaterial>();
+  const mat = (col: string, emis = 0) => { const k = `${col}|${emis}`; let m = mats.get(k); if (!m) { m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.45, emissive: emis ? col : '#000000', emissiveIntensity: emis }); mats.set(k, m); } return m; };
+  const V3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+  const poner = (m: THREE.Object3D | null) => { if (m) grupo.add(m); };
+  const visible = (id: string) => ver[id] !== false;
+  // Tuberías con sus bajadas.
+  cot.rutas.forEach(t => {
+    if (!visible(t.circuito)) return;
+    const col = colorCircuito(cot, t.circuito), m = mat(col);
+    const y = t.via === 'techo' ? hT - 0.04 : 0.03;
+    const pts = desplazar(t.pts, offsetCircuito(cot, t.circuito));
+    const r = t.circuito === ALIM ? R_TUBO * 1.4 : R_TUBO;
+    for (let i = 0; i < pts.length - 1; i++) poner(cilindro(V3(pts[i].x, y, pts[i].y), V3(pts[i + 1].x, y, pts[i + 1].y), r, m));
+    pts.forEach((p, i) => { if (i > 0 && i < pts.length - 1) { const s = new THREE.Mesh(new THREE.SphereGeometry(r * 1.25, 10, 8), m); s.position.set(p.x, y, p.y); grupo.add(s); } });
+    const inf = info.get(t.id);
+    [0, pts.length - 1].forEach((idx, k) => {
+      const ex = inf?.extremos[k]; if (!ex?.p) return;
+      const p = ex.p, d = defPunto(p.tipo);
+      const h = p.tipo === 'tablero' ? (t.via === 'techo' ? H_TABLERO + 0.25 : H_TABLERO - 0.25) : p.tipo === 'pozo_tierra' ? -0.3 : d.h === H_TECHO ? hT : d.h;
+      if (Math.abs(h - y) > 0.05) poner(cilindro(V3(pts[idx].x, y, pts[idx].y), V3(pts[idx].x, h, pts[idx].y), r, m));
+    });
+  });
+  // Puntos.
+  if (ver.puntos !== false) cot.puntos.forEach((p: Punto) => {
+    if (!esEspecial(p.tipo) && p.circuito && !visible(p.circuito)) return;
+    const d = defPunto(p.tipo), col = esEspecial(p.tipo) ? '#334155' : colorCircuito(cot, p.circuito);
+    const g = new THREE.Group(); g.position.set(p.x, 0, p.y); g.rotation.y = (-p.rot * Math.PI) / 180;
+    const add = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); g.add(o); return o; };
+    switch (d.clase) {
+      case 'luz':
+        if (p.tipo === 'tira_led') add(new THREE.BoxGeometry(1.0, 0.03, 0.05), mat('#fde68a', 0.9), 0, d.h, 0);
+        else if (p.tipo === 'timbre') add(new THREE.BoxGeometry(0.09, 0.09, 0.03), mat(col), 0, d.h, -0.02);
+        else if (p.tipo === 'aplique' || p.tipo === 'reflector') { add(new THREE.BoxGeometry(0.2, 0.14, 0.12), mat('#fef3c7', 0.7), 0, d.h, 0.02); add(new THREE.BoxGeometry(0.06, 0.06, 0.04), mat(col), 0, d.h, -0.06); }
+        else {
+          // Luz de techo: caja octogonal pegada al techo y la luz COLGANDO hacia abajo (foco o panel),
+          // con un cono de luz tenue hacia el piso para que se lea hacia dónde alumbra.
+          const yT = d.h === H_TECHO ? hT : d.h;
+          add(new THREE.CylinderGeometry(0.075, 0.075, 0.04, 8), mat('#94a3b8'), 0, yT - 0.02, 0);   // caja octogonal
+          add(new THREE.TorusGeometry(0.075, 0.01, 6, 8), mat(col), 0, yT - 0.04, 0).rotation.x = Math.PI / 2; // anillo del circuito
+          let yLuz: number;
+          if (p.tipo === 'empotrado') {
+            add(new THREE.BoxGeometry(0.34, 0.025, 0.34), mat('#e2e8f0'), 0, yT - 0.055, 0);        // marco
+            add(new THREE.BoxGeometry(0.3, 0.012, 0.3), mat('#fef9c3', 1.1), 0, yT - 0.073, 0);     // panel encendido (cara de abajo)
+            yLuz = yT - 0.08;
+          } else if (p.tipo === 'sensor') {
+            add(new THREE.SphereGeometry(0.06, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat('#f8fafc'), 0, yT - 0.04, 0);
+            yLuz = 0;
+          } else {
+            add(new THREE.CylinderGeometry(0.026, 0.03, 0.07, 12), mat('#f1f5f9'), 0, yT - 0.075, 0); // socket
+            add(new THREE.SphereGeometry(0.075, 20, 14), mat('#fde68a', 1.2), 0, yT - 0.17, 0);       // foco encendido
+            yLuz = yT - 0.17;
+          }
+          if (yLuz > 0) {
+            const hc = Math.min(1.1, yLuz - 0.2), rc = hc * 0.55;
+            const cono = new THREE.Mesh(new THREE.ConeGeometry(rc, hc, 28, 1, true), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
+            cono.position.set(0, yLuz - hc / 2, 0); cono.userData.sinAjuste = true; g.add(cono);
+          }
+        }
+        break;
+      case 'interruptor': add(new THREE.BoxGeometry(0.08, 0.12, 0.02), mat('#ffffff'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.03, 0.05, 0.025), mat(col), 0, d.h, -0.02); break;
+      case 'toma': add(new THREE.BoxGeometry(0.12, 0.08, 0.02), mat('#ffffff'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.07, 0.03, 0.025), mat(col), 0, d.h, -0.02); break;
+      case 'fuerza': add(new THREE.BoxGeometry(0.14, 0.14, 0.03), mat(col), 0, d.h, -0.03); if (p.tipo === 'aire') add(new THREE.BoxGeometry(0.8, 0.28, 0.2), mat('#f8fafc'), 0, d.h + 0.05, 0.05); if (p.tipo === 'terma') add(new THREE.CylinderGeometry(0.2, 0.2, 0.7, 20), mat('#f8fafc'), 0.32, d.h - 0.2, 0.15); break;
+      case 'debil': add(new THREE.BoxGeometry(0.08, 0.08, 0.02), mat('#e2e8f0'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.03, 0.03, 0.025), mat(col), 0, d.h, -0.02); break;
+      case 'tablero': add(new THREE.BoxGeometry(0.42, 0.55, 0.1), mat('#64748b'), 0, d.h, -0.02); add(new THREE.BoxGeometry(0.32, 0.06, 0.02), mat('#f59e0b', 0.4), 0, d.h + 0.15, 0.04); break;
+      case 'medidor': add(new THREE.BoxGeometry(0.3, 0.42, 0.14), mat('#1e293b'), 0, d.h, 0); add(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 20), mat('#e2e8f0'), 0, d.h + 0.05, 0.08).rotation.x = Math.PI / 2; break;
+      case 'tierra': add(new THREE.BoxGeometry(0.45, 0.04, 0.45), mat('#78716c'), 0, 0.02, 0); add(new THREE.CylinderGeometry(0.014, 0.014, 0.8, 8), mat('#b45309'), 0, -0.4, 0); break;
+    }
+    grupo.add(g);
+  });
+}
+
 export default function Electricidad3D({ cot, ver, info }: { cot: CotizacionEle; ver: Visibles3D; info: Map<string, InfoRuta> }) {
   const host = useRef<HTMLDivElement>(null);
   const ctx = useRef<{ renderer: THREE.WebGLRenderer; scene: THREE.Scene; persp: THREE.PerspectiveCamera; orto: THREE.OrthographicCamera; cam: THREE.Camera; controls: OrbitControls; grupo: THREE.Group; render: () => void; ajustar: (iso?: boolean) => void } | null>(null);
@@ -103,116 +222,7 @@ export default function Electricidad3D({ cot, ver, info }: { cot: CotizacionEle;
     const c = ctx.current; if (!c) return;
     const primera = c.grupo.children.length === 0;
     liberar(c.grupo); c.grupo.clear();
-    const b = limites(cot);
-    const pw = b.x1 - b.x0 + 1, pl = b.y1 - b.y0 + 1;
-    const piso = new THREE.Mesh(new THREE.PlaneGeometry(pw, pl), new THREE.MeshStandardMaterial({ color: '#e7e2d9', roughness: 1, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
-    piso.rotation.x = -Math.PI / 2; piso.position.set((b.x0 + b.x1) / 2, 0, (b.y0 + b.y1) / 2); piso.userData.sinAjuste = true; c.grupo.add(piso);
-    const rejilla = new THREE.GridHelper(Math.ceil(Math.max(pw, pl)), Math.ceil(Math.max(pw, pl)), '#cbd5e1', '#dfe5ec');
-    rejilla.position.set((b.x0 + b.x1) / 2, 0.001, (b.y0 + b.y1) / 2); rejilla.userData.sinAjuste = true; (rejilla.material as THREE.Material).transparent = true; (rejilla.material as THREE.Material).opacity = 0.5; c.grupo.add(rejilla);
-    if (ver.muros !== false) {
-      const mm = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, transparent: true, opacity: 0.14, depthWrite: false });
-      const borde = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.4 });
-      cot.fondo.muros.forEach(m => {
-        const L = Math.hypot(m.x2 - m.x1, m.y2 - m.y1); if (L < 0.01) return;
-        const ux = (m.x2 - m.x1) / L, uy = (m.y2 - m.y1) / L, ang = Math.atan2(uy, ux);
-        const piezas: [number, number, number, number][] = [];
-        let t = 0;
-        [...(m.vanos || [])].sort((p, q) => p.t - q.t).forEach(v => {
-          const a = Math.max(t, v.t - v.w / 2), bb = Math.min(L, v.t + v.w / 2); if (bb <= a) return;
-          if (a > t) piezas.push([t, a, 0, H_TECHO]);
-          if (v.puerta) piezas.push([a, bb, 2.1, H_TECHO]); else piezas.push([a, bb, 0, 0.9], [a, bb, 2.1, H_TECHO]);
-          t = bb;
-        });
-        if (t < L) piezas.push([t, L, 0, H_TECHO]);
-        piezas.forEach(([a, bb, y0, y1]) => {
-          const g = new THREE.BoxGeometry(bb - a, y1 - y0, m.a);
-          const mesh = new THREE.Mesh(g, mm);
-          mesh.position.set(m.x1 + ux * (a + bb) / 2, (y0 + y1) / 2, m.y1 + uy * (a + bb) / 2); mesh.rotation.y = -ang;
-          mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), borde));
-          c.grupo.add(mesh);
-        });
-      });
-      // Referencias del fondo (aparatos, muebles, columnas, área de techo).
-      const mr = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.9, transparent: true, opacity: 0.55 });
-      cot.fondo.refs.forEach(rf => {
-        if (rf.tipo === 'area') {
-          const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(rf.w, 0.01, rf.d)), new THREE.LineBasicMaterial({ color: '#d97706' }));
-          e.position.set(rf.x, H_TECHO + 0.3, rf.y); c.grupo.add(e); return;
-        }
-        const h = rf.tipo === 'columna' ? H_TECHO : rf.alto ? 0.7 : 0.85;
-        const m = new THREE.Mesh(new THREE.BoxGeometry(rf.w, h, rf.d), rf.tipo === 'columna' ? new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.8 }) : mr);
-        m.position.set(rf.x, rf.alto ? 1.5 + h / 2 : h / 2, rf.y); m.rotation.y = (-rf.rot * Math.PI) / 180; c.grupo.add(m);
-      });
-    }
-    const mats = new Map<string, THREE.MeshStandardMaterial>();
-    const mat = (col: string, emis = 0) => { const k = `${col}|${emis}`; let m = mats.get(k); if (!m) { m = new THREE.MeshStandardMaterial({ color: col, roughness: 0.45, emissive: emis ? col : '#000000', emissiveIntensity: emis }); mats.set(k, m); } return m; };
-    const V3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-    const poner = (m: THREE.Object3D | null) => { if (m) c.grupo.add(m); };
-    const visible = (id: string) => ver[id] !== false;
-    // Tuberías con sus bajadas.
-    cot.rutas.forEach(t => {
-      if (!visible(t.circuito)) return;
-      const col = colorCircuito(cot, t.circuito), m = mat(col);
-      const y = t.via === 'techo' ? H_TECHO - 0.04 : 0.03;
-      const pts = desplazar(t.pts, offsetCircuito(cot, t.circuito));
-      const r = t.circuito === ALIM ? R_TUBO * 1.4 : R_TUBO;
-      for (let i = 0; i < pts.length - 1; i++) poner(cilindro(V3(pts[i].x, y, pts[i].y), V3(pts[i + 1].x, y, pts[i + 1].y), r, m));
-      pts.forEach((p, i) => { if (i > 0 && i < pts.length - 1) { const s = new THREE.Mesh(new THREE.SphereGeometry(r * 1.25, 10, 8), m); s.position.set(p.x, y, p.y); c.grupo.add(s); } });
-      const inf = info.get(t.id);
-      [0, pts.length - 1].forEach((idx, k) => {
-        const ex = inf?.extremos[k]; if (!ex?.p) return;
-        const p = ex.p, d = defPunto(p.tipo);
-        const h = p.tipo === 'tablero' ? (t.via === 'techo' ? H_TABLERO + 0.25 : H_TABLERO - 0.25) : p.tipo === 'pozo_tierra' ? -0.3 : d.h;
-        if (Math.abs(h - y) > 0.05) poner(cilindro(V3(pts[idx].x, y, pts[idx].y), V3(pts[idx].x, h, pts[idx].y), r, m));
-      });
-    });
-    // Puntos.
-    if (ver.puntos !== false) cot.puntos.forEach((p: Punto) => {
-      if (!esEspecial(p.tipo) && p.circuito && !visible(p.circuito)) return;
-      const d = defPunto(p.tipo), col = esEspecial(p.tipo) ? '#334155' : colorCircuito(cot, p.circuito);
-      const g = new THREE.Group(); g.position.set(p.x, 0, p.y); g.rotation.y = (-p.rot * Math.PI) / 180;
-      const add = (geo: THREE.BufferGeometry, m: THREE.Material, x: number, y: number, z: number) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); g.add(o); return o; };
-      switch (d.clase) {
-        case 'luz':
-          if (p.tipo === 'tira_led') add(new THREE.BoxGeometry(1.0, 0.03, 0.05), mat('#fde68a', 0.9), 0, d.h, 0);
-          else if (p.tipo === 'timbre') add(new THREE.BoxGeometry(0.09, 0.09, 0.03), mat(col), 0, d.h, -0.02);
-          else if (p.tipo === 'aplique' || p.tipo === 'reflector') { add(new THREE.BoxGeometry(0.2, 0.14, 0.12), mat('#fef3c7', 0.7), 0, d.h, 0.02); add(new THREE.BoxGeometry(0.06, 0.06, 0.04), mat(col), 0, d.h, -0.06); }
-          else {
-            // Luz de techo: caja octogonal pegada al techo y la luz COLGANDO hacia abajo (foco o panel),
-            // con un cono de luz tenue hacia el piso para que se lea hacia dónde alumbra.
-            const yT = d.h;
-            add(new THREE.CylinderGeometry(0.075, 0.075, 0.04, 8), mat('#94a3b8'), 0, yT - 0.02, 0);   // caja octogonal
-            add(new THREE.TorusGeometry(0.075, 0.01, 6, 8), mat(col), 0, yT - 0.04, 0).rotation.x = Math.PI / 2; // anillo del circuito
-            let yLuz: number;
-            if (p.tipo === 'empotrado') {
-              add(new THREE.BoxGeometry(0.34, 0.025, 0.34), mat('#e2e8f0'), 0, yT - 0.055, 0);        // marco
-              add(new THREE.BoxGeometry(0.3, 0.012, 0.3), mat('#fef9c3', 1.1), 0, yT - 0.073, 0);     // panel encendido (cara de abajo)
-              yLuz = yT - 0.08;
-            } else if (p.tipo === 'sensor') {
-              add(new THREE.SphereGeometry(0.06, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat('#f8fafc'), 0, yT - 0.04, 0);
-              yLuz = 0;
-            } else {
-              add(new THREE.CylinderGeometry(0.026, 0.03, 0.07, 12), mat('#f1f5f9'), 0, yT - 0.075, 0); // socket
-              add(new THREE.SphereGeometry(0.075, 20, 14), mat('#fde68a', 1.2), 0, yT - 0.17, 0);       // foco encendido
-              yLuz = yT - 0.17;
-            }
-            if (yLuz > 0) {
-              const hc = Math.min(1.1, yLuz - 0.2), rc = hc * 0.55;
-              const cono = new THREE.Mesh(new THREE.ConeGeometry(rc, hc, 28, 1, true), new THREE.MeshBasicMaterial({ color: '#fde68a', transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide }));
-              cono.position.set(0, yLuz - hc / 2, 0); cono.userData.sinAjuste = true; g.add(cono);
-            }
-          }
-          break;
-        case 'interruptor': add(new THREE.BoxGeometry(0.08, 0.12, 0.02), mat('#ffffff'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.03, 0.05, 0.025), mat(col), 0, d.h, -0.02); break;
-        case 'toma': add(new THREE.BoxGeometry(0.12, 0.08, 0.02), mat('#ffffff'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.07, 0.03, 0.025), mat(col), 0, d.h, -0.02); break;
-        case 'fuerza': add(new THREE.BoxGeometry(0.14, 0.14, 0.03), mat(col), 0, d.h, -0.03); if (p.tipo === 'aire') add(new THREE.BoxGeometry(0.8, 0.28, 0.2), mat('#f8fafc'), 0, d.h + 0.05, 0.05); if (p.tipo === 'terma') add(new THREE.CylinderGeometry(0.2, 0.2, 0.7, 20), mat('#f8fafc'), 0.32, d.h - 0.2, 0.15); break;
-        case 'debil': add(new THREE.BoxGeometry(0.08, 0.08, 0.02), mat('#e2e8f0'), 0, d.h, -0.03); add(new THREE.BoxGeometry(0.03, 0.03, 0.025), mat(col), 0, d.h, -0.02); break;
-        case 'tablero': add(new THREE.BoxGeometry(0.42, 0.55, 0.1), mat('#64748b'), 0, d.h, -0.02); add(new THREE.BoxGeometry(0.32, 0.06, 0.02), mat('#f59e0b', 0.4), 0, d.h + 0.15, 0.04); break;
-        case 'medidor': add(new THREE.BoxGeometry(0.3, 0.42, 0.14), mat('#1e293b'), 0, d.h, 0); add(new THREE.CylinderGeometry(0.08, 0.08, 0.02, 20), mat('#e2e8f0'), 0, d.h + 0.05, 0.08).rotation.x = Math.PI / 2; break;
-        case 'tierra': add(new THREE.BoxGeometry(0.45, 0.04, 0.45), mat('#78716c'), 0, 0.02, 0); add(new THREE.CylinderGeometry(0.014, 0.014, 0.8, 8), mat('#b45309'), 0, -0.4, 0); break;
-      }
-      c.grupo.add(g);
-    });
+    dibujarElectricidad(c.grupo, cot, ver, info);
     if (primera) c.ajustar(iso); else c.render();
   }, [cot.puntos, cot.rutas, cot.fondo, cot.circuitos, ver, info]); // eslint-disable-line react-hooks/exhaustive-deps
 

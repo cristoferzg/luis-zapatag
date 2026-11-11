@@ -8,6 +8,7 @@
 //   4. Materiales: conductores, tubos, cajas, dispositivos, tablero, pozo y mano de obra.
 //   5. Presupuesto: formal, para imprimir o enviar por WhatsApp.
 // =============================================================================
+import BotonTodoJunto3D from './instalaciones/BotonTodoJunto3D';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Zap, Box, ListChecks, ClipboardList, Tag, Send, Map as MapIc, Eye, EyeOff, Sparkles, Gauge, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useCatalogo } from '../lib/catalogoPrecios';
@@ -147,6 +148,7 @@ function Vista3D({ cot, setCot, r, onPlano, onEjemplo }: { cot: CotizacionEle; s
         <span className="hidden sm:block w-px h-6 bg-slate-200 mx-0.5" />
         {chip('puntos', 'Puntos')}
         {chip('muros', 'Muros')}
+        {cot.fondo.tipo === 'techos' && <BotonTodoJunto3D conTexto className="ml-auto" />}
       </div>
       {previa && (previa.sinTablero
         ? <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 flex flex-wrap items-center gap-2 shrink-0">Pon el tablero (TD) en el Plano para ver las tuberías en 3D.<button type="button" onClick={onPlano} className="ml-auto min-h-[36px] px-3 rounded-lg bg-amber-400 text-slate-950 cursor-pointer">Ir al Plano</button></div>

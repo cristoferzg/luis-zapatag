@@ -37,6 +37,8 @@ import useTechosDimensions from './useTechosDimensions';
 import CadToolbox from './CadToolbox';
 import CanvasArea from './CanvasArea';
 import PropiedadesCad from './PropiedadesCad';
+import BotonGasfiteria from '../gasfiteria/BotonGasfiteria';
+import BotonTodoJunto3D from '../instalaciones/BotonTodoJunto3D';
 import { SelectorModoTechos, esModoSencillo, useModoTechos } from './modoTechos';
 import { useTechosCadEngineState } from './useTechosCadEngineState';
 import { TechosDespieceView } from './TechosDespieceView';
@@ -1067,6 +1069,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             el resto se oculta para dejar la barra limpia (solo lo esencial). */}
         <div ref={accionesDeslizables} className="flex items-center gap-1 sm:gap-1.5 shrink-0 overflow-x-auto scrollbar-none py-0.5 relative">
           <BotonElectricidad origen="techos" compacto />
+          <BotonGasfiteria />
+          <BotonTodoJunto3D />
           {/* [ SUBIR ARCHIVO / AUTOCAD ] — solo escritorio */}
           <button
             onClick={() => setShowUploadModal(true)}

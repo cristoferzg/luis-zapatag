@@ -13,7 +13,7 @@ import { safeStorage } from '../../lib/storageManager';
 import { simb } from '../../lib/currency';
 import {
   APARATOS, Aparato, CotizacionGas, KEY_COT_LISTA, Pt, Red, REDES, ORDEN_REDES, TipoAparato, Tramo, conexion, cotizacionEjemplo, cotizacionVacia,
-  defAparato, esAgua, leerCotizaciones, limites, murosAmbiente, murosDeObra, nombreAparato, pendienteDefecto, pisosObra, pulg, redesDe, uid, MuroRef, FondoGas,
+  defAparato, esAgua, leerCotizaciones, limites, murosAmbiente, murosDeObra, nombreAparato, pendienteDefecto, pisosObra, pulg, redesDe, uid, MuroRef, FondoGas, fondoDesdeTechos, KEY_ORIGEN_GAS,
 } from './modeloGasfiteria';
 import { MetradoGas, NOMBRE_EMPALME, avisosGas, largoTramo, proyectar, totalCon, trazarAutomatico, Empalme, verificarInstalacion, desaguesInvertidos, grafoRed, Aviso } from './calculoGasfiteria';
 import VerificacionGas from './VerificacionGas';
@@ -88,6 +88,16 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
     setVb({ x: (b.x0 + b.x1) / 2 - w / 2, y: (b.y0 + b.y1) / 2 - (w * tam.h) / tam.w / 2, w });
   };
   useEffect(() => { encuadrar(); }, [tam.w, tam.h]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Abierto desde Techos (botón 💧): el techo queda de fondo.
+  useEffect(() => {
+    if (safeStorage.getItem<string>(KEY_ORIGEN_GAS, '') !== 'techos') return;
+    safeStorage.removeItem?.(KEY_ORIGEN_GAS);
+    const f = fondoDesdeTechos();
+    if (!f) { avisar('Techos no tiene un techo armado. Ármalo y vuelve con el botón 💧.'); return; }
+    const c2 = { ...cot, fondo: f };
+    commit(() => c2); encuadrar(c2);
+    avisar(`✓ Techo de fondo: ${f.ancho.toFixed(2)} × ${f.largo.toFixed(2)} m${f.columnas?.length ? ` con ${f.columnas.length} columnas` : ''}. Pon los aparatos (lavadero, caño, sumidero…) y toca "Trazar".`, 6000);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // En el celular el alto del plano sigue la forma del dibujo (sin franjas vacías arriba y abajo).
   const altoMovil = useMemo(() => {
     const b = limites(cot), bw = b.x1 - b.x0 + 1.7, bh = b.y1 - b.y0 + 1.7;
@@ -541,9 +551,9 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   const panelFondo = (
     <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
       <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><Layers className="w-4 h-4 text-slate-400" /> Fondo del plano</p>
-      <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-xl">
-        {([['ambiente', 'Ambiente'], ['obra', 'Obra Civil'], ['ninguno', 'Sin fondo']] as const).map(([v, l]) => (
-          <button key={v} onClick={() => commit(c => ({ ...c, fondo: v === 'ambiente' ? { ...c.fondo, tipo: v, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), ambientes: undefined } : v === 'obra' ? { ...c.fondo, tipo: v, nivel: c.fondo.nivel || pisos[0], muros: murosDeObra(c.fondo.nivel || pisos[0]), ambientes: undefined } : { ...c.fondo, tipo: v, muros: [], ambientes: undefined } }))}
+      <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-xl">
+        {([['ambiente', 'Ambiente'], ['obra', 'Obra Civil'], ['techos', 'Techos'], ['ninguno', 'Sin fondo']] as const).map(([v, l]) => (
+          <button key={v} onClick={() => { if (v === 'techos') { const f = fondoDesdeTechos(); if (!f) { avisar('Techos no tiene un techo armado todavía.'); return; } commit(c => ({ ...c, fondo: f })); avisar('✓ Techo de fondo (área y columnas)'); return; } commit(c => ({ ...c, fondo: v === 'ambiente' ? { ...c.fondo, tipo: v, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), ambientes: undefined } : v === 'obra' ? { ...c.fondo, tipo: v, nivel: c.fondo.nivel || pisos[0], muros: murosDeObra(c.fondo.nivel || pisos[0]), ambientes: undefined } : { ...c.fondo, tipo: v, muros: [], ambientes: undefined } })); }}
             className={`min-h-[36px] min-w-0 rounded-lg text-[11px] font-bold cursor-pointer truncate px-1 ${cot.fondo.tipo === v ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>{l}</button>
         ))}
       </div>
@@ -558,6 +568,12 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
               </div>
             </label>
           ))}
+        </div>
+      )}
+      {cot.fondo.tipo === 'techos' && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] text-slate-500">Área techada de {cot.fondo.ancho.toFixed(2)} × {cot.fondo.largo.toFixed(2)} m{cot.fondo.columnas?.length ? ` con ${cot.fondo.columnas.length} columnas` : ''} (de Techos Metálicos).</p>
+          <button onClick={() => { const f = fondoDesdeTechos(); if (!f) { avisar('Techos no tiene un techo armado.'); return; } commit(c => ({ ...c, fondo: f })); avisar('✓ Techo actualizado'); }} className={`${btn} w-full bg-slate-100 text-slate-700 hover:bg-slate-200`}>Actualizar desde Techos</button>
         </div>
       )}
       {cot.fondo.tipo === 'obra' && (
@@ -656,6 +672,13 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
               {herr === 'mano' && <rect data-arrastre="1" x={V.x} y={V.y} width={V.w} height={VH} fill="transparent" />}
               {grid}
               {cot.fondo.muros.map(muro)}
+              {cot.fondo.tipo === 'techos' && (
+                <g pointerEvents="none">
+                  <rect x={0} y={0} width={cot.fondo.ancho} height={cot.fondo.largo} fill="#fef3c7" fillOpacity={0.45} stroke="#d97706" strokeWidth={fs * 0.12} strokeDasharray={`${fs * 0.6} ${fs * 0.4}`} />
+                  {(cot.fondo.columnas || []).map((k, i) => <rect key={i} x={k.x - 0.08} y={k.y - 0.08} width={0.16} height={0.16} fill="#94a3b8" />)}
+                  <text x={fs * 0.3} y={fs * 1.1} fontSize={fs * 0.8} fontWeight={800} fill="#b45309">Área techada</text>
+                </g>
+              )}
               <EtiquetasAmbientes ambientes={cot.fondo.ambientes} fs={fs} />
               {cot.fondo.tipo === 'ambiente' && cot.fondo.muros.length > 0 && (() => {
                 const b = limites({ aparatos: [], tramos: [], fondo: cot.fondo }), y = b.y0 - fs * 2.2, x = b.x0 - fs * 2.2;

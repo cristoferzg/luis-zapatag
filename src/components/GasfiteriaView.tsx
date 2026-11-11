@@ -5,6 +5,7 @@
 //   3. Materiales: barras de tubo, conexiones, consumibles, aparatos y mano de obra.
 //   4. Presupuesto: formal, para imprimir o enviar por WhatsApp.
 // =============================================================================
+import BotonTodoJunto3D from './instalaciones/BotonTodoJunto3D';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Droplets, Box, ListChecks, ClipboardList, Tag, Send, Map as MapIc, Eye, EyeOff, Sparkles } from 'lucide-react';
 import { useCatalogo } from '../lib/catalogoPrecios';
@@ -12,7 +13,7 @@ import { safeStorage } from '../lib/storageManager';
 import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from '../lib/empresa';
 import BotonImprimir from './common/BotonImprimir';
 import { simb } from '../lib/currency';
-import { CotizacionGas, KEY_COT_ACTUAL, KEY_PESTANA, REDES, ORDEN_REDES, Red, leerCotizacionActual, defAparato, cotizacionEjemplo } from './gasfiteria/modeloGasfiteria';
+import { CotizacionGas, KEY_COT_ACTUAL, KEY_PESTANA, KEY_ORIGEN_GAS, REDES, ORDEN_REDES, Red, leerCotizacionActual, defAparato, cotizacionEjemplo } from './gasfiteria/modeloGasfiteria';
 import { metradoGas, MetradoGas, totalCon, GRUPOS_LINEA, GrupoLinea, LineaGas, trazarAutomatico, avisosGas, verificarInstalacion, instalacionVerificada } from './gasfiteria/calculoGasfiteria';
 import VerificacionGas from './gasfiteria/VerificacionGas';
 import PlanoGas from './gasfiteria/PlanoGas';
@@ -41,6 +42,7 @@ function useMetrado(cot: CotizacionGas) {
 
 export default function GasfiteriaView({ onIrAPrecios }: { onIrAPrecios?: () => void }) {
   const [pestana, setPestana] = useState<Pestana>(() => {
+    if (safeStorage.getItem<string>(KEY_ORIGEN_GAS, '')) return 'plano'; // abierto desde Techos: al plano
     const p = safeStorage.getItem<string>(KEY_PESTANA, 'plano');
     return (PESTANAS.includes(p as Pestana) ? p : 'plano') as Pestana;
   });
@@ -120,7 +122,8 @@ function Vista3D({ cot, r, onPlano, onEjemplo }: { cot: CotizacionGas; r: Metrad
         {ORDEN_REDES.map(rd => chip(rd, REDES[rd].nombre, REDES[rd].color))}
         <span className="hidden sm:block w-px h-6 bg-slate-200 mx-0.5" />
         {chip('aparatos', 'Aparatos')}
-        {chip('muros', 'Muros')}
+        {chip('muros', cot.fondo.tipo === 'techos' ? 'Columnas' : 'Muros')}
+        {cot.fondo.tipo === 'techos' && <BotonTodoJunto3D conTexto className="ml-auto" />}
       </div>
       <div className="flex-1 min-h-[360px]">
         <Suspense fallback={<div className="w-full h-full rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">Cargando 3D…</div>}>

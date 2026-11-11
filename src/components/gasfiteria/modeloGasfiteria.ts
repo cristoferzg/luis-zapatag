@@ -69,7 +69,7 @@ export interface VanoRef { t: number; w: number; puerta: boolean }
 export interface MuroRef { x1: number; y1: number; x2: number; y2: number; a: number; vanos?: VanoRef[] }
 /** Ambiente con nombre (rectángulo, m) de una distribución hecha con "Diseñar con IA"; solo se usa para rotular el plano. */
 export interface AmbientePlano { nombre: string; x: number; y: number; ancho: number; largo: number }
-export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra'; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; ambientes?: AmbientePlano[] }
+export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra' | 'techos'; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; ambientes?: AmbientePlano[]; columnas?: Pt[] }
 
 export interface CotizacionGas {
   id: string; nombre: string; cliente: string;
@@ -84,6 +84,31 @@ export interface CotizacionGas {
 export const KEY_COT_ACTUAL = 'gasfiteria_cotizacion_actual';
 export const KEY_COT_LISTA = 'gasfiteria_cotizaciones';
 export const KEY_PESTANA = 'gasfiteria_pestana';
+/** Desde qué apartado se abrió Gasfitería (p. ej. 'techos' con el botón 💧 de Techos). */
+export const KEY_ORIGEN_GAS = 'gasfiteria_origen';
+
+/** Fondo desde Techos: el área techada (0..ancho × 0..largo) y sus columnas, con el mismo origen
+ *  que usa Electricidad, para que luz y agua calcen debajo del mismo techo. */
+export function fondoDesdeTechos(): FondoGas | null {
+  const e = safeStorage.getItem<{ nodes?: Record<string, { x: number; y: number; z: number }>; segments?: Record<string, { nodeAId: string; nodeBId: string; rolEstructural?: string }> } | null>('innova_techos_escena_actual', null);
+  const N = e?.nodes || {};
+  const ns = Object.values(N).filter(n => isFinite(n.x) && isFinite(n.z));
+  if (ns.length < 2) return null;
+  const x0 = Math.min(...ns.map(n => n.x)), z0 = Math.min(...ns.map(n => n.z));
+  const W = Math.max(...ns.map(n => n.x)) - x0, L = Math.max(...ns.map(n => n.z)) - z0;
+  if (W < 0.5 || L < 0.5) return null;
+  const segs = Object.values(e?.segments || {});
+  const conRol = segs.some(s => s.rolEstructural);
+  const vistos = new Set<string>(); const columnas: Pt[] = [];
+  segs.forEach(s => {
+    if (conRol && s.rolEstructural !== 'columna') return;
+    const a = N[s.nodeAId], b = N[s.nodeBId]; if (!a || !b) return;
+    if (Math.hypot(a.x - b.x, a.z - b.z) > 0.01 || Math.abs(a.y - b.y) < 0.3) return;
+    const k = `${a.x.toFixed(2)}_${a.z.toFixed(2)}`; if (vistos.has(k)) return; vistos.add(k);
+    columnas.push({ x: Math.round((a.x - x0) * 1000) / 1000, y: Math.round((a.z - z0) * 1000) / 1000 });
+  });
+  return { tipo: 'techos', ancho: Math.round(W * 1000) / 1000, largo: Math.round(L * 1000) / 1000, muros: [], columnas };
+}
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const murosAmbiente = (w: number, l: number): MuroRef[] => [
@@ -153,6 +178,7 @@ export function limites(cot: { aparatos: Aparato[]; tramos: Tramo[]; fondo: Fond
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   const add = (x: number, y: number) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
   cot.fondo.muros.forEach(m => { add(m.x1, m.y1); add(m.x2, m.y2); });
+  if (cot.fondo.tipo === 'techos') { add(0, 0); add(cot.fondo.ancho, cot.fondo.largo); }
   cot.aparatos.forEach(a => { const d = defAparato(a.tipo); const r = Math.max(d.w, d.d) / 2; add(a.x - r, a.y - r); add(a.x + r, a.y + r); });
   cot.tramos.forEach(t => t.pts.forEach(p => add(p.x, p.y)));
   if (!isFinite(x0)) { x0 = 0; y0 = 0; x1 = 4; y1 = 3; }
