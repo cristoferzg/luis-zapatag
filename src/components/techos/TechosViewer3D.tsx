@@ -233,7 +233,7 @@ let cachedGotaTexture: THREE.CanvasTexture | null = null;
 const COLOR_PIEZA: Record<string, number> = {
   cordon_superior: 0xdc2626, cordon_inferior: 0xdc2626, diagonal: 0xdc2626, montante: 0xdc2626,
   correa: 0x1d4ed8, viga_principal: 0x16a34a, viga_secundaria: 0x16a34a,
-  columna: 0xea580c, arriostre: 0xeab308, tensor_viento: 0x334155,
+  columna: 0xea580c, arriostre: 0xa8b3c2, tensor_viento: 0x94a3b8,
 };
 export type MurosCliente = 'ninguno' | 'laterales' | 'tres' | 'todo';
 let texLadrillo: THREE.CanvasTexture | null = null;
@@ -242,14 +242,14 @@ function texturaLadrillo(): THREE.CanvasTexture {
   if (texLadrillo) return texLadrillo;
   const c = document.createElement('canvas'); c.width = 256; c.height = 128;
   const g = c.getContext('2d')!;
-  g.fillStyle = '#d6cfc4'; g.fillRect(0, 0, 256, 128); // mortero
+  g.fillStyle = '#ece6dc'; g.fillRect(0, 0, 256, 128); // mortero
   const filas = 8, alto = 128 / filas, largo = 256 / 4;
   for (let f = 0; f < filas; f++) {
     const off = f % 2 ? largo / 2 : 0;
     for (let k = -1; k < 5; k++) {
       const x = k * largo + off;
       const t = 0.82 + ((f * 7 + k * 13) % 9) / 40;
-      g.fillStyle = `rgb(${Math.round(176 * t)}, ${Math.round(92 * t)}, ${Math.round(64 * t)})`;
+      g.fillStyle = `rgb(${Math.min(255, Math.round(214 * t))}, ${Math.round(122 * t)}, ${Math.round(88 * t)})`;
       g.fillRect(x + 2, f * alto + 2, largo - 4, alto - 4);
     }
   }
@@ -1285,8 +1285,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     setModoRender(on);
     if (on) {
       setMostrarCobertura(false); // la estructura a la vista, como en las láminas de presentación
-      cameraAngleThetaRef.current = 0.78; cameraAnglePhiRef.current = 0.52;
-      cameraRadiusRef.current = Math.max(10, cameraRadiusRef.current * 0.95);
+      resetCamera(); // encuadre del techo completo
+      cameraAngleThetaRef.current = 0.72; cameraAnglePhiRef.current = 1.08; // desde la esquina, a media altura
+      cameraRadiusRef.current *= 0.95;
       updateCameraPos();
     }
   };
@@ -2615,7 +2616,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         altoM = 0.25;
       }
 
-      if (presentacionRef.current && !esConcreto3D) {
+      if (presentacionRef.current && !esConcreto3D && seg.rolEstructural !== 'arriostre' && seg.rolEstructural !== 'tensor_viento') {
         const minimo = seg.rolEstructural === 'columna' ? 0.14 : seg.rolEstructural === 'correa' ? 0.06 : 0.07;
         anchoM = Math.max(anchoM, minimo); altoM = Math.max(altoM, minimo);
       }
@@ -3872,15 +3873,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       <input ref={fotoFondoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { elegirFotoFondo(e.target.files?.[0]); e.target.value = ''; }} />
 
       {presentacion && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-1.5rem)] bg-white/95 backdrop-blur-md border border-rose-200 rounded-2xl shadow-xl p-2 flex flex-wrap items-center justify-center gap-1.5">
-          <span className="text-[11px] font-black text-rose-700 px-1">Muros:</span>
+        <div className="absolute bottom-3 left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 sm:max-w-[calc(100%-1.5rem)] bg-white/95 backdrop-blur-md border border-rose-200 rounded-2xl shadow-xl p-1.5 sm:p-2 flex flex-nowrap sm:flex-wrap items-center sm:justify-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
+          <span className="shrink-0 text-[11px] font-black text-rose-700 px-1">Muros:</span>
           {([['ninguno', 'Sin muros'], ['laterales', 'Costados'], ['tres', 'Costados y fondo'], ['todo', 'Todo alrededor']] as [MurosCliente, string][]).map(([k, l]) => (
             <button key={k} type="button" onClick={() => setMurosCliente(k)}
-              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${murosCliente === k ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>{l}</button>
+              className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${murosCliente === k ? 'bg-rose-600 text-white border-rose-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>{l}</button>
           ))}
           <span className="w-px h-5 bg-slate-200 mx-0.5" />
-          <button type="button" onClick={() => setMostrarCobertura(v => !v)} className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border bg-white text-slate-700 border-slate-200 hover:bg-slate-50">{mostrarCobertura ? 'Quitar calamina' : 'Poner calamina'}</button>
-          <button type="button" onClick={descargarFotoCliente} className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer bg-slate-900 text-white"><Camera className="w-3.5 h-3.5" />Foto para el cliente</button>
+          <button type="button" onClick={() => setMostrarCobertura(v => !v)} className="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border bg-white text-slate-700 border-slate-200 hover:bg-slate-50">{mostrarCobertura ? 'Quitar calamina' : 'Poner calamina'}</button>
+          <button type="button" onClick={descargarFotoCliente} className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer bg-slate-900 text-white"><Camera className="w-3.5 h-3.5" />Foto para el cliente</button>
         </div>
       )}
       {avisoFoto && (
