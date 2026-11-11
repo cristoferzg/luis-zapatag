@@ -66,6 +66,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const sencillo = useModoTechos() === 'sencillo';
   const [verTiposTecnicos, setVerTiposTecnicos] = useState(false);
   const [verOpcionesExperto, setVerOpcionesExperto] = useState(false);
+  const [tijeralElegidoAMano, setTijeralElegidoAMano] = useState(false);
   const expertoVisible = !sencillo || verOpcionesExperto;
   const [orientacionTijeral, setOrientacionTijeral] = useState<OrientacionTijeral>('transversal');
   
@@ -472,6 +473,12 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
     if (!lista.includes(tipoTijeral)) lista.push(tipoTijeral);
     return lista.filter(id => TIJERAL_SENCILLO[id]);
   })();
+  // Modo sencillo: el recomendado queda elegido solo (si cambian la forma o el ancho), salvo que
+  // la persona haya escogido otro con la mano.
+  useEffect(() => {
+    if (!isOpen || !sencillo || tijeralElegidoAMano || sinTijeral || usaVigaSimple) return;
+    if (tipoTijeral !== recomendacion.id) setTipoTijeral(recomendacion.id);
+  }, [isOpen, sencillo, tijeralElegidoAMano, sinTijeral, usaVigaSimple, recomendacion.id, tipoTijeral]);
 
   if (!isOpen) return null;
 
@@ -1827,7 +1834,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                       const info = TIJERAL_SENCILLO[id];
                       const activo = tipoTijeral === id;
                       return (
-                        <button key={id} type="button" onClick={() => setTipoTijeral(id)}
+                        <button key={id} type="button" onClick={() => { setTipoTijeral(id); setTijeralElegidoAMano(true); }}
                           className={`p-2.5 rounded-xl border text-left cursor-pointer transition-all ${activo ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                           <span className="flex items-center justify-between gap-2">
                             <span className="text-xs font-black text-slate-900">{activo ? '✓ ' : ''}{info.titulo}</span>
