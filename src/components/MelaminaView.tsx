@@ -21,7 +21,8 @@ import {
 import { CotizacionMelamina, KEY_COT_ACTUAL, KEY_COT_LISTA, KEY_PESTANA, cotizacionVacia, leerCotizacionActual, leerCotizaciones, paredNueva } from './melamina/cotizacionMelamina';
 import DibujoMueble, { FrenteSvg } from './melamina/DibujoMueble';
 import DisenoIA, { mueblesDePropuesta } from './melamina/DisenoIA';
-import BotonElectricidad from './electricidad/BotonElectricidad';
+import BarraInstalaciones from './instalaciones/BarraInstalaciones';
+import { SelectorModoTechos, PalabrasQueEs } from './techos/modoTechos';
 import InputNumero from './common/InputNumero';
 
 const Melamina3D = lazy(() => import('./melamina/Melamina3D'));
@@ -82,7 +83,10 @@ export default function MelaminaView({ onIrAPrecios }: { onIrAPrecios?: () => vo
             );
           })}
         </div>
-        <BotonElectricidad origen="melamina" />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <SelectorModoTechos className="hidden lg:flex" />
+          <BarraInstalaciones origen="melamina" />
+        </div>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         {pestana === 'muebles' && <Muebles cot={cot} setCot={setCot} r={r} sel={sel} setSel={setSel} onPresupuesto={() => setPestana('presupuesto')} onDisenar={() => setPestana('disenador')} />}
@@ -208,6 +212,7 @@ function Muebles({ cot, setCot, r, sel, setSel, onPresupuesto, onDisenar }: {
         {/* Agregar mueble */}
         <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-2">
           <p className="text-xs font-black text-slate-800">¿Qué mueble vas a hacer? <span className="font-semibold text-slate-400">Toca para agregar</span></p>
+          <PalabrasQueEs terminos={['tablero', 'canto', 'mdf', 'aglomerado', 'bisagra', 'corredera', 'zocalo']} />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
             {TIPOS.map(t => (
               <button key={t.id} onClick={() => agregar(t.id)} title={t.descripcion}

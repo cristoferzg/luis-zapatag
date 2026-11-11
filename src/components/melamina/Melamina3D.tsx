@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Maximize2, DoorOpen, DoorClosed } from 'lucide-react';
+import { Maximize2, DoorOpen, DoorClosed, Video, Square, Camera } from 'lucide-react';
+import { grabarEnFases, fotoDe3D, GIRO_VIDEO_RAD_S } from '../../lib/captura3d';
 import { frenteDe, Mueble, colorFrente } from './calculoMelamina';
 import type { ParedMelamina } from './cotizacionMelamina';
 import { colorMelamina } from '../../catalogo/melamina';
@@ -257,6 +258,46 @@ export default function Melamina3D({ muebles, paredes, selId }: { muebles: Muebl
     setAbierto(v); c.animar();
   };
 
+  // Video MP4 de 15 s por fases (cerrado → puertas y cajones abiertos) y foto JPG (lib/captura3d.ts).
+  const grab = useRef<{ detener: () => void } | null>(null);
+  const [grabando, setGrabando] = useState(false);
+  const [seg, setSeg] = useState(0);
+  const [fase, setFase] = useState('');
+  const [aviso, setAviso] = useState('');
+  const avisar = (t: string) => { setAviso(t); window.setTimeout(() => setAviso(a => (a === t ? '' : a)), 4000); };
+  useEffect(() => {
+    if (!grabando) return;
+    let raf = 0, t = performance.now();
+    const paso = () => {
+      const c = ctx.current; if (!c) return;
+      const ahora = performance.now(), dt = Math.min(0.1, (ahora - t) / 1000); t = ahora;
+      const off = c.camera.position.clone().sub(c.controls.target);
+      off.applyAxisAngle(new THREE.Vector3(0, 1, 0), GIRO_VIDEO_RAD_S * dt);
+      c.camera.position.copy(c.controls.target).add(off); c.camera.lookAt(c.controls.target);
+      c.render(); raf = requestAnimationFrame(paso);
+    };
+    raf = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(raf);
+  }, [grabando]);
+  const grabar = () => {
+    if (grab.current) { grab.current.detener(); return; }
+    const antes = abierto;
+    grab.current = grabarEnFases(() => ctx.current?.renderer.domElement, 'melamina_3d', {
+      fondo: () => ({ color: '#eef2f7' }),
+      fases: [
+        { nombre: '1. Cerrado', aplicar: () => abrirTodo(false) },
+        { nombre: '2. Puertas y cajones abiertos', aplicar: () => abrirTodo(true) },
+      ],
+      alCambiarFase: (_i, f) => setFase(f.nombre), alSegundo: setSeg,
+      alTerminar: ext => { grab.current = null; setGrabando(false); setFase(''); abrirTodo(antes); avisar(`✓ Video ${ext.toUpperCase()} descargado · búscalo en Descargas`); },
+    });
+    if (grab.current) setGrabando(true); else avisar('La grabación de video no está disponible en este navegador.');
+  };
+  const foto = async () => {
+    const cv = ctx.current?.renderer.domElement; if (!cv) return;
+    avisar((await fotoDe3D(cv, 'melamina_3d', { color: '#eef2f7' })) ? '✓ Foto JPG descargada · búscala en Descargas' : 'No se pudo sacar la foto');
+  };
+
   return (
     <div className="relative w-full h-full min-h-[320px] rounded-2xl overflow-hidden bg-slate-100">
       <div ref={host} className="absolute inset-0" />
@@ -268,6 +309,15 @@ export default function Melamina3D({ muebles, paredes, selId }: { muebles: Muebl
         className={`absolute top-2 left-2 inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-xl shadow text-xs font-bold cursor-pointer ${abierto ? 'bg-teal-600 text-white' : 'bg-white/95 text-slate-700 hover:bg-white'}`}>
         {abierto ? <DoorClosed className="w-4 h-4" /> : <DoorOpen className="w-4 h-4" />} {abierto ? 'Cerrar todo' : 'Abrir puertas'}
       </button>
+      <div className="absolute bottom-7 right-2 flex gap-1.5">
+        <button type="button" onClick={foto} title="Foto JPG de esta vista"
+          className="inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-xl bg-white/95 shadow text-xs font-bold text-slate-700 cursor-pointer hover:bg-white"><Camera className="w-4 h-4" />Foto</button>
+        <button type="button" onClick={grabar} title={grabando ? 'Detener y descargar' : 'Video MP4 de 15 s: cerrado y luego con puertas y cajones abiertos'}
+          className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 rounded-xl shadow text-xs font-black cursor-pointer ${grabando ? 'bg-rose-600 text-white animate-pulse' : 'bg-white/95 text-rose-600 hover:bg-white'}`}>
+          {grabando ? <Square className="w-4 h-4" /> : <Video className="w-4 h-4" />}{grabando ? `Detener · ${seg}s` : 'Grabar video'}
+        </button>
+      </div>
+      {(grabando || aviso) && <div className="absolute top-14 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-black shadow">{grabando ? `Grabando · ${fase} · ${seg}s` : aviso}</div>}
       <p className="absolute bottom-2 left-2 right-2 text-[10px] font-bold text-slate-500 pointer-events-none">Arrastra para girar · dos dedos o rueda para acercar · toca una puerta o un cajón para abrirlo</p>
     </div>
   );

@@ -69,6 +69,14 @@ export const GLOSARIO_TECHOS: Record<string, { palabra: string; explica: string 
   losa: { palabra: 'Losa aligerada', explica: 'El techo o entrepiso de concreto con ladrillos de techo (huecos) para que pese menos.' },
   placa: { palabra: 'Placa', explica: 'Un muro de concreto armado (con fierro) que resiste sismos.' },
   encofrado: { palabra: 'Encofrado', explica: 'Los moldes de madera o metal donde se vacía el concreto hasta que endurece.' },
+  // Melamina
+  tablero: { palabra: 'Tablero', explica: 'La plancha de melamina (normalmente de 2.44 × 2.15 m) de donde se cortan las piezas.' },
+  canto: { palabra: 'Canto', explica: 'La cinta que se pega en el borde de cada pieza para taparlo y que no se hinche con la humedad.' },
+  mdf: { palabra: 'MDF', explica: 'Tablero de fibra fina, liso y fácil de pintar o tallar; más firme para puertas.' },
+  aglomerado: { palabra: 'Aglomerado', explica: 'Tablero de partículas de madera prensadas; es la base de la melamina común.' },
+  bisagra: { palabra: 'Bisagra cangrejo', explica: 'La bisagra escondida de las puertas de muebles, que se regula para que cierren parejo.' },
+  corredera: { palabra: 'Corredera telescópica', explica: 'El riel metálico de los cajones que les permite salir completos y con suavidad.' },
+  zocalo: { palabra: 'Zócalo', explica: 'La tira de abajo del mueble que lo levanta del piso y tapa las patas.' },
   // Drywall
   rh: { palabra: 'Placa RH', explica: 'Placa verde que resiste la humedad: para baños y cocinas.' },
   rf: { palabra: 'Placa RF', explica: 'Placa rosada que resiste el fuego: para cocinas, cocheras y escapes.' },

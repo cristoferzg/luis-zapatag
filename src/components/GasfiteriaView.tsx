@@ -123,7 +123,7 @@ function Vista3D({ cot, r, onPlano, onEjemplo }: { cot: CotizacionGas; r: Metrad
         <span className="hidden sm:block w-px h-6 bg-slate-200 mx-0.5" />
         {chip('aparatos', 'Aparatos')}
         {chip('muros', cot.fondo.tipo === 'techos' ? 'Columnas' : 'Muros')}
-        {(cot.fondo.tipo === 'techos' || cot.fondo.tipo === 'obra') && <BotonTodoJunto3D conTexto className="ml-auto" origen={cot.fondo.tipo === 'obra' ? 'obra' : 'techos'} />}
+        {(cot.fondo.tipo === 'techos' || cot.fondo.tipo === 'obra' || cot.fondo.tipo === 'melamina') && <BotonTodoJunto3D conTexto className="ml-auto" origen={cot.fondo.tipo === 'obra' ? 'obra' : cot.fondo.tipo === 'melamina' ? 'melamina' : 'techos'} />}
       </div>
       <div className="flex-1 min-h-[360px]">
         <Suspense fallback={<div className="w-full h-full rounded-2xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">Cargando 3D…</div>}>

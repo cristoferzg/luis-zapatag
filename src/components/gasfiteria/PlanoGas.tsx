@@ -15,6 +15,7 @@ import {
   APARATOS, Aparato, CotizacionGas, KEY_COT_LISTA, Pt, Red, REDES, ORDEN_REDES, TipoAparato, Tramo, conexion, cotizacionEjemplo, cotizacionVacia,
   defAparato, esAgua, leerCotizaciones, limites, murosAmbiente, murosDeObra, nombreAparato, pendienteDefecto, pisosObra, pulg, redesDe, uid, MuroRef, FondoGas, fondoDesdeTechos, KEY_ORIGEN_GAS,
 } from './modeloGasfiteria';
+import { fondoGasDesdeMelamina } from '../instalaciones/fondoMelamina';
 import { MetradoGas, NOMBRE_EMPALME, avisosGas, largoTramo, proyectar, totalCon, trazarAutomatico, Empalme, verificarInstalacion, desaguesInvertidos, grafoRed, Aviso } from './calculoGasfiteria';
 import VerificacionGas from './VerificacionGas';
 import { IconoAparato, SimboloAparato } from './SimboloAparato';
@@ -99,6 +100,15 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
       const c2 = { ...cot, fondo: { ...cot.fondo, tipo: 'obra' as const, nivel, muros: murosDeObra(nivel), ambientes: undefined } };
       commit(() => c2); encuadrar(c2);
       avisar(c2.fondo.muros.length ? `✓ Plano de ${origen === 'drywall' ? 'Drywall / Obra Civil' : 'Obra Civil'} de fondo (${c2.fondo.muros.length} muros). Pon los aparatos y toca "Trazar".` : 'No hay muros dibujados en el plano de Obra Civil todavía.', 6000);
+      return;
+    }
+    if (origen === 'melamina') {
+      const m = fondoGasDesdeMelamina();
+      if (!m) { avisar('Melamina aún no tiene muebles diseñados. Arma los muebles y vuelve con el botón Agua.'); return; }
+      const nuevos = m.sugeridos.filter(sg => !cot.aparatos.some(a => a.tipo === sg.tipo));
+      const c2 = { ...cot, fondo: m.fondo, aparatos: [...cot.aparatos, ...nuevos] };
+      commit(() => c2); encuadrar(c2);
+      avisar(`✓ Muebles de Melamina de fondo. ${nuevos.length ? 'Puse el lavadero sobre la cocina. ' : ''}Agrega el medidor y la caja de registro y toca "Trazar".`, 6500);
       return;
     }
     if (origen !== 'techos') return;
@@ -580,6 +590,12 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
           ))}
         </div>
       )}
+      {cot.fondo.tipo === 'melamina' && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] text-slate-500">Paredes y {(cot.fondo.muebles || []).length} muebles de Melamina como referencia.</p>
+          <button onClick={() => { const m = fondoGasDesdeMelamina(); if (!m) { avisar('Melamina no tiene muebles.'); return; } commit(c => ({ ...c, fondo: m.fondo })); avisar('✓ Muebles actualizados'); }} className={`${btn} w-full bg-slate-100 text-slate-700 hover:bg-slate-200`}>Actualizar desde Melamina</button>
+        </div>
+      )}
       {cot.fondo.tipo === 'techos' && (
         <div className="space-y-1.5">
           <p className="text-[11px] text-slate-500">Área techada de {cot.fondo.ancho.toFixed(2)} × {cot.fondo.largo.toFixed(2)} m{cot.fondo.columnas?.length ? ` con ${cot.fondo.columnas.length} columnas` : ''} (de Techos Metálicos).</p>
@@ -682,6 +698,16 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
               {herr === 'mano' && <rect data-arrastre="1" x={V.x} y={V.y} width={V.w} height={VH} fill="transparent" />}
               {grid}
               {cot.fondo.muros.map(muro)}
+              {(cot.fondo.muebles || []).length > 0 && (
+                <g pointerEvents="none">
+                  {(cot.fondo.muebles || []).map((m, i) => (
+                    <g key={i} transform={`translate(${m.x} ${m.y}) rotate(${m.rot})`}>
+                      <rect x={-m.w / 2} y={-m.d / 2} width={m.w} height={m.d} fill={m.alto ? '#ccfbf1' : '#e7e5e4'} fillOpacity={0.7} stroke="#0f766e" strokeWidth={fs * 0.08} strokeDasharray={m.alto ? `${fs * 0.3} ${fs * 0.2}` : undefined} />
+                      <text x={0} y={fs * 0.3} fontSize={fs * 0.7} fontWeight={700} fill="#0f766e" textAnchor="middle">{(m.etiqueta || '').slice(0, 22)}</text>
+                    </g>
+                  ))}
+                </g>
+              )}
               {cot.fondo.tipo === 'techos' && (
                 <g pointerEvents="none">
                   <rect x={0} y={0} width={cot.fondo.ancho} height={cot.fondo.largo} fill="#fef3c7" fillOpacity={0.45} stroke="#d97706" strokeWidth={fs * 0.12} strokeDasharray={`${fs * 0.6} ${fs * 0.4}`} />

@@ -12,10 +12,10 @@ import { grabarEnFases, fotoDe3D, GIRO_VIDEO_RAD_S } from '../../lib/captura3d';
 import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { safeStorage } from '../../lib/storageManager';
 import { dibujarElectricidad } from '../electricidad/Electricidad3D';
-import { dibujarGasfiteria } from '../gasfiteria/Gasfiteria3D';
-import { leerCotizacionActual as leerEle, esEspecial, KEY_ORIGEN, CotizacionEle } from '../electricidad/modeloElectricidad';
+import { dibujarGasfiteria, dibujarMuebles } from '../gasfiteria/Gasfiteria3D';
+import { leerCotizacionActual as leerEle, esEspecial, KEY_ORIGEN, CotizacionEle, desdeMelamina } from '../electricidad/modeloElectricidad';
 import { infoRutas, cuadroCargas, sugerirCircuitos, trazarAutomatico } from '../electricidad/calculoElectricidad';
-import { leerCotizacionActual as leerGas, KEY_ORIGEN_GAS, murosDeObra, pisosObra, MuroRef } from '../gasfiteria/modeloGasfiteria';
+import { leerCotizacionActual as leerGas, KEY_ORIGEN_GAS, murosDeObra, pisosObra, MuroRef, MuebleRef } from '../gasfiteria/modeloGasfiteria';
 import { empalmes as calcEmpalmes } from '../gasfiteria/calculoGasfiteria';
 import { perfilSuperior, VUELO_ALERO_M } from '../techos/canaletas';
 
@@ -37,11 +37,11 @@ function tubo(a: THREE.Vector3, b: THREE.Vector3, r: number, mat: THREE.Material
   return m;
 }
 
-export type OrigenTodo = 'techos' | 'obra';
+export type OrigenTodo = 'techos' | 'obra' | 'melamina';
 const H_MURO = 2.5;
 
 /** Luz de la cotización actual si su fondo es el de este plano (sin tuberías: trazado automático de vista previa). */
-function luzCon(tipo: 'techos' | 'obra') {
+function luzCon(tipo: OrigenTodo) {
   const e = leerEle();
   if (e.fondo.tipo !== tipo || !e.puntos.some(p => !esEspecial(p.tipo))) return null;
   let c = e;
@@ -51,7 +51,7 @@ function luzCon(tipo: 'techos' | 'obra') {
   }
   return { cot: c, info: infoRutas(c, cuadroCargas(c).seccionAlim) };
 }
-function aguaCon(tipo: 'techos' | 'obra') {
+function aguaCon(tipo: OrigenTodo) {
   const g = leerGas();
   return g.fondo.tipo === tipo && (g.aparatos.length || g.tramos.length) ? { cot: g, empalmes: calcEmpalmes(g.tramos, g.aparatos) } : null;
 }
@@ -62,12 +62,22 @@ function leerObra() {
   const nivel = ele?.cot.fondo.nivel || gas?.cot.fondo.nivel || pisosObra()[0];
   const muros = murosDeObra(nivel);
   if (!muros.length && !ele && !gas) return null;
-  return { tipo: 'obra' as const, nivel, muros, ele, gas, escena: null as Escena | null, x0: 0, z0: 0, hTecho: H_MURO };
+  return { tipo: 'obra' as const, nivel, muros, muebles: [] as MuebleRef[], ele, gas, escena: null as Escena | null, x0: 0, z0: 0, hTecho: H_MURO };
+}
+
+/** Melamina: las paredes y los muebles (tendidos en planta) con la luz y el agua de esa cocina o closet. */
+function leerMelamina() {
+  const f = desdeMelamina();
+  const ele = luzCon('melamina'), gas = aguaCon('melamina');
+  if (f.vacio && !ele && !gas) return null;
+  const muebles: MuebleRef[] = f.refs.filter(r => r.tipo === 'mueble').map(r => ({ x: r.x, y: r.y, w: r.w, d: r.d, rot: r.rot, etiqueta: r.etiqueta, alto: r.alto }));
+  return { tipo: 'obra' as const, nivel: '', muros: f.muros, muebles, ele, gas, escena: null as Escena | null, x0: 0, z0: 0, hTecho: H_MURO };
 }
 
 /** Lee el techo, la luz y el agua y los deja en el mismo sistema de coordenadas. */
 function leerTodo(origen: OrigenTodo = 'techos') {
   if (origen === 'obra') return leerObra();
+  if (origen === 'melamina') return leerMelamina();
   const escena = safeStorage.getItem<Escena | null>('innova_techos_escena_actual', null);
   const N = escena?.nodes || {};
   const ns = Object.values(N).filter(n => isFinite(n.x) && isFinite(n.z));
@@ -79,7 +89,7 @@ function leerTodo(origen: OrigenTodo = 'techos') {
   const hTecho = topes.length ? Math.min(...topes) : 2.8; // a la altura del alero (debajo del tijeral)
   const ele: { cot: CotizacionEle; info: ReturnType<typeof infoRutas> } | null = luzCon('techos');
   const gas = aguaCon('techos');
-  return { tipo: 'techos' as const, nivel: '', muros: [] as MuroRef[], escena: escena as Escena | null, x0, z0, hTecho, ele, gas };
+  return { tipo: 'techos' as const, nivel: '', muros: [] as MuroRef[], muebles: [] as MuebleRef[], escena: escena as Escena | null, x0, z0, hTecho, ele, gas };
 }
 
 function Escena3D({ datos, ver, girando = false, onCanvas }: { datos: NonNullable<ReturnType<typeof leerTodo>>; ver: Record<string, boolean>; girando?: boolean; onCanvas?: (c: HTMLCanvasElement | null) => void }) {
@@ -174,6 +184,7 @@ function Escena3D({ datos, ver, girando = false, onCanvas }: { datos: NonNullabl
           });
         });
       }
+      if (ver.estructura && datos.muebles.length) dibujarMuebles(c.grupo, datos.muebles);
       if (ele && ver.luz) dibujarElectricidad(c.grupo, ele.cot, {}, ele.info, { conTecho: true, hTecho: H_MURO });
       if (gas && ver.agua) dibujarGasfiteria(c.grupo, gas.cot, { fria: true, caliente: true, desague: true, ventilacion: true, aparatos: true, muros: false }, gas.empalmes, { conTecho: true });
       if (primera) c.ajustar(); else c.render();
@@ -231,7 +242,8 @@ function Escena3D({ datos, ver, girando = false, onCanvas }: { datos: NonNullabl
 
 export default function VentanaTodoJunto3D({ onClose, origen = 'techos' }: { onClose: () => void; origen?: OrigenTodo }) {
   const datos = useMemo(() => leerTodo(origen), [origen]);
-  const esObra = datos?.tipo === 'obra' || (!datos && origen === 'obra');
+  const esObra = datos?.tipo === 'obra' || (!datos && origen !== 'techos');
+  const esMel = origen === 'melamina';
   const [ver, setVer] = useState({ estructura: true, calamina: true, luz: true, agua: true });
   // Video MP4 de 15 s en 3 fases y foto JPG (lib/captura3d.ts).
   const canvas = useRef<HTMLCanvasElement | null>(null);
@@ -245,10 +257,10 @@ export default function VentanaTodoJunto3D({ onClose, origen = 'techos' }: { onC
     if (grab.current) { grab.current.detener(); return; }
     if (!canvas.current || !datos) return;
     const antes = ver;
-    grab.current = grabarEnFases(() => canvas.current, esObra ? 'obra_luz_agua_3d' : 'techo_luz_agua_3d', {
+    grab.current = grabarEnFases(() => canvas.current, esMel ? 'melamina_luz_agua_3d' : esObra ? 'obra_luz_agua_3d' : 'techo_luz_agua_3d', {
       fondo: () => ({ color: '#eef2f7' }),
       fases: [
-        { nombre: esObra ? '1. Muros' : '1. Estructura', aplicar: () => setVer({ estructura: true, calamina: false, luz: false, agua: false }) },
+        { nombre: esMel ? '1. Muebles' : esObra ? '1. Muros' : '1. Estructura', aplicar: () => setVer({ estructura: true, calamina: false, luz: false, agua: false }) },
         { nombre: '2. Luz y agua', aplicar: () => setVer({ estructura: true, calamina: false, luz: true, agua: true }) },
         { nombre: '3. Terminado', aplicar: () => setVer({ estructura: true, calamina: true, luz: true, agua: true }) },
       ],
@@ -257,9 +269,9 @@ export default function VentanaTodoJunto3D({ onClose, origen = 'techos' }: { onC
     });
     if (grab.current) setGrabando(true); else avisar('La grabación de video no está disponible en este navegador.');
   };
-  const foto = async () => { if (canvas.current) avisar((await fotoDe3D(canvas.current, esObra ? 'obra_luz_agua_3d' : 'techo_luz_agua_3d', { color: '#eef2f7' })) ? '✓ Foto JPG descargada' : 'No se pudo sacar la foto'); };
+  const foto = async () => { if (canvas.current) avisar((await fotoDe3D(canvas.current, esMel ? 'melamina_luz_agua_3d' : esObra ? 'obra_luz_agua_3d' : 'techo_luz_agua_3d', { color: '#eef2f7' })) ? '✓ Foto JPG descargada' : 'No se pudo sacar la foto'); };
   const ir = (vista: 'electricidad' | 'gasfiteria') => {
-    safeStorage.setItem(vista === 'electricidad' ? KEY_ORIGEN : KEY_ORIGEN_GAS, esObra ? 'obra' : 'techos');
+    safeStorage.setItem(vista === 'electricidad' ? KEY_ORIGEN : KEY_ORIGEN_GAS, esMel ? 'melamina' : esObra ? 'obra' : 'techos');
     onClose(); window.dispatchEvent(new CustomEvent('innova_navigate_tab', { detail: vista }));
   };
   const chip = (k: keyof typeof ver, label: string, icono: React.ReactNode, hay = true) => (
@@ -274,15 +286,15 @@ export default function VentanaTodoJunto3D({ onClose, origen = 'techos' }: { onC
         <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2"><Box className="w-5 h-5 text-amber-600" />Todo en 3D</p>
-            <p className="text-[11px] text-slate-500 truncate">{esObra ? 'Los muros con su instalación eléctrica y de agua' : 'El techo con su instalación eléctrica y de agua'}, para mostrar al cliente</p>
+            <p className="text-[11px] text-slate-500 truncate">{esMel ? 'Los muebles con su instalación eléctrica y de agua' : esObra ? 'Los muros con su instalación eléctrica y de agua' : 'El techo con su instalación eléctrica y de agua'}, para mostrar al cliente</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-5 h-5" /></button>
         </div>
         {!datos ? (
-          <div className="flex-1 flex items-center justify-center p-6 text-center text-sm text-slate-500">{esObra ? 'Primero dibuja los muros en el plano de Obra Civil o Drywall.' : 'Primero arma el techo en Techos Metálicos.'}</div>
+          <div className="flex-1 flex items-center justify-center p-6 text-center text-sm text-slate-500">{esMel ? 'Primero arma los muebles en Melamina.' : esObra ? 'Primero dibuja los muros en el plano de Obra Civil o Drywall.' : 'Primero arma el techo en Techos Metálicos.'}</div>
         ) : (<>
           <div className="px-3 py-2 flex flex-wrap items-center gap-1.5 bg-slate-50 border-b border-slate-200">
-            {chip('estructura', esObra ? 'Muros' : 'Estructura', <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />)}
+            {chip('estructura', esMel ? 'Muebles' : esObra ? 'Muros' : 'Estructura', <span className="w-2.5 h-2.5 rounded-full bg-slate-600" />)}
             {chip('calamina', esObra ? 'Muros sólidos' : 'Calamina', <span className="w-2.5 h-2.5 rounded-full bg-sky-700" />)}
             {chip('luz', 'Luz', <Zap className="w-3.5 h-3.5 text-amber-500" />, !!datos.ele)}
             {chip('agua', 'Agua y desagüe', <Droplets className="w-3.5 h-3.5 text-sky-500" />, !!datos.gas)}
@@ -297,8 +309,8 @@ export default function VentanaTodoJunto3D({ onClose, origen = 'techos' }: { onC
           {(grabando || aviso) && <div className="px-3 py-1.5 text-[11px] font-black text-center bg-rose-50 text-rose-700 border-b border-rose-200">{grabando ? `Grabando · ${fase} · ${seg}s` : aviso}</div>}
           {(!datos.ele || !datos.gas) && (
             <div className="px-3 py-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-600 bg-amber-50 border-b border-amber-200">
-              {!datos.ele && <span className="inline-flex items-center gap-1.5">Falta la luz de {esObra ? 'esta obra' : 'este techo'}: <button type="button" onClick={() => ir('electricidad')} className="px-2 py-1 rounded-lg bg-amber-400 text-slate-950 font-black cursor-pointer">⚡ Poner la luz</button></span>}
-              {!datos.gas && <span className="inline-flex items-center gap-1.5">Falta el agua de {esObra ? 'esta obra' : 'este techo'}: <button type="button" onClick={() => ir('gasfiteria')} className="px-2 py-1 rounded-lg bg-sky-600 text-white font-black cursor-pointer">💧 Poner el agua</button></span>}
+              {!datos.ele && <span className="inline-flex items-center gap-1.5">Falta la luz de {esMel ? 'estos muebles' : esObra ? 'esta obra' : 'este techo'}: <button type="button" onClick={() => ir('electricidad')} className="px-2 py-1 rounded-lg bg-amber-400 text-slate-950 font-black cursor-pointer">⚡ Poner la luz</button></span>}
+              {!datos.gas && <span className="inline-flex items-center gap-1.5">Falta el agua de {esMel ? 'estos muebles' : esObra ? 'esta obra' : 'este techo'}: <button type="button" onClick={() => ir('gasfiteria')} className="px-2 py-1 rounded-lg bg-sky-600 text-white font-black cursor-pointer">💧 Poner el agua</button></span>}
             </div>
           )}
           <div className="flex-1 min-h-[300px] bg-slate-100"><Escena3D datos={datos} ver={ver} girando={grabando} onCanvas={c => { canvas.current = c; }} /></div>

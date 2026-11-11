@@ -69,7 +69,9 @@ export interface VanoRef { t: number; w: number; puerta: boolean }
 export interface MuroRef { x1: number; y1: number; x2: number; y2: number; a: number; vanos?: VanoRef[] }
 /** Ambiente con nombre (rectángulo, m) de una distribución hecha con "Diseñar con IA"; solo se usa para rotular el plano. */
 export interface AmbientePlano { nombre: string; x: number; y: number; ancho: number; largo: number }
-export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra' | 'techos'; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; ambientes?: AmbientePlano[]; columnas?: Pt[] }
+/** Mueble de Melamina tendido en planta (solo referencia en el plano y el 3D). */
+export interface MuebleRef { x: number; y: number; w: number; d: number; rot: number; etiqueta?: string; alto?: boolean }
+export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra' | 'techos' | 'melamina'; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; ambientes?: AmbientePlano[]; columnas?: Pt[]; muebles?: MuebleRef[] }
 
 export interface CotizacionGas {
   id: string; nombre: string; cliente: string;
@@ -179,6 +181,7 @@ export function limites(cot: { aparatos: Aparato[]; tramos: Tramo[]; fondo: Fond
   const add = (x: number, y: number) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
   cot.fondo.muros.forEach(m => { add(m.x1, m.y1); add(m.x2, m.y2); });
   if (cot.fondo.tipo === 'techos') { add(0, 0); add(cot.fondo.ancho, cot.fondo.largo); }
+  (cot.fondo.muebles || []).forEach(m => { const r = Math.max(m.w, m.d) / 2; add(m.x - r, m.y - r); add(m.x + r, m.y + r); });
   cot.aparatos.forEach(a => { const d = defAparato(a.tipo); const r = Math.max(d.w, d.d) / 2; add(a.x - r, a.y - r); add(a.x + r, a.y + r); });
   cot.tramos.forEach(t => t.pts.forEach(p => add(p.x, p.y)));
   if (!isFinite(x0)) { x0 = 0; y0 = 0; x1 = 4; y1 = 3; }

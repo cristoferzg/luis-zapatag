@@ -90,6 +90,18 @@ function aparatoObj(a: Aparato, mats: Record<string, THREE.Material>): THREE.Gro
 
 export interface Visibles { fria: boolean; caliente: boolean; desague: boolean; ventilacion: boolean; aparatos: boolean; muros: boolean }
 
+/** Muebles de Melamina como cajas (bajos de 0.9 m; altos colgados de 1.5 a 2.2 m). */
+export function dibujarMuebles(grupo: THREE.Group, muebles: { x: number; y: number; w: number; d: number; rot: number; alto?: boolean }[]) {
+  const mat = new THREE.MeshStandardMaterial({ color: '#e7e1d8', roughness: 0.8 });
+  const borde = new THREE.LineBasicMaterial({ color: '#0f766e', transparent: true, opacity: 0.6 });
+  muebles.forEach(m => {
+    const h = m.alto ? 0.7 : 0.9, y0 = m.alto ? 1.5 : 0;
+    const g = new THREE.BoxGeometry(m.w, h, m.d);
+    const o = new THREE.Mesh(g, mat); o.position.set(m.x, y0 + h / 2, m.y); o.rotation.y = (-m.rot * Math.PI) / 180;
+    o.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), borde)); grupo.add(o);
+  });
+}
+
 /** Dibuja la gasfitería en un grupo de three.js. Con `conTecho` no pone piso ni muros (los da el techo). */
 export function dibujarGasfiteria(grupo: THREE.Group, cot: CotizacionGas, ver: Visibles, empalmes: Empalme[], opt: { conTecho?: boolean } = {}) {
   const mats = {
@@ -123,6 +135,8 @@ export function dibujarGasfiteria(grupo: THREE.Group, cot: CotizacionGas, ver: V
     const e = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cot.fondo.ancho, 0.01, cot.fondo.largo)), new THREE.LineBasicMaterial({ color: '#d97706' }));
     e.position.set(cot.fondo.ancho / 2, 2.85, cot.fondo.largo / 2); grupo.add(e);
   }
+  // Muebles de Melamina (fondo desde Melamina): cajas tenues para ubicarse.
+  if (ver.muros && (cot.fondo.muebles || []).length) dibujarMuebles(grupo, cot.fondo.muebles || []);
   if (!conTecho && ver.muros) {
     const mm = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.9, transparent: true, opacity: 0.16, depthWrite: false });
     const borde = new THREE.LineBasicMaterial({ color: '#94a3b8', transparent: true, opacity: 0.45 });

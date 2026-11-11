@@ -7,7 +7,7 @@ import { KEY_ORIGEN } from '../electricidad/modeloElectricidad';
 import { KEY_ORIGEN_GAS } from '../gasfiteria/modeloGasfiteria';
 import BotonTodoJunto3D from './BotonTodoJunto3D';
 
-export type OrigenInstalaciones = 'techos' | 'obra' | 'drywall';
+export type OrigenInstalaciones = 'techos' | 'obra' | 'drywall' | 'melamina';
 
 export default function BarraInstalaciones({ origen, className = '' }: { origen: OrigenInstalaciones; className?: string }) {
   const ir = (vista: 'electricidad' | 'gasfiteria') => {
@@ -25,7 +25,7 @@ export default function BarraInstalaciones({ origen, className = '' }: { origen:
         className={`${base} bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100`}>
         <Droplets className="w-4 h-4 text-sky-500 shrink-0" /><span className="hidden lg:inline">Agua</span>
       </button>
-      <BotonTodoJunto3D origen={origen === 'techos' ? 'techos' : 'obra'} />
+      <BotonTodoJunto3D origen={origen === 'techos' ? 'techos' : origen === 'melamina' ? 'melamina' : 'obra'} />
     </div>
   );
 }
