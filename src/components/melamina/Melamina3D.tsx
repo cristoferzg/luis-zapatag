@@ -13,6 +13,16 @@ import { grabarEnFases, fotoDe3D, GIRO_VIDEO_RAD_S } from '../../lib/captura3d';
 import { frenteDe, Mueble, colorFrente } from './calculoMelamina';
 import type { ParedMelamina } from './cotizacionMelamina';
 import { colorMelamina } from '../../catalogo/melamina';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { esMadera, texturaMadera, texturaLisa, texturaPiso, texturaGranito } from './texturasMelamina';
+
+/** Material del tablero: veta de madera o liso con grano fino (se ve como la plancha real). */
+function matTablero(nombre: string, oscurecer = 0): THREE.MeshStandardMaterial {
+  const c = colorMelamina(nombre);
+  const madera = esMadera(c.id);
+  const tinte = new THREE.Color('#ffffff').offsetHSL(0, 0, oscurecer);
+  return new THREE.MeshStandardMaterial({ color: tinte, map: madera ? texturaMadera(c.id, c.hex) : texturaLisa(c.hex), roughness: madera ? 0.62 : 0.42, metalness: 0, envMapIntensity: 0.55 });
+}
 
 const DIRS: [number, number][] = [[1, 0], [0, 1], [-1, 0], [0, -1]]; // dirección de cada pared en (x, z)
 
@@ -43,13 +53,14 @@ function muebleObj(m: Mueble): THREE.Group {
   const g = new THREE.Group();
   const hex = colorMelamina(m.color).hex;
   const cf = colorFrente(m);
-  const mat = new THREE.MeshStandardMaterial({ color: hex, roughness: 0.7, metalness: 0 });
-  const matFrente = new THREE.MeshStandardMaterial({ color: cf ? colorMelamina(cf).hex : new THREE.Color(hex).offsetHSL(0, 0, -0.04), roughness: 0.55 });
+  // Materiales realistas: veta o grano del tablero, metal cepillado y vidrio con reflejo.
+  const mat = matTablero(m.color);
+  const matFrente = matTablero(cf || m.color, cf ? 0 : -0.02);
   const matFondo = new THREE.MeshStandardMaterial({ color: new THREE.Color(hex).offsetHSL(0, 0, -0.18), roughness: 0.9 });
-  const matMetal = new THREE.MeshStandardMaterial({ color: '#9aa3ad', roughness: 0.35, metalness: 0.7 });
-  const matVidrio = new THREE.MeshStandardMaterial({ color: '#bfdbfe', roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.35, depthWrite: false });
+  const matMetal = new THREE.MeshStandardMaterial({ color: '#c3c9cf', roughness: 0.22, metalness: 0.95, envMapIntensity: 1.2 });
+  const matVidrio = new THREE.MeshStandardMaterial({ color: '#dbeafe', roughness: 0.02, metalness: 0.2, transparent: true, opacity: 0.28, depthWrite: false, envMapIntensity: 1.5 });
   const matRanura = new THREE.MeshStandardMaterial({ color: new THREE.Color(cf ? colorMelamina(cf).hex : hex).offsetHSL(0, 0, -0.25), roughness: 0.8 });
-  const bordes = new THREE.LineBasicMaterial({ color: '#1e293b', transparent: true, opacity: 0.25 });
+  const bordes: THREE.LineBasicMaterial | undefined = undefined; // sin líneas de dibujo técnico: se ve como el mueble real
   const tir = m.tirador || 'barra';
   g.add(caja(t, H, D, 0, 0, 0, mat, bordes), caja(t, H, D, W - t, 0, 0, mat, bordes));
   g.add(caja(W - 2 * t, t, D, t, H - t, 0, mat, bordes));
@@ -59,6 +70,13 @@ function muebleObj(m: Mueble): THREE.Group {
   f.repisas.forEach(r => g.add(caja((r.x1 - r.x0) * k, t, D - 0.02, r.x0 * k, r.y * k, 0, mat, bordes)));
   f.colgadores.forEach(c => g.add(caja((c.x1 - c.x0) * k, 0.015, 0.025, c.x0 * k, c.y * k, D / 2, matMetal)));
   if (m.fondoHdf) g.add(caja(W, H - z, 0.003, 0, z, -0.003, matFondo));
+  // Tablero de cocina (granito) y de baño (blanco): solo para que se vea real; no cambia el metrado.
+  if (m.tipo === 'cocina_baja' || m.tipo === 'isla') {
+    const granito = new THREE.MeshStandardMaterial({ map: texturaGranito(), roughness: 0.18, metalness: 0.05, envMapIntensity: 0.9 });
+    g.add(caja(W + 0.02, 0.03, D + 0.03, -0.01, H, m.tipo === 'isla' ? -0.015 : 0, granito));
+  } else if (m.tipo === 'bano') {
+    g.add(caja(W + 0.01, 0.025, D + 0.02, -0.005, H, 0, new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.15, envMapIntensity: 0.8 })));
+  }
 
   // Hoja (puerta o frente) en coordenadas locales de su grupo: x0..x0+w, y0..y0+h, cara trasera en z=0.
   const hoja = (grupo: THREE.Group, w: number, h: number, x0: number, y0: number, puerta: boolean) => {
@@ -145,11 +163,18 @@ export default function Melamina3D({ muebles, paredes, selId }: { muebles: Muebl
     const renderer = crearRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor('#eef2f7');
+    // Luz realista: tono de cámara, sombras suaves y reflejos del ambiente.
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     el.appendChild(renderer.domElement);
     Object.assign(renderer.domElement.style, { width: '100%', height: '100%', display: 'block', touchAction: 'none' });
     const scene = new THREE.Scene();
-    scene.add(new THREE.HemisphereLight('#ffffff', '#b8b0a2', 1.6));
-    const sol = new THREE.DirectionalLight('#ffffff', 1.4); sol.position.set(3, 6, 5); scene.add(sol);
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const ambiente = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environment = ambiente; pmrem.dispose();
+    scene.add(new THREE.HemisphereLight('#ffffff', '#b8b0a2', 0.45));
+    const sol = new THREE.DirectionalLight('#fff7ed', 1.45); sol.position.set(3, 6, 5); sol.name = 'sol';
+    sol.castShadow = true; sol.shadow.mapSize.set(1024, 1024); sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.02; sol.shadow.radius = 3;
+    scene.add(sol); scene.add(sol.target);
     const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 200);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = false; controls.maxPolarAngle = Math.PI * 0.495;
@@ -213,20 +238,21 @@ export default function Melamina3D({ muebles, paredes, selId }: { muebles: Muebl
     const ubicados = muebles.filter(m => m.pos && m.pos.pared < paredes.length);
     if (ubicados.length && paredes.length) {
       const org = origenesParedes(paredes);
-      const matPared = new THREE.MeshStandardMaterial({ color: '#f1ede6', roughness: 0.95 });
-      const matParedVidrio = new THREE.MeshStandardMaterial({ color: '#f1ede6', roughness: 0.95, transparent: true, opacity: 0.25, depthWrite: false });
+      const matPared = new THREE.MeshStandardMaterial({ color: '#c4b49c', roughness: 0.95, envMapIntensity: 0.3 });
+      const matParedVidrio = new THREE.MeshStandardMaterial({ color: '#c4b49c', roughness: 0.95, envMapIntensity: 0.3, transparent: true, opacity: 0.25, depthWrite: false });
       let minX = 0, maxX = 0, minZ = 0, maxZ = 0;
       paredes.forEach((p, i) => {
         const [ox, oz] = org[i], d = DIRS[i % 4], n = DIRS[(i + 1) % 4];
         const pared = new THREE.Mesh(new THREE.BoxGeometry(p.largo, p.alto, 0.1), i >= 2 ? matParedVidrio : matPared);
         pared.position.set(ox + d[0] * p.largo / 2 - n[0] * 0.05, p.alto / 2, oz + d[1] * p.largo / 2 - n[1] * 0.05);
         pared.rotation.y = -i * Math.PI / 2;
-        c.grupo.add(pared);
+        pared.userData.pared = true; c.grupo.add(pared);
         [[ox, oz], [ox + d[0] * p.largo, oz + d[1] * p.largo]].forEach(([x, z]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); });
       });
       if (maxZ - minZ < 1.5) maxZ = minZ + Math.max(2, (maxX - minX) * 0.6);
       if (maxX - minX < 1.5) maxX = minX + 2;
-      const piso = new THREE.Mesh(new THREE.PlaneGeometry(maxX - minX + 0.2, maxZ - minZ + 0.2), new THREE.MeshStandardMaterial({ color: '#d9cdb8', roughness: 1 }));
+      const tp = texturaPiso().clone(); tp.needsUpdate = true; tp.repeat.set((maxX - minX + 0.2) / 1.2, (maxZ - minZ + 0.2) / 1.2);
+      const piso = new THREE.Mesh(new THREE.PlaneGeometry(maxX - minX + 0.2, maxZ - minZ + 0.2), new THREE.MeshStandardMaterial({ map: tp, roughness: 0.35, envMapIntensity: 0.4 }));
       piso.rotation.x = -Math.PI / 2; piso.position.set((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
       c.grupo.add(piso);
       ubicados.forEach(m => {
@@ -244,9 +270,19 @@ export default function Melamina3D({ muebles, paredes, selId }: { muebles: Muebl
       const m = muebles.find(x => x.id === selId) || muebles[0];
       if (m) {
         const o = muebleObj(m); o.position.set(-m.ancho / 2, 0, -m.prof / 2); c.grupo.add(o);
-        const piso = new THREE.Mesh(new THREE.PlaneGeometry(m.ancho + 1.5, m.prof + 1.5), new THREE.MeshStandardMaterial({ color: '#d9cdb8', roughness: 1 }));
+        const tp = texturaPiso().clone(); tp.needsUpdate = true; tp.repeat.set((m.ancho + 1.5) / 1.2, (m.prof + 1.5) / 1.2);
+        const piso = new THREE.Mesh(new THREE.PlaneGeometry(m.ancho + 1.5, m.prof + 1.5), new THREE.MeshStandardMaterial({ map: tp, roughness: 0.35, envMapIntensity: 0.4 }));
         piso.rotation.x = -Math.PI / 2; c.grupo.add(piso);
       }
+    }
+    // Sombras: todo proyecta y recibe (menos el vidrio); el sol encuadra lo que hay.
+    c.grupo.traverse(o => { const ms = o as THREE.Mesh; if (!ms.isMesh) return; const tr = (ms.material as THREE.Material).transparent; ms.castShadow = !tr && !ms.userData.pared; ms.receiveShadow = true; }); // las paredes no tapan el sol (ambiente sin techo)
+    const caja3 = new THREE.Box3().setFromObject(c.grupo);
+    const sol = c.scene.getObjectByName('sol') as THREE.DirectionalLight | undefined;
+    if (sol && !caja3.isEmpty()) {
+      const cen = caja3.getCenter(new THREE.Vector3()), r = Math.max(1.5, caja3.getSize(new THREE.Vector3()).length() * 0.6);
+      sol.position.copy(cen).add(new THREE.Vector3(r * 0.5, r * 1.6, r * 1.3)); sol.target.position.copy(cen);
+      const sc = sol.shadow.camera; sc.left = sc.bottom = -r; sc.right = sc.top = r; sc.near = 0.1; sc.far = r * 5; sc.updateProjectionMatrix();
     }
     c.ajustar();
     setAbierto(false);

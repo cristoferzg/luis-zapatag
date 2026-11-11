@@ -69,7 +69,7 @@ export default function MelaminaView({ onIrAPrecios }: { onIrAPrecios?: () => vo
           <div className="p-2 rounded-xl bg-teal-500/10 text-teal-600"><Armchair className="w-5 h-5" /></div>
           <div className="min-w-0">
             <h2 className="text-sm font-black text-slate-900 uppercase leading-tight">Melamina</h2>
-            <p className="text-[11px] text-slate-500">Closets, cocinas, reposteros y más: medidas, diseño, cortes y presupuesto.</p>
+            <p className="hidden 2xl:block text-[11px] text-slate-500 truncate">Closets, cocinas, reposteros y más.</p>
           </div>
         </div>
         <div className="flex flex-nowrap w-full lg:w-auto lg:inline-flex p-0.5 lg:p-1 bg-slate-100 rounded-xl gap-0.5 lg:shrink-0">
