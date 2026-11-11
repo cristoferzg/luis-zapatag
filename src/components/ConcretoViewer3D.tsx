@@ -11,7 +11,7 @@
 // =============================================================================
 import { calidad3d, setCalidad3d, onCalidad3d, pixelRatio3d, refuerzoBordes, Calidad3D } from '../lib/calidad3d';
 import { useEffect, useRef, useState } from 'react';
-import { Video, Square as StopIcon, DoorOpen, DoorClosed } from 'lucide-react';
+import { Video, Square as StopIcon, DoorOpen, DoorClosed, Camera } from 'lucide-react';
 import * as THREE from 'three';
 import { crearRenderer, liberarRenderer } from '../lib/webglSeguro';
 import type { PlanoElem } from './ConcretoPlanoCad';
@@ -22,7 +22,7 @@ import type { PerfilTubularItem } from './techos/techosCadEngineTypes';
 import { coberturaDesdeCorreas, panoUnaAgua } from './techos/coberturaAuto';
 import { planchaDetallada } from './concreto/coberturaDetallada';
 import { INVENTARIO_COBERTURAS } from './techos/techosCadCatalog';
-import { grabarCanvas, puedeGrabar } from '../lib/grabarVideo';
+import { grabarEnFases, fotoDe3D, GIRO_VIDEO_RAD_S } from '../lib/captura3d';
 import { perfilTechos } from './techos/tensores';
 import { Bloque, muebleDe, geometriaCarpi, GeomCarpi } from './concreto/bloques';
 import { leerDisenosCarpi } from './concreto/carpiObra';
@@ -211,7 +211,7 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xffffff);
     const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 1000);
-    const renderer = crearRenderer({ antialias: true });
+    const renderer = crearRenderer({ antialias: true, preserveDrawingBuffer: true }); // para grabar y sacar foto
     rendererRef.current = renderer;
     renderer.setPixelRatio(pixelRatio3d());
     mount.appendChild(renderer.domElement);
@@ -803,8 +803,10 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
     setVerModelo(v => v + 1);
     let raf = 0;
     abrirTodoRef.current = (v: boolean) => moviles.forEach(mv => { mv.objetivo = v ? 1 : 0; });
+    let tAnt = performance.now();
     const loop = () => {
-      if (girar.current) { az += (2 * Math.PI) / (14 * 60); actualizar(); }
+      const ahora = performance.now(), dt = Math.min(0.1, (ahora - tAnt) / 1000); tAnt = ahora;
+      if (girar.current) { az += GIRO_VIDEO_RAD_S * dt; actualizar(); } // una vuelta en el video
       moviles.forEach(mv => { if (mv.valor !== mv.objetivo) { const dd = mv.objetivo - mv.valor; mv.valor = Math.abs(dd) <= 0.06 ? mv.objetivo : mv.valor + Math.sign(dd) * 0.06; mv.aplicar(mv.valor); } });
       renderer.render(scene, camera); raf = requestAnimationFrame(loop);
     };
@@ -835,23 +837,35 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
   // Segundos que faltan de la grabación y aviso al terminar.
   const [seg, setSeg] = useState(0);
   const [listo, setListo] = useState<string | null>(null);
-  useEffect(() => {
-    if (!grabando) return;
-    const t = window.setInterval(() => setSeg(s => Math.max(0, s - 1)), 1000);
-    return () => window.clearInterval(t);
-  }, [grabando]);
+  // Video MP4 de 15 s por fases (puertas cerradas → abiertas) y foto JPG (lib/captura3d.ts).
+  const [fase, setFase] = useState('');
   const grabar = () => {
     if (grabacion.current) { grabacion.current.detener(); return; }
     const c = canvasRef.current;
-    if (!c || !puedeGrabar(c)) { alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.'); return; }
-    girar.current = true;
-    setListo(null); setSeg(14);
-    grabacion.current = grabarCanvas(c, 'obra_3d', { duracionMs: 14000, onFin: ext => {
-      girar.current = false; grabacion.current = null; setGrabando(false);
-      setListo(`Video ${ext.toUpperCase()} descargado · búscalo en Descargas`);
-      window.setTimeout(() => setListo(null), 5000);
-    } });
-    if (grabacion.current) setGrabando(true); else girar.current = false;
+    if (!c) return;
+    const antes = abiertoRef.current;
+    girar.current = true; setListo(null);
+    grabacion.current = grabarEnFases(c, 'obra_3d', {
+      fondo: () => ({ color: '#ffffff' }),
+      fases: [
+        { nombre: '1. Puertas cerradas', aplicar: () => abrirTodoRef.current(false) },
+        { nombre: '2. Puertas abiertas', aplicar: () => abrirTodoRef.current(true) },
+      ],
+      alCambiarFase: (_i, f) => setFase(f.nombre), alSegundo: setSeg,
+      alTerminar: ext => {
+        girar.current = false; grabacion.current = null; setGrabando(false); setFase('');
+        abrirTodoRef.current(antes);
+        setListo(`Video ${ext.toUpperCase()} descargado · búscalo en Descargas`);
+        window.setTimeout(() => setListo(null), 5000);
+      },
+    });
+    if (grabacion.current) setGrabando(true);
+    else { girar.current = false; alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.'); }
+  };
+  const foto = async () => {
+    const c = canvasRef.current; if (!c) return;
+    const ok = await fotoDe3D(c, 'obra_3d', { color: '#ffffff' });
+    setListo(ok ? 'Foto JPG descargada · búscala en Descargas' : 'No se pudo sacar la foto'); window.setTimeout(() => setListo(null), 4000);
   };
 
   // El padre remonta el visor (key) cuando cambia la escena.
@@ -871,6 +885,11 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         {grabando ? <StopIcon className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
         {grabando ? `Detener · ${seg}s` : 'Grabar video'}
       </button>
+      <button onClick={foto} title="Foto JPG de esta vista"
+        className="absolute bottom-3 right-[9.5rem] z-10 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black shadow-lg cursor-pointer border bg-white text-slate-700 border-slate-200 hover:bg-slate-50">
+        <Camera className="w-3.5 h-3.5" />Foto
+      </button>
+      {grabando && fase && <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-black shadow">Grabando · {fase} · {seg}s</div>}
       {/* Vista de corte */}
       <div className="absolute left-3 bottom-12 sm:bottom-14 z-10 flex items-center gap-1.5 bg-white/95 border border-slate-200 rounded-xl px-2 py-1.5 shadow text-[10px] font-bold text-slate-600">
         <span>Corte</span>

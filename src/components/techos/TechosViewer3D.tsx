@@ -44,7 +44,7 @@ import {
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { perfilTechos } from './tensores';
-import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
+import { grabarEnFases, fotoDe3D, GIRO_VIDEO_RAD_S, FondoCaptura } from '../../lib/captura3d';
 import { movilDe, TIPOS_MOVIL, zonaPrincipal } from './mecanismoMovil';
 import { canaletaActiva, posicionesBajadas, cfgCanaleta, tramosCanaleta, NOMBRE_FORMA, NOMBRE_LADOS, NOMBRE_BAJADA } from './canaletas';
 import { safeStorage } from '../../lib/storageManager';
@@ -1067,33 +1067,40 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     updateCameraPos();
   };
 
-  // Grabar un video del visor 3D con un giro lento de 360° y descargarlo.
+  // Grabar video MP4 de 15 s por fases (estructura → con calamina) y foto JPG: ver lib/captura3d.ts.
   const recorderRef = useRef<{ detener: () => void } | null>(null);
+  const grabandoRef = useRef(false);
+  const [faseGrab, setFaseGrab] = useState('');
+  const [segGrab, setSegGrab] = useState(0);
+  const fondoCaptura = (): FondoCaptura => ({
+    color: '#' + (CONFIG_ILUMINACION_TECHOS[modoIluminacion] || CONFIG_ILUMINACION_TECHOS.claro).bgColor.toString(16).padStart(6, '0'),
+    imagen: fotoFondoRef.current, ajuste: ajusteFotoRef.current,
+  });
   const handleRecord3D = () => {
-    // Si ya está grabando, detener y descargar.
-    if (isRecording) {
-      recorderRef.current?.detener();
-      return;
-    }
+    if (isRecording) { recorderRef.current?.detener(); return; }
     const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
-    if (!canvas || !puedeGrabar(canvas)) {
-      alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.');
-      return;
-    }
-
-    try {
-      const prevAuto = autoRotateRef.current;
-      // Giro lento automático durante la grabación (~14 s = una vuelta).
-      setAutoRotate(true);
-      const g = grabarCanvas(canvas, 'techo_3d', { duracionMs: 14000, onFin: () => { setIsRecording(false); recorderRef.current = null; if (!prevAuto) setAutoRotate(false); } });
-      if (!g) throw new Error('formato de video no disponible');
-      recorderRef.current = g;
-      setIsRecording(true);
-    } catch (err: any) {
-      console.warn('No se pudo iniciar la grabación 3D:', err);
-      alert('No se pudo iniciar la grabación: ' + (err?.message || err));
-      setIsRecording(false);
-    }
+    if (!canvas) return;
+    const coberturaAntes = mostrarCobertura;
+    grabandoRef.current = true;
+    const g = grabarEnFases(canvas, 'techo_3d', {
+      fondo: fondoCaptura,
+      fases: [
+        { nombre: '1. Estructura', aplicar: () => setMostrarCobertura(false) },
+        { nombre: '2. Con calamina', aplicar: () => setMostrarCobertura(true) },
+      ],
+      alCambiarFase: (_i, f) => setFaseGrab(f.nombre), alSegundo: setSegGrab,
+      alTerminar: () => { grabandoRef.current = false; setIsRecording(false); recorderRef.current = null; setFaseGrab(''); setMostrarCobertura(coberturaAntes); },
+    });
+    if (!g) { grabandoRef.current = false; alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.'); return; }
+    recorderRef.current = g;
+    setIsRecording(true);
+  };
+  const fotoJpg = async () => {
+    const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
+    if (!canvas) return;
+    await tomarFotoPropuesta(true);
+    const ok = await fotoDe3D(canvas, 'techo_3d', fondoCaptura());
+    setAvisoFoto(ok ? '✓ Foto JPG descargada y guardada en la propuesta al cliente' : 'No se pudo sacar la foto'); window.setTimeout(() => setAvisoFoto(null), 3500);
   };
 
   // Modos de Proximidad Directa
@@ -1293,9 +1300,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const cv = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
     if (!cv) return;
     try {
-      const a = document.createElement('a'); a.href = cv.toDataURL('image/png'); a.download = 'techo_para_el_cliente.png';
-      document.body.appendChild(a); a.click(); a.remove();
-      setAvisoFoto('✓ Foto descargada y guardada en la propuesta al cliente'); window.setTimeout(() => setAvisoFoto(null), 3500);
+      const ok = await fotoDe3D(cv, 'techo_para_el_cliente', fondoCaptura());
+      setAvisoFoto(ok ? '✓ Foto JPG descargada y guardada en la propuesta al cliente' : 'No se pudo sacar la foto'); window.setTimeout(() => setAvisoFoto(null), 3500);
     } catch { setAvisoFoto('No se pudo descargar la foto'); }
   };
   // La primera vez que se ve el techo cubierto, se guarda una imagen automática.
@@ -3498,7 +3504,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       lastTime = now;
 
       // Giro automático suave
-      if (autoRotateRef.current) {
+      if (grabandoRef.current) {
+        cameraAngleThetaRef.current += GIRO_VIDEO_RAD_S * delta; // una vuelta completa en el video
+        updateCameraPos();
+      } else if (autoRotateRef.current) {
         cameraAngleThetaRef.current += 0.005;
         updateCameraPos();
       }
@@ -3871,6 +3880,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       </div>
       <input ref={fotoFondoInputRef} type="file" accept="image/*" className="hidden" onChange={e => { elegirFotoFondo(e.target.files?.[0]); e.target.value = ''; }} />
 
+      {isRecording && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 inline-flex items-center gap-2 text-[11px] font-black text-white bg-rose-600 rounded-xl px-3 py-2 shadow-lg">
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />Grabando {faseGrab ? `· ${faseGrab}` : ''} · {segGrab}s
+        </div>
+      )}
       {presentacion && (
         <div className="absolute bottom-3 left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 sm:max-w-[calc(100%-1.5rem)] bg-white/95 backdrop-blur-md border border-rose-200 rounded-2xl shadow-xl p-1.5 sm:p-2 flex flex-nowrap sm:flex-wrap items-center sm:justify-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
           <span className="shrink-0 text-[11px] font-black text-rose-700 px-1">Muros:</span>
@@ -4261,11 +4275,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
 {!modoCliente && (<>
           {/* Imagen para la propuesta */}
-          <button onClick={() => tomarFotoPropuesta()}
+          <button onClick={fotoJpg}
             className="p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-            title="Usar esta vista como imagen de la propuesta al cliente">
+            title="Foto JPG de esta vista (se descarga y queda en la propuesta al cliente)">
             <Camera className="w-4 h-4" />
-            <span className="hidden xl:inline text-[11px] font-bold">Foto propuesta</span>
+            <span className="hidden xl:inline text-[11px] font-bold">Foto</span>
           </button>
 
 </>)}
@@ -4294,10 +4308,10 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             className={`p-1.5 sm:p-2 rounded-xl border transition-all cursor-pointer shrink-0 flex items-center gap-1 ${
               isRecording ? 'bg-rose-600 text-white border-rose-500 shadow-md ring-2 ring-rose-300 animate-pulse' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
-            title={isRecording ? 'Detener y descargar el video 3D' : 'Grabar video 3D (giro lento 360°) y descargar'}
+            title={isRecording ? 'Detener y descargar el video' : 'Grabar video MP4 de 15 s: estructura y luego con calamina'}
           >
             {isRecording ? <Square className="w-4 h-4" /> : <Video className="w-4 h-4" />}
-            <span className="hidden xl:inline text-[11px] font-bold">{isRecording ? 'Detener' : 'Grabar'}</span>
+            <span className="hidden xl:inline text-[11px] font-bold">{isRecording ? `Detener · ${segGrab}s` : 'Grabar'}</span>
           </button>
 
           {/* Giro Automático */}

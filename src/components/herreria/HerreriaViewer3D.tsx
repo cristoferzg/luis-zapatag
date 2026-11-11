@@ -21,11 +21,12 @@ import {
   CheckCircle2,
   X,
   Video,
-  Square
+  Square,
+  Camera
 } from 'lucide-react';
 import { HerreriaDesign } from './herreriaTypes';
 import { PERFILES_CATALOGO } from './herreriaCatalog';
-import { grabarCanvas, puedeGrabar } from '../../lib/grabarVideo';
+import { grabarEnFases, fotoDe3D, GIRO_VIDEO_RAD_S } from '../../lib/captura3d';
 
 // Helper para generar textura procedural de Plancha Estriada / Estrellada (Diamond plate / Alfajor)
 function createPlanchaEstriadaTexture(colorHex: string): THREE.CanvasTexture {
@@ -218,32 +219,35 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
   // Grabación de video del visor 3D (giro lento + descarga)
   const [isRecording, setIsRecording] = useState(false);
   const recorderRef = useRef<{ detener: () => void } | null>(null);
+  // Video MP4 de 15 s (una vuelta completa) y foto JPG, igual que en Techos y Obra Civil (lib/captura3d.ts).
+  const grabandoRef = useRef(false);
+  const [segGrab, setSegGrab] = useState(0);
+  const colorFondo = () => '#' + (modoIluminacionRef.current === 'estudio' ? 'f8fafc' : modoIluminacionRef.current === 'obra' ? 'f1f5f9' : 'ffffff');
   const handleRecord3D = useCallback(() => {
     if (isRecording) { recorderRef.current?.detener(); return; }
     const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
-    if (!canvas || !puedeGrabar(canvas)) {
-      alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.');
-      return;
-    }
-    try {
-      const prevAuto = autoRotateRef.current;
-      // Giro lento automático durante la grabación (~14 s = una vuelta).
-      setAutoRotate(true);
-      const g = grabarCanvas(canvas, 'carpimetal_3d', { duracionMs: 14000, onFin: () => { setIsRecording(false); recorderRef.current = null; if (!prevAuto) setAutoRotate(false); } });
-      if (!g) throw new Error('formato de video no disponible');
-      recorderRef.current = g;
-      setIsRecording(true);
-    } catch (err: any) {
-      console.warn('No se pudo iniciar la grabación 3D:', err);
-      alert('No se pudo iniciar la grabación: ' + (err?.message || err));
-      setIsRecording(false);
-    }
+    if (!canvas) return;
+    grabandoRef.current = true;
+    const g = grabarEnFases(canvas, 'carpimetal_3d', {
+      fondo: () => ({ color: colorFondo() }),
+      fases: [{ nombre: 'Vista completa', aplicar: () => {} }],
+      alSegundo: setSegGrab,
+      alTerminar: () => { grabandoRef.current = false; setIsRecording(false); recorderRef.current = null; },
+    });
+    if (!g) { grabandoRef.current = false; alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.'); return; }
+    recorderRef.current = g;
+    setIsRecording(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRecording]);
+  const fotoJpg = async () => {
+    const canvas = rendererRef.current?.domElement as HTMLCanvasElement | undefined;
+    if (canvas && !(await fotoDe3D(canvas, 'carpimetal_3d', { color: colorFondo() }))) alert('No se pudo sacar la foto');
+  };
   useEffect(() => {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
   const [modoIluminacion, setModoIluminacion] = useState<'estudio' | 'obra' | 'alambrico'>('estudio');
+  const modoIluminacionRef = useRef(modoIluminacion); modoIluminacionRef.current = modoIluminacion;
   const [mostrarHerrajes, setMostrarHerrajes] = useState(true);
 
   // Selección e Inspección 3D Interactiva de Piezas de Herrería
@@ -1227,7 +1231,10 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
       const delta = (now - lastTime) / 1000;
       lastTime = now;
 
-      if (autoRotateRef.current) {
+      if (grabandoRef.current) {
+        cameraAngleThetaRef.current += GIRO_VIDEO_RAD_S * Math.min(delta, 0.1); // una vuelta en el video
+        updateCameraPos();
+      } else if (autoRotateRef.current) {
         cameraAngleThetaRef.current += delta * 0.4;
         updateCameraPos();
       }
@@ -1533,10 +1540,14 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-colors ${
               isRecording ? 'bg-rose-600 text-white shadow-xs animate-pulse' : 'text-slate-700 hover:bg-slate-100'
             }`}
-            title={isRecording ? 'Detener y descargar el video 3D' : 'Grabar video 3D (giro lento 360°) y descargar'}
+            title={isRecording ? 'Detener y descargar el video' : 'Grabar video MP4 de 15 s (una vuelta completa)'}
           >
             {isRecording ? <Square className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isRecording ? 'Detener' : 'Grabar'}</span>
+            <span className="hidden sm:inline">{isRecording ? `Detener · ${segGrab}s` : 'Grabar'}</span>
+          </button>
+          <button onClick={fotoJpg} title="Foto JPG de esta vista"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold shrink-0 text-slate-700 hover:bg-slate-100 transition-colors">
+            <Camera className="w-3.5 h-3.5" /><span className="hidden sm:inline">Foto</span>
           </button>
 
           <button
