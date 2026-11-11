@@ -14,15 +14,28 @@ export const DURACION_VIDEO_S = 15;
 export const GIRO_VIDEO_RAD_S = (2 * Math.PI) / DURACION_VIDEO_S;
 const MAX_LADO_VIDEO = 1280;
 
-export interface Fase { nombre: string; aplicar: () => void }
-export interface FondoCaptura { color: string; imagen?: string | null; ajuste?: { zoom: number; x: number; y: number } }
-
 const imagenes = new Map<string, Promise<HTMLImageElement>>();
 const cargar = (src: string) => {
   let p = imagenes.get(src);
   if (!p) { p = new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = mal; i.src = src; }); imagenes.set(src, p); }
   return p;
 };
+
+export interface Fase { nombre: string; aplicar: () => void }
+
+// Marca de la foto y del video: la empresa del usuario (Configuración → datos de la empresa:
+// nombre, celular y logo). Si no la puso, sale "InnovApp".
+interface Marca { nombre: string; telefono: string; logo: string }
+let marca: Marca = { nombre: '', telefono: '', logo: '' };
+let logoImg: HTMLImageElement | null = null;
+export function fijarMarcaCaptura(m: Partial<Marca>) {
+  const n = (m.nombre || '').trim();
+  const nueva = { nombre: n === 'Mi Empresa' ? '' : n, telefono: (m.telefono || '').trim(), logo: m.logo || '' };
+  if (nueva.logo !== marca.logo) { logoImg = null; if (nueva.logo) cargar(nueva.logo).then(i => { if (marca.logo === nueva.logo) logoImg = i; }).catch(() => {}); }
+  marca = nueva;
+}
+export interface FondoCaptura { color: string; imagen?: string | null; ajuste?: { zoom: number; x: number; y: number } }
+
 
 function dibujar(g: CanvasRenderingContext2D, gl: HTMLCanvasElement, w: number, h: number, fondo: FondoCaptura, img: HTMLImageElement | null, rotulo?: string) {
   g.fillStyle = fondo.color || '#f1f5f9'; g.fillRect(0, 0, w, h);
@@ -43,10 +56,29 @@ function dibujar(g: CanvasRenderingContext2D, gl: HTMLCanvasElement, w: number, 
     redondeado(g, fs * 0.8, h - bh - fs * 0.8, tw + pad * 2, bh, fs * 0.45); g.fill();
     g.fillStyle = '#ffffff'; g.fillText(rotulo, fs * 0.8 + pad, h - bh / 2 - fs * 0.8);
   }
-  const marca = 'InnovApp';
-  g.font = `800 ${Math.round(fs * 0.8)}px system-ui, sans-serif`;
-  g.fillStyle = 'rgba(15, 23, 42, 0.55)';
-  g.fillText(marca, w - g.measureText(marca).width - fs * 0.9, h - fs * 1.25);
+  dibujarMarca(g, w, h, fs);
+}
+/** Abajo a la derecha: logo + nombre de la empresa (+ celular) en una placa blanca; sin empresa, "InnovApp". */
+function dibujarMarca(g: CanvasRenderingContext2D, w: number, h: number, fs: number) {
+  const nombre = marca.nombre || 'InnovApp';
+  const tel = marca.nombre ? marca.telefono : '';
+  const f1 = Math.round(fs * 0.9), f2 = Math.round(fs * 0.7), pad = fs * 0.6, gap = fs * 0.5;
+  g.font = `800 ${f1}px system-ui, sans-serif`; const w1 = g.measureText(nombre).width;
+  g.font = `600 ${f2}px system-ui, sans-serif`; const w2 = tel ? g.measureText(tel).width : 0;
+  const altoTxt = tel ? f1 + f2 * 1.25 : f1;
+  const lado = logoImg ? altoTxt + fs * 0.3 : 0;
+  const ancho = pad * 2 + (lado ? lado + gap : 0) + Math.max(w1, w2), alto = Math.max(altoTxt, lado) + pad * 1.6;
+  const x = w - ancho - fs * 0.8, y = h - alto - fs * 0.8;
+  g.fillStyle = 'rgba(255, 255, 255, 0.9)'; redondeado(g, x, y, ancho, alto, fs * 0.45); g.fill();
+  let tx = x + pad;
+  if (logoImg) {
+    const k = Math.min(lado / logoImg.width, lado / logoImg.height);
+    g.drawImage(logoImg, tx + (lado - logoImg.width * k) / 2, y + (alto - logoImg.height * k) / 2, logoImg.width * k, logoImg.height * k);
+    tx += lado + gap;
+  }
+  const cy = y + alto / 2 - (tel ? f2 * 0.62 : 0);
+  g.textBaseline = 'middle'; g.fillStyle = '#0f172a'; g.font = `800 ${f1}px system-ui, sans-serif`; g.fillText(nombre, tx, cy);
+  if (tel) { g.fillStyle = '#475569'; g.font = `600 ${f2}px system-ui, sans-serif`; g.fillText(tel, tx, cy + f1 * 0.62 + f2 * 0.55); }
 }
 function redondeado(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();

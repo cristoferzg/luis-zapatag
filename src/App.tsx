@@ -4,6 +4,7 @@ import { conAcuerdo } from './lib/acuerdoTechos';
 import { useCatalogo, migrarPreciosAntiguos, hidratarCatalogo, EstadoCatalogo } from './lib/catalogoPrecios';
 import { INVENTARIO_PERFILES_TUBULARES } from './components/techos/techosCadCatalog';
 import { EmpresaProvider, datosDesdeSettings, settingsDesdeDatos, DatosEmpresa } from './lib/empresa';
+import { fijarMarcaCaptura } from './lib/captura3d';
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { 
   Briefcase, Calculator, Users, DollarSign, Activity, 
@@ -1837,6 +1838,8 @@ export default function App() {
       return prev.some(s => s.id === nuevo.id) ? prev.map(s => s.id === nuevo.id ? nuevo : s) : [...prev, nuevo];
     }),
   }), [currentSettings, mySettingsId, activeUid]); // eslint-disable-line react-hooks/exhaustive-deps
+  // La foto y el video del 3D llevan la marca de la empresa del usuario (o "InnovApp").
+  useEffect(() => { fijarMarcaCaptura({ nombre: empresaCtx.datos.nombre, telefono: empresaCtx.datos.telefono, logo: empresaCtx.datos.logo }); }, [empresaCtx.datos.nombre, empresaCtx.datos.telefono, empresaCtx.datos.logo]);
 
   // Catálogo de precios único: migra precios viejos una vez y se sincroniza
   // con el documento de configuración del usuario (gana el más reciente).
