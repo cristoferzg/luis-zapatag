@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es" translate="no" class="notranslate">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- La app ya está en español: que el navegador no la "traduzca" (rompe la página). -->
+    <meta name="google" content="notranslate" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script>
+      // App Android (InnovApp): sin "viewport-fit=cover" el sistema deja la página
+      // debajo de la barra de estado (hora, batería) y encima de la barra de gestos,
+      // en vez de dibujarla por detrás y tapar los botones de arriba.
+      (function () {
+        try {
+          if (/InnovApp/.test(navigator.userAgent) || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
+            var m = document.querySelector('meta[name=viewport]');
+            if (m) m.setAttribute('content', m.getAttribute('content').replace(/,\s*viewport-fit=cover/, ''));
+          }
+          // Estilo Marca Innova: en la app y en la web desde celular o tablet (menos de
+          // 1280 px). En la computadora la web sigue con su diseño de siempre.
+          var esApp = /InnovApp/.test(navigator.userAgent) || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+          var mq = window.matchMedia('(max-width: 1279.98px)');
+          var aplicar = function () { document.documentElement.classList.toggle('app-marca', !!(esApp || mq.matches)); };
+          aplicar();
+          // Opción A: cada celular con su propio estilo de botones (Android = Material 3,
+          // iPhone = estilo Apple). plat-ios / plat-android y es-app para la app instalada.
+          var plat = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform()) || '';
+          var esIOS = plat === 'ios' || /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+          document.documentElement.classList.add(esIOS ? 'plat-ios' : 'plat-android');
+          if (esApp) document.documentElement.classList.add('es-app');
+          if (mq.addEventListener) mq.addEventListener('change', aplicar); else if (mq.addListener) mq.addListener(aplicar);
+        } catch (e) {}
+      })();
+    </script>
+    <title>Innova Contratistas</title>
+    <meta name="description" content="Plataforma integral para controlar proyectos de estructuras metálicas, módulo CAD de herrería y cerrajería, clientes y finanzas personales (gastos, familia, inversiones, deudas)." />
+    <meta property="og:title" content="Innova Contratistas" />
+    <meta property="og:description" content="Plataforma integral para controlar proyectos de estructuras metálicas, módulo CAD de herrería y cerrajería, clientes y finanzas personales (gastos, familia, inversiones, deudas)." />
+    <meta name="theme-color" content="#0f2a4a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="InnovApp" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <script>
+      (function() {
+        // Prevent fatal crash when environment defines window.fetch as a getter without a setter or HMR WebSocket errors
+        var origError = console.error;
+        console.error = function() {
+          var str = '';
+          for (var i = 0; i < arguments.length; i++) {
+            var a = arguments[i];
+            str += ' ' + (typeof a === 'string' ? a : (a && (a.message || a.stack)) || String(a));
+          }
+          if (
+            str.indexOf('[vite]') !== -1 ||
+            str.indexOf('WebSocket') !== -1 ||
+            str.indexOf('vite-plugin-pwa') !== -1 ||
+            str.indexOf('reading \'send\'') !== -1 ||
+            str.indexOf('reading "send"') !== -1 ||
+            str.indexOf('failed to connect to websocket') !== -1 ||
+            str.indexOf('service worker in dev mode') !== -1 ||
+            str.indexOf('INTERNAL ASSERTION FAILED') !== -1 ||
+            str.indexOf('Pending promise was never set') !== -1
+          ) {
+            return;
+          }
+          origError.apply(console, arguments);
+        };
+
+        window.addEventListener('error', function(event) {
+          var msg = event && (event.message || '');
+          if (typeof msg === 'string' && (
+            (msg.indexOf('fetch') !== -1 && (msg.indexOf('getter') !== -1 || msg.indexOf('read only') !== -1)) ||
+            msg.indexOf('[vite]') !== -1 ||
+            msg.indexOf('WebSocket') !== -1 ||
+            msg.indexOf('vite-plugin-pwa') !== -1 ||
+            msg.indexOf('reading \'send\'') !== -1 ||
+            msg.indexOf('reading "send"') !== -1 ||
+            msg.indexOf('INTERNAL ASSERTION FAILED') !== -1 ||
+            msg.indexOf('Pending promise was never set') !== -1
+          )) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          var reason = event && event.reason;
+          var msg = typeof reason === 'string' ? reason : (reason && (reason.message || reason.stack)) || String(reason || '');
+          if (typeof msg === 'string' && (
+            msg.indexOf('[vite]') !== -1 ||
+            msg.indexOf('WebSocket') !== -1 ||
+            msg.indexOf('vite-plugin-pwa') !== -1 ||
+            msg.indexOf('service worker') !== -1 ||
+            msg.indexOf('reading \'send\'') !== -1 ||
+            msg.indexOf('reading "send"') !== -1 ||
+            msg.indexOf('INTERNAL ASSERTION FAILED') !== -1 ||
+            msg.indexOf('Pending promise was never set') !== -1
+          )) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        });
+
+        try {
+          var originalFetch = window.fetch;
+          var customFetch = originalFetch;
+          var descriptor = Object.getOwnPropertyDescriptor(window, 'fetch');
+          
+          if (!descriptor && Object.getPrototypeOf) {
+            var proto = Object.getPrototypeOf(window);
+            while (proto && !descriptor) {
+              descriptor = Object.getOwnPropertyDescriptor(proto, 'fetch');
+              if (descriptor) break;
+              proto = Object.getPrototypeOf(proto);
+            }
+          }
+
+          if (!descriptor || (!descriptor.set && !descriptor.writable)) {
+            Object.defineProperty(window, 'fetch', {
+              get: function() {
+                var fn = customFetch || originalFetch;
+                return typeof fn === 'function' ? fn.bind(window) : fn;
+              },
+              set: function(val) {
+                customFetch = val;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (e) {}
+
+        // Safe wrappers for modal dialogs in iframe sandbox environments
+        try {
+          var origAlert = window.alert;
+          window.alert = function(msg) {
+            try {
+              if (origAlert) origAlert.call(window, msg);
+            } catch (e) {
+              console.warn('[Dialog Alert]:', msg);
+            }
+          };
+          var origConfirm = window.confirm;
+          window.confirm = function(msg) {
+            try {
+              if (origConfirm) return origConfirm.call(window, msg);
+              return true;
+            } catch (e) {
+              console.warn('[Dialog Confirm]:', msg);
+              return true;
+            }
+          };
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
