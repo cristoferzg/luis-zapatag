@@ -54,6 +54,7 @@ import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { dxfLamina, dxfModelo3D } from '../../lib/dxfLamina';
+import { metradoColumnasCA } from './columnaConcreto';
 import { calcularMemoria } from './memoriaCalculo';
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { perfilesQueCumplen } from './memoriaCalculo';
@@ -189,34 +190,13 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
   const totalStructuralWeight = profileStats.reduce((sum, item) => sum + item.totalWeight, 0);
   const totalStructuralCost = profileStats.reduce((sum, item) => sum + item.totalCost, 0);
 
-  // METRADO DE CONCRETO: columnas marcadas como concreto (rol 'columna_concreto').
-  // Volumen = longitud × sección (asumida 25×25 cm). Materiales aproximados por
-  // m³ de concreto f'c=210 (dosificación referencial 1:2:3).
+  // METRADO DE CONCRETO ARMADO: columnas de concreto con la sección y el acero que diseña la memoria (E.060).
+  const disenoCA = React.useMemo(() => { try { return calcularMemoria(nodes, segments, coverageZones, engineState?.structuralInputs || {}).sismo?.concreto || null; } catch { return null; } },
+    [nodes, segments, coverageZones, engineState?.structuralInputs]); // eslint-disable-line react-hooks/exhaustive-deps
   const concretoMetrado = React.useMemo(() => {
-    const seccionM = 0.25; // 25 cm × 25 cm
-    let columnas = 0;
-    let longitudTotalM = 0;
-    segmentList.forEach((seg: any) => {
-      if (seg.rolEstructural !== 'columna_concreto') return;
-      const a = nodes[seg.nodeAId];
-      const b = nodes[seg.nodeBId];
-      if (!a || !b) return;
-      longitudTotalM += Math.hypot(b.x - a.x, b.y - a.y, (b.z || 0) - (a.z || 0));
-      columnas += 1;
-    });
-    const volumenM3 = longitudTotalM * seccionM * seccionM;
-    return {
-      columnas,
-      longitudTotalM,
-      volumenM3,
-      seccionCm: 25,
-      // Dosificación referencial f'c=210 kg/cm² por m³
-      cementoBolsas: volumenM3 * 9.5,
-      arenaM3: volumenM3 * 0.54,
-      piedraM3: volumenM3 * 0.55,
-      aguaL: volumenM3 * 180
-    };
-  }, [segmentList, nodes]);
+    const m = metradoColumnasCA(nodes, segments, disenoCA);
+    return { ...m, longitudTotalM: m.alturaTotalM, seccionCm: disenoCA ? `${disenoCA.b}×${disenoCA.h}` : '25×25' };
+  }, [nodes, segments, disenoCA]);
 
   // Piezas por función (lo que un principiante necesita entender: qué es cada pieza y con qué tubo va).
   const NOMBRE_ROL: Record<string, string> = {
@@ -282,19 +262,28 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
         {kpi(areaMostrar.toFixed(1), 'm²', 'Área del techo', 'Medida con la pendiente', 'text-violet-700')}
       </div>
 
-      {/* METRADO DE CONCRETO (solo si hay columnas de concreto) */}
+      {/* COLUMNAS DE CONCRETO ARMADO (solo si las hay) */}
       {concretoMetrado.columnas > 0 && (
         <div className="bg-white border border-stone-300 rounded-2xl shadow-xs overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-stone-200 bg-stone-100/70">
-            <h3 className="text-sm font-black text-stone-800">Concreto de columnas</h3>
-            <p className="text-[11px] text-stone-500">{concretoMetrado.columnas} columnas · sección {concretoMetrado.seccionCm}×{concretoMetrado.seccionCm} cm · {concretoMetrado.longitudTotalM.toFixed(2)} m</p>
+          <div className="px-5 py-3.5 border-b border-stone-200 bg-stone-100/70 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-black text-stone-800">Columnas de concreto armado</h3>
+              <p className="text-[11px] text-stone-500">{concretoMetrado.columnas} columnas de {concretoMetrado.seccionCm} cm · {concretoMetrado.longitudTotalM.toFixed(2)} m · f'c 210 kg/cm², fy 4200 kg/cm²</p>
+            </div>
+            {disenoCA && <span className={`text-[11px] font-black px-2 py-1 rounded-lg ${disenoCA.estado === 'CUMPLE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{disenoCA.estado === 'CUMPLE' ? 'Cumple E.060 y sismo' : 'No cumple'}</span>}
           </div>
-          <div className="p-4 grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-            {[[concretoMetrado.volumenM3.toFixed(2), 'm³ concreto'], [Math.ceil(concretoMetrado.cementoBolsas), 'bolsas cemento'], [concretoMetrado.arenaM3.toFixed(2), 'm³ arena'], [concretoMetrado.piedraM3.toFixed(2), 'm³ piedra'], [Math.round(concretoMetrado.aguaL), 'litros agua']].map(([v, t]) => (
+          {disenoCA && (
+            <div className="px-5 pt-3 text-xs text-stone-700 flex flex-wrap gap-x-6 gap-y-1">
+              <span><b>Acero longitudinal:</b> {disenoCA.n} Ø {disenoCA.barra} (cuantía {(disenoCA.cuantia * 100).toFixed(2)} %)</span>
+              <span><b>Estribos:</b> {disenoCA.estribos}</span>
+            </div>
+          )}
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
+            {[[concretoMetrado.volumenM3.toFixed(2), 'm³ concreto'], [Math.ceil(concretoMetrado.aceroKg), 'kg de fierro'], [concretoMetrado.encofradoM2.toFixed(1), 'm² encofrado'], [Math.ceil(concretoMetrado.cementoBolsas), 'bolsas cemento'], [concretoMetrado.arenaM3.toFixed(2), 'm³ arena'], [concretoMetrado.piedraM3.toFixed(2), 'm³ piedra'], [Math.round(concretoMetrado.aguaL), 'litros agua']].map(([v, t]) => (
               <div key={String(t)} className="bg-stone-50 border border-stone-200 rounded-xl p-3"><p className="text-lg font-black text-stone-800">{v}</p><p className="text-[10px] font-bold text-stone-500 uppercase">{t}</p></div>
             ))}
           </div>
-          <p className="px-4 pb-3 text-[10px] text-stone-400">Referencial f'c=210 kg/cm² (1:2:3). No incluye acero de refuerzo ni encofrado.</p>
+          <p className="px-4 pb-3 text-[10px] text-stone-400">Concreto f'c = 210 kg/cm² (1:2:3). El fierro incluye anclaje en la zapata y estribos con ganchos. La zapata se diseña en Obra Civil.</p>
         </div>
       )}
 

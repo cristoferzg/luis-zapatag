@@ -16,6 +16,7 @@ import { propsPerfil, factorK, limitesLambda, seAnaliza, cumpleTramo, perfilMasE
 import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
 import { perfilSuperior, alerosConCanaleta } from './canaletas';
 import { zonaPrincipal } from './mecanismoMovil';
+import { disenarColumnaCA, type DisenoColumnaCA } from './columnaConcreto';
 
 export type Riesgo = 'BAJO' | 'MEDIO' | 'ALTO';
 export type EstadoMemoria = 'CUMPLE' | 'OBSERVACION' | 'NO_CUMPLE';
@@ -106,7 +107,7 @@ export function contextoCargas(nodes: Record<string, Node3D>, segments: Record<s
   const D = inputs.cargaMuertaKgM2 || 15, L = inputs.cargaVivaKgM2 || 30;
   const qArea = (D + L) * G; // N/m²
   const segs = Object.values(segments);
-  const nCols = Math.max(1, segs.filter(s => s.rolEstructural === 'columna' && Math.min(nodes[s.nodeAId]?.y ?? 9, nodes[s.nodeBId]?.y ?? 9) < 0.1).length);
+  const nCols = Math.max(1, segs.filter(s => (s.rolEstructural === 'columna' || s.rolEstructural === 'columna_concreto') && Math.min(nodes[s.nodeAId]?.y ?? 9, nodes[s.nodeBId]?.y ?? 9) < 0.1).length);
   const LVigas = segs.filter(s => /^viga|^cordon_superior/.test(s.rolEstructural)).reduce((x, s) => x + largoDe(nodes, s), 0);
   const LCorreas = segs.filter(s => s.rolEstructural === 'correa').reduce((x, s) => x + largoDe(nodes, s), 0);
   const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -275,6 +276,8 @@ export interface Sismo {
   PKg: number; VKg: number; VColKg: number; nCols: number; perfilCol: string;
   deltaCm: number; deriva: number; derivaLim: number; MColKgM: number; fbKgCm2: number; fbAdmKgCm2: number; ratioFlexion: number;
   estado: EstadoMemoria; motivo: string;
+  /** Columnas de concreto armado (si las hay): diseño E.060 con el sismo de arriba. */
+  concreto?: DisenoColumnaCA | null;
 }
 const S_SUELO: Record<string, Record<string, number>> = {
   Z4: { S0: 0.8, S1: 1.0, S2: 1.05, S3: 1.10 }, Z3: { S0: 0.8, S1: 1.0, S2: 1.15, S3: 1.20 },
@@ -283,8 +286,40 @@ const S_SUELO: Record<string, Record<string, number>> = {
 const TP_TL: Record<string, [number, number]> = { S0: [0.3, 3.0], S1: [0.4, 2.5], S2: [0.6, 2.0], S3: [1.0, 1.6] };
 const U_CAT: Record<string, number> = { A: 1.5, B: 1.3, C: 1.0 };
 
-function calcularSismo(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, inputs: EntradasCargas, area: number, D: number, L: number, pesoKg: number, nCols: number): Sismo | null {
+/** Parámetros y cortante basal (comunes al acero y al concreto). */
+function cortanteBasal(nodes: Record<string, Node3D>, inputs: EntradasCargas, area: number, D: number, L: number, pesoKg: number, nCols: number, R: number) {
+  const hn = Math.max(...Object.values(nodes).map(n => n.y));
+  const zona = inputs.zonaSismica || 'Z4', suelo = inputs.tipoSuelo || 'S2', categoria = inputs.categoriaUso || 'C';
+  const Z = FACTOR_Z[zona] ?? 0.45, S = S_SUELO[zona]?.[suelo] ?? 1.05, U = U_CAT[categoria] ?? 1.0;
+  const [Tp, TL] = TP_TL[suelo] || TP_TL.S2;
+  const T = hn / 35;
+  let C = T < Tp ? 2.5 : T < TL ? 2.5 * Tp / T : 2.5 * Tp * TL / (T * T);
+  C = Math.max(C, 0.11 * R);
+  const PKg = pesoKg + area * (D + 0.25 * L);
+  const VKg = (Z * U * C * S / R) * PKg;
+  return { hn, zona, suelo, categoria, Z, S, U, Tp, TL, T, C, PKg, VKg, VColKg: VKg / Math.max(1, nCols) };
+}
+
+/** Tijerales de acero sobre columnas de CONCRETO ARMADO (apoyo articulado: columnas en voladizo). */
+function sismoConcreto(nodes: Record<string, Node3D>, colsCA: Segment3D[], inputs: EntradasCargas, area: number, D: number, L: number, pesoKg: number, nCols: number, uKgM2: number): Sismo {
+  const R = 4;
+  const b = cortanteBasal(nodes, inputs, area, D, L, pesoKg, nCols, R);
+  const h = Math.max(...colsCA.map(s => Math.abs(nodes[s.nodeAId].y - nodes[s.nodeBId].y)));
+  // Pu = reacción última del techo + peso propio de la columna (25 × 25 de partida; ×1.4).
+  const PuKg = (area * uKgM2) / Math.max(1, nCols) + 0.25 * 0.25 * h * 2400 * 1.4;
+  const ca = disenarColumnaCA(h, PuKg, b.VColKg, R);
+  return {
+    Z: b.Z, U: b.U, C: b.C, S: b.S, R, Tp: b.Tp, TL: b.TL, T: b.T, hn: b.hn, zona: b.zona, suelo: b.suelo, categoria: b.categoria,
+    PKg: b.PKg, VKg: b.VKg, VColKg: b.VColKg, nCols, perfilCol: `Concreto armado ${ca.b} × ${ca.h} cm, ${ca.n} Ø ${ca.barra}`,
+    deltaCm: ca.deltaCm, deriva: ca.deriva, derivaLim: ca.derivaLim, MColKgM: ca.MuKgM, fbKgCm2: 0, fbAdmKgCm2: 0,
+    ratioFlexion: ca.MuKgM / Math.max(1, ca.phiMnKgM), estado: ca.estado, motivo: ca.motivo, concreto: ca,
+  };
+}
+
+function calcularSismo(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, inputs: EntradasCargas, area: number, D: number, L: number, pesoKg: number, nCols: number, uKgM2: number): Sismo | null {
   const cols = Object.values(segments).filter(s => s.rolEstructural === 'columna' && nodes[s.nodeAId] && nodes[s.nodeBId]);
+  const colsCA = Object.values(segments).filter(s => s.rolEstructural === 'columna_concreto' && nodes[s.nodeAId] && nodes[s.nodeBId]);
+  if (!cols.length && colsCA.length) return sismoConcreto(nodes, colsCA, inputs, area, D, L, pesoKg, nCols, uKgM2);
   if (!cols.length) return null;
   const cuenta: Record<string, number> = {};
   cols.forEach(s => { cuenta[s.profileId] = (cuenta[s.profileId] || 0) + 1; });
@@ -402,7 +437,7 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
   };
   const cuenta: Record<Riesgo, number> = { BAJO: 0, MEDIO: 0, ALTO: 0 };
   piezas.forEach(p => { cuenta[p.riesgo]++; });
-  const sismo = calcularSismo(nodes, segments, inputs, area, cargas.D, cargas.L, pesoTotalKg, ctx.nCols);
+  const sismo = calcularSismo(nodes, segments, inputs, area, cargas.D, cargas.L, pesoTotalKg, ctx.nCols, cargas.U2);
   const estado: EstadoMemoria = grupos.some(g => g.estado === 'NO_CUMPLE') || sismo?.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : grupos.some(g => g.estado === 'OBSERVACION') ? 'OBSERVACION' : 'CUMPLE';
   return {
     datos: { tipo, luz, largo, alturaCol, alturaMax: ys.length ? Math.max(...ys) : 0, area, pendientePct, nCols: ctx.nCols, nPiezas: piezas.length, cobertura },

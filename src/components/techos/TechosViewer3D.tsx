@@ -2620,7 +2620,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const ladoVisible = (seg: typeof segments[string]) => {
       const pc = perfilTechos(seg.profileId);
       let lado = pc ? Math.max(pc.anchoMm, pc.altoMm || pc.anchoMm) / 1000 : 0.08;
-      if (seg.rolEstructural === 'columna_concreto') lado = 0.25;
+      if (seg.rolEstructural === 'columna_concreto') lado = Math.max(...((seg as any).seccionCm || [25, 25])) / 100;
       return lado;
     };
     const ladosNudo: Record<string, { id: string; l: number }[]> = {};
@@ -2667,8 +2667,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       // Columna de concreto: sección robusta tipo columna de concreto (25x25 cm).
       const esConcreto3D = seg.rolEstructural === 'columna_concreto';
       if (esConcreto3D) {
-        anchoM = 0.25;
-        altoM = 0.25;
+        // Sección diseñada (E.060) o 25 × 25 cm.
+        anchoM = ((seg as any).seccionCm?.[0] || 25) / 100;
+        altoM = ((seg as any).seccionCm?.[1] || 25) / 100;
       }
 
       // La vista para el cliente usa las MISMAS medidas que la estructura (antes engrosaba los tubos

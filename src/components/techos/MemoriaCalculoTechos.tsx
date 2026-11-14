@@ -230,11 +230,24 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
               <p className={sec}>Análisis sísmico estático (E.030-2018)</p>
               {dato('Zona / suelo / uso', `${q.zona} (Z ${q.Z}) · ${q.suelo} (S ${q.S}) · ${q.categoria} (U ${q.U})`)}
               {dato('Periodo T = hn / 35', `${q.T.toFixed(3)} s (Tp ${q.Tp} · TL ${q.TL})`)}
-              {dato('C · R (pórtico ordinario de acero)', `C ${q.C.toFixed(2)} · R ${q.R}`)}
+              {dato(q.concreto ? 'C · R (columnas de concreto en voladizo)' : 'C · R (pórtico ordinario de acero)', `C ${q.C.toFixed(2)} · R ${q.R}`)}
               {dato('Peso sísmico P (acero + D + 25 % L)', `${f0(q.PKg)} kg`)}
               {dato('Cortante basal V = ZUCS/R · P', `${f0(q.VKg)} kg`)}
               {dato(`Por columna (${q.nCols})`, `${f0(q.VColKg)} kg`)}
             </div>
+            {q.concreto ? (() => { const c = q.concreto; return (
+            <div>
+              <p className={sec}>Columnas de concreto armado (E.060)</p>
+              {dato('Sección', `${c.b} × ${c.h} cm · f'c 210 · fy 4200`)}
+              {dato('Acero longitudinal', `${c.n} Ø ${c.barra} = ${f2(c.asCm2)} cm² (ρ ${(c.cuantia * 100).toFixed(2)} %, 1 %–4 %)`)}
+              {dato('Estribos', c.estribos)}
+              {dato('Carga axial Pu ≤ φPn', `${f0(c.PuKg)} ≤ ${f0(c.phiPnKg)} kg ${c.PuKg <= c.phiPnKg ? '✓' : '✗'}`)}
+              {dato('Flexión por sismo Mu = V·h ≤ φMn', `${f0(c.MuKgM)} ≤ ${f0(c.phiMnKgM)} kg·m ${c.MuKgM <= c.phiMnKgM ? '✓' : '✗'}`)}
+              {dato('Deriva (voladizo, 0.7 Ig) ≤ 0.007', `${c.deriva.toFixed(4)} ${c.deriva <= c.derivaLim ? '✓' : '✗'}`)}
+              <p className="text-[10px] text-slate-500 mt-1">El tijeral se apoya en una plancha embebida con pernos (apoyo articulado): la columna trabaja en voladizo desde la zapata.</p>
+              <p className={`text-[11px] font-black mt-1 ${c.estado === 'CUMPLE' ? 'text-emerald-700' : 'text-rose-700'}`}>{c.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · {c.motivo}</p>
+            </div>
+            ); })() : (
             <div>
               <p className={sec}>Verificación de columnas por sismo</p>
               {dato('Columna', q.perfilCol)}
@@ -244,6 +257,7 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
               {dato('fb ≤ 0.6·Fy·1.33', `${f0(q.fbKgCm2)} ≤ ${f0(q.fbAdmKgCm2)} kg/cm² ${q.ratioFlexion <= 1 ? '✓' : '✗'}`)}
               <p className={`text-[11px] font-black mt-1 ${q.estado === 'CUMPLE' ? 'text-emerald-700' : 'text-rose-700'}`}>{q.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · {q.motivo}</p>
             </div>
+            )}
           </section>
         ); })()}
 

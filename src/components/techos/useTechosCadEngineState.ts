@@ -84,6 +84,7 @@ export interface UseTechosCadEngineReturn {
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
   pedirVigaSimple: (perfilId: string) => void;
   pedirPerfilesAptos: () => void;
+  pedirColumnasConcreto: (si: boolean) => void;
   pedirCortaviento: (o: OpcionesCortaviento) => void;
   setColorCobertura: (colorHex: number) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
@@ -432,6 +433,9 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   // "de relleno" (3 × 3 cm) se cambian por los adecuados según luz, altura y separación de pórticos.
   const perfilesAptosPendiente = useRef(false);
   const pedirPerfilesAptos = useCallback(() => { perfilesAptosPendiente.current = true; }, []);
+  // Columnas de concreto armado (opción del Asistente): se convierten al armar la nave y se diseñan (E.060).
+  const columnasConcretoPendiente = useRef(false);
+  const pedirColumnasConcreto = useCallback((si: boolean) => { columnasConcretoPendiente.current = si; }, []);
   useEffect(() => {
     if (!perfilesAptosPendiente.current || !Object.keys(segments).length) return;
     if (ajusteEnCurso.current) { ajusteEnCurso.current = false; return; }
@@ -441,6 +445,10 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     // Lo que la memoria de cálculo marca "NO CUMPLE" se refuerza con su perfil recomendado
     // (el mismo de "Aplicar recomendados"), así el techo sale verificado desde el Asistente.
     let segs = r.segs, cambios = r.cambios;
+    if (columnasConcretoPendiente.current) {
+      columnasConcretoPendiente.current = false;
+      segs = Object.fromEntries(Object.entries(segs).map(([id, sg]) => [id, sg.rolEstructural === 'columna' ? (cambios++, { ...sg, rolEstructural: 'columna_concreto' as const, concretoBaseM: undefined }) : sg]));
+    }
     for (let vuelta = 0; vuelta < 4; vuelta++) {
       let mem;
       try { mem = calcularMemoria(nodes, segs, coverageZones, structuralInputs); } catch { break; }
@@ -458,6 +466,11 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
         if (nuevo !== sg.profileId) { segs[sg.id] = { ...sg, profileId: nuevo }; cambios++; }
       });
     }
+    // Sección de las columnas de concreto (la que diseña la memoria) para el 3D y los planos.
+    try {
+      const ca = calcularMemoria(nodes, segs, coverageZones, structuralInputs).sismo?.concreto;
+      if (ca) { segs = { ...segs }; Object.values(segs).forEach(sg => { if (sg.rolEstructural === 'columna_concreto') { segs[sg.id] = { ...sg, seccionCm: [ca.b, ca.h] }; cambios++; } }); }
+    } catch { /* sin memoria */ }
     if (!cambios) return;
     setSegments(segs);
     pushHistory(nodes, segs, coverageZones);
@@ -4494,6 +4507,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     replaceScene,
     pedirVigaSimple,
     pedirPerfilesAptos,
+    pedirColumnasConcreto,
     pedirCortaviento,
     setColorCobertura,
     setOcultos,

@@ -140,6 +140,7 @@ export interface MemoriaDxf {
     Z: number; U: number; C: number; S: number; R: number; Tp: number; TL: number; T: number; hn: number; zona: string; suelo: string; categoria: string;
     PKg: number; VKg: number; VColKg: number; nCols: number; perfilCol: string; deltaCm: number; deriva: number; derivaLim: number;
     MColKgM: number; fbKgCm2: number; fbAdmKgCm2: number; ratioFlexion: number; estado: string; motivo: string;
+    concreto?: { b: number; h: number; n: number; barra: string; asCm2: number; cuantia: number; PuKg: number; phiPnKg: number; MuKgM: number; phiMnKgM: number; deriva: number; derivaLim: number; estribos: string; LoCm: number; estado: string; motivo: string } | null;
   } | null;
 }
 /** escala: 0 = automática (la mayor que quepa: 1:50, 1:75, 1:100…); 50, 75 o 100 = fija para planta y elevaciones. */
@@ -152,6 +153,8 @@ const ML = 25, MR = 10, MB = 10, MT = 10, SEP_HOJAS = 60;
 const ESCALAS = [5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000];
 const TXT = 3.5, TXT_S = 2.7, TXT_T = 5;
 const RW = 180, RH = 64; // rótulo
+const RECUB = 40; // recubrimiento de columnas de concreto (mm)
+const DIAM_MM: Record<string, number> = { '1/2"': 12.7, '5/8"': 15.9, '3/4"': 19.1, '1"': 25.4 };
 
 /**
  * JUEGO DE LÁMINAS ESTRUCTURALES listo para imprimir:
@@ -217,7 +220,8 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
   })();
   const xCol = [...new Set(segs.filter(s => /^columna/.test(s.rolEstructural || '') && enFrente(s)).map(s => r2(nodes[s.nodeAId].x)))].sort((a, b) => a - b);
   const xCorreas = [...new Set(segs.filter(s => s.rolEstructural === 'correa').flatMap(s => [nodes[s.nodeAId].x, nodes[s.nodeBId].x]).map(r2))].sort((a, b) => a - b);
-  const grosor = (s: Segment3D, esc: number) => Math.min(1.4, Math.max(0.18, ladoMm(s.profileId) / esc));
+  const ladoSeg = (s: Segment3D) => s.rolEstructural === 'columna_concreto' ? Math.max(...((s as any).seccionCm || [25, 25])) * 10 : ladoMm(s.profileId);
+  const grosor = (s: Segment3D, esc: number) => Math.min(1.8, Math.max(0.18, ladoSeg(s) / esc));
 
   // ---------- Cotas y ejes (en mm de papel) ----------
   const cota = (a: P2, b: P2, off: number, txt?: string, vertical = false) => {
@@ -422,16 +426,19 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     });
     return { W, alto };
   };
+  const caE1 = o.memoria?.sismo?.concreto;
   const filasCuadro = [...porRol.entries()].sort((p, q) => ORDEN_ROL.indexOf(p[0]) - ORDEN_ROL.indexOf(q[0]))
-    .map(([rol, r]) => [NOMBRE_ROL[rol] || rol, String(r.n), [...r.perf.keys()].map(nombreCorto).join(' / '),
-      [...new Set([...r.perf.keys()].map(id => { const c = perfilDe(id)?.categoria || ''; return /perfil_c|perfil_z|angulo|perfil_h/.test(c) ? 'ASTM A36' : 'ASTM A500 Gr. B'; }))].join(' / ')]);
+    .map(([rol, r]) => rol === 'columna_concreto'
+      ? ['Columnas de concreto armado', String(r.n), caE1 ? `C-1 ${caE1.b}×${caE1.h} cm · ${caE1.n} Ø ${caE1.barra}` : 'C-1 25×25 cm', "f'c 210 · fy 4200"]
+      : [NOMBRE_ROL[rol] || rol, String(r.n), [...r.perf.keys()].map(nombreCorto).join(' / '),
+      [...new Set([...r.perf.keys()].map(id => { const c = perfilDe(id)?.categoria || ''; return /perfil_c|perfil_z|angulo|perfil_h/.test(c) ? 'ASTM A36' : 'ASTM A500 Gr. B'; }))].join(' / ')] as string[]);
   const t1 = tabla(X0 + 4, yFr, 'CUADRO DE ELEMENTOS ESTRUCTURALES', ['Elemento', 'Cant.', 'Perfil', 'Material'], filasCuadro);
   const xLey = X0 + 4 + t1.W + 10;
   d.texto([xLey, yFr - 3], 'LEYENDA (grosor según el perfil)', TXT_S, 'TEXTOS');
   [...porRol.keys()].sort((p, q) => ORDEN_ROL.indexOf(p) - ORDEN_ROL.indexOf(q)).forEach((rol, i) => {
     const s = segs.find(x => x.rolEstructural === rol)!;
     const y = yFr - 10 - i * 6;
-    d.gruesa([[xLey, y], [xLey + 16, y]], Math.min(1.4, Math.max(0.18, ladoMm(s.profileId) / 100)), CAPA_ROL[rol] || 'VIGAS');
+    d.gruesa([[xLey, y], [xLey + 16, y]], Math.min(1.8, Math.max(0.18, ladoSeg(s) / 100)), CAPA_ROL[rol] || 'VIGAS');
     d.texto([xLey + 19, y - 1], NOMBRE_ROL[rol] || rol, TXT_S, 'TEXTOS');
   });
   const xNot = xLey + 92;
@@ -453,50 +460,126 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     const anclaje = ns.find(n => n.isFixedSupport && (n as any).boltDiameter) as any;
     const perno = anclaje?.boltDiameter || '5/8"', nPernos = anclaje?.numPernos || 4;
     const esc = 5, k = 1 / esc; // detalle 1:5 (mm reales → mm papel)
-    // Detalle 1: placa base — elevación.
+    const ca = sis?.concreto;
     const ex = ox + ML + 50, ey = Hh - MT - 150;
-    const dado = placa + 150;
-    d.caja(ex - dado * k / 2, ey - 400 * k, ex + dado * k / 2, ey, 'COLUMNAS', 0.35);                    // dado de concreto
-    for (let i = 0; i < 10; i++) d.linea([ex - dado * k / 2 + i * dado * k / 10, ey - 400 * k], [ex - dado * k / 2 + (i + 1) * dado * k / 10, ey - 330 * k], 'ARRIOSTRES');
-    d.caja(ex - placa * k / 2, ey + 25 * k, ex + placa * k / 2, ey + (25 + ePlaca) * k, 'VIGAS', 0.5);  // placa
-    d.caja(ex - placa * k / 2, ey, ex + placa * k / 2, ey + 25 * k, 'ARRIOSTRES', 0.2);                // grout
-    d.caja(ex - colMm * k / 2, ey + (25 + ePlaca) * k, ex + colMm * k / 2, ey + (25 + ePlaca) * k + 70, 'COLUMNAS', 0.7); // columna
-    [-1, 1].forEach(sx => {
-      const px = ex + sx * (placa / 2 - 40) * k;
-      d.gruesa([[px, ey + (25 + ePlaca + 25) * k], [px, ey - 350 * k], [px + sx * 50 * k, ey - 350 * k]], 0.6, 'COTAS');  // perno J
-      d.gruesa([[ex + sx * colMm * k / 2, ey + (25 + ePlaca) * k], [ex + sx * (colMm / 2 + 12) * k, ey + (25 + ePlaca) * k], [ex + sx * colMm * k / 2, ey + (25 + ePlaca + 12) * k]], 0.3, 'NO_CUMPLE', true);
-    });
-    cota([ex - placa * k / 2, ey + 70 + 20], [ex + placa * k / 2, ey + 70 + 20], 4, `PLACA ${placa}×${placa}×${ePlaca} mm`);
-    cota([ex + dado * k / 2, ey - 350 * k], [ex + dado * k / 2, ey], 6, '0.35 (empotramiento)', true);
-    d.texto([ex + placa * k / 2 + 6, ey + 12 * k], 'GROUT SIN RETRACCIÓN e = 25 mm', TXT_S, 'COTAS');
-    d.texto([ex + placa * k / 2 + 6, ey + (25 + ePlaca + 40) * k], `SOLDADURA FILETE 6 mm (E-7018) TODO EL CONTORNO`, TXT_S, 'COTAS');
-    d.texto([ex - dado * k / 2, ey - 400 * k - 6], `${nPernos} PERNOS DE ANCLAJE Ø ${perno} TIPO J (ASTM A307), L = 450 mm`, TXT_S, 'COTAS');
-    d.texto([ex - dado * k / 2, ey - 400 * k - 12], "DADO DE CONCRETO f'c = 210 kg/cm²", TXT_S, 'COTAS');
-    d.texto([ex, ey + 110], 'DETALLE 1: PLACA BASE Y ANCLAJE (ELEVACIÓN)', TXT, 'TEXTOS', 'centro');
-    d.texto([ex, ey + 104], 'ESC. 1:5', TXT_S, 'TEXTOS', 'centro');
-    // Detalle 2: placa base — planta.
-    const px0 = ex + 140, py0 = ey + 20;
-    d.caja(px0 - placa * k / 2, py0 - placa * k / 2, px0 + placa * k / 2, py0 + placa * k / 2, 'VIGAS', 0.5);
-    d.caja(px0 - colMm * k / 2, py0 - colMm * k / 2, px0 + colMm * k / 2, py0 + colMm * k / 2, 'COLUMNAS', 0.7);
-    [[-1, -1], [1, -1], [1, 1], [-1, 1]].slice(0, Math.max(2, Math.min(4, nPernos))).forEach(([sx, sy]) => d.circulo([px0 + sx * (placa / 2 - 40) * k, py0 + sy * (placa / 2 - 40) * k], 2.2, 'COTAS'));
-    cota([px0 - placa * k / 2, py0 - placa * k / 2], [px0 + placa * k / 2, py0 - placa * k / 2], -7, `${placa}`);
-    cota([px0 + placa * k / 2, py0 - placa * k / 2], [px0 + placa * k / 2, py0 + placa * k / 2], 7, `${placa}`, true);
-    d.texto([px0, py0 + placa * k / 2 + 12], 'DETALLE 2: PLACA BASE (PLANTA)', TXT, 'TEXTOS', 'centro');
-    d.texto([px0, py0 + placa * k / 2 + 6], `ESC. 1:5 · columna ${nombreCorto(colSeg?.profileId)}`, TXT_S, 'TEXTOS', 'centro');
+    if (!ca) {
+      // Detalle 1: placa base — elevación.
+      const dado = placa + 150;
+      d.caja(ex - dado * k / 2, ey - 400 * k, ex + dado * k / 2, ey, 'COLUMNAS', 0.35);                    // dado de concreto
+      for (let i = 0; i < 10; i++) d.linea([ex - dado * k / 2 + i * dado * k / 10, ey - 400 * k], [ex - dado * k / 2 + (i + 1) * dado * k / 10, ey - 330 * k], 'ARRIOSTRES');
+      d.caja(ex - placa * k / 2, ey + 25 * k, ex + placa * k / 2, ey + (25 + ePlaca) * k, 'VIGAS', 0.5);  // placa
+      d.caja(ex - placa * k / 2, ey, ex + placa * k / 2, ey + 25 * k, 'ARRIOSTRES', 0.2);                // grout
+      d.caja(ex - colMm * k / 2, ey + (25 + ePlaca) * k, ex + colMm * k / 2, ey + (25 + ePlaca) * k + 70, 'COLUMNAS', 0.7); // columna
+      [-1, 1].forEach(sx => {
+        const px = ex + sx * (placa / 2 - 40) * k;
+        d.gruesa([[px, ey + (25 + ePlaca + 25) * k], [px, ey - 350 * k], [px + sx * 50 * k, ey - 350 * k]], 0.6, 'COTAS');  // perno J
+        d.gruesa([[ex + sx * colMm * k / 2, ey + (25 + ePlaca) * k], [ex + sx * (colMm / 2 + 12) * k, ey + (25 + ePlaca) * k], [ex + sx * colMm * k / 2, ey + (25 + ePlaca + 12) * k]], 0.3, 'NO_CUMPLE', true);
+      });
+      cota([ex - placa * k / 2, ey + 70 + 20], [ex + placa * k / 2, ey + 70 + 20], 4, `PLACA ${placa}×${placa}×${ePlaca} mm`);
+      cota([ex + dado * k / 2, ey - 350 * k], [ex + dado * k / 2, ey], 6, '0.35 (empotramiento)', true);
+      d.texto([ex + placa * k / 2 + 6, ey + 12 * k], 'GROUT SIN RETRACCIÓN e = 25 mm', TXT_S, 'COTAS');
+      d.texto([ex + placa * k / 2 + 6, ey + (25 + ePlaca + 40) * k], `SOLDADURA FILETE 6 mm (E-7018) TODO EL CONTORNO`, TXT_S, 'COTAS');
+      d.texto([ex - dado * k / 2, ey - 400 * k - 6], `${nPernos} PERNOS DE ANCLAJE Ø ${perno} TIPO J (ASTM A307), L = 450 mm`, TXT_S, 'COTAS');
+      d.texto([ex - dado * k / 2, ey - 400 * k - 12], "DADO DE CONCRETO f'c = 210 kg/cm²", TXT_S, 'COTAS');
+      d.texto([ex, ey + 110], 'DETALLE 1: PLACA BASE Y ANCLAJE (ELEVACIÓN)', TXT, 'TEXTOS', 'centro');
+      d.texto([ex, ey + 104], 'ESC. 1:5', TXT_S, 'TEXTOS', 'centro');
+      // Detalle 2: placa base — planta.
+      const px0 = ex + 140, py0 = ey + 20;
+      d.caja(px0 - placa * k / 2, py0 - placa * k / 2, px0 + placa * k / 2, py0 + placa * k / 2, 'VIGAS', 0.5);
+      d.caja(px0 - colMm * k / 2, py0 - colMm * k / 2, px0 + colMm * k / 2, py0 + colMm * k / 2, 'COLUMNAS', 0.7);
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].slice(0, Math.max(2, Math.min(4, nPernos))).forEach(([sx, sy]) => d.circulo([px0 + sx * (placa / 2 - 40) * k, py0 + sy * (placa / 2 - 40) * k], 2.2, 'COTAS'));
+      cota([px0 - placa * k / 2, py0 - placa * k / 2], [px0 + placa * k / 2, py0 - placa * k / 2], -7, `${placa}`);
+      cota([px0 + placa * k / 2, py0 - placa * k / 2], [px0 + placa * k / 2, py0 + placa * k / 2], 7, `${placa}`, true);
+      d.texto([px0, py0 + placa * k / 2 + 12], 'DETALLE 2: PLACA BASE (PLANTA)', TXT, 'TEXTOS', 'centro');
+      d.texto([px0, py0 + placa * k / 2 + 6], `ESC. 1:5 · columna ${nombreCorto(colSeg?.profileId)}`, TXT_S, 'TEXTOS', 'centro');
+    } else {
+      // ---------- COLUMNA DE CONCRETO ARMADO ----------
+      const bm = ca.b * 10, hm = ca.h * 10, e1 = bm <= 350 ? 5 : 10, k1 = 1 / e1;  // mm
+      // Detalle 1: sección transversal.
+      const cx = ex, cy = ey + 25;
+      d.caja(cx - bm * k1 / 2, cy - hm * k1 / 2, cx + bm * k1 / 2, cy + hm * k1 / 2, 'COLUMNAS', 0.5);
+      const r = (RECUB - 5) * k1;                                   // estribo al ras del recubrimiento
+      d.caja(cx - bm * k1 / 2 + r, cy - hm * k1 / 2 + r, cx + bm * k1 / 2 - r, cy + hm * k1 / 2 - r, 'CORDON_INFERIOR', 0.35);
+      d.gruesa([[cx - bm * k1 / 2 + r, cy + hm * k1 / 2 - r], [cx - bm * k1 / 2 + r + 9, cy + hm * k1 / 2 - r - 9]], 0.35, 'CORDON_INFERIOR'); // gancho 135°
+      const rb = Math.max(1.1, (DIAM_MM[ca.barra] || 16) * k1 / 2);
+      const xi = cx - bm * k1 / 2 + r + rb + 1, xf = cx + bm * k1 / 2 - r - rb - 1, yi = cy - hm * k1 / 2 + r + rb + 1, yf = cy + hm * k1 / 2 - r - rb - 1;
+      const porLado = ca.n <= 4 ? 2 : ca.n <= 8 ? 3 : 4;
+      const pts: P2[] = [];
+      for (let t = 0; t < porLado; t++) { const f = t / (porLado - 1); pts.push([xi + (xf - xi) * f, yi], [xi + (xf - xi) * f, yf]); if (t > 0 && t < porLado - 1) pts.push([xi, yi + (yf - yi) * f], [xf, yi + (yf - yi) * f]); }
+      pts.slice(0, ca.n).forEach(p => { d.circulo(p, rb, 'CORDON_SUPERIOR'); d.gruesa([[p[0] - rb * 0.5, p[1]], [p[0] + rb * 0.5, p[1]]], rb, 'CORDON_SUPERIOR'); });
+      cota([cx - bm * k1 / 2, cy - hm * k1 / 2], [cx + bm * k1 / 2, cy - hm * k1 / 2], -7, `${ca.b} cm`);
+      cota([cx + bm * k1 / 2, cy - hm * k1 / 2], [cx + bm * k1 / 2, cy + hm * k1 / 2], 7, `${ca.h} cm`, true);
+      d.texto([cx - bm * k1 / 2, cy - hm * k1 / 2 - 17], `${ca.n} Ø ${ca.barra} (ρ = ${(ca.cuantia * 100).toFixed(2)} %)`, TXT_S, 'COTAS');
+      d.texto([cx - bm * k1 / 2, cy - hm * k1 / 2 - 22], `□ Ø 3/8" · recubrimiento ${RECUB / 10} cm`, TXT_S, 'COTAS');
+      d.texto([cx, cy + hm * k1 / 2 + 14], 'DETALLE 1: COLUMNA C-1 (SECCIÓN)', TXT, 'TEXTOS', 'centro');
+      d.texto([cx, cy + hm * k1 / 2 + 8], `ESC. 1:${e1} · f'c = 210 kg/cm² · fy = 4 200 kg/cm²`, TXT_S, 'TEXTOS', 'centro');
+      // Detalle 2: elevación con la distribución de estribos.
+      const e2 = 50, k2 = 1 / e2, Hc = alturaCol * 1000;
+      const gx = ex + 115, gy0 = ey - 75;                          // base de la columna (NPT)
+      const wcol = Math.max(5, bm * k2);
+      d.caja(gx - wcol / 2, gy0, gx + wcol / 2, gy0 + Hc * k2, 'COLUMNAS', 0.5);
+      d.caja(gx - 22, gy0 - 22, gx + 22, gy0 - 10, 'EJES', 0.25);  // zapata (referencial)
+      d.linea([gx - wcol / 2, gy0], [gx - wcol / 2, gy0 - 10], 'COLUMNAS'); d.linea([gx + wcol / 2, gy0], [gx + wcol / 2, gy0 - 10], 'COLUMNAS');
+      d.texto([gx + 25, gy0 - 17], 'ZAPATA: ver Obra Civil', TXT_S, 'COTAS');
+      const Lo = ca.LoCm * 10;
+      const marcas: number[] = [50];
+      for (let z = 150; z <= Lo; z += 100) marcas.push(z);
+      for (let z = Lo + 200; z < Hc - Lo; z += 200) marcas.push(z);
+      const arriba = marcas.filter(z => z <= Lo).map(z => Hc - z);
+      [...marcas, ...arriba].forEach(z => d.linea([gx - wcol / 2 - 1.5, gy0 + z * k2], [gx + wcol / 2 + 1.5, gy0 + z * k2], 'CORDON_INFERIOR'));
+      cota([gx + wcol / 2, gy0], [gx + wcol / 2, gy0 + Lo * k2], 8, `Lo ${(Lo / 1000).toFixed(2)}`, true);
+      cota([gx + wcol / 2, gy0 + (Hc - Lo) * k2], [gx + wcol / 2, gy0 + Hc * k2], 8, `Lo ${(Lo / 1000).toFixed(2)}`, true);
+      cota([gx - wcol / 2, gy0], [gx - wcol / 2, gy0 + Hc * k2], -8, `h = ${m2(alturaCol)}`, true);
+      d.texto([gx + 17, gy0 + Hc * k2 / 2], 'Rto. @ .20', TXT_S, 'COTAS');
+      d.gruesa([[gx - wcol / 2 - 2, gy0 + Hc * k2], [gx + wcol / 2 + 2, gy0 + Hc * k2]], 0.6, 'VIGAS');  // plancha embebida
+      d.texto([gx, gy0 + Hc * k2 + 14], 'DETALLE 2: COLUMNA C-1 (ELEVACIÓN)', TXT, 'TEXTOS', 'centro');
+      d.texto([gx, gy0 + Hc * k2 + 8], `ESC. 1:50 · ${ca.estribos}`, TXT_S, 'TEXTOS', 'centro');
+      // Detalle 3: plancha embebida y apoyo del tijeral.
+      const e3 = 5, k3 = 1 / e3, pl = bm - 50;
+      const tx = ex + 235, ty = ey - 10;                          // cara superior de la columna
+      d.caja(tx - bm * k3 / 2, ty - 300 * k3, tx + bm * k3 / 2, ty, 'COLUMNAS', 0.5);
+      for (let t = 0; t < 6; t++) d.linea([tx - bm * k3 / 2, ty - 300 * k3 + t * 10], [tx - bm * k3 / 2 + 8, ty - 300 * k3 + t * 10 + 8], 'ARRIOSTRES');
+      d.caja(tx - pl * k3 / 2, ty, tx + pl * k3 / 2, ty + 12.7 * k3, 'VIGAS', 0.6);
+      [-1, 1].forEach(sx => {
+        const px = tx + sx * (pl / 2 - 35) * k3;
+        d.gruesa([[px, ty], [px, ty - 300 * k3 + 8], [px - sx * 50 * k3, ty - 300 * k3 + 8]], 0.55, 'COTAS');  // espárrago con gancho
+      });
+      // Apoyo del tijeral: cordones que llegan a una placa de asiento soldada.
+      const top = ty + 12.7 * k3;
+      d.gruesa([[tx - pl * k3 / 2 + 4, top + 2], [tx + bm * k3 / 2 + 22, top + 14]], 0.7, 'CORDON_SUPERIOR');
+      d.gruesa([[tx - pl * k3 / 2 + 4, top + 2], [tx + bm * k3 / 2 + 22, top + 2]], 0.7, 'CORDON_INFERIOR');
+      d.gruesa([[tx - pl * k3 / 2 + 4, top], [tx - pl * k3 / 2 + 4, top + 10], [tx + 8, top]], 0.3, 'NO_CUMPLE', true);  // cartela + soldadura
+      d.texto([tx + bm * k3 / 2 + 4, ty + 3], `PLANCHA e = 1/2" (${pl / 10}×${pl / 10} cm) EMBEBIDA`, TXT_S, 'COTAS');
+      d.texto([tx + bm * k3 / 2 + 4, ty - 4], '4 ESPÁRRAGOS Ø 5/8" L = 30 cm CON GANCHO, SOLDADOS A LA PLANCHA', TXT_S, 'COTAS');
+      d.texto([tx + bm * k3 / 2 + 4, ty - 11], 'TIJERAL SOLDADO A LA PLANCHA: FILETE 6 mm (E-7018)', TXT_S, 'COTAS');
+      d.texto([tx + bm * k3 / 2 + 4, ty - 18], 'APOYO ARTICULADO: LA COLUMNA TRABAJA EN VOLADIZO', TXT_S, 'COTAS');
+      d.texto([tx + 30, top + 34], 'DETALLE 3: PLANCHA EMBEBIDA Y APOYO DEL TIJERAL', TXT, 'TEXTOS', 'centro');
+      d.texto([tx + 30, top + 28], 'ESC. 1:5', TXT_S, 'TEXTOS', 'centro');
+    }
     // Detalle 3: empalme soldado (piezas de más de 6 m).
-    const sx0 = ex + 240, sy0 = ey + 40, tubo = 60;
+    const sx0 = ca ? ex + 215 : ex + 240, sy0 = ca ? ey - 125 : ey + 40, tubo = 60;
     d.gruesa([[sx0, sy0], [sx0 + 70, sy0]], 0.5, 'CORDON_SUPERIOR'); d.gruesa([[sx0, sy0 + tubo * k * 2], [sx0 + 70, sy0 + tubo * k * 2]], 0.5, 'CORDON_SUPERIOR');
     d.gruesa([[sx0 + 72, sy0], [sx0 + 142, sy0]], 0.5, 'CORDON_SUPERIOR'); d.gruesa([[sx0 + 72, sy0 + tubo * k * 2], [sx0 + 142, sy0 + tubo * k * 2]], 0.5, 'CORDON_SUPERIOR');
     d.caja(sx0 + 56, sy0 - 3, sx0 + 86, sy0 + tubo * k * 2 + 3, 'VIGAS', 0.35);
     d.texto([sx0 + 71, sy0 + tubo * k * 2 + 8], 'CUBREJUNTA 4 LADOS e = 3 mm, L = 150 mm', TXT_S, 'COTAS', 'centro');
     d.texto([sx0 + 71, sy0 - 8], 'SOLDADURA A TOPE PENETRACIÓN COMPLETA + FILETE 4 mm', TXT_S, 'COTAS', 'centro');
-    d.texto([sx0 + 71, sy0 + 54], 'DETALLE 3: EMPALME SOLDADO DE TUBO', TXT, 'TEXTOS', 'centro');
+    d.texto([sx0 + 71, sy0 + 54], `DETALLE ${ca ? 4 : 3}: EMPALME SOLDADO DE TUBO`, TXT, 'TEXTOS', 'centro');
     d.texto([sx0 + 71, sy0 + 48], 'Para piezas de más de 6 m · ESC. 1:2.5', TXT_S, 'TEXTOS', 'centro');
     // Cuadro de columnas.
-    const cols = segs.filter(s => s.rolEstructural === 'columna');
-    const tiposCol = new Map<string, number>(); cols.forEach(s => tiposCol.set(s.profileId || '', (tiposCol.get(s.profileId || '') || 0) + 1));
-    tabla(ox + ML + 6, ey - 120, 'CUADRO DE COLUMNAS', ['Tipo', 'Cant.', 'Perfil', 'Altura (m)', 'Placa base (mm)', 'Pernos'],
-      [...tiposCol.entries()].map(([id, n], i) => [`C-${i + 1}`, String(n), nombreCorto(id), m2(alturaCol), `${placa}×${placa}×${ePlaca}`, `${nPernos} Ø ${perno} J`]), TXT);
+    if (ca) {
+      const nCA = segs.filter(s => s.rolEstructural === 'columna_concreto').length;
+      tabla(ox + ML + 6, ey - 140, 'CUADRO DE COLUMNAS', ['Tipo', 'Cant.', 'Sección', 'Acero longitudinal', 'Estribos Ø 3/8"', 'Concreto'],
+        [['C-1', String(nCA), `${ca.b} × ${ca.h} cm`, `${ca.n} Ø ${ca.barra}`, ca.estribos.replace(/^□ Ø 3\/8": /, ''), "f'c = 210 kg/cm²"]], TXT);
+    } else {
+      const colSeg2 = segs.find(s => s.rolEstructural === 'columna');
+      const colMm2 = colSeg2 ? ladoMm(colSeg2.profileId) : 100;
+      const placa2 = Math.ceil((colMm2 + 150) / 50) * 50, ePlaca2 = colMm2 > 100 ? 15.9 : 12.7;
+      const anclaje2 = ns.find(n => n.isFixedSupport && (n as any).boltDiameter) as any;
+      const cols = segs.filter(s => s.rolEstructural === 'columna');
+      const tiposCol = new Map<string, number>(); cols.forEach(s => tiposCol.set(s.profileId || '', (tiposCol.get(s.profileId || '') || 0) + 1));
+      tabla(ox + ML + 6, ey - 120, 'CUADRO DE COLUMNAS', ['Tipo', 'Cant.', 'Perfil', 'Altura (m)', 'Placa base (mm)', 'Pernos'],
+        [...tiposCol.entries()].map(([id, n], i) => [`C-${i + 1}`, String(n), nombreCorto(id), m2(alturaCol), `${placa2}×${placa2}×${ePlaca2}`, `${anclaje2?.numPernos || 4} Ø ${anclaje2?.boltDiameter || '5/8"'} J`]), TXT);
+    }
     // Especificaciones técnicas y parámetros sísmicos (columna derecha).
     const xe = ox + (FORMATOS.A1[0]) * 0.56;
     let ye = Hh - MT - 10;
@@ -511,8 +594,8 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
       '  platinas ASTM A36 (Fy = 2 530 kg/cm²).',
       'SOLDADURA: AWS E-6011 (raíz) y E-7018 (acabado); filete mínimo 4 mm,',
       '  continuo en uniones de tijeral y columnas (AWS D1.1).',
-      `ANCLAJE: pernos tipo J Ø ${perno} ASTM A307, empotrados 35 cm; grout 25 mm.`,
-      "CONCRETO: dados y zapatas f'c = 210 kg/cm²; acero de refuerzo fy = 4 200 kg/cm².",
+      sis?.concreto ? 'ANCLAJE: plancha embebida e = 1/2" con 4 espárragos Ø 5/8" L = 30 cm (ASTM A36).' : `ANCLAJE: pernos tipo J Ø ${(ns.find(n => n.isFixedSupport && (n as any).boltDiameter) as any)?.boltDiameter || '5/8"'} ASTM A307, empotrados 35 cm; grout 25 mm.`,
+      sis?.concreto ? "CONCRETO: columnas y zapatas f'c = 210 kg/cm²; acero fy = 4 200 kg/cm²; recubrimiento 4 cm." : "CONCRETO: dados y zapatas f'c = 210 kg/cm²; acero de refuerzo fy = 4 200 kg/cm².",
       'COBERTURA: fijada con autoperforantes 12-14 × 2" con arandela EPDM.',
       'PINTURA: arenado o limpieza mecánica, 2 manos de anticorrosivo epóxico',
       '  y 2 manos de esmalte (espesor seco total ≥ 125 micras).',
@@ -524,10 +607,10 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     ]);
     if (sis) bloque('PARÁMETROS SÍSMICOS (E.030-2018)', [
       `Zona ${sis.zona}: Z = ${sis.Z} · Suelo ${sis.suelo}: S = ${sis.S}, Tp = ${sis.Tp} s, TL = ${sis.TL} s`,
-      `Categoría ${sis.categoria}: U = ${sis.U} · Sistema: pórtico ordinario de acero, R = ${sis.R}`,
+      `Categoría ${sis.categoria}: U = ${sis.U} · Sistema: ${sis.concreto ? 'columnas de concreto en voladizo' : 'pórtico ordinario de acero'}, R = ${sis.R}`,
       `T = ${sis.T.toFixed(3)} s · C = ${sis.C.toFixed(2)} · Peso sísmico P = ${sis.PKg.toFixed(0)} kg`,
       `Cortante basal V = ZUCS/R · P = ${sis.VKg.toFixed(0)} kg · por columna ${sis.VColKg.toFixed(0)} kg`,
-      `Deriva máxima ${sis.deriva.toFixed(4)} ≤ ${sis.derivaLim} (acero) · ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`,
+      `Deriva máxima ${sis.deriva.toFixed(4)} ≤ ${sis.derivaLim} (${sis.concreto ? 'concreto' : 'acero'}) · ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`,
     ]);
     bloque('NORMAS', ['RNE E.020 Cargas · E.030 Diseño sismorresistente · E.090 Estructuras metálicas', 'AWS D1.1 Soldadura estructural · ASTM A500 / A36 / A307']);
   }
@@ -564,11 +647,17 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     }
     if (sis) bloque(`${n++}. ANÁLISIS SÍSMICO ESTÁTICO (E.030-2018)`, [
       `Z = ${sis.Z} (${sis.zona}) · U = ${sis.U} (cat. ${sis.categoria}) · S = ${sis.S} (${sis.suelo}), Tp = ${sis.Tp} s, TL = ${sis.TL} s`,
-      `T = hn/CT = ${sis.hn.toFixed(2)}/35 = ${sis.T.toFixed(3)} s → C = ${sis.C.toFixed(2)} · R = ${sis.R} (pórtico ordinario de acero)`,
+      `T = hn/CT = ${sis.hn.toFixed(2)}/35 = ${sis.T.toFixed(3)} s → C = ${sis.C.toFixed(2)} · R = ${sis.R} (${sis.concreto ? 'columnas de concreto en voladizo' : 'pórtico ordinario de acero'})`,
       `P = acero + área·(D + 0.25 L) = ${sis.PKg.toFixed(0)} kg`,
       `V = Z·U·C·S/R · P = ${sis.VKg.toFixed(0)} kg  →  por columna (${sis.nCols}) = ${sis.VColKg.toFixed(0)} kg`,
-      `Columna ${nombreCorto(INVENTARIO_PERFILES_TUBULARES.find(x => x.nombre === sis.perfilCol)?.id) || sis.perfilCol}: Δ = 0.75·R·V·h³/12EI (nudo rígido, base empotrada) = ${sis.deltaCm.toFixed(2)} cm`,
-      `Deriva Δ/h = ${sis.deriva.toFixed(4)} ≤ 0.010 · M = V·h/2 = ${sis.MColKgM.toFixed(0)} kg·m, fb = ${sis.fbKgCm2.toFixed(0)} ≤ ${sis.fbAdmKgCm2.toFixed(0)} kg/cm²`,
+      ...(sis.concreto ? [
+        `Columna de concreto armado C-1 ${sis.concreto.b}×${sis.concreto.h} cm, ${sis.concreto.n} Ø ${sis.concreto.barra} (ρ ${(sis.concreto.cuantia * 100).toFixed(2)} %) · voladizo (apoyo articulado del tijeral)`,
+        `Pu = ${sis.concreto.PuKg.toFixed(0)} ≤ φPn = ${sis.concreto.phiPnKg.toFixed(0)} kg · Mu = V·h = ${sis.concreto.MuKgM.toFixed(0)} ≤ φMn = ${sis.concreto.phiMnKgM.toFixed(0)} kg·m (E.060)`,
+        `Deriva Δ/h = 0.75·R·V·h³/(3·Ec·0.7Ig)/h = ${sis.deriva.toFixed(4)} ≤ 0.007 (concreto) · Estribos ${sis.concreto.estribos}`,
+      ] : [
+        `Columna ${nombreCorto(INVENTARIO_PERFILES_TUBULARES.find(x => x.nombre === sis.perfilCol)?.id) || sis.perfilCol}: Δ = 0.75·R·V·h³/12EI (nudo rígido, base empotrada) = ${sis.deltaCm.toFixed(2)} cm`,
+        `Deriva Δ/h = ${sis.deriva.toFixed(4)} ≤ 0.010 · M = V·h/2 = ${sis.MColKgM.toFixed(0)} kg·m, fb = ${sis.fbKgCm2.toFixed(0)} ≤ ${sis.fbAdmKgCm2.toFixed(0)} kg/cm²`,
+      ]),
       `Resultado: ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · ${sis.motivo}`,
     ]);
     const r = mem.reacciones;
@@ -578,7 +667,7 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     ]);
     bloque('CRITERIOS', [
       'Columnas: Euler con FS = 3 (o 0.6·Fy·A). Vigas, cordones y correas: flecha ≤ L/240 (correas L/180).',
-      'Esbeltez λ = KL/r ≤ 200 (correas y arriostres ≤ 300). Sismo: deriva ≤ 0.010 (E.030, acero).',
+      'Esbeltez λ = KL/r ≤ 200 (correas y arriostres ≤ 300). Sismo: deriva ≤ 0.010 acero / 0.007 concreto (E.030); concreto E.060.',
       'PREDISEÑO: el cálculo definitivo y los planos los firma un ingeniero civil colegiado (CIP).',
     ]);
     const xb = mx + ML + 6 + (FORMATOS.A1[0] - ML - MR) * 0.5;

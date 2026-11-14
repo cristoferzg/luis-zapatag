@@ -143,6 +143,8 @@ export interface Segment3D {
   // Columna mixta: metros de CONCRETO (encamisado) desde la base; el resto es
   // metal. Solo aplica a columnas. Es visual (no altera el metrado por ahora).
   concretoBaseM?: number;
+  // Columna de concreto armado: sección diseñada (cm) para el 3D y los planos.
+  seccionCm?: [number, number];
   // Tensores (varilla/cable): colocados por el botón automático y su función.
   tensorAuto?: boolean;
   oculto?: boolean;             // oculto en el plano y el 3D (sigue en el despiece y el presupuesto)

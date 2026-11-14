@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Láminas estructurales E-01… con escala 1:50/1:100 y sismo E.030 |
+| Última mejora sin compilar | Columnas de concreto armado (Asistente, cálculo E.060, 3D, metrado y detalles en E-02) |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -33,6 +33,24 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-14 · Columnas de concreto armado para techos metálicos
+- Pedido del dueño: ver cómo sería la mejora de columnas de concreto armado en techos metálicos (capturas antes de compilar).
+- Qué se hizo:
+  - Asistente: opción "Columnas de: Metálicas (tubo) / Concreto armado" (se recuerda). Con concreto, la nave se arma igual y
+    las columnas pasan a `columna_concreto` con la sección diseñada (`seccionCm`).
+  - `techos/columnaConcreto.ts` (nuevo): prediseño E.060 — sección de la lista 25×25 … 60×60, cuantía 1–4 %, φPn ≥ Pu,
+    φMn ≥ Mu = V·h (voladizo, tijeral articulado sobre plancha embebida), deriva 0.75·R·V·h³/(3·Ec·0.7Ig)/h ≤ 0.007,
+    estribos Ø 3/8" 1 @ .05, n @ .10 en Lo, Rto. @ .20; metrado (concreto, fierro, encofrado, cemento, arena, piedra, agua).
+  - Memoria (`memoriaCalculo.ts`): sismo con columnas de concreto (`sismo.concreto`), en la app y en la lámina E-03.
+  - 3D: columnas grises con su sección real. Resumen: tarjeta "Columnas de concreto armado" con acero, estribos y metrado.
+  - Láminas: E-01 cuadro con "C-1 25×25 cm · 4 Ø 5/8""; E-02 con Detalle 1 sección, Detalle 2 elevación con estribos y Lo,
+    Detalle 3 plancha embebida + espárragos + apoyo del tijeral, Detalle 4 empalme; cuadro de columnas de concreto;
+    especificaciones de anclaje y concreto adaptadas.
+- Pruebas: tsc 0 errores; dos aguas 10×18×4 m desde la app: C-1 25×25 cm, 4 Ø 5/8" (ρ 1.27 %), deriva 0.0051 ≤ 0.007 → CUMPLE;
+  metrado 2.50 m³, 453 kg de fierro, 40 m² encofrado.
+- Versión: sin compilar aún.
+- Pendiente: zapata de la columna (hoy "ver Obra Civil"); botón para pasar columnas existentes a concreto desde el panel.
 
 ## 2026-11-14 · Láminas solo estructurales (sin despiece)
 - Pedido del dueño: el despiece de cortes NO va en las láminas; verificar que todas sean estructurales.

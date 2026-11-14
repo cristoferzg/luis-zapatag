@@ -74,6 +74,9 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [luzStr, setLuzStr] = useState<string>('12');
   const [largoStr, setLargoStr] = useState<string>('24');
   const [alturaColStr, setAlturaColStr] = useState<string>('4.5');
+  // Material de las columnas: metálicas (tubo) o de concreto armado (tijeral sobre plancha embebida).
+  const [columnasDe, setColumnasDeSt] = useState<'metal' | 'concreto'>(() => { try { return localStorage.getItem('techos_columnas_de') === 'concreto' ? 'concreto' : 'metal'; } catch { return 'metal'; } });
+  const setColumnasDe = (v: 'metal' | 'concreto') => { setColumnasDeSt(v); try { localStorage.setItem('techos_columnas_de', v); } catch { /* */ } };
   const [flechaStr, setFlechaStr] = useState<string>('2.0');
   const [pendienteStr, setPendienteStr] = useState<string>('20');
   const [alturaCol2Str, setAlturaCol2Str] = useState<string>('6.0');
@@ -494,6 +497,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
     if (!engineState) return;
     // Perfiles aptos según el tamaño del techo (columnas, cordones, correas…), no todo en 3 × 3 cm.
     engineState.pedirPerfilesAptos?.();
+    engineState.pedirColumnasConcreto?.(columnasDe === 'concreto' && tipo !== 'marquesina');
 
     // N° de espacios → separación equivalente para los tipos que trabajan por
     // separación (parabólico, una agua, cuatro aguas…); a dos aguas usa el N° directo.
@@ -1000,6 +1004,23 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                   ))}
                 </div>
               </div>
+
+              {/* MATERIAL DE LAS COLUMNAS */}
+              {tipo !== 'marquesina' && (
+              <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1">Columnas de <QueEs termino="columna" /></span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {([['metal', 'Metálicas (tubo)', 'Todo de acero, se arma en taller'], ['concreto', 'Concreto armado', 'El tijeral se apoya en una plancha embebida']] as const).map(([v, t, d]) => (
+                    <button key={v} type="button" onClick={() => setColumnasDe(v)}
+                      className={`text-left p-2 rounded-lg border cursor-pointer ${columnasDe === v ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-slate-200 hover:bg-slate-50'}`}>
+                      <span className="block text-xs font-black text-slate-900">{t}</span>
+                      <span className="block text-[10px] text-slate-500 leading-snug">{d}</span>
+                    </button>
+                  ))}
+                </div>
+                {columnasDe === 'concreto' && <p className="text-[10px] text-blue-800 bg-blue-50 rounded-md px-2 py-1">La sección y el acero (fierro y estribos) se calculan solos según el peso del techo y el sismo (E.060 / E.030).</p>}
+              </div>
+              )}
 
               {/* ALTURA DE COLUMNAS */}
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
