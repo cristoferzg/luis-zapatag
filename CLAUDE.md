@@ -230,3 +230,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   `wa_conversaciones`, `wa_pedidos`, `wa_capturas`, `wa_uso` (solo servidor escribe; admin lee), `wa_eventos` (dedupe).
 - UI: Administración → WhatsApp (`WhatsAppAdminView`, `lib/whatsappBot.ts`). DEV: `__waSimulado` (incluir en el grep del dist).
 - Prueba: `cd seguridad && npm run test:whatsapp` (Meta e IA simuladas).
+
+## MCP de Academia (cursos)
+- `functions/mcpCursos.js` → Cloud Function `mcpCursos` (onRequest, MCP Streamable HTTP sin sesión, JSON-RPC). Clave: secreto
+  `MCP_CLAVE` (Bearer o `?clave=`). Herramientas: `listar_cursos`, `guardar_curso`, `guardar_clase` (exige videoUrl al crear),
+  `subir_archivo` (url https o base64 → Storage `academia/mcp/<carpeta>/`, enlace con token). Sin herramientas de borrar.
+- Escribe `cursos` / `tutoriales` con los MISMOS campos que `UsabilidadVideosView` (clase ↔ curso por nombre). Reglas sin cambios.
+- Contenido listo en `contenido/academia/` (catalogo.json, portadas, recursos PDF; generadores en `fuentes/`). Carga: `cargar.mjs`.
+- Prueba: `cd seguridad && npm run test:mcp` (base y Storage simulados).
