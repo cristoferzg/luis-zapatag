@@ -1,6 +1,10 @@
 import { aVigaSimple } from './vigaSimple';
 import { aplicarPerfilesAptos } from './perfilesAptos';
 import { calcularMemoria } from './memoriaCalculo';
+import { metradoColumnasCA } from './columnaConcreto';
+import { metradoZapatas } from './zapata';
+import { agregarCrucesPared, crucesPared } from './arriostresPared';
+import { precio } from '../../lib/catalogoPrecios';
 import { aplicarCortaviento, type OpcionesCortaviento } from './cortaviento';
 // Hook de Gestión de Estado Vectorial CAD y Trazado Libre (Node-to-Node / Line-to-Line)
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
@@ -157,6 +161,8 @@ export interface UseTechosCadEngineReturn {
   setColumnasConcretoBaseM: (metros: number) => void;        // aplica a TODAS las columnas
   /** Pasa TODAS las columnas a concreto armado (con su sección diseñada) o de vuelta a metal (perfil apto). */
   setColumnasMaterial: (material: 'concreto' | 'metal') => void;
+  /** Agrega cruces de arriostre (varilla) en las paredes laterales: 1.er y último paño. */
+  agregarCrucesParedes: () => void;
   setSegmentoConcretoBase: (segmentId: string, metros: number) => void; // por columna
   generateMultinivel: (luzM?: number, largoM?: number, numPisos?: number, alturaPisoM?: number, numVanosX?: number, numVanosZ?: number) => void;
   generateRoofMonitor: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, anchoMonitorM?: number, alturaMonitorM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
@@ -458,7 +464,10 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       // Sismo (E.030): si la deriva o la flexión de columnas no cumple, columna un tamaño mayor.
       const COLS = ['perfil_sq_3x3_30', 'perfil_sq_4x4_30', 'perfil_sq_4x4_45', 'perfil_sq_5x5_45', 'perfil_sq_6x6_45', 'perfil_sq_6x6_60', 'perfil_sq_8x8_60'];
       const sismoFalla = mem.sismo?.estado === 'NO_CUMPLE';
-      if (!refuerzos.length && !sismoFalla) break;
+      // Dirección Y: si no cumple y faltan cruces en las paredes, se agregan (1.er y último paño de cada costado).
+      const yFalla = mem.sismo?.dirY?.estado === 'NO_CUMPLE' && !crucesPared(nodes, segs).length;
+      if (yFalla) { segs = agregarCrucesPared(nodes, segs); cambios++; }
+      if (!refuerzos.length && !sismoFalla && !yFalla) break;
       segs = { ...segs };
       refuerzos.forEach(g => g.ids.forEach(id => { if (segs[id]) { segs[id] = { ...segs[id], profileId: g.recomendadoId! }; cambios++; } }));
       if (sismoFalla) Object.values(segs).forEach(sg => {
@@ -4031,6 +4040,12 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(nodes, segs, coverageZones);
   }, [nodes, segments, coverageZones, structuralInputs, pushHistory]);
 
+  const agregarCrucesParedes = useCallback(() => {
+    const segs = agregarCrucesPared(nodes, segments);
+    setSegments(segs);
+    pushHistory(nodes, segs, coverageZones);
+  }, [nodes, segments, coverageZones, pushHistory]);
+
   // Ajuste fino: define el concreto de UNA columna en particular.
   const setSegmentoConcretoBase = useCallback((segmentId: string, metros: number) => {
     const m = Math.max(0, metros || 0);
@@ -4425,8 +4440,33 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     const segmentosAcero = Object.fromEntries(
       Object.entries(segments).filter(([, s]) => s.rolEstructural !== 'columna_concreto')
     ) as typeof segments;
-    return generarReportePresupuestoBom(nodes, segmentosAcero, coverageZones, costosUsuario);
-  }, [nodes, segments, coverageZones, costosUsuario, catalogo]);
+    // Obra civil del techo: columnas de concreto armado y zapatas, con el metrado de la memoria de cálculo.
+    const cimentacion: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[] = [];
+    try {
+      const mem = calcularMemoria(nodes, segments, coverageZones, structuralInputs);
+      const linea = (clave: string, nombre: string, unidad: string, cantidad: number, pu: number, nota: string) => {
+        const c = Math.round(cantidad * 100) / 100, p = precio(clave, pu);
+        if (c > 0) cimentacion.push({ clave, nombre, unidad, cantidad: c, precio: p, subtotal: Math.round(c * p * 100) / 100, nota });
+      };
+      const ca = mem.sismo?.concreto;
+      if (ca) {
+        const m = metradoColumnasCA(nodes, segments, ca);
+        linea('techos:concreto_columna_m3', `Concreto f'c 210 en columnas ${ca.b}×${ca.h} cm`, 'm³', m.volumenM3, 420, `${m.columnas} columnas · ${m.alturaTotalM.toFixed(1)} m`);
+        linea('techos:fierro_kg', `Acero corrugado fy 4200 (${ca.n} Ø ${ca.barra} + estribos Ø 3/8")`, 'kg', m.aceroKg, 5.2, 'Incluye anclaje en zapata y ganchos');
+        linea('techos:encofrado_m2', 'Encofrado y desencofrado de columnas', 'm²', m.encofradoM2, 48, 'Madera o metálico');
+      }
+      const z = mem.zapata;
+      const nZ = Object.values(segments).filter(sg => /^columna/.test(sg.rolEstructural || '') && Math.min(nodes[sg.nodeAId]?.y ?? 9, nodes[sg.nodeBId]?.y ?? 9) < 0.1).length;
+      if (z && nZ) {
+        const mz = metradoZapatas(z, nZ);
+        linea('techos:excavacion_m3', 'Excavación manual de zapatas', 'm³', mz.excavacionM3, 38, `${nZ} zapatas · Df ${z.Df.toFixed(2)} m`);
+        linea('techos:solado_m3', 'Solado de concreto 1:12, e = 10 cm', 'm³', mz.soladoM3, 280, 'Bajo cada zapata');
+        linea('techos:concreto_zapata_m3', `Concreto f'c 210 en zapatas ${z.B.toFixed(2)}×${z.B.toFixed(2)}×${z.h.toFixed(2)} m`, 'm³', mz.concretoM3, 400, `${nZ} zapatas Z-1`);
+        linea('techos:fierro_zapata_kg', `Acero fy 4200 en zapatas (${z.n} Ø ${z.barra} @ ${z.sep} cm, 2 sentidos)`, 'kg', mz.aceroKg, 5.2, 'Malla inferior');
+      }
+    } catch { /* sin memoria */ }
+    return generarReportePresupuestoBom(nodes, segmentosAcero, coverageZones, costosUsuario, cimentacion);
+  }, [nodes, segments, coverageZones, costosUsuario, catalogo, structuralInputs]);
 
   // Cálculo de Análisis Estructural segun RNE E.020, E.030, E.090
   const structuralReport: StructuralAnalysisReport = useMemo(() => {
@@ -4561,6 +4601,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     columnasConcretoBaseM,
     setColumnasConcretoBaseM,
     setColumnasMaterial,
+    agregarCrucesParedes,
     setSegmentoConcretoBase,
     generateMultinivel,
     generateRoofMonitor,

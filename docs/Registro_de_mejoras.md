@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Concreto armado + zapatas + sismo en 3D (tipo SAP) con diagramas |
+| Última mejora sin compilar | Paquete de 11 mejoras (despiece con empalmes, obra civil en presupuesto, dir. Y, modos, anclaje, cimentación, conexiones, PDF, video sismo, exigencia) |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -33,6 +33,26 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-14 · Paquete de 11 mejoras (despiece, presupuesto, ingeniería, planos, presentación)
+- Pedido del dueño: "hazlo todo" (lista de pendientes).
+- Qué se hizo:
+  1. Despiece: piezas > 6 m se parten solas en tramos iguales con empalme ("1/2 empalme") (`techosCadCalculations.ts`).
+  2. Presupuesto: obra civil (concreto, fierro y encofrado de columnas; excavación, solado, concreto y fierro de zapatas)
+     suma al costo directo, con precios del catálogo (`techos:concreto_columna_m3`, `techos:fierro_kg`…). Se ve en Materiales y Presupuesto formal.
+  3. Dirección Y: `arriostresPared.ts` (cruces de varilla 5/8" en 1.er y último paño de cada costado); memoria `sismo.dirY`
+     (deriva Y con columnas + varillas, fuerza por varilla); el Asistente las agrega si Y no cumple; botón en el panel de piezas.
+  4. Modos de vibración X, Y y torsión (`sismo.modos`), en Comportamiento sísmico y en la memoria (lámina).
+  5. Fuerzas en las barras del tijeral (vista Axiales: compresión roja / tracción azul, grosor según fuerza).
+  6. Anclaje: pernos J / espárragos contra levantamiento por viento (+ momento por sismo en bases rígidas) (`memoria.anclaje`).
+  7. Lámina PLANTA DE CIMENTACIÓN (zapatas Z-1 con ejes, cotas, cuadro y notas; escala mayor que quepa).
+  8. Lámina DETALLES DE CONEXIONES (D-1 correa sobre tijeral, D-2 cumbrera, D-3 apoyo del tijeral, D-4 nudo).
+  9. Láminas en PDF A3 / A1 (`pdfLaminas`, jsPDF) desde la ventana de exportar.
+  10. Botón Grabar: 3.ª fase "Sismo de diseño E.030" con colores por exigencia.
+  11. Botón "Exigencia" en el 3D: colores por ratio demanda/capacidad con carga normal + leyenda.
+- Pruebas: tsc 0 errores; dos aguas (concreto) y cuatro aguas (acero) desde la app; 5 láminas DXF y PDF de 5 páginas.
+  Cuatro aguas: el Asistente agregó 8 varillas de pared → dir. Y deriva 0.0007 CUMPLE.
+- Versión: sin compilar aún.
 
 ## 2026-11-14 · Sismo en el 3D como SAP2000 y diagramas de esfuerzos
 - Pedido del dueño: ver el comportamiento sísmico como en programas de ingeniería (SAP).

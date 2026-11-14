@@ -136,11 +136,14 @@ export interface MemoriaDxf {
   reacciones: { servicioKg: number; ultimaKg: number; levantamientoKg: number; nCols: number };
   pesoTotalKg: number; kgM2: number; estado: string;
   tijeral: { w: number; luz: number; d: number; M: number; Ncordon: number; V: number } | null;
+  anclaje?: { tipo: string; demandaKg: number; capacidadKg: number; levantamientoKg: number; estado: string; motivo: string } | null;
   zapata?: { B: number; h: number; d: number; Df: number; qa: number; PKg: number; PuKg: number; MKgM: number; qMax: number; qLim: number; vuPunzKg: number; phiVcPunzKg: number; vuCorteKg: number; phiVcCorteKg: number; barra: string; n: number; sep: number; estado: string; motivo: string } | null;
   sismo?: {
     Z: number; U: number; C: number; S: number; R: number; Tp: number; TL: number; T: number; hn: number; zona: string; suelo: string; categoria: string;
     PKg: number; VKg: number; VColKg: number; nCols: number; perfilCol: string; deltaCm: number; deriva: number; derivaLim: number;
     MColKgM: number; fbKgCm2: number; fbAdmKgCm2: number; ratioFlexion: number; estado: string; motivo: string;
+    dirY?: { sistema: string; nCruces: number; deltaCm: number; deriva: number; derivaLim: number; T: number; fuerzaVarillaKg: number; capVarillaKg: number; varilla: string; estado: string; motivo: string } | null;
+    modos?: { n: number; T: number; tipo: string; masa: string }[];
     concreto?: { b: number; h: number; n: number; barra: string; asCm2: number; cuantia: number; PuKg: number; phiPnKg: number; MuKgM: number; phiMnKgM: number; deriva: number; derivaLim: number; estribos: string; LoCm: number; estado: string; motivo: string } | null;
   } | null;
 }
@@ -164,11 +167,11 @@ const DIAM_MM: Record<string, number> = { '1/2"': 12.7, '5/8"': 15.9, '3/4"': 19
  *        especificaciones, E-0n Memoria de cálculo (con análisis sísmico). Solo contenido estructural:
  *        el despiece de cortes es información de taller y NO va en las láminas.
  */
-export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, o: OpcionesLamina): string {
+function construirLaminas(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, o: OpcionesLamina): { d: Dibujo; hojas: { x: number; w: number; h: number; codigo: string }[] } {
   const d = new Dibujo();
   const ns = Object.values(nodes);
   const segs = Object.values(segments).filter(s => nodes[s.nodeAId] && nodes[s.nodeBId]);
-  if (!ns.length || !segs.length) return armarDxf(o.nombre, d, 'mm');
+  if (!ns.length || !segs.length) return { d, hojas: [] };
   const fecha = o.fecha || new Date().toLocaleDateString('es-PE');
   const hojas: { x: number; w: number; h: number; codigo: string }[] = [];
   let xSig = 0;
@@ -450,6 +453,110 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     .forEach((t, i) => { if (xNot + 60 < X0 + FORMATOS.A1[0] - ML - MR - RW - 8) d.texto([xNot, yFr - 3 - i * 5.6], t, i ? TXT_S : TXT, 'TEXTOS'); });
 
   // =========================================================================
+  // PLANTA DE CIMENTACIÓN (zapatas, columnas y ejes)
+  // =========================================================================
+  const zpC = o.memoria?.zapata;
+  const colsBase = segs.filter(s => /^columna/.test(s.rolEstructural || '')).map(s => { const a = nodes[s.nodeAId], b = nodes[s.nodeBId]; return a.y <= b.y ? a : b; });
+  if (zpC && colsBase.length) {
+    const xsB = colsBase.map(n => n.x), zsB = colsBase.map(n => n.z || 0);
+    const bx0 = Math.min(...xsB), bx1 = Math.max(...xsB), bz0 = Math.min(...zsB), bz1 = Math.max(...zsB);
+    const Wm = bx1 - bx0 + zpC.B + 2, Hm = bz1 - bz0 + zpC.B + 2;
+    const areaW = FORMATOS.A1[0] - ML - MR - 120, areaH = FORMATOS.A1[1] - MT - MB - RH - 60;
+    let esc = 50; // la planta de cimentación va a la mayor escala que quepa (1:50, 1:75, 1:100…)
+    while ((Wm * 1000) / esc > areaW || (Hm * 1000) / esc > areaH) esc = ESCALAS.find(e => e > esc) || esc * 2;
+    const { ox } = hoja('PLANTA DE CIMENTACIÓN', `1:${esc} (indicada)`);
+    const k = 1000 / esc;
+    const cx0 = ox + ML + 45 + (areaW - (bx1 - bx0) * k) / 2, cy0 = MB + RH + 40 + (areaH - (bz1 - bz0) * k) / 2;
+    const Pp = (x: number, z: number): P2 => [cx0 + (x - bx0) * k, cy0 + (z - bz0) * k];
+    const caLado = sis?.concreto ? Math.max(sis.concreto.b, sis.concreto.h) / 100 : 0.40;
+    const ejesX = [...new Set(xsB.map(r2))].sort((p, q) => p - q), ejesZ = [...new Set(zsB.map(r2))].sort((p, q) => p - q);
+    ejesPuestos = [];
+    ejesX.forEach((x, i) => { const [px] = Pp(x, 0); d.linea([px, Pp(0, bz0)[1] - zpC.B * k / 2 - 12], [px, Pp(0, bz1)[1] + zpC.B * k / 2 + 10], 'EJES'); eje([px, Pp(0, bz1)[1] + zpC.B * k / 2 + 16], letra(i)); });
+    ejesZ.forEach((z, i) => { const [, py] = Pp(0, z); d.linea([Pp(bx0, 0)[0] - zpC.B * k / 2 - 12, py], [Pp(bx1, 0)[0] + zpC.B * k / 2 + 10, py], 'EJES'); eje([Pp(bx0, 0)[0] - zpC.B * k / 2 - 18, py], String(i + 1)); });
+    colsBase.forEach(n => {
+      const [px, py] = Pp(n.x, n.z || 0), hb = zpC.B * k / 2, hc = caLado * k / 2;
+      d.caja(px - hb, py - hb, px + hb, py + hb, 'COLUMNAS', 0.35);
+      for (let t = -hb + 2; t < hb; t += 2.5) d.linea([px - hc, py + Math.max(-hc, Math.min(hc, t))], [px - hc, py + Math.max(-hc, Math.min(hc, t))], 'ARRIOSTRES');
+      d.caja(px - hc, py - hc, px + hc, py + hc, 'CORDON_SUPERIOR', 0.5);
+      d.linea([px - hc, py - hc], [px + hc, py + hc], 'CORDON_SUPERIOR'); d.linea([px - hc, py + hc], [px + hc, py - hc], 'CORDON_SUPERIOR');
+      d.texto([px + hb + 1.5, py - hb + 2], 'Z-1', TXT_S, 'TEXTOS');
+    });
+    // Cotas: separación de ejes en ambos sentidos y totales.
+    const yTop = Pp(0, bz1)[1] + zpC.B * k / 2 + 26;
+    if (ejesX.length > 1) cadena(ejesX.map(x => x - bx0), 0, u => [Pp(bx0 + u, 0)[0], yTop], false, k);
+    const xRight = Pp(bx1, 0)[0] + zpC.B * k / 2 + 20;
+    if (ejesZ.length > 1) cadena(ejesZ.map(z => z - bz0), 0, v => [xRight, Pp(0, bz0 + v)[1]], true, k);
+    cota([Pp(bx0, 0)[0], yTop], [Pp(bx1, 0)[0], yTop], 8, `${m2(bx1 - bx0)} m`);
+    cota([xRight, Pp(0, bz0)[1]], [xRight, Pp(0, bz1)[1]], 8, `${m2(bz1 - bz0)} m`, true);
+    const cxT = ox + ML + 45 + areaW / 2;
+    d.texto([cxT, MB + RH + 22], 'PLANTA DE CIMENTACIÓN', TXT_T, 'TEXTOS', 'centro');
+    d.gruesa([[cxT - anchoTxt('PLANTA DE CIMENTACIÓN', TXT_T) / 2, MB + RH + 19.3], [cxT + anchoTxt('PLANTA DE CIMENTACIÓN', TXT_T) / 2, MB + RH + 19.3]], 0.35, 'TEXTOS');
+    d.texto([cxT, MB + RH + 13], `${colsBase.length} zapatas Z-1 de ${zpC.B.toFixed(2)} × ${zpC.B.toFixed(2)} m · ESC. 1:${esc}`, TXT_S, 'TEXTOS', 'centro');
+    tabla(ox + ML + 6, MB + RH + 6 + 7 * 2.7 * 2.2, 'CUADRO DE ZAPATAS', ['Tipo', 'Cant.', 'B × B (m)', 'h (m)', 'Df (m)', 'Acero inferior', 'Columna'],
+      [['Z-1', String(colsBase.length), `${zpC.B.toFixed(2)} × ${zpC.B.toFixed(2)}`, zpC.h.toFixed(2), zpC.Df.toFixed(2), `${zpC.n} Ø ${zpC.barra} @ ${zpC.sep} cm (2 sent.)`, sis?.concreto ? `C-1 ${sis.concreto.b}×${sis.concreto.h} cm` : 'Pedestal 40×40 cm + placa base']]);
+    ['NOTAS DE CIMENTACIÓN:', `1. Capacidad portante asumida qa = ${zpC.qa} kg/cm²: verificar con estudio de suelos (EMS).`, "2. Concreto f'c = 210 kg/cm² · solado 1:12 e = 0.10 m · recubrimiento 7.5 cm.", '3. Ver detalle de zapata en la lámina de detalles.']
+      .forEach((t, i) => d.texto([ox + FORMATOS.A1[0] - MR - RW - 2, MB + RH + 50 - i * 5.6], t, i ? TXT_S : TXT, 'TEXTOS', 'der'));
+  }
+
+  // =========================================================================
+  // DETALLES DE CONEXIONES (escala 1:10, esquemáticos)
+  // =========================================================================
+  {
+    const { ox, H: Hh } = hoja('DETALLES DE CONEXIONES METÁLICAS', '1:10');
+    const k = 1 / 10; // mm reales → mm de papel
+    const cord = segs.find(s => s.rolEstructural === 'cordon_superior') || segs.find(s => s.rolEstructural === 'viga_principal');
+    const corr = segs.find(s => s.rolEstructural === 'correa');
+    const col = segs.find(s => s.rolEstructural === 'columna');
+    const ladoC = (cord ? ladoMm(cord.profileId) : 50) * k, ladoR = (corr ? ladoMm(corr.profileId) : 100) * k, ladoCol = (col ? ladoMm(col.profileId) : 100) * k;
+    const titulo = (x: number, y: number, t: string, sub: string) => { d.texto([x, y], t, TXT, 'TEXTOS', 'centro'); d.texto([x, y - 6], sub, TXT_S, 'TEXTOS', 'centro'); };
+    const y1 = Hh - MT - 120;
+    // D-1: correa sobre cordón superior con clip angular.
+    const x1 = ox + ML + 90;
+    d.caja(x1 - 60, y1 - ladoC, x1 + 60, y1, 'CORDON_SUPERIOR', 0.6);                                    // cordón (vista lateral)
+    d.caja(x1 - ladoR * 0.25, y1, x1 + ladoR * 0.25, y1 + ladoR, 'CORREAS', 0.6);                          // correa (sección)
+    d.gruesa([[x1 + ladoR * 0.25 + 0.3, y1 + 0.3], [x1 + ladoR * 0.25 + 5.1, y1 + 0.3], [x1 + ladoR * 0.25 + 0.3, y1 + 0.3], [x1 + ladoR * 0.25 + 0.3, y1 + 5.1]], 0.5, 'VIGAS'); // clip L
+    d.circulo([x1 + ladoR * 0.25 + 0.3, y1 + 3], 0.6, 'COTAS'); d.circulo([x1 + ladoR * 0.25 + 3, y1 + 0.3], 0.6, 'COTAS');
+    d.texto([x1 + 14, y1 + ladoR + 4], `CORREA ${nombreCorto(corr?.profileId)}`, TXT_S, 'COTAS');
+    d.texto([x1 + 14, y1 + 4], 'CLIP ÁNGULO L 2"×2"×3/16" · 2 PERNOS Ø 1/2" O SOLDADURA 4 mm', TXT_S, 'COTAS');
+    d.texto([x1 - 58, y1 - ladoC - 5], `CORDÓN SUPERIOR ${nombreCorto(cord?.profileId)}`, TXT_S, 'COTAS');
+    titulo(x1, y1 + ladoR + 20, 'D-1: CORREA SOBRE TIJERAL', 'ESC. 1:10');
+    // D-2: cumbrera (unión de cordones superiores con cartela).
+    const x2 = ox + ML + 330, y2 = y1 - 10;
+    const ang = 0.2;
+    d.gruesa([[x2 - 70, y2 - 70 * ang], [x2, y2]], ladoC, 'CORDON_SUPERIOR'); d.gruesa([[x2, y2], [x2 + 70, y2 - 70 * ang]], ladoC, 'CORDON_SUPERIOR');
+    d.gruesa([[x2, y2 - 6], [x2, y2 - 40]], ladoC * 0.6, 'MONTANTES');
+    d.gruesa([[x2 - 14, y2 - 14 * ang - 3], [x2 + 14, y2 - 14 * ang - 3], [x2, y2 + 4], [x2 - 14, y2 - 14 * ang - 3]], 0.4, 'VIGAS', true);
+    d.texto([x2 + 18, y2 + 8], 'CARTELA e = 1/4" A AMBOS LADOS', TXT_S, 'COTAS');
+    d.texto([x2 + 18, y2 + 2], 'SOLDADURA FILETE 5 mm TODO EL CONTORNO (E-7018)', TXT_S, 'COTAS');
+    titulo(x2, y2 + 24, 'D-2: CUMBRERA', 'ESC. 1:10');
+    // D-3: apoyo del tijeral sobre columna (metálica: placa de cabeza; concreto: plancha embebida).
+    const x3 = ox + ML + 90, y3 = y1 - 170;
+    if (sis?.concreto) {
+      d.caja(x3 - sis.concreto.b * 10 * k / 2, y3 - 60, x3 + sis.concreto.b * 10 * k / 2, y3, 'COLUMNAS', 0.6);
+      d.texto([x3 + sis.concreto.b * 10 * k / 2 + 3, y3 - 30], `COLUMNA C-1 ${sis.concreto.b}×${sis.concreto.h} cm`, TXT_S, 'COTAS');
+    } else {
+      d.caja(x3 - ladoCol / 2, y3 - 60, x3 + ladoCol / 2, y3, 'COLUMNAS', 0.6);
+      d.texto([x3 + ladoCol / 2 + 3, y3 - 30], `COLUMNA ${nombreCorto(col?.profileId)}`, TXT_S, 'COTAS');
+    }
+    d.caja(x3 - 15, y3, x3 + 15, y3 + 1.27, 'VIGAS', 0.6);
+    d.gruesa([[x3 - 8, y3 + 1.3], [x3 + 60, y3 + 1.3 + 60 * 0.2]], ladoC, 'CORDON_SUPERIOR');
+    d.gruesa([[x3 - 8, y3 + 1.3], [x3 + 60, y3 + 1.3]], ladoC, 'CORDON_INFERIOR');
+    d.texto([x3 + 18, y3 - 6], sis?.concreto ? 'PLANCHA EMBEBIDA e = 1/2" + 4 ESPÁRRAGOS Ø 5/8"' : 'PLACA DE CABEZA e = 1/2" SOLDADA A LA COLUMNA', TXT_S, 'COTAS');
+    d.texto([x3 + 18, y3 - 12], 'CORDONES SOLDADOS A LA PLACA: FILETE 6 mm (E-7018)', TXT_S, 'COTAS');
+    titulo(x3 + 20, y3 + 34, 'D-3: APOYO DEL TIJERAL EN LA COLUMNA', 'ESC. 1:10');
+    // D-4: nudo del tijeral (diagonal y montante soldados al cordón).
+    const x4 = ox + ML + 330, y4 = y3 - 10;
+    d.gruesa([[x4 - 60, y4], [x4 + 60, y4]], ladoC, 'CORDON_INFERIOR');
+    d.gruesa([[x4, y4], [x4, y4 + 45]], ladoC * 0.6, 'MONTANTES');
+    d.gruesa([[x4 + 2, y4], [x4 + 40, y4 + 45]], ladoC * 0.6, 'DIAGONALES');
+    d.gruesa([[x4 - 4, y4 + ladoC / 2 + 0.6], [x4 + 4, y4 + ladoC / 2 + 0.6]], 0.5, 'NO_CUMPLE');
+    d.texto([x4 + 44, y4 + 30], 'DIAGONAL Y MONTANTE CORTADOS A BOCA DE PESCADO', TXT_S, 'COTAS');
+    d.texto([x4 + 44, y4 + 24], 'SOLDADURA FILETE 4 mm TODO EL CONTORNO', TXT_S, 'COTAS');
+    titulo(x4, y4 + 58, 'D-4: NUDO DEL TIJERAL', 'ESC. 1:10');
+    d.texto([ox + ML + 6, MB + RH + 20], 'Detalles esquemáticos referenciales: las dimensiones finales de placas, cartelas y soldaduras las define el ingeniero responsable.', TXT_S, 'TEXTOS');
+  }
+
+  // =========================================================================
   // DETALLES Y ESPECIFICACIONES TÉCNICAS
   // =========================================================================
   {
@@ -693,6 +800,11 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
       `Resultado: ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · ${sis.motivo}`,
     ]);
     const r = mem.reacciones;
+    if (sis?.dirY || sis?.modos) bloque(`${n++}. DIRECCIÓN Y, MODOS Y ANCLAJE`, [
+      ...(sis.modos || []).map(m => `Modo ${m.n}: T = ${m.T.toFixed(3)} s · ${m.tipo} (${m.masa})`),
+      ...(sis.dirY ? [`Dir. Y: ${sis.dirY.sistema === 'arriostrado' ? `cruces de pared (${sis.dirY.nCruces} varillas)` : 'columnas en voladizo'} · deriva ${sis.dirY.deriva.toFixed(4)} ≤ ${sis.dirY.derivaLim}${sis.dirY.nCruces ? ` · varilla ${sis.dirY.fuerzaVarillaKg.toFixed(0)} ≤ ${sis.dirY.capVarillaKg.toFixed(0)} kg` : ''} · ${sis.dirY.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`] : []),
+      ...(mem.anclaje ? [`Anclaje: ${mem.anclaje.tipo} · tracción ${mem.anclaje.demandaKg.toFixed(0)} ≤ ${mem.anclaje.capacidadKg.toFixed(0)} kg (levantamiento ${mem.anclaje.levantamientoKg.toFixed(0)} kg) · ${mem.anclaje.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`] : []),
+    ]);
     const zm = mem.zapata;
     if (zm) bloque(`${n++}. ZAPATA AISLADA Z-1 (E.050 / E.060)`, [
       `B = ${zm.B.toFixed(2)} m · h = ${zm.h.toFixed(2)} m · Df = ${zm.Df.toFixed(2)} m · ${zm.n} Ø ${zm.barra} @ ${zm.sep} cm en dos sentidos · qa = ${zm.qa} kg/cm²`,
@@ -733,5 +845,64 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
 
   // "n de N" en cada rótulo.
   hojas.forEach((h, i) => d.texto([h.x + h.w - MR - 4, MB + RH / 5 * 4 - 3], `${i + 1} de ${hojas.length}`, TXT_S, 'TEXTOS', 'der'));
-  return armarDxf(o.nombre, d, 'mm');
+  return { d, hojas };
+}
+
+
+/** LÁMINAS ESTRUCTURALES en DXF (AutoCAD). */
+export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, o: OpcionesLamina): string {
+  return armarDxf(o.nombre, construirLaminas(nodes, segments, o).d, 'mm');
+}
+
+// ---------------------------------------------------------------------------
+// LÁMINAS EN PDF (para quien no tiene AutoCAD): una página por lámina, en A3 apaisado
+// (A1 reducido a la mitad) o A1 a tamaño real. Mismo dibujo que el DXF.
+// ---------------------------------------------------------------------------
+const COLOR_PDF: Record<string, [number, number, number]> = {
+  COLUMNAS: [15, 23, 42], VIGAS: [161, 98, 7], CORDON_SUPERIOR: [220, 38, 38], CORDON_INFERIOR: [22, 163, 74], MONTANTES: [147, 51, 234],
+  DIAGONALES: [37, 99, 235], CORREAS: [8, 145, 178], ARRIOSTRES: [100, 116, 139], TENSORES: [100, 116, 139], EJES: [120, 120, 120],
+  COTAS: [194, 65, 12], TEXTOS: [15, 23, 42], MARCO: [15, 23, 42], CUADRO: [15, 23, 42], NO_CUMPLE: [220, 38, 38],
+};
+/** Helvetica del PDF solo trae Latin-1: los símbolos técnicos se escriben en texto. */
+const latin1 = (t: string) => t.replace(/\\U\+([0-9A-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+  .replace(/≤/g, '<=').replace(/≥/g, '>=').replace(/→/g, '->').replace(/Δ/g, 'D').replace(/λ/g, 'lambda').replace(/φ/g, 'phi')
+  .replace(/✓/g, 'OK').replace(/✗/g, 'X').replace(/□/g, 'Estr.').replace(/⁴/g, '4').replace(/³/g, '3').replace(/–/g, '-').replace(/…/g, '...').replace(/[^\x00-\xff]/g, '');
+
+export async function pdfLaminas(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, o: OpcionesLamina, papel: 'A3' | 'A1' = 'A3'): Promise<Blob | null> {
+  const { d, hojas } = construirLaminas(nodes, segments, o);
+  if (!hojas.length) return null;
+  const { jsPDF } = await import('jspdf');
+  const f = papel === 'A3' ? 0.5 : 1;
+  const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: papel === 'A3' ? 'a3' : 'a1' });
+  hojas.forEach((h, i) => {
+    if (i) pdf.addPage(papel === 'A3' ? 'a3' : 'a1', 'landscape');
+    const fx = (x: number) => (x - h.x) * f, fy = (y: number) => (h.h - y) * f;
+    d.ents.forEach(e => {
+      const g: Record<string, string[]> = {};
+      const tipo = e.l[1];
+      // Solo lo de esta hoja (por la X del primer punto).
+      for (let k = 2; k + 1 < e.l.length; k += 2) (g[e.l[k]] ||= []).push(e.l[k + 1]);
+      const n = (c: string, j = 0) => parseFloat(g[c]?.[j] ?? '0');
+      const x0 = tipo === 'POLYLINE' ? parseFloat(g['10']?.[1] ?? '0') : n('10');
+      if (x0 < h.x - 5 || x0 > h.x + h.w + 5) return;
+      const capa = g['8']?.[0] || 'TEXTOS';
+      const [r, gg, b] = COLOR_PDF[capa] || [15, 23, 42];
+      pdf.setDrawColor(r, gg, b); pdf.setTextColor(r, gg, b);
+      if (tipo === 'LINE') { pdf.setLineWidth(0.12 * f); pdf.line(fx(n('10')), fy(n('20')), fx(n('11')), fy(n('21'))); }
+      else if (tipo === 'CIRCLE') { pdf.setLineWidth(0.15 * f); pdf.circle(fx(n('10')), fy(n('20')), n('40') * f, 'S'); }
+      else if (tipo === 'POLYLINE') {
+        const w = Math.max(0.12, n('40')) * f;
+        const xs = (g['10'] || []).slice(1).map(Number), ys = (g['20'] || []).slice(1).map(Number);
+        pdf.setLineWidth(w);
+        for (let k = 1; k < xs.length; k++) pdf.line(fx(xs[k - 1]), fy(ys[k - 1]), fx(xs[k]), fy(ys[k]));
+        if (g['70']?.[0] === '1' && xs.length > 2) pdf.line(fx(xs[xs.length - 1]), fy(ys[ys.length - 1]), fx(xs[0]), fy(ys[0]));
+      } else if (tipo === 'TEXT') {
+        const al = g['72']?.[0], usa = al === '1' || al === '2';
+        const x = usa ? n('11') : n('10'), y = usa ? n('21') : n('20');
+        pdf.setFontSize(n('40') * f * 2.83465 * 1.05);
+        pdf.text(latin1(g['1']?.[0] || ''), fx(x), fy(y), { align: al === '1' ? 'center' : al === '2' ? 'right' : 'left', baseline: usa ? 'middle' : 'alphabetic', angle: n('50') || 0 });
+      }
+    });
+  });
+  return pdf.output('blob');
 }

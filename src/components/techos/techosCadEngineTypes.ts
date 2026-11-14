@@ -337,6 +337,9 @@ export interface FullTechosBomReport {
   canaletas?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
   costoCanaletasSoles?: number;
   iluminacionLed?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
+  /** Columnas de concreto armado y zapatas (obra civil del techo). */
+  cimentacion?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
+  costoCimentacionSoles?: number;
   costoLedSoles?: number;
 }
 

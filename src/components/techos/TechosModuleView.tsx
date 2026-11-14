@@ -53,7 +53,7 @@ import { TechosInteractiveTutorial } from './TechosInteractiveTutorial';
 import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
-import { dxfLamina, dxfModelo3D } from '../../lib/dxfLamina';
+import { dxfLamina, dxfModelo3D, pdfLaminas } from '../../lib/dxfLamina';
 import { metradoColumnasCA } from './columnaConcreto';
 import { metradoZapatas } from './zapata';
 import { calcularMemoria } from './memoriaCalculo';
@@ -604,6 +604,20 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const [showDxf, setShowDxf] = useState(false);
   const [escalaDxf, setEscalaDxf] = useState<number>(() => Number(safeStorage.getItem<string>('techos_escala_dxf', '0')) || 0);
   const handleExportDxf = () => setShowDxf(true);
+  const opcionesLamina = () => ({
+    nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre, escala: escalaDxf,
+    memoria: (() => { try { return calcularMemoria(engineState.nodes, engineState.segments, engineState.coverageZones || {}, engineState.structuralInputs || {}) as any; } catch { return null; } })(),
+  });
+  const descargarPdf = async (papel: 'A3' | 'A1') => {
+    const blob = await pdfLaminas(engineState.nodes, engineState.segments, opcionesLamina(), papel);
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${(nombreProyecto.toLowerCase().replace(/\s+/g, '_') || 'techo')}_laminas_${papel}.pdf`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    setShowDxf(false);
+  };
   const descargarDxf = (tipo: 'lamina' | 'modelo3d') => {
     const base = nombreProyecto.toLowerCase().replace(/\s+/g, '_') || 'techo';
     const texto = tipo === 'lamina'
@@ -1182,6 +1196,14 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
               <span className="flex items-center gap-2 font-black text-sm text-slate-900"><LayoutGrid className="w-4 h-4 text-amber-600" />Láminas estructurales para imprimir <span className="text-[10px] font-black text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Recomendado</span></span>
               <span className="block text-[11px] text-slate-600 mt-1">E-01 estructura (planta, elevaciones e isométrica con cotas y ejes), E-02 detalles y especificaciones técnicas, E-03 memoria de cálculo con análisis sísmico. Marco y rótulo estructural.</span>
             </button>
+            <div className="rounded-xl border border-rose-200 bg-rose-50/50 p-3">
+              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><FileText className="w-4 h-4 text-rose-600" />Las mismas láminas en PDF</span>
+              <span className="block text-[11px] text-slate-600 mt-1 mb-2">Para imprimir o mandar por WhatsApp sin AutoCAD.</span>
+              <div className="flex gap-1.5">
+                <button onClick={() => descargarPdf('A3')} className="flex-1 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-black cursor-pointer">PDF A3</button>
+                <button onClick={() => descargarPdf('A1')} className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-rose-300 text-rose-700 text-xs font-black cursor-pointer">PDF A1 (plotter)</button>
+              </div>
+            </div>
             <button onClick={() => descargarDxf('modelo3d')} className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
               <span className="flex items-center gap-2 font-black text-sm text-slate-900"><Box className="w-4 h-4 text-blue-600" />Modelo 3D</span>
               <span className="block text-[11px] text-slate-600 mt-1">La estructura en 3D con la altura hacia arriba, para girarla en AutoCAD (Órbita 3D). Capas por tipo de pieza.</span>

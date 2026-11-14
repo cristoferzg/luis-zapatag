@@ -389,6 +389,30 @@ export const TechosMaterialesView: React.FC<TechosMaterialesViewProps> = ({ desi
             </div>
           )}
 
+          {/* OBRA CIVIL: COLUMNAS DE CONCRETO Y ZAPATAS */}
+          {design.cimentacion && design.cimentacion.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 shadow-2xs lg:col-span-2">
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <span className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-stone-600" />Obra civil: columnas de concreto y zapatas</span>
+                <span className="font-mono text-stone-700">{simb()} {(design.costoCimentacionSoles ?? 0).toFixed(2)}</span>
+              </h3>
+              <div className="grid sm:grid-cols-2 gap-2 text-xs">
+                {design.cimentacion.map((l: any) => (
+                  <div key={l.clave} className="flex justify-between items-center gap-2 p-3 bg-stone-50 rounded-xl border border-stone-200">
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900">{l.nombre}</div>
+                      <div className="text-[10px] text-slate-500">{l.nota} · {simb()} {l.precio.toFixed(2)}/{l.unidad}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-mono font-black text-stone-800 block">{l.cantidad} {l.unidad}</span>
+                      <span className="text-[10px] text-slate-500">{simb()} {l.subtotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ILUMINACIÓN LED */}
           {design.iluminacionLed && design.iluminacionLed.length > 0 && (
             <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 shadow-2xs lg:col-span-2">

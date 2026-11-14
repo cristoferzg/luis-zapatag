@@ -18,6 +18,8 @@ import { perfilSuperior, alerosConCanaleta } from './canaletas';
 import { zonaPrincipal } from './mecanismoMovil';
 import { disenarColumnaCA, type DisenoColumnaCA } from './columnaConcreto';
 import { disenarZapata, type DisenoZapata } from './zapata';
+import { crucesPared } from './arriostresPared';
+import { modeloTensor } from './tensores';
 
 export type Riesgo = 'BAJO' | 'MEDIO' | 'ALTO';
 export type EstadoMemoria = 'CUMPLE' | 'OBSERVACION' | 'NO_CUMPLE';
@@ -262,6 +264,7 @@ export interface Memoria {
   sismo: Sismo | null;
   /** Zapata aislada típica (E.050 / E.060). */
   zapata: DisenoZapata | null;
+  anclaje: Anclaje | null;
 }
 
 /**
@@ -281,7 +284,17 @@ export interface Sismo {
   estado: EstadoMemoria; motivo: string;
   /** Columnas de concreto armado (si las hay): diseño E.060 con el sismo de arriba. */
   concreto?: DisenoColumnaCA | null;
+  /** Dirección Y (a lo largo de la nave): columnas en voladizo + cruces de pared si las hay. */
+  dirY?: DireccionY | null;
+  /** Modos de vibración (X, Y y torsión) con su periodo. */
+  modos?: { n: number; T: number; tipo: string; masa: string }[];
 }
+export interface DireccionY {
+  sistema: 'arriostrado' | 'voladizo'; nCruces: number; deltaCm: number; deriva: number; derivaLim: number; T: number;
+  fuerzaVarillaKg: number; capVarillaKg: number; varilla: string; estado: EstadoMemoria; motivo: string;
+}
+/** Anclaje de cada columna frente al levantamiento por viento (y el momento por sismo en bases rígidas). */
+export interface Anclaje { tipo: string; pernos: number; diam: string; demandaKg: number; capacidadKg: number; levantamientoKg: number; estado: EstadoMemoria; motivo: string }
 const S_SUELO: Record<string, Record<string, number>> = {
   Z4: { S0: 0.8, S1: 1.0, S2: 1.05, S3: 1.10 }, Z3: { S0: 0.8, S1: 1.0, S2: 1.15, S3: 1.20 },
   Z2: { S0: 0.8, S1: 1.0, S2: 1.20, S3: 1.40 }, Z1: { S0: 0.8, S1: 1.0, S2: 1.60, S3: 2.00 },
@@ -317,6 +330,52 @@ function sismoConcreto(nodes: Record<string, Node3D>, colsCA: Segment3D[], input
     deltaCm: ca.deltaCm, deriva: ca.deriva, derivaLim: ca.derivaLim, MColKgM: ca.MuKgM, fbKgCm2: 0, fbAdmKgCm2: 0,
     ratioFlexion: ca.MuKgM / Math.max(1, ca.phiMnKgM), estado: ca.estado, motivo: ca.motivo, concreto: ca,
   };
+}
+
+/** Dirección Y (cruces de pared o voladizo) y modos de vibración X, Y, torsión. */
+function completarSismo(q: Sismo, nodes: Record<string, Node3D>, segments: Record<string, Segment3D>) {
+  const cols = Object.values(segments).filter(s => /^columna/.test(s.rolEstructural || '') && nodes[s.nodeAId] && nodes[s.nodeBId]);
+  if (!cols.length) return;
+  const h = Math.max(...cols.map(s => Math.abs(nodes[s.nodeAId].y - nodes[s.nodeBId].y)));
+  const g = G;
+  // Rigidez lateral de cada columna en Y (voladizo): 3EI/h³.
+  let kColY: number;
+  if (q.concreto) { const Ec = 15000 * Math.sqrt(210) * 98066.5, Ig = (q.concreto.b / 100) * (q.concreto.h / 100) ** 3 / 12; kColY = 3 * Ec * 0.7 * Ig / h ** 3; }
+  else { const pc = perfilDe(cols.find(s => s.rolEstructural === 'columna')!.profileId), pr = propsPerfil(pc); kColY = pr ? 3 * E_ACERO * pr.iMinCm4 * 1e-8 / h ** 3 : 1e5; }
+  // Cruces de pared: varillas a tracción (solo la mitad trabaja en cada sentido).
+  const cruces = crucesPared(nodes, segments);
+  let kBr = 0, cosProm = 1, area = 0, varilla = '';
+  cruces.forEach(s => {
+    const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
+    const L = Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0)), cos = Math.abs((a.z || 0) - (b.z || 0)) / L;
+    const m = modeloTensor(s.profileId), d = m ? m.diamMm : (perfilDe(s.profileId)?.anchoMm || 16);
+    const A = Math.PI * (d / 1000) ** 2 / 4;
+    kBr += 0.5 * E_ACERO * A * cos * cos / L; cosProm = cos; area = A; varilla = m?.nombre || perfilDe(s.profileId)?.nombre || '';
+  });
+  const kY = cols.length * kColY + kBr;
+  const deltaE = (q.VKg * g) / kY, delta = 0.75 * q.R * deltaE;
+  const deriva = delta / h, derivaLim = q.concreto ? 0.007 : 0.010;
+  const Vbr = q.VKg * (kBr / kY);
+  const activas = Math.max(1, cruces.length / 2);
+  const fuerza = Vbr / activas / Math.max(0.2, cosProm);
+  const cap = area ? 0.9 * 2530 * area * 1e4 : 0;
+  const TY = 2 * Math.PI * Math.sqrt(q.PKg / kY);
+  let estado: EstadoMemoria = 'CUMPLE', motivo = cruces.length ? 'Cruces de pared toman el sismo Y' : 'Columnas en voladizo (sin cruces de pared)';
+  if (deriva > derivaLim) { estado = 'NO_CUMPLE'; motivo = `Deriva Y ${deriva.toFixed(4)} > ${derivaLim}: agregar cruces de arriostre en las paredes`; }
+  else if (cruces.length && fuerza > cap) { estado = 'NO_CUMPLE'; motivo = 'Varillas de las cruces insuficientes: usar Ø 3/4"'; }
+  q.dirY = { sistema: cruces.length ? 'arriostrado' : 'voladizo', nCruces: cruces.length, deltaCm: delta * 100, deriva, derivaLim, T: TY, fuerzaVarillaKg: fuerza, capVarillaKg: cap, varilla, estado, motivo };
+  // Modos: X (de la memoria), Y y torsión con la rigidez de cada columna repartida en planta.
+  const deX = q.deltaCm / 100 / (0.75 * q.R), kX = deX > 0 ? q.VKg * g / deX : kY;
+  const TX = 2 * Math.PI * Math.sqrt(q.PKg / kX);
+  const bases = cols.map(s => { const a = nodes[s.nodeAId], b = nodes[s.nodeBId]; const n = a.y <= b.y ? a : b; return { x: n.x, z: n.z || 0 }; });
+  const xc = bases.reduce((t, p) => t + p.x, 0) / bases.length, zc = bases.reduce((t, p) => t + p.z, 0) / bases.length;
+  const Lx = Math.max(...bases.map(p => p.x)) - Math.min(...bases.map(p => p.x)), Lz = Math.max(...bases.map(p => p.z)) - Math.min(...bases.map(p => p.z));
+  let kT = bases.reduce((t, p) => t + (kX / bases.length) * (p.z - zc) ** 2 + kColY * (p.x - xc) ** 2, 0);
+  cruces.forEach(s => { const a = nodes[s.nodeAId]; kT += (kBr / Math.max(1, cruces.length)) * (a.x - xc) ** 2; });
+  const J = q.PKg * (Lx * Lx + Lz * Lz) / 12;
+  const TT = kT > 0 ? 2 * Math.PI * Math.sqrt(J / kT) : 0;
+  q.modos = [{ T: TX, tipo: 'Traslación X (pórticos)', masa: '≈ 100 % UX' }, { T: TY, tipo: 'Traslación Y (a lo largo)', masa: '≈ 100 % UY' }, { T: TT, tipo: 'Torsión en planta', masa: '≈ 100 % RZ' }]
+    .sort((a, b) => b.T - a.T).map((m, i) => ({ n: i + 1, ...m }));
 }
 
 function calcularSismo(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, inputs: EntradasCargas, area: number, D: number, L: number, pesoKg: number, nCols: number, uKgM2: number): Sismo | null {
@@ -441,6 +500,7 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
   const cuenta: Record<Riesgo, number> = { BAJO: 0, MEDIO: 0, ALTO: 0 };
   piezas.forEach(p => { cuenta[p.riesgo]++; });
   const sismo = calcularSismo(nodes, segments, inputs, area, cargas.D, cargas.L, pesoTotalKg, ctx.nCols, cargas.U2);
+  if (sismo) completarSismo(sismo, nodes, segments);
   // Zapata típica: carga de servicio y última por columna + peso de la columna; momento del sismo en la base.
   const zapata = (() => {
     const cols = Object.values(segments).filter(s => /^columna/.test(s.rolEstructural || '') && nodes[s.nodeAId] && nodes[s.nodeBId]);
@@ -455,10 +515,25 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
     const c = ca ? Math.max(ca.b, ca.h) : 40;
     try { return disenarZapata(P, Pu, M, c, inputs.capacidadSueloKgCm2 || 1.5); } catch { return null; }
   })();
-  const estado: EstadoMemoria = grupos.some(g => g.estado === 'NO_CUMPLE') || sismo?.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : grupos.some(g => g.estado === 'OBSERVACION') ? 'OBSERVACION' : 'CUMPLE';
+  // Anclaje: pernos tipo J (acero) o espárragos de la plancha embebida (concreto) contra el levantamiento.
+  const anclaje: Anclaje | null = (() => {
+    if (!sismo) return null;
+    const levant = Math.max(0, -reacciones.levantamientoKg);
+    const nPernos = 4, Ab = 1.98; // Ø 5/8"
+    const cap = nPernos * 0.75 * 0.75 * 4200 * Ab;               // φRnt (ASTM A307 / A36)
+    const ca = sismo.concreto;
+    // Base rígida (acero): el momento por sismo se reparte en el par de pernos de cada lado (brazo ≈ 0.20 m).
+    const tirSismo = ca ? 0 : (sismo.MColKgM / 0.2) / 2;
+    const demanda = levant + tirSismo;
+    const ok = demanda <= cap;
+    return { tipo: ca ? 'Plancha embebida con 4 espárragos Ø 5/8"' : 'Placa base con 4 pernos J Ø 5/8" (ASTM A307)', pernos: nPernos, diam: '5/8"',
+      demandaKg: demanda, capacidadKg: cap, levantamientoKg: levant, estado: ok ? 'CUMPLE' : 'NO_CUMPLE',
+      motivo: ok ? 'Los pernos resisten el levantamiento por viento' + (tirSismo ? ' y el momento por sismo' : '') : 'Pernos insuficientes: usar Ø 3/4" o 6 pernos' };
+  })();
+  const estado: EstadoMemoria = grupos.some(g => g.estado === 'NO_CUMPLE') || sismo?.estado === 'NO_CUMPLE' || sismo?.dirY?.estado === 'NO_CUMPLE' || anclaje?.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : grupos.some(g => g.estado === 'OBSERVACION') ? 'OBSERVACION' : 'CUMPLE';
   return {
     datos: { tipo, luz, largo, alturaCol, alturaMax: ys.length ? Math.max(...ys) : 0, area, pendientePct, nCols: ctx.nCols, nPiezas: piezas.length, cobertura },
-    cargas, grupos, reacciones, pesoTotalKg, kgM2: area > 0 ? pesoTotalKg / area : 0, estado, piezas, cuenta, tijeral: ctx.tijeral, sismo, zapata,
+    cargas, grupos, reacciones, pesoTotalKg, kgM2: area > 0 ? pesoTotalKg / area : 0, estado, piezas, cuenta, tijeral: ctx.tijeral, sismo, zapata, anclaje,
   };
 }
 

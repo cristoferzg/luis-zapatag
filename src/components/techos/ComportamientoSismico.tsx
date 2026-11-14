@@ -165,9 +165,22 @@ export default function ComportamientoSismico({ memoria, nodes, segments }: { me
             {[0, 1, 2, 3, 4, 5].map(i => <line key={i} x1={ox - 20 + i * (ancho * k + 40) / 5} y1={oy + 2} x2={ox - 28 + i * (ancho * k + 40) / 5} y2={oy + 10} stroke="#cbd5e1" />)}
             {portico.fr.map(s => <path key={`u${s.id}`} d={linea(s, false)} stroke="#cbd5e1" strokeWidth={1.2} strokeDasharray="4 3" fill="none" />)}
             {vista !== 'deformada' && portico.fr.map(s => <path key={`n${s.id}`} d={linea(s, false)} stroke={/^columna/.test(s.rolEstructural || '') ? '#334155' : s.rolEstructural === 'cordon_superior' ? '#ef4444' : s.rolEstructural === 'cordon_inferior' ? '#22c55e' : '#94a3b8'} strokeWidth={/^columna/.test(s.rolEstructural || '') ? 3 : 1.4} fill="none" />)}
+            {vista === 'axial' && memoria.tijeral && portico.fr.filter(s => /cordon_|diagonal|montante/.test(s.rolEstructural || '')).map(s => {
+              const r = s.rolEstructural || '';
+              const t = memoria.tijeral!;
+              const comp = r === 'cordon_superior' || r === 'montante';
+              const kg = (r.startsWith('cordon') ? t.Ncordon : r === 'diagonal' ? t.V * 1.4 : t.V) * 101.97;
+              return <path key={`ax${s.id}`} d={linea(s, false)} stroke={comp ? '#dc2626' : '#2563eb'} strokeWidth={1.5 + Math.min(4, kg / 800)} strokeOpacity={0.85} fill="none" />;
+            })}
+            {vista === 'axial' && memoria.tijeral && (
+              <g fontSize={9} fontWeight={800}>
+                <text x={ox} y={PH - 8} fill="#dc2626">■ Compresión: cordón sup. {f0(memoria.tijeral.Ncordon * 101.97)} kg · montantes {f0(memoria.tijeral.V * 101.97)} kg</text>
+                <text x={ox + ancho * k} y={PH - 8} textAnchor="end" fill="#2563eb">■ Tracción: cordón inf. {f0(memoria.tijeral.Ncordon * 101.97)} kg · diagonales {f0(memoria.tijeral.V * 140)} kg</text>
+              </g>
+            )}
             {vista !== 'deformada' && colsFr.map(diagrama)}
-            {vista === 'axial' && Ncord > 0 && (
-              <text x={ox + ancho * k / 2} y={yTecho - 8} fontSize={10} fontWeight={800} fill="#ea580c" textAnchor="middle">Cordones del tijeral: ±{f0(Ncord)} kg (sup. compresión · inf. tracción)</text>
+            {vista === 'axial' && Ncord > 0 && !memoria.tijeral && (
+              <text x={ox + ancho * k / 2} y={yTecho - 8} fontSize={10} fontWeight={800} fill="#ea580c" textAnchor="middle">Cordones: ±{f0(Ncord)} kg</text>
             )}
             {vista === 'deformada' && portico.fr.map(s => {
               const col = /^columna/.test(s.rolEstructural || '');
@@ -234,6 +247,31 @@ export default function ComportamientoSismico({ memoria, nodes, segments }: { me
           </div>
           <p className="text-[10px] text-slate-500 mt-2">Deriva = desplazamiento del techo / altura de la columna. Si se pasa del límite, la columna es muy flexible: se agranda la sección o se arriostra.</p>
         </div>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-slate-200 p-3 text-xs">
+          <p className="font-black text-slate-800 mb-2">Modos de vibración</p>
+          <table className="w-full text-[11px]">
+            <thead><tr className="text-slate-400 text-left"><th className="font-bold pb-1">Modo</th><th className="font-bold pb-1">Periodo</th><th className="font-bold pb-1">Forma</th><th className="font-bold pb-1">Masa</th></tr></thead>
+            <tbody>
+              {(q.modos || []).map(m => (
+                <tr key={m.n} className="border-t border-slate-100"><td className="py-1 font-black">{m.n}</td><td className="py-1 font-mono">{m.T.toFixed(3)} s</td><td className="py-1">{m.tipo}</td><td className="py-1 text-slate-500">{m.masa}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-[10px] text-slate-500 mt-1.5">Nave de un piso con cubierta como diafragma: un modo por dirección y uno de torsión. Si el de torsión es el primero, la nave es irregular (revisar arriostres).</p>
+        </div>
+        {q.dirY && (
+          <div className="rounded-xl border border-slate-200 p-3 text-xs space-y-1.5">
+            <div className="flex items-center justify-between gap-2"><p className="font-black text-slate-800">Dirección Y (a lo largo de la nave)</p>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${q.dirY.estado === 'CUMPLE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{q.dirY.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">Sistema</span><b>{q.dirY.sistema === 'arriostrado' ? `Cruces de pared (${q.dirY.nCruces} varillas) + columnas` : 'Columnas en voladizo'}</b></div>
+            <div className="flex justify-between"><span className="text-slate-500">Periodo T<sub>Y</sub></span><b>{q.dirY.T.toFixed(3)} s</b></div>
+            <div className="flex justify-between"><span className="text-slate-500">Desplazamiento · deriva</span><b>{f2(q.dirY.deltaCm)} cm · {q.dirY.deriva.toFixed(4)} ≤ {q.dirY.derivaLim}</b></div>
+            {q.dirY.nCruces > 0 && <div className="flex justify-between"><span className="text-slate-500">Fuerza por varilla ({q.dirY.varilla})</span><b>{f0(q.dirY.fuerzaVarillaKg)} ≤ {f0(q.dirY.capVarillaKg)} kg</b></div>}
+            <p className="text-[10px] text-slate-500">{q.dirY.motivo}</p>
+          </div>
+        )}
       </div>
       <p className="text-[10px] text-slate-400">Análisis estático equivalente con un grado de libertad por dirección (prediseño). Un análisis modal espectral completo lo hace el ingeniero responsable con software especializado.</p>
     </div>

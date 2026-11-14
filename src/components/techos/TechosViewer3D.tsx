@@ -21,6 +21,7 @@ import {
   X,
   CloudRain,
   Activity,
+  Gauge,
   ShieldCheck,
   BookOpen,
   Wrench,
@@ -545,12 +546,16 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const [sismoDir, setSismoDir] = useState<'X' | 'Y'>('X');
   const [sismoExag, setSismoExag] = useState(0);
   const [sismoColor, setSismoColor] = useState(true);
+  // Colores por exigencia también SIN sismo (carga normal de servicio), como el "ratio" de SAP2000.
+  const [verExigencia, setVerExigencia] = useState(false);
+  const verExigenciaRef = useRef(false);
+  verExigenciaRef.current = verExigencia;
   const sismoCfgRef = useRef({ dir: 'X' as 'X' | 'Y', exag: 0, color: true });
   sismoCfgRef.current = { dir: sismoDir, exag: sismoExag, color: sismoColor };
   const memoriaSismo = useMemo(() => {
     try { return calcularMemoria(nodesTodos as any, segmentsTodos as any, zonasCob, (engineState as any)?.structuralInputs || {}); } catch { return null; }
   }, [nodesTodos, segmentsTodos, zonasCob, engineState]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sismoDatosRef = useRef<{ dTop: number; voladizo: boolean; y0: number; h: number; luz: number; ratio: Record<string, number> } | null>(null);
+  const sismoDatosRef = useRef<{ dTop: number; dTopY: number; arriostradoY: boolean; voladizo: boolean; y0: number; h: number; luz: number; ratio: Record<string, number>; ratioGrav: Record<string, number> } | null>(null);
   useEffect(() => {
     const m = memoriaSismo, q = m?.sismo;
     if (!m || !q) { sismoDatosRef.current = null; return; }
@@ -561,9 +566,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const xs = ns.map(n => n.x);
     const ratio: Record<string, number> = {};
     m.piezas.forEach(p => { ratio[p.id] = Math.max(p.ratio ?? 0, p.lambda / Math.max(1, p.limite)); });
+    const ratioGrav: Record<string, number> = { ...ratio };
     const rc = q.concreto ? Math.max(q.concreto.MuKgM / Math.max(1, q.concreto.phiMnKgM), q.concreto.deriva / q.concreto.derivaLim) : Math.max(q.ratioFlexion, q.deriva / q.derivaLim);
     cols.forEach(sg => { ratio[sg.id] = Math.max(ratio[sg.id] || 0, rc); });
-    sismoDatosRef.current = { dTop: q.deltaCm / 100, voladizo: !!q.concreto, y0, h, luz: xs.length ? Math.max(...xs) - Math.min(...xs) : 10, ratio };
+    // Columnas con carga de servicio: axial Pu/φPn (concreto) o la verificación de la memoria (acero).
+    cols.forEach(sg => { if (sg.rolEstructural === 'columna_concreto' && q.concreto) ratioGrav[sg.id] = q.concreto.PuKg / Math.max(1, q.concreto.phiPnKg); });
+    sismoDatosRef.current = { dTop: q.deltaCm / 100, dTopY: (q.dirY?.deltaCm ?? q.deltaCm) / 100, arriostradoY: q.dirY?.sistema === 'arriostrado', voladizo: !!q.concreto, y0, h, luz: xs.length ? Math.max(...xs) - Math.min(...xs) : 10, ratio, ratioGrav };
   }, [memoriaSismo, nodesTodos, segmentsTodos]);
 
 
@@ -1145,11 +1153,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const g = grabarEnFases(() => rendererRef.current?.domElement as HTMLCanvasElement | undefined, 'techo_3d', {
       fondo: fondoCaptura,
       fases: [
-        { nombre: '1. Estructura', aplicar: () => setMostrarCobertura(false) },
+        { nombre: '1. Estructura', aplicar: () => { setSimulacionModo('ninguno'); setMostrarCobertura(false); } },
         { nombre: '2. Con calamina', aplicar: () => setMostrarCobertura(true) },
+        // Sismo de diseño (E.030) con colores por exigencia: solo si hay columnas y memoria.
+        ...(memoriaSismo?.sismo ? [{ nombre: `3. Sismo de diseño E.030 · ${memoriaSismo.sismo.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`, aplicar: () => { setSismoColor(true); setSimulacionModo('sismo'); } }] : []),
       ],
       alCambiarFase: (_i, f) => setFaseGrab(f.nombre), alSegundo: setSegGrab,
-      alTerminar: () => { grabandoRef.current = false; setIsRecording(false); recorderRef.current = null; setFaseGrab(''); setMostrarCobertura(coberturaAntes); },
+      alTerminar: () => { grabandoRef.current = false; setIsRecording(false); recorderRef.current = null; setFaseGrab(''); setMostrarCobertura(coberturaAntes); setSimulacionModo('ninguno'); },
     });
     if (!g) { grabandoRef.current = false; alert('La grabación de video no está disponible en este navegador. Prueba con Chrome o Edge actualizados.'); return; }
     recorderRef.current = g;
@@ -3627,12 +3637,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           const sd = sismoDatosRef.current, cfg = sismoCfgRef.current;
           modelo.position.set(0, 0, 0);
           const vaiven = Math.sin((now / 1000) * (2 * Math.PI / 1.4));
-          const amp = cfg.exag || Math.max(1, (sd.luz * 0.05) / Math.max(1e-4, sd.dTop));
+          const dT = cfg.dir === 'Y' ? sd.dTopY : sd.dTop;
+          const amp = cfg.exag || Math.max(1, (sd.luz * 0.05) / Math.max(1e-4, Math.max(sd.dTop, sd.dTopY)));
           const voladizo = sd.voladizo || cfg.dir === 'Y';
           const desplazar = (p: THREE.Vector3) => {
             const r = Math.min(1, Math.max(0, (p.y - sd.y0) / Math.max(0.1, sd.h)));
-            const f = voladizo ? (r * r * (3 - r)) / 2 : r * r * (3 - 2 * r);
-            const u = sd.dTop * amp * vaiven * f;
+            const f = cfg.dir === 'Y' && sd.arriostradoY ? r : voladizo ? (r * r * (3 - r)) / 2 : r * r * (3 - 2 * r);
+            const u = dT * amp * vaiven * f;
             return cfg.dir === 'X' ? new THREE.Vector3(p.x + u, p.y, p.z) : new THREE.Vector3(p.x, p.y, p.z + u);
           };
           // Lo que no es estructura (cobertura, nudos, canaletas) se oculta mientras dura el sismo.
@@ -3676,7 +3687,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               if (uData?.origQuat) { mesh.quaternion.copy(uData.origQuat); delete uData.origQuat; }
               mesh.scale.set(1.0, 1.0, 1.0);
               const mat = mesh.material as THREE.MeshStandardMaterial;
-              if (mat) mat.color.setHex(mesh.userData?.colorBase ?? 0x64748b);
+              const rx = verExigenciaRef.current ? sismoDatosRef.current?.ratioGrav?.[uData?.segmentId] : undefined;
+              if (mat) mat.color.setHex(rx !== undefined ? (rx < 0.5 ? 0x2563eb : rx < 0.7 ? 0x16a34a : rx < 0.9 ? 0xeab308 : rx <= 1 ? 0xf97316 : 0xdc2626) : (mesh.userData?.colorBase ?? 0x64748b));
             });
           }
         }
@@ -4294,6 +4306,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           </button>
 
 {!modoCliente && (<>
+          {/* Colores por exigencia (carga normal) */}
+          <button onClick={() => setVerExigencia(v => !v)}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${verExigencia ? 'bg-emerald-600 text-white border-emerald-500 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+            title="Colores por exigencia: qué tanto trabaja cada pieza con la carga normal (ratio demanda / capacidad)">
+            <Gauge className="w-4 h-4" /><span className="hidden xl:inline text-[11px] font-bold">Exigencia</span>
+          </button>
+
           {/* Botón Simulación Sismo */}
           <button
             onClick={() => setSimulacionModo(simulacionModo === 'sismo' ? 'ninguno' : 'sismo')}
@@ -4465,6 +4484,17 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         </button>
       </div>
 
+      {verExigencia && simulacionModo !== 'sismo' && (
+        <div className="absolute bottom-3 left-3 z-10 bg-white/95 border border-slate-200 rounded-xl px-3 py-2 shadow-lg text-[10px]">
+          <div className="font-black text-slate-800 mb-1">Exigencia con carga normal (demanda / capacidad)</div>
+          <div className="flex items-center gap-2">
+            {[['#2563eb', '< 0.5'], ['#16a34a', '0.5–0.7'], ['#eab308', '0.7–0.9'], ['#f97316', '0.9–1.0'], ['#dc2626', '> 1.0 no cumple']].map(([c, t]) => (
+              <span key={t} className="flex items-center gap-1 font-bold text-slate-700"><span className="w-3.5 h-2.5 rounded-sm" style={{ background: c }} />{t}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* HUD DE DIAGNÓSTICO EN TIEMPO REAL: SISMO / LLUVIA (ULTRA-COMPACTO Y NO INVASIVO PARA PANTALLAS PEQUEÑAS) */}
       {simulacionModo !== 'ninguno' && (
         <div className="absolute bottom-3 left-3 z-10 pointer-events-auto max-w-full sm:max-w-md">
@@ -4505,7 +4535,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                   {memoriaSismo?.sismo ? (() => { const q = memoriaSismo.sismo!; const Tdin = (() => { const de = q.deltaCm / (0.75 * q.R); const k = de > 0 ? (q.VKg * 9.81) / (de / 100) : 0; return k > 0 ? 2 * Math.PI * Math.sqrt(q.PKg / k) : q.T; })(); return (
                     <div className="space-y-2">
                       <div className="grid grid-cols-4 gap-1.5 text-center">
-                        {[[`${(sismoDir === 'Y' && !q.concreto ? Tdin * 2 : Tdin).toFixed(2)} s`, `Periodo modo ${sismoDir === 'X' ? 1 : 2}`], [`${Math.round(q.VKg).toLocaleString('es-PE')} kg`, 'Cortante V'], [`${q.deltaCm.toFixed(2)} cm`, 'Δ techo'], [q.deriva.toFixed(4), `Deriva ≤ ${q.derivaLim}`]].map(([v, t]) => (
+                        {[[`${(sismoDir === 'Y' ? (q.dirY?.T ?? Tdin) : Tdin).toFixed(2)} s`, `Periodo dir. ${sismoDir}`], [`${Math.round(q.VKg).toLocaleString('es-PE')} kg`, 'Cortante V'], [`${(sismoDir === 'Y' ? (q.dirY?.deltaCm ?? q.deltaCm) : q.deltaCm).toFixed(2)} cm`, 'Δ techo'], [(sismoDir === 'Y' ? (q.dirY?.deriva ?? q.deriva) : q.deriva).toFixed(4), `Deriva ≤ ${sismoDir === 'Y' ? (q.dirY?.derivaLim ?? q.derivaLim) : q.derivaLim}`]].map(([v, t]) => (
                           <div key={t} className="bg-slate-950/70 border border-slate-800 rounded-lg p-1.5"><div className="text-[12px] font-black text-white">{v}</div><div className="text-[9px] text-slate-400">{t}</div></div>
                         ))}
                       </div>

@@ -261,6 +261,31 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
           </section>
         ); })()}
 
+        {/* Dirección Y y anclaje */}
+        {(memoria.sismo?.dirY || memoria.anclaje) && (
+          <section className="[break-inside:avoid] grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            {memoria.sismo?.dirY && (() => { const y = memoria.sismo!.dirY!; return (
+              <div>
+                <p className={sec}>Sismo en dirección Y (a lo largo)</p>
+                {dato('Sistema', y.sistema === 'arriostrado' ? `Cruces de pared (${y.nCruces} varillas) + columnas` : 'Columnas en voladizo')}
+                {dato('Periodo T<sub>Y</sub>'.replace(/<[^>]+>/g, ''), `${f2(y.T)} s`)}
+                {dato(`Deriva ≤ ${y.derivaLim}`, `${y.deriva.toFixed(4)} ${y.deriva <= y.derivaLim ? '✓' : '✗'}`)}
+                {y.nCruces > 0 && dato(`Fuerza en varilla (${y.varilla})`, `${f0(y.fuerzaVarillaKg)} ≤ ${f0(y.capVarillaKg)} kg ${y.fuerzaVarillaKg <= y.capVarillaKg ? '✓' : '✗'}`)}
+                <p className={`text-[11px] font-black mt-1 ${y.estado === 'CUMPLE' ? 'text-emerald-700' : 'text-rose-700'}`}>{y.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · {y.motivo}</p>
+              </div>
+            ); })()}
+            {memoria.anclaje && (() => { const a = memoria.anclaje!; return (
+              <div>
+                <p className={sec}>Anclaje de columnas (viento y sismo)</p>
+                {dato('Tipo', a.tipo)}
+                {dato('Levantamiento por viento', `${f0(a.levantamientoKg)} kg`)}
+                {dato('Tracción en pernos ≤ φRnt', `${f0(a.demandaKg)} ≤ ${f0(a.capacidadKg)} kg ${a.demandaKg <= a.capacidadKg ? '✓' : '✗'}`)}
+                <p className={`text-[11px] font-black mt-1 ${a.estado === 'CUMPLE' ? 'text-emerald-700' : 'text-rose-700'}`}>{a.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · {a.motivo}</p>
+              </div>
+            ); })()}
+          </section>
+        )}
+
         {/* Zapata aislada */}
         {memoria.zapata && (() => { const z = memoria.zapata; return (
           <section className="[break-inside:avoid] grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">

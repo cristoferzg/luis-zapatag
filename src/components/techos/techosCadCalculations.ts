@@ -75,8 +75,18 @@ export function calcularDespieceOptimizado1D(
     const perfilInfo = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === profileId) || INVENTARIO_PERFILES_TUBULARES[0];
     const largoBarraComercialM = perfilInfo.longitudComercialM || 6.00;
 
+    // Piezas más largas que la barra: se parten en tramos iguales con empalme soldado
+    // (Detalle de empalme en la lámina). Cada tramo lleva 0.10 m de cubrejunta/traslape.
+    const listaPartida: CortePiezaSegmento[] = [];
+    listaCortes.forEach(c => {
+      if (c.longitudM <= largoBarraComercialM - discoCorteKerfM) { listaPartida.push(c); return; }
+      const n = Math.ceil(c.longitudM / (largoBarraComercialM - 0.2));
+      const tramo = Math.round((c.longitudM / n) * 1000) / 1000;
+      for (let k = 0; k < n; k++) listaPartida.push({ ...c, longitudM: tramo, etiquetaPieza: `${c.etiquetaPieza} (${k + 1}/${n} empalme)` });
+    });
+
     // Paso 1: Ordenar cortes en orden descendente (Largest First)
-    const cortesOrdenados = [...listaCortes].sort((a, b) => b.longitudM - a.longitudM);
+    const cortesOrdenados = [...listaPartida].sort((a, b) => b.longitudM - a.longitudM);
 
     const barrasComerciales: PatronBarraComercial6M[] = [];
 
@@ -277,7 +287,9 @@ export function generarReportePresupuestoBom(
   nodes: Record<string, Node3D>,
   segments: Record<string, Segment3D>,
   coverageZones: Record<string, CoverageZone3D>,
-  costos: CostosTechos = leerCostosTechos()
+  costos: CostosTechos = leerCostosTechos(),
+  /** Obra civil: columnas de concreto armado y zapatas (las calcula la memoria de cálculo). */
+  cimentacion: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[] = []
 ): FullTechosBomReport {
   
   // Los tensores (varilla/cable) van aparte: no son perfiles de 6 m soldados.
@@ -291,6 +303,7 @@ export function generarReportePresupuestoBom(
   const costoCanaletasSoles = canaletas.reduce((x, l) => x + l.subtotal, 0);
   const iluminacionLed = metradoLed(nodes, segments);
   const costoLedSoles = iluminacionLed.reduce((x, l) => x + l.subtotal, 0);
+  const costoCimentacionSoles = cimentacion.reduce((x, l) => x + l.subtotal, 0);
   const despiecePerfiles = calcularDespieceOptimizado1D(segsPerfil, nodes, 0.003);
   const resumenCoberturas = calcularMetradoCoberturas(coverageZones, nodes);
   // Sin cobertura elegida todavía: se ESTIMAN las planchas con las correas (lo mismo que dibuja el 3D),
@@ -329,7 +342,7 @@ export function generarReportePresupuestoBom(
   const costoPernosEpdmSoles = cajasPernosEpdm * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol);
   const costoSoldaduraSoles = kgSoldaduraEstimados * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol);
 
-  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles + costoMovilSoles + costoCanaletasSoles + costoLedSoles;
+  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles + costoMovilSoles + costoCanaletasSoles + costoLedSoles + costoCimentacionSoles;
 
   // Mano de obra y gastos operativos: % de materiales o detalle del usuario
   // (cuadrilla con jornales; grúa, transporte… con montos).
@@ -371,6 +384,8 @@ export function generarReportePresupuestoBom(
     costoCanaletasSoles: r2(costoCanaletasSoles),
     iluminacionLed,
     costoLedSoles: r2(costoLedSoles),
+    cimentacion,
+    costoCimentacionSoles: r2(costoCimentacionSoles),
     gastosGeneralesSoles: r2(gastosGenerales),
     utilidadSoles: r2(utilidad),
     subtotalSoles: r2(subtotal),

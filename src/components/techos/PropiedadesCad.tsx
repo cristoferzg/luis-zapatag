@@ -563,6 +563,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                     <button onClick={() => engineState?.setColumnasMaterial?.('metal')} className={`px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nMet && !nCA ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Metálicas (tubo)</button>
                     <button onClick={() => engineState?.setColumnasMaterial?.('concreto')} className={`px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nCA && !nMet ? 'bg-stone-700 text-white border-stone-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Concreto armado</button>
                   </div>
+                  <button onClick={() => engineState?.agregarCrucesParedes?.()} className="w-full px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100">✕ Agregar cruces en las paredes (sismo Y)</button>
                   <p className="text-[9px] text-slate-500 leading-snug">{nCA ? `${nCA} columnas de concreto${sec ? ` de ${sec[0]}×${sec[1]} cm` : ''}: sección, fierro y zapata calculados (E.060). ` : ''}{nMet ? `${nMet} columnas metálicas.` : ''}</p>
                 </div>
               );
