@@ -245,6 +245,21 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
             <option value="Z1">Zona 1 (Z = 0.10g)</option>
           </select>
           <p className="text-[10px] text-slate-500">Factor de zona sísmica Z</p>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <label className="text-[10px] font-bold text-slate-600">Suelo
+              <select value={structuralInputs.tipoSuelo || 'S2'} onChange={(e) => setStructuralInputs(prev => ({ ...prev, tipoSuelo: e.target.value as any }))}
+                className="mt-0.5 w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-slate-900 text-[11px] font-bold">
+                <option value="S0">S0 Roca dura</option><option value="S1">S1 Roca / muy rígido</option>
+                <option value="S2">S2 Intermedio</option><option value="S3">S3 Blando</option>
+              </select>
+            </label>
+            <label className="text-[10px] font-bold text-slate-600">Uso
+              <select value={structuralInputs.categoriaUso || 'C'} onChange={(e) => setStructuralInputs(prev => ({ ...prev, categoriaUso: e.target.value as any }))}
+                className="mt-0.5 w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-slate-900 text-[11px] font-bold">
+                <option value="C">C Común (U 1.0)</option><option value="B">B Importante (U 1.3)</option><option value="A">A Esencial (U 1.5)</option>
+              </select>
+            </label>
+          </div>
         </div>
       </div>
 

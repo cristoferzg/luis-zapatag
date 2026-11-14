@@ -223,6 +223,30 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
           </div>
         </section>
 
+        {/* Análisis sísmico E.030 */}
+        {memoria.sismo && (() => { const q = memoria.sismo; return (
+          <section className="[break-inside:avoid] grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+              <p className={sec}>Análisis sísmico estático (E.030-2018)</p>
+              {dato('Zona / suelo / uso', `${q.zona} (Z ${q.Z}) · ${q.suelo} (S ${q.S}) · ${q.categoria} (U ${q.U})`)}
+              {dato('Periodo T = hn / 35', `${q.T.toFixed(3)} s (Tp ${q.Tp} · TL ${q.TL})`)}
+              {dato('C · R (pórtico ordinario de acero)', `C ${q.C.toFixed(2)} · R ${q.R}`)}
+              {dato('Peso sísmico P (acero + D + 25 % L)', `${f0(q.PKg)} kg`)}
+              {dato('Cortante basal V = ZUCS/R · P', `${f0(q.VKg)} kg`)}
+              {dato(`Por columna (${q.nCols})`, `${f0(q.VColKg)} kg`)}
+            </div>
+            <div>
+              <p className={sec}>Verificación de columnas por sismo</p>
+              {dato('Columna', q.perfilCol)}
+              {dato('Desplazamiento 0.75·R·V·h³/12EI', `${f2(q.deltaCm)} cm`)}
+              {dato('Deriva Δ/h (límite acero 0.010)', `${q.deriva.toFixed(4)} ${q.deriva <= q.derivaLim ? '✓' : '✗'}`)}
+              {dato('Flexión M = V·h/2 (nudo rígido)', `${f0(q.MColKgM)} kg·m`)}
+              {dato('fb ≤ 0.6·Fy·1.33', `${f0(q.fbKgCm2)} ≤ ${f0(q.fbAdmKgCm2)} kg/cm² ${q.ratioFlexion <= 1 ? '✓' : '✗'}`)}
+              <p className={`text-[11px] font-black mt-1 ${q.estado === 'CUMPLE' ? 'text-emerald-700' : 'text-rose-700'}`}>{q.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · {q.motivo}</p>
+            </div>
+          </section>
+        ); })()}
+
         {/* 9. Conclusión (con las firmas, sin partirse entre hojas) */}
         <section className="[break-inside:avoid]">
           <p className={sec}>9. Conclusión</p>

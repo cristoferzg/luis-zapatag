@@ -590,12 +590,13 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
 
   // AutoCAD: se elige LÁMINA (4 vistas, cotas, cuadro y rótulo) o MODELO 3D (altura en Z).
   const [showDxf, setShowDxf] = useState(false);
+  const [escalaDxf, setEscalaDxf] = useState<number>(() => Number(safeStorage.getItem<string>('techos_escala_dxf', '0')) || 0);
   const handleExportDxf = () => setShowDxf(true);
   const descargarDxf = (tipo: 'lamina' | 'modelo3d') => {
     const base = nombreProyecto.toLowerCase().replace(/\s+/g, '_') || 'techo';
     const texto = tipo === 'lamina'
       ? dxfLamina(engineState.nodes, engineState.segments, {
-          nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre,
+          nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre, escala: escalaDxf,
           despiece: engineState.bomReport?.despiecePerfiles as any,
           memoria: (() => { try { return calcularMemoria(engineState.nodes, engineState.segments, engineState.coverageZones || {}, engineState.structuralInputs || {}) as any; } catch { return null; } })(),
         })
@@ -1156,9 +1157,19 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
               </div>
               <button onClick={() => setShowDxf(false)} aria-label="Cerrar" className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4 text-slate-500" /></button>
             </div>
+            <div className="rounded-xl border border-slate-200 p-3">
+              <span className="block text-[11px] font-black text-slate-700 mb-1.5">Escala de planta y elevaciones</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[[0, 'Automática'], [50, '1:50'], [75, '1:75'], [100, '1:100']].map(([v, t]) => (
+                  <button key={v} onClick={() => { setEscalaDxf(v as number); safeStorage.setItem('techos_escala_dxf', String(v)); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black cursor-pointer border ${escalaDxf === v ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>{t}</button>
+                ))}
+              </div>
+              <span className="block text-[10px] text-slate-500 mt-1.5">{escalaDxf ? `Todas las vistas a 1:${escalaDxf}. Si no entran en una A1, se reparten en más láminas o se usa A0.` : 'La mayor escala que deja las 4 vistas en una lámina A1 (1:50, 1:75, 1:100…).'}</span>
+            </div>
             <button onClick={() => descargarDxf('lamina')} className="w-full text-left p-3.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 cursor-pointer">
-              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><LayoutGrid className="w-4 h-4 text-amber-600" />Juego de láminas para imprimir <span className="text-[10px] font-black text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Recomendado</span></span>
-              <span className="block text-[11px] text-slate-600 mt-1">3 láminas A1 con marco y rótulo: estructura (planta, elevaciones e isométrica con todas las cotas), despiece de cortes de cada barra y memoria de cálculo.</span>
+              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><LayoutGrid className="w-4 h-4 text-amber-600" />Láminas estructurales para imprimir <span className="text-[10px] font-black text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Recomendado</span></span>
+              <span className="block text-[11px] text-slate-600 mt-1">E-01 estructura (planta, elevaciones e isométrica con cotas y ejes), E-02 detalles y especificaciones, despiece de cortes y memoria de cálculo con análisis sísmico. Marco y rótulo estructural.</span>
             </button>
             <button onClick={() => descargarDxf('modelo3d')} className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
               <span className="flex items-center gap-2 font-black text-sm text-slate-900"><Box className="w-4 h-4 text-blue-600" />Modelo 3D</span>

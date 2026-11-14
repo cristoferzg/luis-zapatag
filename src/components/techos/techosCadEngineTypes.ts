@@ -345,6 +345,8 @@ export interface StructuralAnalysisInput {
   velocidadVientoKmH: number;  // RNE E.020 Viento (ej. 75 km/h)
   zonaSismica: 'Z1' | 'Z2' | 'Z3' | 'Z4'; // RNE E.030 (Z4 = Lima/Costa)
   tipoSuelo: 'S0' | 'S1' | 'S2' | 'S3';
+  /** Categoría de uso E.030: A esencial (U 1.5), B importante (1.3), C común (1.0). */
+  categoriaUso?: 'A' | 'B' | 'C';
 }
 
 export interface MemberStructuralResult {

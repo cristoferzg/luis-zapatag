@@ -441,13 +441,22 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     // Lo que la memoria de cálculo marca "NO CUMPLE" se refuerza con su perfil recomendado
     // (el mismo de "Aplicar recomendados"), así el techo sale verificado desde el Asistente.
     let segs = r.segs, cambios = r.cambios;
-    for (let vuelta = 0; vuelta < 2; vuelta++) {
+    for (let vuelta = 0; vuelta < 4; vuelta++) {
       let mem;
       try { mem = calcularMemoria(nodes, segs, coverageZones, structuralInputs); } catch { break; }
       const refuerzos = mem.grupos.filter(g => g.estado === 'NO_CUMPLE' && g.recomendadoId);
-      if (!refuerzos.length) break;
+      // Sismo (E.030): si la deriva o la flexión de columnas no cumple, columna un tamaño mayor.
+      const COLS = ['perfil_sq_3x3_30', 'perfil_sq_4x4_30', 'perfil_sq_4x4_45', 'perfil_sq_5x5_45', 'perfil_sq_6x6_45', 'perfil_sq_6x6_60', 'perfil_sq_8x8_60'];
+      const sismoFalla = mem.sismo?.estado === 'NO_CUMPLE';
+      if (!refuerzos.length && !sismoFalla) break;
       segs = { ...segs };
       refuerzos.forEach(g => g.ids.forEach(id => { if (segs[id]) { segs[id] = { ...segs[id], profileId: g.recomendadoId! }; cambios++; } }));
+      if (sismoFalla) Object.values(segs).forEach(sg => {
+        if (sg.rolEstructural !== 'columna') return;
+        const i = COLS.indexOf(sg.profileId);
+        const nuevo = COLS[Math.min(COLS.length - 1, i < 0 ? 1 : i + 1)];
+        if (nuevo !== sg.profileId) { segs[sg.id] = { ...sg, profileId: nuevo }; cambios++; }
+      });
     }
     if (!cambios) return;
     setSegments(segs);

@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | AutoCAD: juego de 3 láminas (estructura, despiece, memoria) + perfiles verificados |
+| Última mejora sin compilar | Láminas estructurales E-01… con escala 1:50/1:100 y sismo E.030 |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -33,6 +33,26 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-14 · Láminas estructurales E-01…, escala 1:50 / 1:100 y análisis sísmico E.030
+- Pedido del dueño: escala 1:50 o 1:100 que se pueda elegir; cálculo sísmico; que las láminas salgan como láminas estructurales.
+- Qué se hizo:
+  - Ventana "Exportar a AutoCAD": escala Automática / 1:50 / 1:75 / 1:100 (se recuerda). Con escala fija, las vistas que no
+    entran en una A1 pasan a otra lámina o a A0, sin cambiar la escala; la isométrica va "S/E".
+  - Láminas con código estructural E-01, E-02…: estructura; detalles y especificaciones (placa base en elevación y planta 1:5,
+    empalme soldado, cuadro de columnas C-1, especificaciones técnicas, cargas, parámetros sísmicos, normas); despiece; memoria.
+    Rótulo estructural: empresa, proyecto, plano, especialidad ESTRUCTURAS, escala, ing. responsable y CIP, lámina "n de N", fecha, formato.
+  - Análisis sísmico estático E.030-2018 en `memoriaCalculo.ts` (`sismo`): Z, U (categoría), S/Tp/TL (suelo), T = hn/35, C,
+    R = 4 (pórtico ordinario de acero), P = acero + área·(D + 0.25 L), V = ZUCS/R·P, corte por columna, deriva con 12EI
+    (nudo rígido, base empotrada) ≤ 0.010 y flexión M = V·h/2. Se ve en la memoria de la app, en E-02 y en la memoria de la lámina.
+  - Análisis estructural: selectores de tipo de suelo (S0–S3) y categoría de uso (A/B/C).
+  - El Asistente sube un tamaño la columna si el sismo no cumple (además de los refuerzos de la memoria).
+- Archivos: `src/lib/dxfLamina.ts`, `techos/memoriaCalculo.ts`, `techos/MemoriaCalculoTechos.tsx`,
+  `techos/TechosEstructuralAnalysisView.tsx`, `techos/useTechosCadEngineState.ts`, `techos/techosCadEngineTypes.ts`, `techos/TechosModuleView.tsx`.
+- Pruebas: tsc 0 errores; 8 techos × 3 escalas (Automática, 1:50, 1:100) descargados desde la app: todos CUMPLE (incluido sismo).
+  Con el sismo las columnas salen 5" × 5" (6" en el parabólico de 12 m).
+- Versión: sin compilar aún.
+- Pendiente: columnas de concreto armado (el dueño preguntó); despiece con empalme para piezas > 6 m; confirmar en AutoCAD.
 
 ## 2026-11-14 · AutoCAD: juego de 3 láminas listo para imprimir + perfiles verificados
 - Pedido del dueño: faltaban medidas, despiece de cortes y memoria de cálculo en el archivo; que esté listo para

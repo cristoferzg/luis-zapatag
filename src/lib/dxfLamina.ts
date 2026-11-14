@@ -144,47 +144,66 @@ export interface MemoriaDxf {
   reacciones: { servicioKg: number; ultimaKg: number; levantamientoKg: number; nCols: number };
   pesoTotalKg: number; kgM2: number; estado: string;
   tijeral: { w: number; luz: number; d: number; M: number; Ncordon: number; V: number } | null;
+  sismo?: {
+    Z: number; U: number; C: number; S: number; R: number; Tp: number; TL: number; T: number; hn: number; zona: string; suelo: string; categoria: string;
+    PKg: number; VKg: number; VColKg: number; nCols: number; perfilCol: string; deltaCm: number; deriva: number; derivaLim: number;
+    MColKgM: number; fbKgCm2: number; fbAdmKgCm2: number; ratioFlexion: number; estado: string; motivo: string;
+  } | null;
 }
-export interface OpcionesLamina { nombre: string; empresa?: string; fecha?: string; despiece?: DespieceDxf[]; memoria?: MemoriaDxf | null }
+/** escala: 0 = automática (la mayor que quepa: 1:50, 1:75, 1:100…); 50, 75 o 100 = fija para planta y elevaciones. */
+export interface OpcionesLamina { nombre: string; empresa?: string; fecha?: string; despiece?: DespieceDxf[]; memoria?: MemoriaDxf | null; escala?: number }
 
-// Hoja A1 apaisada (mm). Margen de encuadernación a la izquierda.
-const HW = 841, HH = 594, ML = 25, MR = 10, MB = 10, MT = 10, SEP_HOJAS = 60;
-const ESCALAS = [10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000];
+// Formatos de papel apaisados (mm). Margen de encuadernación a la izquierda.
+const FORMATOS = { A1: [841, 594], A0: [1189, 841] } as const;
+type Formato = keyof typeof FORMATOS;
+const ML = 25, MR = 10, MB = 10, MT = 10, SEP_HOJAS = 60;
+const ESCALAS = [5, 10, 20, 25, 50, 75, 100, 125, 150, 200, 250, 300, 400, 500, 750, 1000];
 const TXT = 3.5, TXT_S = 2.7, TXT_T = 5;
+const RW = 180, RH = 64; // rótulo
 
-/** JUEGO DE LÁMINAS listo para imprimir: TM-01 estructura, TM-02 despiece, TM-03 memoria. */
+/**
+ * JUEGO DE LÁMINAS ESTRUCTURALES listo para imprimir:
+ *  E-01… Estructura (planta, elevaciones e isométrica a la escala elegida; si no caben en A1 se
+ *        reparten en más láminas o se usa A0, sin cambiar la escala), E-0n Detalles y
+ *        especificaciones, E-0n Despiece y cortes, E-0n Memoria de cálculo (con análisis sísmico).
+ */
 export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, o: OpcionesLamina): string {
   const d = new Dibujo();
   const ns = Object.values(nodes);
   const segs = Object.values(segments).filter(s => nodes[s.nodeAId] && nodes[s.nodeBId]);
   if (!ns.length || !segs.length) return armarDxf(o.nombre, d, 'mm');
   const fecha = o.fecha || new Date().toLocaleDateString('es-PE');
-  const hojas: { titulo: string; codigo: string }[] = [];
+  const hojas: { x: number; w: number; h: number; codigo: string }[] = [];
+  let xSig = 0;
 
-  // Marco y rótulo de una hoja; devuelve el origen (esquina inferior izquierda) de la hoja.
-  const hoja = (titulo: string, sub: string): P2 => {
-    const i = hojas.length;
-    const codigo = `TM-0${i + 1}`;
-    hojas.push({ titulo, codigo });
-    const ox = i * (HW + SEP_HOJAS);
-    d.caja(ox, 0, ox + HW, HH, 'MARCO');                                   // borde del papel
-    d.caja(ox + ML, MB, ox + HW - MR, HH - MT, 'MARCO', 0.7);              // marco de dibujo
-    // Rótulo 180 × 56 mm abajo a la derecha.
-    const rw = 180, rh = 56, rx = ox + HW - MR - rw, ry = MB;
-    d.caja(rx, ry, rx + rw, ry + rh, 'MARCO', 0.5);
-    [14, 28, 42].forEach(y => d.linea([rx, ry + y], [rx + rw, ry + y], 'MARCO'));
-    d.linea([rx + 120, ry], [rx + 120, ry + 28], 'MARCO');
-    d.linea([rx + 120, ry + 14], [rx + rw, ry + 14], 'MARCO');
-    d.texto([rx + 4, ry + 47], (o.empresa || 'InnovApp').toUpperCase(), 4.5, 'TEXTOS');
-    d.texto([rx + 4, ry + 33], `PROYECTO: ${o.nombre}`.slice(0, 48), TXT, 'TEXTOS');
-    d.texto([rx + 4, ry + 19], titulo.length > 46 ? titulo.slice(0, 46) : titulo, TXT_S, 'TEXTOS');
-    d.texto([rx + 4, ry + 5], sub.slice(0, 44), TXT_S, 'TEXTOS');
-    d.texto([rx + 123, ry + 22], 'LÁMINA', TXT_S, 'TEXTOS');
-    d.texto([rx + 123, ry + 16.5], codigo, 4.5, 'TEXTOS');
-    d.texto([rx + 123, ry + 8.5], `FECHA: ${fecha}`, TXT_S, 'TEXTOS');
-    d.texto([rx + 123, ry + 3.5], 'FORMATO A1 · mm', TXT_S, 'TEXTOS');
-    d.texto([ox + ML + 3, MB + 3], 'Generado con InnovApp · imprimir: Trazar → Ventana (marco de la lámina) → A1 a escala 1:1, o A3 "ajustar al papel"', 1.8, 'TEXTOS');
-    return [ox, 0];
+  /** Marco y rótulo estructural. Devuelve la hoja (origen x, ancho y alto). */
+  const hoja = (titulo: string, escalaTxt: string, formato: Formato = 'A1') => {
+    const [W, H] = FORMATOS[formato];
+    const ox = xSig; xSig += W + SEP_HOJAS;
+    const codigo = `E-${String(hojas.length + 1).padStart(2, '0')}`;
+    hojas.push({ x: ox, w: W, h: H, codigo });
+    d.caja(ox, 0, ox + W, H, 'MARCO');
+    d.caja(ox + ML, MB, ox + W - MR, H - MT, 'MARCO', 0.7);
+    // Rótulo: empresa · proyecto · plano · especialidad y escala · ingeniero y fecha | lámina.
+    const rx = ox + W - MR - RW, ry = MB, fh = RH / 5, cx = rx + 135;
+    d.caja(rx, ry, rx + RW, ry + RH, 'MARCO', 0.5);
+    [1, 2, 3, 4].forEach(k => d.linea([rx, ry + fh * k], [k <= 3 ? cx : rx + RW, ry + fh * k], 'MARCO'));
+    d.linea([cx, ry], [cx, ry + fh * 4], 'MARCO');
+    d.linea([rx + 70, ry], [rx + 70, ry + fh * 2], 'MARCO');
+    const t = (k: number, x: number, txt: string, h = TXT_S) => d.texto([x, ry + fh * k + fh * 0.33], txt, h, 'TEXTOS');
+    t(4, rx + 3, (o.empresa || 'InnovApp').toUpperCase().slice(0, 34), 4.5);
+    t(3, rx + 3, `PROYECTO: ${o.nombre}`.slice(0, 48));
+    t(2, rx + 3, `PLANO: ${titulo}`.slice(0, 50));
+    t(1, rx + 3, 'ESPECIALIDAD: ESTRUCTURAS');
+    t(1, rx + 72, `ESCALA: ${escalaTxt}`);
+    t(0, rx + 3, 'ING. RESP.: ____________');
+    t(0, rx + 72, 'CIP N° ________');
+    d.texto([cx + 22.5, ry + fh * 3.45], 'LÁMINA', TXT_S, 'TEXTOS', 'centro');
+    d.texto([cx + 22.5, ry + fh * 2.2], codigo, 9, 'TEXTOS', 'centro');
+    d.texto([cx + 22.5, ry + fh * 0.95], `FECHA ${fecha}`, 2.2, 'TEXTOS', 'centro');
+    d.texto([cx + 22.5, ry + fh * 0.35], `FORMATO ${formato}`, 2.2, 'TEXTOS', 'centro');
+    d.texto([ox + ML + 3, MB + 3], 'Generado con InnovApp · imprimir: Trazar → Ventana (marco de la lámina) → papel del formato a escala 1:1 (o A3 "ajustar al papel")', 1.8, 'TEXTOS');
+    return { ox, W, H };
   };
 
   const minX = Math.min(...ns.map(n => n.x)), maxX = Math.max(...ns.map(n => n.x));
@@ -205,44 +224,9 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
   })();
   const xCol = [...new Set(segs.filter(s => /^columna/.test(s.rolEstructural || '') && enFrente(s)).map(s => r2(nodes[s.nodeAId].x)))].sort((a, b) => a - b);
   const xCorreas = [...new Set(segs.filter(s => s.rolEstructural === 'correa').flatMap(s => [nodes[s.nodeAId].x, nodes[s.nodeBId].x]).map(r2))].sort((a, b) => a - b);
-
-  /** Escala normalizada más pequeña que hace caber w×h metros en una caja de W×H mm. */
-  const escala = (w: number, h: number, W: number, Hh: number) => ESCALAS.find(s => (w * 1000) / s <= W && (h * 1000) / s <= Hh) || ESCALAS[ESCALAS.length - 1];
-  /** Grosor de trazo en mm de papel según el perfil y la escala. */
   const grosor = (s: Segment3D, esc: number) => Math.min(1.4, Math.max(0.18, ladoMm(s.profileId) / esc));
 
-  // Dibuja una vista: proyección pr (metros) → caja de papel, centrada. Devuelve el mapeo.
-  const vista = (caja: [number, number, number, number], filtro: (s: Segment3D) => boolean, pr: (n: Node3D) => P2, titulo: string, sub: string, margen: [number, number, number, number] = [18, 16, 30, 14]) => {
-    const [x0, y0, x1, y1] = caja;
-    const usados = segs.filter(filtro);
-    const pts = usados.flatMap(s => [pr(nodes[s.nodeAId]), pr(nodes[s.nodeBId])]);
-    if (!pts.length) return null;
-    const u0 = Math.min(...pts.map(p => p[0])), u1 = Math.max(...pts.map(p => p[0])), v0 = Math.min(...pts.map(p => p[1])), v1 = Math.max(...pts.map(p => p[1]));
-    const [mi, md, mb, ma] = margen; // izq, der, abajo (título + cotas), arriba
-    const W = x1 - x0 - mi - md, Hh = y1 - y0 - mb - ma;
-    const esc = escala(u1 - u0, v1 - v0, W, Hh);
-    const k = 1000 / esc;
-    const ox = x0 + mi + (W - (u1 - u0) * k) / 2 - u0 * k, oy = y0 + mb + Math.min(12, (Hh - (v1 - v0) * k) / 2) - v0 * k;
-    const P = (u: number, v: number): P2 => [ox + u * k, oy + v * k];
-    // Piezas: de la más delgada a la más gruesa; sin repetir trazos encimados (queda el más grueso).
-    const trazos = new Map<string, { a: P2; b: P2; w: number; capa: string }>();
-    usados.forEach(s => {
-      const a = pr(nodes[s.nodeAId]), b = pr(nodes[s.nodeBId]);
-      if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.005) return;
-      const key = [a, b].map(p => p.map(v => Math.round(v * 200)).join(',')).sort().join('|');
-      const w = grosor(s, esc), prev = trazos.get(key);
-      if (!prev || prev.w < w) trazos.set(key, { a: P(...a), b: P(...b), w, capa: capaDe(s) });
-    });
-    [...trazos.values()].sort((p, q) => p.w - q.w).forEach(t => d.gruesa([t.a, t.b], t.w, t.capa));
-    // Título de la vista con su escala.
-    const cx = (x0 + x1) / 2, ty = y0 + 11;
-    d.texto([cx, ty + 4.5], titulo, TXT_T, 'TEXTOS', 'centro');
-    d.gruesa([[cx - anchoTxt(titulo, TXT_T) / 2, ty + 1.8], [cx + anchoTxt(titulo, TXT_T) / 2, ty + 1.8]], 0.35, 'TEXTOS');
-    d.texto([cx, ty - 2.5], `${sub}  ·  ESC. 1:${esc}`, TXT_S, 'TEXTOS', 'centro');
-    return { P, k, esc, u0, u1, v0, v1 };
-  };
-
-  // Cotas en papel: línea de cota desplazada, líneas de extensión, marcas oblicuas y valor (m).
+  // ---------- Cotas y ejes (en mm de papel) ----------
   const cota = (a: P2, b: P2, off: number, txt?: string, vertical = false) => {
     const nrm: P2 = vertical ? [off, 0] : [0, off];
     const a2: P2 = [a[0] + nrm[0], a[1] + nrm[1]], b2: P2 = [b[0] + nrm[0], b[1] + nrm[1]];
@@ -250,101 +234,180 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     ext(a, a2); ext(b, b2);
     d.linea(a2, b2, 'COTAS');
     [a2, b2].forEach(p => d.gruesa([[p[0] - 1.1, p[1] - 1.1], [p[0] + 1.1, p[1] + 1.1]], 0.35, 'COTAS'));
-    const largo = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const t = txt ?? m2(largo);
-    const sgn = off >= 0 ? 1 : -1;
-    void sgn;
+    const t = txt ?? m2(Math.hypot(b[0] - a[0], b[1] - a[1]));
     if (vertical) d.texto([(a2[0] + b2[0]) / 2 - 2.2, (a2[1] + b2[1]) / 2], t, TXT_S, 'COTAS', 'centro', 90);
     else d.texto([(a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2 + 2.3], t, TXT_S, 'COTAS', 'centro');
   };
-  /** Cadena de cotas (distancias parciales en metros) sobre una línea. */
-  const cadena = (pos: number[], fijo: number, off: number, P: (u: number) => P2, vertical = false, k = 1) => {
+  const cadena = (pos: number[], off: number, P: (u: number) => P2, vertical: boolean, k: number) => {
     for (let i = 1; i < pos.length; i++) {
-      const anchoMm = (pos[i] - pos[i - 1]) * k;
-      if (anchoMm < anchoTxt(m2(pos[i] - pos[i - 1]), TXT_S) + 2) continue; // muy junto: se omite el número (queda la cota total)
+      if ((pos[i] - pos[i - 1]) * k < anchoTxt(m2(pos[i] - pos[i - 1]), TXT_S) + 2) continue;
       cota(P(pos[i - 1]), P(pos[i]), off, m2(pos[i] - pos[i - 1]), vertical);
     }
-    void fijo;
   };
-  const ejesPuestos: P2[] = [];
+  let ejesPuestos: P2[] = [];
   const eje = (c: P2, t: string) => { if (ejesPuestos.some(p => Math.hypot(p[0] - c[0], p[1] - c[1]) < 11)) return; ejesPuestos.push(c); d.circulo(c, 5, 'EJES'); d.texto(c, t, 3.6, 'EJES', 'centro'); };
+  const letra = (i: number) => String.fromCharCode(65 + (i % 26));
 
-  // =========================================================================
-  // TM-01 ESTRUCTURA
-  // =========================================================================
-  const [hx] = hoja('ESTRUCTURA METÁLICA: PLANTA, ELEVACIONES E ISOMÉTRICA', `Luz ${m2(L)} m · largo ${m2(D)} m · altura ${m2(H)} m`);
-  const X0 = hx + ML, X1 = hx + HW - MR, Y0 = MB, Y1 = HH - MT;
-  const yFranja = Y0 + 100, xMed = X0 + (X1 - X0) * 0.5, yMed = yFranja + (Y1 - yFranja) * 0.54;
-
-  // 1. PLANTA (arriba izquierda) — x = luz, y = largo.
-  const vP = vista([X0, yMed, xMed, Y1], s => !/^columna/.test(s.rolEstructural || ''), n => [n.x - minX, (n.z || 0) - minZ],
-    'PLANTA DE TECHO Y CORREAS', `${m2(L)} × ${m2(D)} m`, [26, 26, 30, 22]);
-  if (vP) {
-    const { P, k } = vP;
-    zCol.forEach((z, i) => { const y = P(0, z - minZ)[1]; d.linea([P(0, 0)[0] - 10, y], [P(L, 0)[0] + 4, y], 'EJES'); eje([P(0, 0)[0] - 15, y], String(i + 1)); });
-    xCol.forEach((x, i) => { const xx = P(x - minX, 0)[0]; d.linea([xx, P(0, 0)[1] - 4], [xx, P(0, D)[1] + 8], 'EJES'); eje([xx, P(0, D)[1] + 13], String.fromCharCode(65 + i)); });
-    // Cotas: separación de correas (arriba) y de pórticos (derecha), con totales.
-    const yTop = P(0, D)[1];
-    if (xCorreas.length > 1 && xCorreas.length <= 30) cadena(xCorreas.map(x => x - minX), 0, 0, u => [P(u, 0)[0], yTop], false, k);
-    cota([P(0, 0)[0], yTop], [P(L, 0)[0], yTop], xCorreas.length > 1 ? 7 : 3, `${m2(L)} m`);
-    const xR = P(L, 0)[0];
-    if (zCol.length > 1) cadena(zCol.map(z => z - minZ), 0, 7, v => [xR, P(0, v)[1]], true, k);
-    cota([xR, P(0, 0)[1]], [xR, P(0, D)[1]], zCol.length > 1 ? 14 : 7, `${m2(D)} m`, true);
+  // ---------- Vistas ----------
+  interface Vista {
+    titulo: string; sub: string; filtro: (s: Segment3D) => boolean; pr: (n: Node3D) => P2;
+    margen: [number, number, number, number]; // izq, der, abajo, arriba
+    anotar?: (P: (u: number, v: number) => P2, k: number) => void; libre?: boolean;
   }
-
-  // 2. ELEVACIÓN FRONTAL (abajo izquierda) — pórtico.
-  const vF = vista([X0, yFranja, xMed, yMed], enFrente, n => [n.x - minX, n.y - minY], 'ELEVACIÓN FRONTAL (PÓRTICO)',
-    `Luz ${m2(L)} m · altura ${m2(H)} m`, [26, 26, 36, 10]);
-  if (vF) {
-    const { P, k } = vF;
-    d.linea([P(0, 0)[0] - 8, P(0, 0)[1]], [P(L, 0)[0] + 8, P(0, 0)[1]], 'EJES');
-    d.texto([P(0, 0)[0] - 9, P(0, 0)[1] + 1.5], 'NPT ±0.00', TXT_S, 'COTAS', 'der');
-    if (xCol.length > 1) cadena(xCol.map(x => x - minX), 0, -7, u => P(u, 0), false, k);
-    cota(P(0, 0), P(L, 0), xCol.length > 2 ? -14 : -8, `LUZ ${m2(L)} m`);
-    cota(P(0, 0), P(0, alturaCol), -8, m2(alturaCol), true);
-    if (H - alturaCol > 0.05) {
-      cota(P(L, 0), P(L, H), 8, m2(H), true);
-      cota(P(L, alturaCol), P(L, H), 16, m2(H - alturaCol), true);
-    }
-    // Peralte del tijeral al centro y pendiente.
-    const fr = segs.filter(enFrente);
-    const yEn = (rol: RegExp, x: number) => {
-      let y: number | null = null;
-      fr.filter(s => rol.test(s.rolEstructural || '')).forEach(s => {
-        const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
-        const [xa, xb] = [a.x - minX, b.x - minX];
-        if ((xa - x) * (xb - x) <= 0 && Math.abs(xb - xa) > 1e-6) { const yy = a.y + (b.y - a.y) * (x - xa) / (xb - xa) - minY; y = y === null ? yy : Math.max(y, yy); }
-      });
-      return y;
-    };
-    const xc = L / 2, ys = yEn(/cordon_superior|viga_principal/, xc), yi = yEn(/cordon_inferior/, xc);
-    if (ys !== null && yi !== null && ys - yi > 0.05) {
-      cota(P(xc, yi), P(xc, ys), 6, `PERALTE ${m2(ys - yi)}`, true);
-    }
-    const m = o.memoria?.datos.pendientePct;
-    if (m) d.texto([P(L * 0.27, 0)[0], P(0, (yEn(/cordon_superior|viga_principal/, L * 0.27) ?? H)) [1] + 5], `PENDIENTE ${m} %`, TXT_S, 'COTAS', 'centro');
-    xCol.forEach((x, i) => eje([P(x - minX, 0)[0], P(0, 0)[1] - (xCol.length > 2 ? 24 : 18)], String.fromCharCode(65 + i)));
-  }
-
-  // 3. ISOMÉTRICA (arriba derecha).
   const c30 = Math.cos(Math.PI / 6);
-  const vI = vista([xMed, yMed, X1, Y1], () => true, n => { const x = n.x - minX, z = (n.z || 0) - minZ, y = n.y - minY; return [(x + z) * c30, y + (z - x) * 0.5]; },
-    'VISTA ISOMÉTRICA', 'Estructura completa', [14, 14, 30, 14]);
-  void vI;
+  const fr = segs.filter(enFrente);
+  const yEn = (rol: RegExp, x: number) => {
+    let y: number | null = null;
+    fr.filter(s => rol.test(s.rolEstructural || '')).forEach(s => {
+      const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
+      const [xa, xb] = [a.x - minX, b.x - minX];
+      if ((xa - x) * (xb - x) <= 0 && Math.abs(xb - xa) > 1e-6) { const yy = a.y + (b.y - a.y) * (x - xa) / (xb - xa) - minY; y = y === null ? yy : Math.max(y, yy); }
+    });
+    return y as number | null;
+  };
+  const vistas: Vista[] = [
+    {
+      titulo: 'PLANTA DE TECHO Y CORREAS', sub: `${m2(L)} × ${m2(D)} m`, margen: [26, 26, 26, 24],
+      filtro: s => !/^columna/.test(s.rolEstructural || ''), pr: n => [n.x - minX, (n.z || 0) - minZ],
+      anotar: (P, k) => {
+        zCol.forEach((z, i) => { const y = P(0, z - minZ)[1]; d.linea([P(0, 0)[0] - 10, y], [P(L, 0)[0] + 4, y], 'EJES'); eje([P(0, 0)[0] - 15, y], String(i + 1)); });
+        xCol.forEach((x, i) => { const xx = P(x - minX, 0)[0]; d.linea([xx, P(0, 0)[1] - 4], [xx, P(0, D)[1] + 8], 'EJES'); eje([xx, P(0, D)[1] + 13], letra(i)); });
+        const yTop = P(0, D)[1];
+        if (xCorreas.length > 1 && xCorreas.length <= 40) cadena(xCorreas.map(x => x - minX), 0, u => [P(u, 0)[0], yTop], false, k);
+        cota([P(0, 0)[0], yTop], [P(L, 0)[0], yTop], xCorreas.length > 1 ? 7 : 3, `${m2(L)} m`);
+        const xR = P(L, 0)[0];
+        if (zCol.length > 1) cadena(zCol.map(z => z - minZ), 7, v => [xR, P(0, v)[1]], true, k);
+        cota([xR, P(0, 0)[1]], [xR, P(0, D)[1]], zCol.length > 1 ? 14 : 7, `${m2(D)} m`, true);
+      },
+    },
+    {
+      titulo: 'ELEVACIÓN FRONTAL (PÓRTICO TÍPICO)', sub: `Luz ${m2(L)} m · altura ${m2(H)} m`, margen: [28, 28, 40, 12],
+      filtro: enFrente, pr: n => [n.x - minX, n.y - minY],
+      anotar: (P, k) => {
+        d.linea([P(0, 0)[0] - 8, P(0, 0)[1]], [P(L, 0)[0] + 8, P(0, 0)[1]], 'EJES');
+        d.texto([P(0, 0)[0] - 9, P(0, 0)[1] + 1.5], 'NPT ±0.00', TXT_S, 'COTAS', 'der');
+        if (xCol.length > 1) cadena(xCol.map(x => x - minX), -7, u => P(u, 0), false, k);
+        cota(P(0, 0), P(L, 0), xCol.length > 2 ? -14 : -8, `LUZ ${m2(L)} m`);
+        cota(P(0, 0), P(0, alturaCol), -8, m2(alturaCol), true);
+        if (H - alturaCol > 0.05) { cota(P(L, 0), P(L, H), 8, m2(H), true); cota(P(L, alturaCol), P(L, H), 16, m2(H - alturaCol), true); }
+        const xc = L / 2, ys = yEn(/cordon_superior|viga_principal/, xc), yi = yEn(/cordon_inferior/, xc);
+        if (ys !== null && yi !== null && ys - yi > 0.05) cota(P(xc, yi), P(xc, ys), 6, `PERALTE ${m2(ys - yi)}`, true);
+        const m = o.memoria?.datos.pendientePct;
+        if (m) d.texto([P(L * 0.27, 0)[0], P(0, (yEn(/cordon_superior|viga_principal/, L * 0.27) ?? H))[1] + 5], `PENDIENTE ${m} %`, TXT_S, 'COTAS', 'centro');
+        xCol.forEach((x, i) => eje([P(x - minX, 0)[0], P(0, 0)[1] - (xCol.length > 2 ? 24 : 18)], letra(i)));
+      },
+    },
+    {
+      titulo: 'ELEVACIÓN LATERAL', sub: `${zCol.length} pórticos${zCol.length > 1 ? ` a ${m2(D / (zCol.length - 1))} m` : ''}`, margen: [26, 26, 40, 12],
+      filtro: s => { const a = nodes[s.nodeAId], b = nodes[s.nodeBId]; return Math.abs(a.x - b.x) < 0.02 && !/montante|diagonal/.test(s.rolEstructural || ''); },
+      pr: n => [(n.z || 0) - minZ, n.y - minY],
+      anotar: (P, k) => {
+        d.linea([P(0, 0)[0] - 8, P(0, 0)[1]], [P(D, 0)[0] + 8, P(0, 0)[1]], 'EJES');
+        if (zCol.length > 1) cadena(zCol.map(z => z - minZ), -7, u => P(u, 0), false, k);
+        cota(P(0, 0), P(D, 0), zCol.length > 1 ? -14 : -8, `LARGO ${m2(D)} m`);
+        cota(P(D, 0), P(D, H), 8, m2(H), true);
+        zCol.forEach((z, i) => eje([P(z - minZ, 0)[0], P(0, 0)[1] - 24], String(i + 1)));
+      },
+    },
+    {
+      titulo: 'VISTA ISOMÉTRICA', sub: 'Estructura completa', margen: [14, 14, 26, 10], libre: true,
+      filtro: () => true, pr: n => { const x = n.x - minX, z = (n.z || 0) - minZ, y = n.y - minY; return [(x + z) * c30, y + (z - x) * 0.5]; },
+    },
+  ];
 
-  // 4. ELEVACIÓN LATERAL (abajo derecha) — piezas a lo largo (columnas, correas, vigas, cruces).
-  const vL = vista([xMed, yFranja, X1, yMed], s => { const a = nodes[s.nodeAId], b = nodes[s.nodeBId]; return Math.abs(a.x - b.x) < 0.02 && !/montante|diagonal/.test(s.rolEstructural || ''); },
-    n => [(n.z || 0) - minZ, n.y - minY], 'ELEVACIÓN LATERAL', `${zCol.length} pórticos${zCol.length > 1 ? ` a ${m2(D / (zCol.length - 1))} m` : ''}`, [26, 26, 36, 10]);
-  if (vL) {
-    const { P, k } = vL;
-    d.linea([P(0, 0)[0] - 8, P(0, 0)[1]], [P(D, 0)[0] + 8, P(0, 0)[1]], 'EJES');
-    if (zCol.length > 1) cadena(zCol.map(z => z - minZ), 0, -7, u => P(u, 0), false, k);
-    cota(P(0, 0), P(D, 0), zCol.length > 1 ? -14 : -8, `LARGO ${m2(D)} m`);
-    cota(P(D, 0), P(D, H), 8, m2(H), true);
-    zCol.forEach((z, i) => eje([P(z - minZ, 0)[0], P(0, 0)[1] - 24], String(i + 1)));
-  }
+  const medida = (v: Vista) => {
+    const pts = segs.filter(v.filtro).flatMap(s => [v.pr(nodes[s.nodeAId]), v.pr(nodes[s.nodeBId])]);
+    if (!pts.length) return null;
+    return { u0: Math.min(...pts.map(p => p[0])), u1: Math.max(...pts.map(p => p[0])), v0: Math.min(...pts.map(p => p[1])), v1: Math.max(...pts.map(p => p[1])) };
+  };
+  const tam = (v: Vista, m: { u0: number; u1: number; v0: number; v1: number }, esc: number): [number, number] =>
+    [(m.u1 - m.u0) * 1000 / esc + v.margen[0] + v.margen[1], (m.v1 - m.v0) * 1000 / esc + v.margen[2] + v.margen[3]];
 
-  // 5. Franja inferior: cuadro de elementos, leyenda de trazos y notas.
+  // Área útil de una hoja estructural (sobre el rótulo / la franja de cuadros en la primera).
+  const FRANJA = 112;
+  const area = (fmt: Formato, primera: boolean) => { const [W, Hh] = FORMATOS[fmt]; return { w: W - ML - MR - 8, h: Hh - MT - MB - 8 - (primera ? FRANJA : RH + 6) }; };
+  // Escala: fija (la elegida) o automática = la mayor que deja las 4 vistas en una A1.
+  const esc0 = o.escala && o.escala > 0 ? o.escala : (() => {
+    for (const e of [50, 75, 100, 125, 150, 200, 250, 300, 400, 500]) {
+      const a = area('A1', true);
+      const ts = vistas.map(v => { const m = medida(v); return m ? tam(v, m, e) : [0, 0] as [number, number]; });
+      // Dos filas: (planta, isométrica) y (frontal, lateral).
+      if (Math.max(ts[0][0] + ts[3][0], ts[1][0] + ts[2][0]) <= a.w && Math.max(ts[0][1], ts[3][1]) + Math.max(ts[1][1], ts[2][1]) <= a.h) return e;
+    }
+    return 500;
+  })();
+  const escTxt = `1:${esc0} (indicada)`;
+
+  // Empaquetado por filas: [planta, iso] y [frontal, lateral]; si no caben, más láminas o A0.
+  type Colocada = { v: Vista; m: { u0: number; u1: number; v0: number; v1: number }; esc: number; x: number; yTop: number; w: number; h: number };
+  const filas: Vista[][] = [[vistas[0], vistas[3]], [vistas[1], vistas[2]]];
+  let hojaAct: { ox: number; W: number; H: number } | null = null, primera = true, yCursor = 0;
+  const colocar = (fila: Colocada[]) => {
+    const total = fila.reduce((s, c) => s + c.w, 0);
+    const a = area('A1', false);
+    void a;
+    const libreW = (hojaAct!.W - ML - MR - 8) - total, gap = libreW / (fila.length + 1);
+    let x = hojaAct!.ox + ML + 4 + gap;
+    fila.forEach(c => { c.x = x; c.yTop = yCursor; x += c.w + gap; dibujarVista(c); });
+    yCursor -= Math.max(...fila.map(c => c.h)) + 4;
+  };
+  const dibujarVista = (c: Colocada) => {
+    const { v, m, esc } = c, k = 1000 / esc;
+    const ox = c.x + v.margen[0] - m.u0 * k;
+    const oy = c.yTop - v.margen[3] - (m.v1 - m.v0) * k - m.v0 * k;
+    const P = (u: number, w: number): P2 => [ox + u * k, oy + w * k];
+    const trazos = new Map<string, { a: P2; b: P2; w: number; capa: string }>();
+    segs.filter(v.filtro).forEach(s => {
+      const a = v.pr(nodes[s.nodeAId]), b = v.pr(nodes[s.nodeBId]);
+      if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.005) return;
+      const key = [a, b].map(p => p.map(q => Math.round(q * 200)).join(',')).sort().join('|');
+      const w = grosor(s, esc), prev = trazos.get(key);
+      if (!prev || prev.w < w) trazos.set(key, { a: P(...a), b: P(...b), w, capa: capaDe(s) });
+    });
+    [...trazos.values()].sort((p, q) => p.w - q.w).forEach(t => d.gruesa([t.a, t.b], t.w, t.capa));
+    ejesPuestos = [];
+    v.anotar?.(P, k);
+    const cx = c.x + c.w / 2, ty = c.yTop - c.h + 11;
+    d.texto([cx, ty + 4.5], v.titulo, TXT_T, 'TEXTOS', 'centro');
+    d.gruesa([[cx - anchoTxt(v.titulo, TXT_T) / 2, ty + 1.8], [cx + anchoTxt(v.titulo, TXT_T) / 2, ty + 1.8]], 0.35, 'TEXTOS');
+    d.texto([cx, ty - 2.5], `${v.sub}  ·  ESC. ${v.libre ? 'S/E' : `1:${esc}`}`, TXT_S, 'TEXTOS', 'centro');
+  };
+  const nuevaHoja = (fmt: Formato) => {
+    hojaAct = hoja(primera ? 'ESTRUCTURA: PLANTA, ELEVACIONES E ISOMÉTRICA' : 'ESTRUCTURA (continuación)', escTxt, fmt);
+    yCursor = hojaAct.H - MT - 4;
+    const p = primera; primera = false;
+    return p;
+  };
+  let esPrimeraHoja = true, hojaPrimeraOx = 0;
+  let pend: Colocada[] = [];
+  const cierreFila = () => { if (pend.length) colocar(pend); pend = []; };
+  filas.forEach(fila => {
+    const items = fila.map(v => {
+      const m = medida(v); if (!m) return null;
+      let esc = v.libre ? esc0 : esc0;
+      // Si ni en A0 cabe a la escala elegida, se reduce a la siguiente que quepa (y se indica).
+      const a0 = area('A0', false);
+      while (tam(v, m, esc)[0] > a0.w || tam(v, m, esc)[1] > a0.h) esc = ESCALAS.find(e => e > esc) || esc * 2;
+      const [w, h] = tam(v, m, esc);
+      return { v, m, esc, x: 0, yTop: 0, w, h } as Colocada;
+    }).filter(Boolean) as Colocada[];
+    items.forEach(it => {
+      const fmtNec: Formato = it.w <= area('A1', false).w && it.h <= area('A1', false).h ? 'A1' : 'A0';
+      if (!hojaAct) { esPrimeraHoja = nuevaHoja(fmtNec); hojaPrimeraOx = hojaAct!.ox; }
+      const lim = (hojaAct!.ox === hojaPrimeraOx ? MB + FRANJA : MB + RH + 6);
+      const anchoUsado = pend.reduce((s, c) => s + c.w, 0);
+      const anchoHoja = hojaAct!.W - ML - MR - 8;
+      if (anchoUsado + it.w > anchoHoja) cierreFila();
+      const altoFila = Math.max(it.h, ...pend.map(c => c.h));
+      if (yCursor - altoFila < lim || (fmtNec === 'A0' && hojaAct!.W < FORMATOS.A0[0])) { cierreFila(); nuevaHoja(fmtNec); }
+      pend.push(it);
+    });
+    cierreFila();
+  });
+  void esPrimeraHoja;
+
+  // Franja inferior de la primera lámina: cuadro de elementos, leyenda y notas breves.
+  const yFr = MB + FRANJA - 4, X0 = hojaPrimeraOx + ML;
   const porRol = new Map<string, { n: number; m: number; perf: Map<string, number> }>();
   segs.forEach(s => {
     const a = nodes[s.nodeAId], b = nodes[s.nodeBId], rol = s.rolEstructural || 'viga_principal';
@@ -352,13 +415,10 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     r.n++; r.m += Math.hypot(a.x - b.x, a.y - b.y, (a.z || 0) - (b.z || 0)); r.perf.set(s.profileId || '', (r.perf.get(s.profileId || '') || 0) + 1);
     porRol.set(rol, r);
   });
-  const filas = [...porRol.entries()].sort((p, q) => ORDEN_ROL.indexOf(p[0]) - ORDEN_ROL.indexOf(q[0]))
-    .map(([rol, r]) => [NOMBRE_ROL[rol] || rol, String(r.n), [...r.perf.keys()].map(nombreCorto).join(' / '), m2(r.m)]);
-  const tabla = (x: number, yTop: number, titulo: string, enc0: string[], rows: string[][], h = TXT_S, anchoMin?: number[]) => {
+  const tabla = (x: number, yTop: number, titulo: string, enc0: string[], rows: string[][], h = TXT_S) => {
     const rh = h * 2.2;
-    const cw = enc0.map((_, j) => Math.max(anchoMin?.[j] || 0, ...[enc0, ...rows].map(r => anchoTxt(r[j] || '', h))) + 3);
-    const W = cw.reduce((a, b) => a + b, 0);
-    const alto = rh * (rows.length + 2);
+    const cw = enc0.map((_, j) => Math.max(...[enc0, ...rows].map(r => anchoTxt(r[j] || '', h))) + 3);
+    const W = cw.reduce((a, b) => a + b, 0), alto = rh * (rows.length + 2);
     d.caja(x, yTop, x + W, yTop - alto, 'CUADRO', 0.35);
     d.texto([x + W / 2, yTop - rh / 2], titulo, h * 1.1, 'CUADRO', 'centro');
     [enc0, ...rows].forEach((fila, i) => {
@@ -369,73 +429,158 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     });
     return { W, alto };
   };
-  const t1 = tabla(X0 + 4, yFranja - 4, 'CUADRO DE ELEMENTOS Y PERFILES', ['Elemento', 'Cant.', 'Perfil', 'Long. (m)'], filas);
-  // Leyenda de trazos: grosor según perfil.
+  const filasCuadro = [...porRol.entries()].sort((p, q) => ORDEN_ROL.indexOf(p[0]) - ORDEN_ROL.indexOf(q[0]))
+    .map(([rol, r]) => [NOMBRE_ROL[rol] || rol, String(r.n), [...r.perf.keys()].map(nombreCorto).join(' / '), m2(r.m)]);
+  const t1 = tabla(X0 + 4, yFr, 'CUADRO DE ELEMENTOS Y PERFILES', ['Elemento', 'Cant.', 'Perfil', 'Long. (m)'], filasCuadro);
   const xLey = X0 + 4 + t1.W + 10;
-  d.texto([xLey, yFranja - 7], 'LEYENDA (grosor según el perfil)', TXT_S, 'TEXTOS');
+  d.texto([xLey, yFr - 3], 'LEYENDA (grosor según el perfil)', TXT_S, 'TEXTOS');
   [...porRol.keys()].sort((p, q) => ORDEN_ROL.indexOf(p) - ORDEN_ROL.indexOf(q)).forEach((rol, i) => {
     const s = segs.find(x => x.rolEstructural === rol)!;
-    const y = yFranja - 14 - i * 6;
+    const y = yFr - 10 - i * 6;
     d.gruesa([[xLey, y], [xLey + 16, y]], Math.min(1.4, Math.max(0.18, ladoMm(s.profileId) / 100)), CAPA_ROL[rol] || 'VIGAS');
     d.texto([xLey + 19, y - 1], NOMBRE_ROL[rol] || rol, TXT_S, 'TEXTOS');
   });
   const xNot = xLey + 92;
-  ['NOTAS:', '1. Medidas en metros; láminas en mm (A1).', '2. Acero ASTM A500 Gr. B; perfiles C ASTM A36.', '3. Soldadura E-6011 (raíz) y E-7018 (acabado), 4 mm mín.',
-    '4. Placas base con 4 pernos tipo J empotrados 35 cm.', '5. Cobertura con autoperforantes y arandela EPDM.', '6. Pintura: 2 manos anticorrosivo + 2 de esmalte.',
-    '7. Ver despiece (TM-02) y memoria de cálculo (TM-03).']
-    .forEach((t, i) => { if (xNot + 60 < X1 - 185) d.texto([xNot, yFranja - 7 - i * 5.6], t, i ? TXT_S : TXT, 'TEXTOS'); });
+  const sis = o.memoria?.sismo;
+  ['NOTAS:', '1. Cotas en metros; láminas en mm.', '2. Ver especificaciones técnicas y detalles en E-02.', '3. Ver despiece y memoria de cálculo.',
+    sis ? `4. Sismo E.030: Z=${sis.Z} U=${sis.U} S=${sis.S} R=${sis.R} · V=${sis.VKg.toFixed(0)} kg` : '4. Cargas según RNE E.020.',
+    '5. Prediseño: revisar y firmar por ingeniero CIP.']
+    .forEach((t, i) => { if (xNot + 60 < X0 + FORMATOS.A1[0] - ML - MR - RW - 8) d.texto([xNot, yFr - 3 - i * 5.6], t, i ? TXT_S : TXT, 'TEXTOS'); });
 
   // =========================================================================
-  // TM-02 DESPIECE Y CORTES (barras de 6 m)
+  // DETALLES Y ESPECIFICACIONES TÉCNICAS
+  // =========================================================================
+  {
+    const { ox, H: Hh } = hoja('DETALLES Y ESPECIFICACIONES TÉCNICAS', 'INDICADA');
+    const colSeg = segs.find(s => s.rolEstructural === 'columna');
+    const colMm = colSeg ? ladoMm(colSeg.profileId) : 100;
+    const placa = Math.ceil((colMm + 150) / 50) * 50; // mm
+    const ePlaca = colMm > 100 ? 15.9 : 12.7;
+    const anclaje = ns.find(n => n.isFixedSupport && (n as any).boltDiameter) as any;
+    const perno = anclaje?.boltDiameter || '5/8"', nPernos = anclaje?.numPernos || 4;
+    const esc = 5, k = 1 / esc; // detalle 1:5 (mm reales → mm papel)
+    // Detalle 1: placa base — elevación.
+    const ex = ox + ML + 50, ey = Hh - MT - 150;
+    const dado = placa + 150;
+    d.caja(ex - dado * k / 2, ey - 400 * k, ex + dado * k / 2, ey, 'COLUMNAS', 0.35);                    // dado de concreto
+    for (let i = 0; i < 10; i++) d.linea([ex - dado * k / 2 + i * dado * k / 10, ey - 400 * k], [ex - dado * k / 2 + (i + 1) * dado * k / 10, ey - 330 * k], 'ARRIOSTRES');
+    d.caja(ex - placa * k / 2, ey + 25 * k, ex + placa * k / 2, ey + (25 + ePlaca) * k, 'VIGAS', 0.5);  // placa
+    d.caja(ex - placa * k / 2, ey, ex + placa * k / 2, ey + 25 * k, 'ARRIOSTRES', 0.2);                // grout
+    d.caja(ex - colMm * k / 2, ey + (25 + ePlaca) * k, ex + colMm * k / 2, ey + (25 + ePlaca) * k + 70, 'COLUMNAS', 0.7); // columna
+    [-1, 1].forEach(sx => {
+      const px = ex + sx * (placa / 2 - 40) * k;
+      d.gruesa([[px, ey + (25 + ePlaca + 25) * k], [px, ey - 350 * k], [px + sx * 50 * k, ey - 350 * k]], 0.6, 'COTAS');  // perno J
+      d.gruesa([[ex + sx * colMm * k / 2, ey + (25 + ePlaca) * k], [ex + sx * (colMm / 2 + 12) * k, ey + (25 + ePlaca) * k], [ex + sx * colMm * k / 2, ey + (25 + ePlaca + 12) * k]], 0.3, 'NO_CUMPLE', true);
+    });
+    cota([ex - placa * k / 2, ey + 70 + 20], [ex + placa * k / 2, ey + 70 + 20], 4, `PLACA ${placa}×${placa}×${ePlaca} mm`);
+    cota([ex + dado * k / 2, ey - 350 * k], [ex + dado * k / 2, ey], 6, '0.35 (empotramiento)', true);
+    d.texto([ex + placa * k / 2 + 6, ey + 12 * k], 'GROUT SIN RETRACCIÓN e = 25 mm', TXT_S, 'COTAS');
+    d.texto([ex + placa * k / 2 + 6, ey + (25 + ePlaca + 40) * k], `SOLDADURA FILETE 6 mm (E-7018) TODO EL CONTORNO`, TXT_S, 'COTAS');
+    d.texto([ex - dado * k / 2, ey - 400 * k - 6], `${nPernos} PERNOS DE ANCLAJE Ø ${perno} TIPO J (ASTM A307), L = 450 mm`, TXT_S, 'COTAS');
+    d.texto([ex - dado * k / 2, ey - 400 * k - 12], "DADO DE CONCRETO f'c = 210 kg/cm²", TXT_S, 'COTAS');
+    d.texto([ex, ey + 110], 'DETALLE 1: PLACA BASE Y ANCLAJE (ELEVACIÓN)', TXT, 'TEXTOS', 'centro');
+    d.texto([ex, ey + 104], 'ESC. 1:5', TXT_S, 'TEXTOS', 'centro');
+    // Detalle 2: placa base — planta.
+    const px0 = ex + 140, py0 = ey + 20;
+    d.caja(px0 - placa * k / 2, py0 - placa * k / 2, px0 + placa * k / 2, py0 + placa * k / 2, 'VIGAS', 0.5);
+    d.caja(px0 - colMm * k / 2, py0 - colMm * k / 2, px0 + colMm * k / 2, py0 + colMm * k / 2, 'COLUMNAS', 0.7);
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].slice(0, Math.max(2, Math.min(4, nPernos))).forEach(([sx, sy]) => d.circulo([px0 + sx * (placa / 2 - 40) * k, py0 + sy * (placa / 2 - 40) * k], 2.2, 'COTAS'));
+    cota([px0 - placa * k / 2, py0 - placa * k / 2], [px0 + placa * k / 2, py0 - placa * k / 2], -7, `${placa}`);
+    cota([px0 + placa * k / 2, py0 - placa * k / 2], [px0 + placa * k / 2, py0 + placa * k / 2], 7, `${placa}`, true);
+    d.texto([px0, py0 + placa * k / 2 + 12], 'DETALLE 2: PLACA BASE (PLANTA)', TXT, 'TEXTOS', 'centro');
+    d.texto([px0, py0 + placa * k / 2 + 6], `ESC. 1:5 · columna ${nombreCorto(colSeg?.profileId)}`, TXT_S, 'TEXTOS', 'centro');
+    // Detalle 3: empalme soldado (piezas de más de 6 m).
+    const sx0 = ex + 240, sy0 = ey + 40, tubo = 60;
+    d.gruesa([[sx0, sy0], [sx0 + 70, sy0]], 0.5, 'CORDON_SUPERIOR'); d.gruesa([[sx0, sy0 + tubo * k * 2], [sx0 + 70, sy0 + tubo * k * 2]], 0.5, 'CORDON_SUPERIOR');
+    d.gruesa([[sx0 + 72, sy0], [sx0 + 142, sy0]], 0.5, 'CORDON_SUPERIOR'); d.gruesa([[sx0 + 72, sy0 + tubo * k * 2], [sx0 + 142, sy0 + tubo * k * 2]], 0.5, 'CORDON_SUPERIOR');
+    d.caja(sx0 + 56, sy0 - 3, sx0 + 86, sy0 + tubo * k * 2 + 3, 'VIGAS', 0.35);
+    d.texto([sx0 + 71, sy0 + tubo * k * 2 + 8], 'CUBREJUNTA 4 LADOS e = 3 mm, L = 150 mm', TXT_S, 'COTAS', 'centro');
+    d.texto([sx0 + 71, sy0 - 8], 'SOLDADURA A TOPE PENETRACIÓN COMPLETA + FILETE 4 mm', TXT_S, 'COTAS', 'centro');
+    d.texto([sx0 + 71, sy0 + 54], 'DETALLE 3: EMPALME SOLDADO DE TUBO', TXT, 'TEXTOS', 'centro');
+    d.texto([sx0 + 71, sy0 + 48], 'Para piezas de más de 6 m · ESC. 1:2.5', TXT_S, 'TEXTOS', 'centro');
+    // Cuadro de columnas.
+    const cols = segs.filter(s => s.rolEstructural === 'columna');
+    const tiposCol = new Map<string, number>(); cols.forEach(s => tiposCol.set(s.profileId || '', (tiposCol.get(s.profileId || '') || 0) + 1));
+    tabla(ox + ML + 6, ey - 120, 'CUADRO DE COLUMNAS', ['Tipo', 'Cant.', 'Perfil', 'Altura (m)', 'Placa base (mm)', 'Pernos'],
+      [...tiposCol.entries()].map(([id, n], i) => [`C-${i + 1}`, String(n), nombreCorto(id), m2(alturaCol), `${placa}×${placa}×${ePlaca}`, `${nPernos} Ø ${perno} J`]), TXT);
+    // Especificaciones técnicas y parámetros sísmicos (columna derecha).
+    const xe = ox + (FORMATOS.A1[0]) * 0.56;
+    let ye = Hh - MT - 10;
+    const bloque = (titulo: string, lineas: string[]) => {
+      d.texto([xe, ye], titulo, TXT_T * 0.9, 'TEXTOS'); d.gruesa([[xe, ye - 2], [xe + anchoTxt(titulo, TXT_T * 0.9), ye - 2]], 0.35, 'TEXTOS'); ye -= 8.5;
+      lineas.forEach(t => { d.texto([xe + 2, ye], t, TXT, 'TEXTOS'); ye -= 6.2; });
+      ye -= 4;
+    };
+    const mem = o.memoria;
+    bloque('ESPECIFICACIONES TÉCNICAS', [
+      'ACERO: tubos ASTM A500 Gr. B (Fy = 3 200 kg/cm²); perfiles C, placas y',
+      '  platinas ASTM A36 (Fy = 2 530 kg/cm²).',
+      'SOLDADURA: AWS E-6011 (raíz) y E-7018 (acabado); filete mínimo 4 mm,',
+      '  continuo en uniones de tijeral y columnas (AWS D1.1).',
+      `ANCLAJE: pernos tipo J Ø ${perno} ASTM A307, empotrados 35 cm; grout 25 mm.`,
+      "CONCRETO: dados y zapatas f'c = 210 kg/cm²; acero de refuerzo fy = 4 200 kg/cm².",
+      'COBERTURA: fijada con autoperforantes 12-14 × 2" con arandela EPDM.',
+      'PINTURA: arenado o limpieza mecánica, 2 manos de anticorrosivo epóxico',
+      '  y 2 manos de esmalte (espesor seco total ≥ 125 micras).',
+      'TOLERANCIAS: verticalidad de columnas h/500; flecha de piezas L/1000.',
+    ]);
+    if (mem) bloque('CARGAS DE DISEÑO (E.020)', [
+      `Carga muerta D = ${mem.cargas.D} kg/m² · Carga viva de techo L = ${mem.cargas.L} kg/m²`,
+      `Viento V = ${mem.cargas.V} km/h → q = ${mem.cargas.qViento.toFixed(1)} kg/m² (succión ${mem.cargas.succion.toFixed(1)} kg/m²)`,
+    ]);
+    if (sis) bloque('PARÁMETROS SÍSMICOS (E.030-2018)', [
+      `Zona ${sis.zona}: Z = ${sis.Z} · Suelo ${sis.suelo}: S = ${sis.S}, Tp = ${sis.Tp} s, TL = ${sis.TL} s`,
+      `Categoría ${sis.categoria}: U = ${sis.U} · Sistema: pórtico ordinario de acero, R = ${sis.R}`,
+      `T = ${sis.T.toFixed(3)} s · C = ${sis.C.toFixed(2)} · Peso sísmico P = ${sis.PKg.toFixed(0)} kg`,
+      `Cortante basal V = ZUCS/R · P = ${sis.VKg.toFixed(0)} kg · por columna ${sis.VColKg.toFixed(0)} kg`,
+      `Deriva máxima ${sis.deriva.toFixed(4)} ≤ ${sis.derivaLim} (acero) · ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`,
+    ]);
+    bloque('NORMAS', ['RNE E.020 Cargas · E.030 Diseño sismorresistente · E.090 Estructuras metálicas', 'AWS D1.1 Soldadura estructural · ASTM A500 / A36 / A307']);
+  }
+
+  // =========================================================================
+  // DESPIECE Y CORTES (barras de 6 m)
   // =========================================================================
   const desp = (o.despiece || []).filter(p => p.patronesBarras?.length);
   if (desp.length) {
-    let hj = hoja('DESPIECE Y CORTES (BARRAS COMERCIALES DE 6 m)', `${desp.reduce((s, p) => s + p.totalBarrasComerciales6m, 0)} barras · ${desp.length} perfiles`);
-    let x0 = hj[0] + ML + 6;
-    const yIni = HH - MT - 8, yFin = MB + 64;
+    let hj = hoja('DESPIECE Y CORTES (BARRAS DE 6 m)', 'S/E');
+    let x0 = hj.ox + ML + 6;
+    const yIni = hj.H - MT - 8, yFin = MB + RH + 8;
     let y = yIni;
-    // Resumen arriba.
     const resumen = desp.map(p => [nombreCorto(p.profileId), String(p.totalBarrasComerciales6m), m2(p.totalMetrosRequeridosM), p.totalPesoAceroKg.toFixed(1), `${Math.min(100, Math.round(p.eficienciaPromedioPorcentaje))} %`]);
     const tr = tabla(x0, y, 'RESUMEN DE COMPRA', ['Perfil', 'Barras 6 m', 'Metros', 'Peso (kg)', 'Aprovech.'], resumen);
     y -= tr.alto + 10;
-    const anchoCol = HW - ML - MR - 12, barraMm = 330;
-    const siguiente = (alto: number) => {
-      if (y - alto >= yFin) return;
-      hj = hoja('DESPIECE Y CORTES (continuación)', 'Barras comerciales de 6 m'); x0 = hj[0] + ML + 6; y = yIni;
-    };
+    const barraMm = 330;
+    const siguiente = (alto: number) => { if (y - alto >= yFin) return; hj = hoja('DESPIECE Y CORTES (continuación)', 'S/E'); x0 = hj.ox + ML + 6; y = hj.H - MT - 8; };
     desp.forEach(p => {
-      // Patrones iguales juntos (mismos cortes) con su cantidad.
       const grupos = new Map<string, { n: number; pat: DespieceDxf['patronesBarras'][number] }>();
-      p.patronesBarras.forEach(b => { const k = b.cortes.map(c => c.longitudM.toFixed(3)).sort().join('+'); const g = grupos.get(k); if (g) g.n++; else grupos.set(k, { n: 1, pat: b }); });
+      p.patronesBarras.forEach(b => { const kk = b.cortes.map(c => c.longitudM.toFixed(3)).sort().join('+'); const g = grupos.get(kk); if (g) g.n++; else grupos.set(kk, { n: 1, pat: b }); });
       siguiente(20);
       d.texto([x0, y], `${nombreCorto(p.profileId)}  —  ${p.totalBarrasComerciales6m} barras de 6 m · ${m2(p.totalMetrosRequeridosM)} m · ${p.totalPesoAceroKg.toFixed(1)} kg`, TXT, 'TEXTOS');
-      d.gruesa([[x0, y - 1.6], [x0 + anchoCol - 6, y - 1.6]], 0.25, 'TEXTOS');
+      d.gruesa([[x0, y - 1.6], [x0 + hj.W - ML - MR - 12, y - 1.6]], 0.25, 'TEXTOS');
       y -= 11;
       [...grupos.values()].sort((a, b) => b.n - a.n).forEach((g, i) => {
         siguiente(13);
-        const L6 = g.pat.longitudBarraComercialM || 6, k = barraMm / L6;
-        d.texto([x0, y - 5], `${String.fromCharCode(65 + (i % 26))}  ×${g.n}`, TXT, 'TEXTOS');
+        const L6 = g.pat.longitudBarraComercialM || 6, kk = barraMm / L6;
+        d.texto([x0, y - 5], `${letra(i)}  ×${g.n}`, TXT, 'TEXTOS');
         const bx = x0 + 22;
-        d.caja(bx, y, bx + barraMm, y - 7, 'DESPIECE', 0.35);
-        let cx = bx;
         const cortes = [...g.pat.cortes].sort((a, b) => b.longitudM - a.longitudM);
-        // Pieza más larga que la barra: no se puede sacar de una barra → se marca para empalmar.
         if (cortes.some(c => c.longitudM > L6 + 1e-6)) {
           d.caja(bx, y, bx + barraMm, y - 7, 'NO_CUMPLE', 0.5);
-          d.texto([bx + barraMm / 2, y - 3.5], `PIEZA DE ${m2(Math.max(...cortes.map(c => c.longitudM)))} m > ${m2(L6)} m: REQUIERE EMPALME SOLDADO`, TXT_S, 'NO_CUMPLE', 'centro');
-          y -= 11;
-          return;
+          d.texto([bx + barraMm / 2, y - 3.5], `PIEZA DE ${m2(Math.max(...cortes.map(c => c.longitudM)))} m > ${m2(L6)} m: EMPALME SOLDADO (DETALLE 3, E-02)`, TXT_S, 'NO_CUMPLE', 'centro');
+          y -= 11; return;
         }
+        d.caja(bx, y, bx + barraMm, y - 7, 'DESPIECE', 0.35);
+        let cx = bx;
         cortes.forEach(c => {
-          const w = c.longitudM * k;
+          const w = c.longitudM * kk;
           d.linea([cx + w, y], [cx + w, y - 7], 'DESPIECE');
           if (w > anchoTxt(m2(c.longitudM), TXT_S) + 1.5) d.texto([cx + w / 2, y - 3.5], m2(c.longitudM), TXT_S, 'TEXTOS', 'centro');
           cx += w;
         });
-        // Sobrante rayado.
         for (let xx = cx + 2; xx < bx + barraMm - 0.5; xx += 3) d.linea([xx, y - 7], [Math.min(bx + barraMm, xx + 3), y], 'ARRIOSTRES');
-        const resumenTxt = `${cortes.map(c => m2(c.longitudM)).join(' + ')}  · sobra ${m2(g.pat.desperdicioSobraM)}`;
-        d.texto([bx + barraMm + 4, y - 4.6], resumenTxt.length > 95 ? resumenTxt.slice(0, 93) + '…' : resumenTxt, TXT_S, 'TEXTOS');
+        const rt = `${cortes.map(c => m2(c.longitudM)).join(' + ')}  · sobra ${m2(g.pat.desperdicioSobraM)}`;
+        d.texto([bx + barraMm + 4, y - 4.6], rt.length > 95 ? rt.slice(0, 93) + '…' : rt, TXT_S, 'TEXTOS');
         y -= 11;
       });
       y -= 4;
@@ -443,73 +588,78 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
   }
 
   // =========================================================================
-  // TM-03 MEMORIA DE CÁLCULO
+  // MEMORIA DE CÁLCULO
   // =========================================================================
   const mem = o.memoria;
   if (mem) {
-    const [mx] = hoja('MEMORIA DE CÁLCULO (PREDISEÑO RNE E.020 / E.090)', `Estado: ${mem.estado === 'CUMPLE' ? 'CUMPLE' : mem.estado === 'OBSERVACION' ? 'CON OBSERVACIONES' : 'NO CUMPLE'}`);
-    const xa = mx + ML + 6, ytop = HH - MT - 10;
+    const { ox: mx, H: Hh } = hoja('MEMORIA DE CÁLCULO ESTRUCTURAL', 'S/E');
+    const xa = mx + ML + 6, ytop = Hh - MT - 10;
     let y = ytop;
     const bloque = (titulo: string, lineas: string[]) => {
       d.texto([xa, y], titulo, TXT_T, 'TEXTOS'); d.gruesa([[xa, y - 2], [xa + anchoTxt(titulo, TXT_T), y - 2]], 0.35, 'TEXTOS'); y -= 9;
-      lineas.forEach(t => { d.texto([xa + 2, y], t, 4, 'TEXTOS'); y -= 7.5; });
-      y -= 5;
+      lineas.forEach(t => { d.texto([xa + 2, y], t, 3.6, 'TEXTOS'); y -= 6.6; });
+      y -= 4;
     };
     const dd = mem.datos, c = mem.cargas;
     bloque('1. DATOS GENERALES', [
-      `Tipo de techo: ${dd.tipo}`, `Luz: ${m2(dd.luz)} m · Largo: ${m2(dd.largo)} m · Área: ${m2(dd.area)} m²`,
-      `Altura de columnas: ${m2(dd.alturaCol)} m · Altura máxima: ${m2(dd.alturaMax)} m`,
-      `Pendiente: ${dd.pendientePct != null ? `${dd.pendientePct} %` : '—'} · Columnas apoyadas: ${dd.nCols} · Piezas: ${dd.nPiezas}`,
-      `Cobertura: ${dd.cobertura}`,
+      `Tipo de techo: ${dd.tipo} · Cobertura: ${dd.cobertura}`, `Luz ${m2(dd.luz)} m · Largo ${m2(dd.largo)} m · Área ${m2(dd.area)} m²`,
+      `Altura de columnas ${m2(dd.alturaCol)} m · Altura máxima ${m2(dd.alturaMax)} m · Pendiente ${dd.pendientePct != null ? `${dd.pendientePct} %` : '—'}`,
     ]);
     bloque('2. CARGAS (E.020) Y COMBINACIONES', [
-      `Carga muerta D = ${c.D} kg/m² · Carga viva de techo L = ${c.L} kg/m²`,
-      `Viento V = ${c.V} km/h → q = 0.005·V² = ${c.qViento.toFixed(1)} kg/m² · succión (Cp −0.7) = ${c.succion.toFixed(1)} kg/m²`,
-      `Zona sísmica ${c.zona} (Z = ${c.Z})`,
-      `U1 = 1.4 D = ${c.U1.toFixed(1)} kg/m² · U2 = 1.2 D + 1.6 L = ${c.U2.toFixed(1)} kg/m²`,
-      `U3 = 0.9 D − W (levantamiento) = ${c.U3.toFixed(1)} kg/m²`,
+      `D = ${c.D} kg/m² · L = ${c.L} kg/m² · Viento ${c.V} km/h → q = ${c.qViento.toFixed(1)} kg/m², succión ${c.succion.toFixed(1)} kg/m²`,
+      `U1 = 1.4 D = ${c.U1.toFixed(1)} · U2 = 1.2 D + 1.6 L = ${c.U2.toFixed(1)} · U3 = 0.9 D − W = ${c.U3.toFixed(1)} kg/m²`,
     ]);
+    let n = 3;
     if (mem.tijeral) {
       const t = mem.tijeral;
-      bloque('3. TIJERAL', [
-        `Carga por tijeral w = ${(t.w / 1000).toFixed(2)} kN/m · luz = ${m2(t.luz)} m · peralte d = ${m2(t.d)} m`,
-        `Momento M = w·L²/8 = ${(t.M / 1000).toFixed(2)} kN·m → fuerza en cordones N = M/d = ${t.Ncordon.toFixed(2)} kN`,
-        `Cortante en apoyo V = w·L/2 = ${t.V.toFixed(2)} kN (diagonales y montantes)`,
+      bloque(`${n++}. TIJERAL`, [
+        `w = ${(t.w / 1000).toFixed(2)} kN/m · luz ${m2(t.luz)} m · peralte ${m2(t.d)} m · M = wL²/8 = ${(t.M / 1000).toFixed(2)} kN·m`,
+        `Cordones N = M/d = ${t.Ncordon.toFixed(2)} kN · cortante en apoyo V = wL/2 = ${t.V.toFixed(2)} kN`,
       ]);
     }
+    if (sis) bloque(`${n++}. ANÁLISIS SÍSMICO ESTÁTICO (E.030-2018)`, [
+      `Z = ${sis.Z} (${sis.zona}) · U = ${sis.U} (cat. ${sis.categoria}) · S = ${sis.S} (${sis.suelo}), Tp = ${sis.Tp} s, TL = ${sis.TL} s`,
+      `T = hn/CT = ${sis.hn.toFixed(2)}/35 = ${sis.T.toFixed(3)} s → C = ${sis.C.toFixed(2)} · R = ${sis.R} (pórtico ordinario de acero)`,
+      `P = acero + área·(D + 0.25 L) = ${sis.PKg.toFixed(0)} kg`,
+      `V = Z·U·C·S/R · P = ${sis.VKg.toFixed(0)} kg  →  por columna (${sis.nCols}) = ${sis.VColKg.toFixed(0)} kg`,
+      `Columna ${nombreCorto(INVENTARIO_PERFILES_TUBULARES.find(x => x.nombre === sis.perfilCol)?.id) || sis.perfilCol}: Δ = 0.75·R·V·h³/12EI (nudo rígido, base empotrada) = ${sis.deltaCm.toFixed(2)} cm`,
+      `Deriva Δ/h = ${sis.deriva.toFixed(4)} ≤ 0.010 · M = V·h/2 = ${sis.MColKgM.toFixed(0)} kg·m, fb = ${sis.fbKgCm2.toFixed(0)} ≤ ${sis.fbAdmKgCm2.toFixed(0)} kg/cm²`,
+      `Resultado: ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · ${sis.motivo}`,
+    ]);
     const r = mem.reacciones;
-    bloque(`${mem.tijeral ? 4 : 3}. REACCIONES POR COLUMNA Y PESO`, [
-      `Servicio: ${r.servicioKg.toFixed(0)} kg · Última (U2): ${r.ultimaKg.toFixed(0)} kg · Levantamiento (U3): ${r.levantamientoKg.toFixed(0)} kg`,
-      `Peso de la estructura: ${mem.pesoTotalKg.toFixed(0)} kg (${mem.kgM2.toFixed(1)} kg/m² de techo)`,
+    bloque(`${n++}. REACCIONES POR COLUMNA Y PESO`, [
+      `Servicio ${r.servicioKg.toFixed(0)} kg · Última (U2) ${r.ultimaKg.toFixed(0)} kg · Levantamiento (U3) ${r.levantamientoKg.toFixed(0)} kg`,
+      `Corte sísmico en la base ${sis ? sis.VColKg.toFixed(0) : '—'} kg · Peso del acero ${mem.pesoTotalKg.toFixed(0)} kg (${mem.kgM2.toFixed(1)} kg/m²)`,
     ]);
     bloque('CRITERIOS', [
-      'Columnas: carga crítica de Euler con FS = 3 (o fluencia 0.6·Fy·A, lo menor).',
-      'Vigas, cordones y correas: flecha 5qL⁴/384EI ≤ L/240 (correas L/180).',
-      'Esbeltez λ = KL/r ≤ 200 (correas y arriostres ≤ 300).',
-      'Es un PREDISEÑO: el cálculo definitivo lo firma un ingeniero colegiado.',
+      'Columnas: Euler con FS = 3 (o 0.6·Fy·A). Vigas, cordones y correas: flecha ≤ L/240 (correas L/180).',
+      'Esbeltez λ = KL/r ≤ 200 (correas y arriostres ≤ 300). Sismo: deriva ≤ 0.010 (E.030, acero).',
+      'PREDISEÑO: el cálculo definitivo y los planos los firma un ingeniero civil colegiado (CIP).',
     ]);
-    // Tabla de verificación (columna derecha).
-    const xb = mx + ML + 6 + (HW - ML - MR) * 0.5;
+    const xb = mx + ML + 6 + (FORMATOS.A1[0] - ML - MR) * 0.5;
     const filasV = mem.grupos.map(g => [
       g.nombreRol, nombreCorto(g.perfilId), String(g.cant), m2(g.Lmax), `${g.lambdaMax.toFixed(0)} / ${g.lambdaLim}`,
       g.verif ? (g.verif.tipo === 'axial' ? `P ${g.verif.demanda.toFixed(1)} ≤ ${g.verif.capacidad.toFixed(1)} kN` : `f ${g.verif.demanda.toFixed(0)} ≤ ${g.verif.capacidad.toFixed(0)} mm`) : 'Solo esbeltez',
       g.verif ? g.verif.ratio.toFixed(2) : '—', g.estado === 'CUMPLE' ? 'CUMPLE' : g.estado === 'OBSERVACION' ? 'OBSERV.' : 'NO CUMPLE',
     ]);
-    const tv = tabla(xb, ytop + 3, 'VERIFICACIÓN POR TIPO DE PIEZA', ['Elemento', 'Perfil', 'Cant.', 'L máx (m)', 'λ / lím', 'Demanda ≤ capacidad', 'Ratio', 'Estado'], filasV, 3.2);
+    const tv = tabla(xb, ytop + 3, 'VERIFICACIÓN POR TIPO DE PIEZA (E.090)', ['Elemento', 'Perfil', 'Cant.', 'L máx (m)', 'λ / lím', 'Demanda ≤ capacidad', 'Ratio', 'Estado'], filasV, 3.2);
     let yy = ytop + 3 - tv.alto - 8;
-    const obs = mem.grupos.filter(g => g.estado !== 'CUMPLE' || g.recomendado);
+    const obs = mem.grupos.filter(g => g.estado !== 'CUMPLE');
     if (obs.length) {
-      d.texto([xb, yy], 'OBSERVACIONES Y RECOMENDACIONES', TXT, 'TEXTOS'); yy -= 6;
-      obs.slice(0, 14).forEach(g => { const t = `• ${g.nombreRol}: ${g.motivo}${g.recomendado ? ` → usar ${g.recomendado.replace(/\s*\[[^\]]*\]/, '').replace(/\s*\((?:\d|LA|ASTM)[^)]*\)/g, '')}` : ''}`; const capa = g.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : 'TEXTOS'; const max = 70; d.texto([xb + 2, yy], t.slice(0, max), TXT_S, capa); yy -= 5; if (t.length > max) { d.texto([xb + 6, yy], t.slice(max, max * 2), TXT_S, capa); yy -= 5; } });
+      d.texto([xb, yy], 'OBSERVACIONES', TXT, 'TEXTOS'); yy -= 6;
+      obs.slice(0, 14).forEach(g => { const t = `• ${g.nombreRol}: ${g.motivo}`; d.texto([xb + 2, yy], t.slice(0, 80), TXT_S, g.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : 'TEXTOS'); yy -= 5; });
     }
-    // Sello de estado.
-    const sx = xb, sy = MB + 64;
-    d.caja(sx, sy, sx + 120, sy + 18, mem.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : 'MARCO', 0.5);
-    d.texto([sx + 60, sy + 11.5], `RESULTADO: ${mem.estado === 'CUMPLE' ? 'CUMPLE' : mem.estado === 'OBSERVACION' ? 'CUMPLE CON OBSERVACIONES' : 'NO CUMPLE'}`, 4, mem.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : 'TEXTOS', 'centro');
-    d.texto([sx + 60, sy + 4.5], 'Prediseño referencial · revisar y firmar por ingeniero', TXT_S, 'TEXTOS', 'centro');
+    // Sello y firma.
+    const sx = xb, sy = MB + RH + 14;
+    const okTxt = mem.estado === 'CUMPLE' ? 'CUMPLE' : mem.estado === 'OBSERVACION' ? 'CUMPLE CON OBSERVACIONES' : 'NO CUMPLE';
+    d.caja(sx, sy, sx + 130, sy + 20, mem.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : 'MARCO', 0.5);
+    d.texto([sx + 65, sy + 13], `RESULTADO: ${okTxt}`, 4.2, mem.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : 'TEXTOS', 'centro');
+    d.texto([sx + 65, sy + 5.5], 'E.090 + sismo E.030 · prediseño referencial', TXT_S, 'TEXTOS', 'centro');
+    d.linea([sx + 160, sy + 6], [sx + 250, sy + 6], 'TEXTOS');
+    d.texto([sx + 205, sy + 1.5], 'Firma y sello · Ing. Civil CIP N° ______', TXT_S, 'TEXTOS', 'centro');
   }
 
-  // Número total de láminas en cada rótulo ("1 de 3").
-  hojas.forEach((_h, i) => d.texto([i * (HW + SEP_HOJAS) + HW - MR - 4, MB + 16.5], `${i + 1} de ${hojas.length}`, TXT_S, 'TEXTOS', 'der'));
+  // "n de N" en cada rótulo.
+  hojas.forEach((h, i) => d.texto([h.x + h.w - MR - 4, MB + RH / 5 * 4 - 3], `${i + 1} de ${hojas.length}`, TXT_S, 'TEXTOS', 'der'));
   return armarDxf(o.nombre, d, 'mm');
 }

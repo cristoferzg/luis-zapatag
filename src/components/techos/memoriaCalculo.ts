@@ -20,7 +20,7 @@ import { zonaPrincipal } from './mecanismoMovil';
 export type Riesgo = 'BAJO' | 'MEDIO' | 'ALTO';
 export type EstadoMemoria = 'CUMPLE' | 'OBSERVACION' | 'NO_CUMPLE';
 
-export interface EntradasCargas { cargaMuertaKgM2?: number; cargaVivaKgM2?: number; velocidadVientoKmH?: number; zonaSismica?: string }
+export interface EntradasCargas { cargaMuertaKgM2?: number; cargaVivaKgM2?: number; velocidadVientoKmH?: number; zonaSismica?: string; tipoSuelo?: string; categoriaUso?: string }
 
 const E_ACERO = 200e9; // Pa
 const G = 9.81;
@@ -256,6 +256,66 @@ export interface Memoria {
   piezas: PiezaAnalizada[];
   cuenta: Record<Riesgo, number>;
   tijeral: { w: number; luz: number; d: number; M: number; Ncordon: number; V: number } | null;
+  /** Análisis sísmico estático (E.030-2018). */
+  sismo: Sismo | null;
+}
+
+/**
+ * Análisis sísmico estático (RNE E.030-2018), simplificado para naves de acero livianas:
+ *  V = Z·U·C·S / R · P  (C/R ≥ 0.11), T = hn / CT (CT = 35, pórticos de acero),
+ *  P = peso del acero + área × (D + 0.25 L)  (techos: 25 % de la carga viva),
+ *  R = 4 (pórticos ordinarios de acero, OMF, estructura regular).
+ * Cada columna toma V / n (cubierta como diafragma). Pórtico con el tijeral o la viga soldados a la columna
+ * (nudo rígido) y base empotrada: Δe = V·h³ / 12EI, Δ = 0.75·R·Δe, deriva Δ/h ≤ 0.010 (acero);
+ * flexión M = V·h/2, fb = M/S ≤ 0.6·Fy·1.33. Sin viga ni tijeral arriba: voladizo (V·h³/3EI, M = V·h).
+ */
+export interface Sismo {
+  Z: number; U: number; C: number; S: number; R: number; Tp: number; TL: number; T: number; hn: number;
+  zona: string; suelo: string; categoria: string;
+  PKg: number; VKg: number; VColKg: number; nCols: number; perfilCol: string;
+  deltaCm: number; deriva: number; derivaLim: number; MColKgM: number; fbKgCm2: number; fbAdmKgCm2: number; ratioFlexion: number;
+  estado: EstadoMemoria; motivo: string;
+}
+const S_SUELO: Record<string, Record<string, number>> = {
+  Z4: { S0: 0.8, S1: 1.0, S2: 1.05, S3: 1.10 }, Z3: { S0: 0.8, S1: 1.0, S2: 1.15, S3: 1.20 },
+  Z2: { S0: 0.8, S1: 1.0, S2: 1.20, S3: 1.40 }, Z1: { S0: 0.8, S1: 1.0, S2: 1.60, S3: 2.00 },
+};
+const TP_TL: Record<string, [number, number]> = { S0: [0.3, 3.0], S1: [0.4, 2.5], S2: [0.6, 2.0], S3: [1.0, 1.6] };
+const U_CAT: Record<string, number> = { A: 1.5, B: 1.3, C: 1.0 };
+
+function calcularSismo(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, inputs: EntradasCargas, area: number, D: number, L: number, pesoKg: number, nCols: number): Sismo | null {
+  const cols = Object.values(segments).filter(s => s.rolEstructural === 'columna' && nodes[s.nodeAId] && nodes[s.nodeBId]);
+  if (!cols.length) return null;
+  const cuenta: Record<string, number> = {};
+  cols.forEach(s => { cuenta[s.profileId] = (cuenta[s.profileId] || 0) + 1; });
+  const perfilId = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0][0];
+  const p = perfilDe(perfilId), pr = propsPerfil(p);
+  if (!p || !pr) return null;
+  const h = Math.max(...cols.map(s => Math.abs(nodes[s.nodeAId].y - nodes[s.nodeBId].y)));
+  const hn = Math.max(...Object.values(nodes).map(n => n.y));
+  const zona = inputs.zonaSismica || 'Z4', suelo = inputs.tipoSuelo || 'S2', categoria = inputs.categoriaUso || 'C';
+  const Z = FACTOR_Z[zona] ?? 0.45, S = S_SUELO[zona]?.[suelo] ?? 1.05, U = U_CAT[categoria] ?? 1.0, R = 4;
+  const [Tp, TL] = TP_TL[suelo] || TP_TL.S2;
+  const T = hn / 35;
+  let C = T < Tp ? 2.5 : T < TL ? 2.5 * Tp / T : 2.5 * Tp * TL / (T * T);
+  C = Math.max(C, 0.11 * R);
+  const PKg = pesoKg + area * (D + 0.25 * L);
+  const VKg = (Z * U * C * S / R) * PKg;
+  const VColKg = VKg / Math.max(1, nCols);
+  const I = pr.iMinCm4 * 1e-8; // m⁴
+  const nudoRigido = Object.values(segments).some(s => /cordon_|viga_principal/.test(s.rolEstructural || ''));
+  const deltaE = (VColKg * G * h ** 3) / ((nudoRigido ? 12 : 3) * E_ACERO * I); // m
+  const delta = 0.75 * R * deltaE;
+  const deriva = delta / Math.max(0.1, h), derivaLim = 0.010;
+  const c = Math.min(p.anchoMm, p.altoMm || p.anchoMm) / 20; // cm (mitad del lado menor)
+  const MColKgM = VColKg * h / (nudoRigido ? 2 : 1);
+  const fb = (MColKgM * 100) / (pr.iMinCm4 / c);
+  const fbAdm = 0.6 * 3200 * 1.33;
+  const ratioFlexion = fb / fbAdm;
+  let estado: EstadoMemoria = 'CUMPLE', motivo = 'Cumple deriva y flexión de columnas';
+  if (deriva > derivaLim) { estado = 'NO_CUMPLE'; motivo = `Deriva ${deriva.toFixed(4)} > ${derivaLim}: usar columnas más rígidas o arriostrar`; }
+  else if (ratioFlexion > 1) { estado = 'NO_CUMPLE'; motivo = `Flexión en columna ${fb.toFixed(0)} > ${fbAdm.toFixed(0)} kg/cm²`; }
+  return { Z, U, C, S, R, Tp, TL, T, hn, zona, suelo, categoria, PKg, VKg, VColKg, nCols, perfilCol: p.nombre, deltaCm: delta * 100, deriva, derivaLim, MColKgM, fbKgCm2: fb, fbAdmKgCm2: fbAdm, ratioFlexion, estado, motivo };
 }
 
 const FACTOR_Z: Record<string, number> = { Z4: 0.45, Z3: 0.35, Z2: 0.25, Z1: 0.10 };
@@ -342,10 +402,11 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
   };
   const cuenta: Record<Riesgo, number> = { BAJO: 0, MEDIO: 0, ALTO: 0 };
   piezas.forEach(p => { cuenta[p.riesgo]++; });
-  const estado: EstadoMemoria = grupos.some(g => g.estado === 'NO_CUMPLE') ? 'NO_CUMPLE' : grupos.some(g => g.estado === 'OBSERVACION') ? 'OBSERVACION' : 'CUMPLE';
+  const sismo = calcularSismo(nodes, segments, inputs, area, cargas.D, cargas.L, pesoTotalKg, ctx.nCols);
+  const estado: EstadoMemoria = grupos.some(g => g.estado === 'NO_CUMPLE') || sismo?.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : grupos.some(g => g.estado === 'OBSERVACION') ? 'OBSERVACION' : 'CUMPLE';
   return {
     datos: { tipo, luz, largo, alturaCol, alturaMax: ys.length ? Math.max(...ys) : 0, area, pendientePct, nCols: ctx.nCols, nPiezas: piezas.length, cobertura },
-    cargas, grupos, reacciones, pesoTotalKg, kgM2: area > 0 ? pesoTotalKg / area : 0, estado, piezas, cuenta, tijeral: ctx.tijeral,
+    cargas, grupos, reacciones, pesoTotalKg, kgM2: area > 0 ? pesoTotalKg / area : 0, estado, piezas, cuenta, tijeral: ctx.tijeral, sismo,
   };
 }
 
