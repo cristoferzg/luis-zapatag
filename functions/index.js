@@ -44,6 +44,8 @@ import { crearPagosEnLinea } from './pagoEnLinea.js';
 import { crearDisenarGasfiteria } from './gasfiteriaIA.js';
 import { crearDisenarElectricidad } from './electricidadIA.js';
 import { crearWhatsappBot } from './whatsappBot.js';
+import { crearMcpCursos } from './mcpCursos.js';
+import { getStorage } from 'firebase-admin/storage';
 
 initializeApp();
 const db = getFirestore();
@@ -1403,3 +1405,7 @@ export const comunicadosAutomaticos = onSchedule({ schedule: 'every 15 minutes',
 const whatsapp = crearWhatsappBot({ onRequest, onCall, HttpsError, db, Anthropic, enviarPush, modelo: RECEIPT_MODEL, guia: GUIA_INNOVAPP, CREDITOS_BIENVENIDA });
 export const whatsappWebhook = whatsapp.whatsappWebhook;
 export const aprobarPedidoWA = whatsapp.aprobarPedidoWA;
+
+// MCP DE ACADEMIA (functions/mcpCursos.js): conector para que un asistente de IA cargue cursos,
+// clases, portadas y materiales en `cursos` / `tutoriales` / Storage `academia/mcp/`. Clave: secreto MCP_CLAVE.
+export const mcpCursos = crearMcpCursos({ onRequest, db, getStorage });

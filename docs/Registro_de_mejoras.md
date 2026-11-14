@@ -29,11 +29,25 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
+| MCP de Academia | Programado y probado (`mcpCursos`); **falta** `firebase functions:secrets:set MCP_CLAVE` + `firebase deploy --only functions:mcpCursos` y agregarlo como conector en Claude. Contenido listo en `contenido/academia/` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
 
+## 2026-11-14 · MCP de Academia y catálogo de cursos de pago
+- Pedido del dueño: un MCP para que la IA suba cursos de pago a la Academia (soldadura, estructuras, carpintería metálica, naves parabólicas), con precios, recursos dentro de los cursos y portadas atractivas. Solo MCP y contenido; no tocar pantallas.
+- Qué se hizo:
+  - Cloud Function `mcpCursos` (MCP por HTTP, protegida con el secreto `MCP_CLAVE`): `listar_cursos`, `guardar_curso`, `guardar_clase`, `subir_archivo`. Escribe en `cursos`/`tutoriales` igual que el panel del admin (los avisos push salen solos). No borra nada.
+  - Catálogo de 5 cursos de pago (`contenido/academia/catalogo.json`): Soldadura Estructural S/ 89 (antes 129), Naves Parabólicas S/ 129 (antes 179), Estructuras Metálicas S/ 99 (antes 139), Carpintería Metálica S/ 69 (antes 99), Lectura de Planos S/ 49 (antes 69), con el temario de clases (la 1.ª de cada curso, gratis de muestra).
+  - 5 portadas 1280×720 con la marca y 10 PDF de material (tablas de electrodos, trazo de arcos, perfiles y pesos, checklists, guía de medidas, hoja de despiece, simbología AWS, glosario).
+- Archivos principales: `functions/mcpCursos.js`, `functions/index.js` (export), `seguridad/mcpCursos.test.mjs`, `contenido/academia/*`.
+- Cómo se probó: `npm run test:mcp` (base y Storage simulados) y cliente MCP oficial contra el servidor local (listar herramientas, crear curso, listar).
+- Versión: sin compilar (no cambia la app; solo una función nueva).
+- Commit(s): ver rama.
+- Pendiente / a vigilar: desplegar la función y la clave; correr `contenido/academia/cargar.mjs` (o pedírselo a la IA con el conector); grabar los videos de las clases y subirlos con `guardar_clase`.
+
+---
 ## 2026-11-14 · Paquete de 11 mejoras (despiece, presupuesto, ingeniería, planos, presentación)
 - Pedido del dueño: "hazlo todo" (lista de pendientes).
 - Qué se hizo:
@@ -53,6 +67,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Pruebas: tsc 0 errores; dos aguas (concreto) y cuatro aguas (acero) desde la app; 5 láminas DXF y PDF de 5 páginas.
   Cuatro aguas: el Asistente agregó 8 varillas de pared → dir. Y deriva 0.0007 CUMPLE.
 - Versión: sin compilar aún.
+
+---
 
 ## 2026-11-14 · Sismo en el 3D como SAP2000 y diagramas de esfuerzos
 - Pedido del dueño: ver el comportamiento sísmico como en programas de ingeniería (SAP).
