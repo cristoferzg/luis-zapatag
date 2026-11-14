@@ -34,6 +34,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - No incluir identificadores de modelo en commits, PRs ni artefactos del repo.
 
 ## Regla del dueño
+- UNA MEJORA POR CONVERSACIÓN y llevar el registro en `docs/Registro_de_mejoras.md`: al terminar cada mejora (o al
+  compilar) añadir arriba una entrada con la plantilla (pedido, qué se hizo, archivos, pruebas, versión, commit, pendiente)
+  y actualizar la tabla "Estado actual". Leerlo al empezar cada conversación.
 - Antes de empaquetar el `dist_ACTUALIZADO.zip`, mostrar imágenes del **antes y después**
   de los cambios y **ESPERAR a que el dueño diga "compila"** (indicación del dueño, 06/11/2026; reemplaza
   la regla anterior de compilar sin esperar). Al compilar: ZIP, APK/AAB y el Manual de usuario
