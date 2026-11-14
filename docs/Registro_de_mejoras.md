@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Columnas de concreto armado + zapatas + comportamiento sísmico animado |
+| Última mejora sin compilar | Concreto armado + zapatas + sismo en 3D (tipo SAP) con diagramas |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -33,6 +33,20 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-14 · Sismo en el 3D como SAP2000 y diagramas de esfuerzos
+- Pedido del dueño: ver el comportamiento sísmico como en programas de ingeniería (SAP).
+- Qué se hizo:
+  - 3D (botón Simulador sísmico): se reemplazó la simulación anterior (magnitud Mw y "colapso" sin cálculo) por la deformada
+    del modo con el desplazamiento CALCULADO (E.030), en dirección X (pórticos) o Y (a lo largo), con escala de exageración y
+    colores por exigencia (ratio demanda/capacidad: azul < 0.5, verde, amarillo, naranja, rojo > 1). Cada tubo se mueve y
+    gira con sus nudos; la cobertura y los nudos se ocultan mientras dura. Panel con periodo, V, Δ, deriva y CUMPLE/NO CUMPLE.
+  - Comportamiento sísmico (Análisis estructural): pestañas Deformada / Momentos / Cortantes / Axiales (diagramas en las columnas
+    del pórtico: voladizo M = V·h, nudo rígido ±V·h/2; axial de servicio y fuerza en cordones); columnas curvas en la deformada.
+- Archivos: `techos/TechosViewer3D.tsx`, `techos/ComportamientoSismico.tsx`.
+- Pruebas: tsc 0 errores; capturas 3D X/Y con columnas de concreto y metálicas, y diagramas.
+- Versión: sin compilar aún.
+- Pendiente: análisis modal con varios modos; colores por exigencia también fuera del modo sismo.
 
 ## 2026-11-14 · Zapatas, botón de material de columnas y comportamiento sísmico
 - Pedido del dueño: añadir lo que faltaba (zapata y pasar columnas existentes a concreto) y ver el comportamiento sísmico

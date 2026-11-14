@@ -22,6 +22,7 @@ export default function ComportamientoSismico({ memoria, nodes, segments }: { me
   const [anim, setAnim] = useState(true);
   const [exag, setExag] = useState(0);              // 0 = automática
   const [fase, setFase] = useState(0);
+  const [vista, setVista] = useState<'deformada' | 'momento' | 'cortante' | 'axial'>('deformada');
   const raf = useRef(0);
 
   // Pórtico frontal: el plano z con más piezas (igual que el plano CM-02).
@@ -65,7 +66,7 @@ export default function ComportamientoSismico({ memoria, nodes, segments }: { me
   const curva = Array.from({ length: 121 }, (_, i) => { const T = (i / 120) * Tmax; return `${i ? 'L' : 'M'}${ex(T).toFixed(1)},${ey(SaDe(T)).toFixed(1)}`; }).join(' ');
 
   // ----- Pórtico deformado -----
-  const PW = 420, PH = 240, pad = 34;
+  const PW = 460, PH = 250, pad = 70;
   const ancho = portico.x1 - portico.x0 || 1, alto = portico.y1 - portico.y0 || 1;
   const k = Math.min((PW - 2 * pad) / ancho, (PH - 2 * pad - 10) / alto);
   const ox = (PW - ancho * k) / 2, oy = PH - pad;
@@ -86,6 +87,30 @@ export default function ComportamientoSismico({ memoria, nodes, segments }: { me
     return pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
   };
   const yTecho = oy - portico.h * k;
+
+  // ----- Diagramas (como SAP2000): momento, cortante y axial en columnas; axial en cordones -----
+  const colsFr = portico.fr.filter(s => /^columna/.test(s.rolEstructural || ''));
+  const Pcol = memoria.reacciones.servicioKg;
+  const Ncord = memoria.tijeral ? memoria.tijeral.Ncordon * 101.97 : 0;   // kN → kg
+  const diagrama = (s: Segment3D) => {
+    const A = nodes[s.nodeAId], B = nodes[s.nodeBId];
+    const [bot, top] = A.y <= B.y ? [A, B] : [B, A];
+    const pb = P(bot, false), pt = P(top, false);
+    const lado = (bot.x - portico.x0) < (portico.x1 - portico.x0) / 2 ? -1 : 1;    // dibujar hacia afuera
+    const esc = 26;
+    let vb = 0, vt = 0, txtB = '', txtT = '', color = '#e11d48';
+    if (vista === 'momento') { vb = 1; vt = voladizo ? 0 : -1; txtB = `${f0(Mbase)} kg·m`; txtT = voladizo ? '' : `${f0(Mbase)} kg·m`; color = '#7c3aed'; }
+    if (vista === 'cortante') { vb = 1; vt = 1; txtB = `${f0(q.VColKg)} kg`; color = '#0891b2'; }
+    if (vista === 'axial') { vb = 1; vt = 1; txtB = `C ${f0(Pcol)} kg`; color = '#ea580c'; }
+    const qb: [number, number] = [pb[0] + lado * vb * esc, pb[1]], qt: [number, number] = [pt[0] + lado * vt * esc, pt[1]];
+    return (
+      <g key={`d${s.id}`}>
+        <path d={`M${pb[0]},${pb[1]} L${qb[0]},${qb[1]} L${qt[0]},${qt[1]} L${pt[0]},${pt[1]} Z`} fill={color} fillOpacity={0.25} stroke={color} strokeWidth={1.2} />
+        {txtB && <text x={qb[0] + lado * 3} y={pb[1] - 4} fontSize={10} fontWeight={800} fill={color} textAnchor={lado < 0 ? 'end' : 'start'}>{txtB}</text>}
+        {txtT && <text x={qt[0] + lado * 3} y={pt[1] + 12} fontSize={10} fontWeight={800} fill={color} textAnchor={lado < 0 ? 'end' : 'start'}>{txtT}</text>}
+      </g>
+    );
+  };
 
   const tarjeta = (titulo: string, valor: string, nota: string, tono = 'text-slate-900') => (
     <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -119,7 +144,11 @@ export default function ComportamientoSismico({ memoria, nodes, segments }: { me
         {/* Deformada animada */}
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-            <p className="text-xs font-black text-slate-800">Deformada del pórtico · modo 1 (dirección X)</p>
+            <div className="flex flex-wrap gap-1">
+              {([['deformada', 'Deformada'], ['momento', 'Momentos'], ['cortante', 'Cortantes'], ['axial', 'Axiales']] as const).map(([v, t]) => (
+                <button key={v} onClick={() => setVista(v)} className={`px-2 py-1 rounded-lg text-[11px] font-black cursor-pointer border ${vista === v ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200'}`}>{t}</button>
+              ))}
+            </div>
             <div className="flex items-center gap-1.5">
               <button onClick={() => setAnim(a => !a)} className="px-2 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer">
                 {anim ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}{anim ? 'Pausar' : 'Simular sismo'}
@@ -135,17 +164,22 @@ export default function ComportamientoSismico({ memoria, nodes, segments }: { me
             {/* Suelo moviéndose (dirección del sismo) */}
             {[0, 1, 2, 3, 4, 5].map(i => <line key={i} x1={ox - 20 + i * (ancho * k + 40) / 5} y1={oy + 2} x2={ox - 28 + i * (ancho * k + 40) / 5} y2={oy + 10} stroke="#cbd5e1" />)}
             {portico.fr.map(s => <path key={`u${s.id}`} d={linea(s, false)} stroke="#cbd5e1" strokeWidth={1.2} strokeDasharray="4 3" fill="none" />)}
-            {portico.fr.map(s => {
+            {vista !== 'deformada' && portico.fr.map(s => <path key={`n${s.id}`} d={linea(s, false)} stroke={/^columna/.test(s.rolEstructural || '') ? '#334155' : s.rolEstructural === 'cordon_superior' ? '#ef4444' : s.rolEstructural === 'cordon_inferior' ? '#22c55e' : '#94a3b8'} strokeWidth={/^columna/.test(s.rolEstructural || '') ? 3 : 1.4} fill="none" />)}
+            {vista !== 'deformada' && colsFr.map(diagrama)}
+            {vista === 'axial' && Ncord > 0 && (
+              <text x={ox + ancho * k / 2} y={yTecho - 8} fontSize={10} fontWeight={800} fill="#ea580c" textAnchor="middle">Cordones del tijeral: ±{f0(Ncord)} kg (sup. compresión · inf. tracción)</text>
+            )}
+            {vista === 'deformada' && portico.fr.map(s => {
               const col = /^columna/.test(s.rolEstructural || '');
               return <path key={s.id} d={linea(s, true)} stroke={col ? colorDeriva : s.rolEstructural === 'cordon_superior' ? '#ef4444' : s.rolEstructural === 'cordon_inferior' ? '#22c55e' : '#64748b'} strokeWidth={col ? 4 : 1.6} strokeLinecap="round" fill="none" />;
             })}
             {/* Fuerza sísmica en el techo */}
-            <g transform={`translate(${ox - 6 + dTop * amp * fase * k},${yTecho})`}>
+            <g opacity={vista === 'deformada' || vista === 'momento' || vista === 'cortante' ? 1 : 0} transform={`translate(${ox - 6 + dTop * amp * fase * k},${yTecho})`}>
               <line x1={-46} y1={0} x2={-8} y2={0} stroke="#e11d48" strokeWidth={2.5} />
               <path d="M-8,-5 L0,0 L-8,5 Z" fill="#e11d48" />
               <text x={-48} y={-7} fontSize={10} fontWeight={800} fill="#e11d48">V = {f0(q.VKg)} kg</text>
             </g>
-            <text x={PW - 8} y={14} fontSize={10} textAnchor="end" fill="#475569">{voladizo ? 'Columnas en voladizo (tijeral articulado)' : 'Pórtico con nudos rígidos (soldado)'}</text>
+            <text x={PW - 8} y={14} fontSize={10} textAnchor="end" fill="#475569">{vista === 'deformada' ? `Modo 1 (X) · ${voladizo ? 'columnas en voladizo' : 'nudos rígidos'}` : vista === 'momento' ? 'Momento flector por sismo (kg·m)' : vista === 'cortante' ? 'Fuerza cortante por sismo (kg)' : 'Fuerza axial por carga de servicio (kg)'}</text>
             <text x={PW - 8} y={27} fontSize={10} textAnchor="end" fill="#475569">Δ techo = {f2(q.deltaCm)} cm · dibujado ×{Math.round(amp)}</text>
           </svg>
           <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-1">

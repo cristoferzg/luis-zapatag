@@ -42,6 +42,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
+import { calcularMemoria } from './memoriaCalculo';
 import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './techosCadCatalog';
 import { perfilTechos } from './tensores';
 import { grabarEnFases, fotoDe3D, GIRO_VIDEO_RAD_S, FondoCaptura } from '../../lib/captura3d';
@@ -514,7 +515,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   }, [simulacionModo]);
 
   // Parámetros de Sismo
-  const [sismoMagnitud, setSismoMagnitud] = useState<number>(7.2);
+  const [sismoMagnitud] = useState<number>(7.2);
   const sismoMagnitudRef = useRef(7.2);
   useEffect(() => { sismoMagnitudRef.current = sismoMagnitud; }, [sismoMagnitud]);
   const [mostrarDetalleZonasSismo, setMostrarDetalleZonasSismo] = useState(false);
@@ -539,6 +540,32 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     return Object.fromEntries(Object.entries(nodesTodos).filter(([id]) => !usados.has(id) || visibles.has(id))) as typeof nodesTodos;
   }, [nodesTodos, segments, segmentsTodos]);
   const zonasCob: Record<string, CoverageZone3D> = engineState?.coverageZones || propsZonas || {};
+
+  // ---- Sismo de ingeniería (E.030): deformada real del modelo y colores por exigencia, como SAP2000 ----
+  const [sismoDir, setSismoDir] = useState<'X' | 'Y'>('X');
+  const [sismoExag, setSismoExag] = useState(0);
+  const [sismoColor, setSismoColor] = useState(true);
+  const sismoCfgRef = useRef({ dir: 'X' as 'X' | 'Y', exag: 0, color: true });
+  sismoCfgRef.current = { dir: sismoDir, exag: sismoExag, color: sismoColor };
+  const memoriaSismo = useMemo(() => {
+    try { return calcularMemoria(nodesTodos as any, segmentsTodos as any, zonasCob, (engineState as any)?.structuralInputs || {}); } catch { return null; }
+  }, [nodesTodos, segmentsTodos, zonasCob, engineState]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sismoDatosRef = useRef<{ dTop: number; voladizo: boolean; y0: number; h: number; luz: number; ratio: Record<string, number> } | null>(null);
+  useEffect(() => {
+    const m = memoriaSismo, q = m?.sismo;
+    if (!m || !q) { sismoDatosRef.current = null; return; }
+    const ns = Object.values(nodesTodos);
+    const cols = Object.values(segmentsTodos).filter(sg => /^columna/.test(sg.rolEstructural || ''));
+    const y0 = ns.length ? Math.min(...ns.map(n => n.y)) : 0;
+    const h = cols.length ? Math.max(...cols.map(sg => Math.abs((nodesTodos[sg.nodeAId]?.y ?? 0) - (nodesTodos[sg.nodeBId]?.y ?? 0)))) : 4;
+    const xs = ns.map(n => n.x);
+    const ratio: Record<string, number> = {};
+    m.piezas.forEach(p => { ratio[p.id] = Math.max(p.ratio ?? 0, p.lambda / Math.max(1, p.limite)); });
+    const rc = q.concreto ? Math.max(q.concreto.MuKgM / Math.max(1, q.concreto.phiMnKgM), q.concreto.deriva / q.concreto.derivaLim) : Math.max(q.ratioFlexion, q.deriva / q.derivaLim);
+    cols.forEach(sg => { ratio[sg.id] = Math.max(ratio[sg.id] || 0, rc); });
+    sismoDatosRef.current = { dTop: q.deltaCm / 100, voladizo: !!q.concreto, y0, h, luz: xs.length ? Math.max(...xs) - Math.min(...xs) : 10, ratio };
+  }, [memoriaSismo, nodesTodos, segmentsTodos]);
+
 
   // TECHO MOVIBLE: el mecanismo guardado en la cobertura principal (o uno de
   // prueba si el techo aún no tiene cobertura) y cuánto está abierto (0 a 1).
@@ -3595,60 +3622,48 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
       // 1. ANIMACIÓN DE SISMO CON PANDEO DINÁMICO Y GRADIENTE DE RIESGO POR ZONAS CRÍTICAS
       if (modelo) {
-        if (currentModo === 'sismo') {
-          const mag = sismoMagnitudRef.current;
-          const diag = getDiagnosticoSismo(mag);
-          const isStable = diag.estado === 'ESTABLE';
-
-          const freq = 4.5 + (mag - 5.0) * 1.8;
-          // Si la estructura es conforme/estable, tiene vibración elástica perfectamente visible sin romperse.
-          // Si no es conforme, la vibración es más violenta y destructiva.
-          const amp = isStable 
-            ? (0.02 + Math.pow((mag - 5.0) / 3.5, 2) * 0.05) 
-            : (0.045 + Math.pow((mag - 5.0) / 3.5, 2) * 0.18);
-          
-          const sismoOffset = Math.sin(now * 0.001 * freq) * amp;
-
-          // Sacudir todo el modelo (placas, techo de aluzinc, columnas, pedestales, etc.) en unísono sismorresistente
-          modelo.position.x = sismoOffset;
-          modelo.position.z = Math.cos(now * 0.0011 * freq) * (amp * 0.35);
-
-          if (tubesGroup) {
-            tubesGroup.children.forEach(child => {
-              const mesh = child as THREE.Mesh;
-              const uData = mesh.userData;
-              if (uData && uData.origPos) {
-                const origP = uData.origPos as THREE.Vector3;
-                const heightFactor = Math.max(0, origP.y / 4.5);
-                mesh.position.x = origP.x + sismoOffset * heightFactor * 0.5;
-
-                // Si la estructura cumple y es estable, se mantiene rígida sin deformación ni pandeo visual
-                if (isStable) {
-                  mesh.scale.set(1.0, 1.0, 1.0);
-                  const mat = mesh.material as THREE.MeshStandardMaterial;
-                  if (mat) mat.color.setHex(mesh.userData?.colorBase ?? 0x64748b);
-                } else if (uData.isCriticalZone && mag >= 6.0) {
-                  // Deformación visual y código de color por zona estructural sólo si hay riesgo o colapso
-                  const buckleScale = 1.0 + Math.sin(now * 0.003 * freq) * 0.12 * (mag / 7.0);
-                  mesh.scale.set(buckleScale, 1.0, buckleScale);
-                  
-                  const mat = mesh.material as THREE.MeshStandardMaterial;
-                  if (mat) {
-                    if (uData.rolEstructural === 'columna' && mag >= 7.6) {
-                      mat.color.setHex(0xef4444); // Rojo: Colapso en columna
-                    } else if (uData.rolEstructural === 'diagonal' || uData.rolEstructural === 'montante') {
-                      mat.color.setHex(mag >= 7.4 ? 0xf97316 : 0xf59e0b); // Naranja / Amarillo
-                    } else {
-                      mat.color.setHex(0xf59e0b); // Pandeo flexionante
-                    }
-                  }
-                }
-              }
-            });
-          }
+        if (currentModo === 'sismo' && sismoDatosRef.current && tubesGroup) {
+          // Deformada del modo fundamental con el desplazamiento CALCULADO (E.030), exagerado para que se vea.
+          const sd = sismoDatosRef.current, cfg = sismoCfgRef.current;
+          modelo.position.set(0, 0, 0);
+          const vaiven = Math.sin((now / 1000) * (2 * Math.PI / 1.4));
+          const amp = cfg.exag || Math.max(1, (sd.luz * 0.05) / Math.max(1e-4, sd.dTop));
+          const voladizo = sd.voladizo || cfg.dir === 'Y';
+          const desplazar = (p: THREE.Vector3) => {
+            const r = Math.min(1, Math.max(0, (p.y - sd.y0) / Math.max(0.1, sd.h)));
+            const f = voladizo ? (r * r * (3 - r)) / 2 : r * r * (3 - 2 * r);
+            const u = sd.dTop * amp * vaiven * f;
+            return cfg.dir === 'X' ? new THREE.Vector3(p.x + u, p.y, p.z) : new THREE.Vector3(p.x, p.y, p.z + u);
+          };
+          // Lo que no es estructura (cobertura, nudos, canaletas) se oculta mientras dura el sismo.
+          modelo.children.forEach(c => {
+            if (c === tubesGroup || /plataforma|suelo|pedestal|placa/.test(c.name)) return;
+            if (c.userData.__visSismo === undefined) c.userData.__visSismo = c.visible;
+            c.visible = false;
+          });
+          const colorRatio = (r: number) => r < 0.5 ? 0x2563eb : r < 0.7 ? 0x16a34a : r < 0.9 ? 0xeab308 : r <= 1 ? 0xf97316 : 0xdc2626;
+          tubesGroup.children.forEach(child => {
+            const mesh = child as THREE.Mesh;
+            const u = mesh.userData;
+            if (!u?.origPos || !u?.dir || !u?.length) return;
+            if (!u.origQuat) u.origQuat = mesh.quaternion.clone();
+            const A = (u.origPos as THREE.Vector3).clone().addScaledVector(u.dir, -u.length / 2);
+            const B = (u.origPos as THREE.Vector3).clone().addScaledVector(u.dir, u.length / 2);
+            const A2 = desplazar(A), B2 = desplazar(B);
+            const nd = new THREE.Vector3().subVectors(B2, A2);
+            const L2 = nd.length(); if (L2 < 1e-6) return; nd.normalize();
+            mesh.position.copy(A2).add(B2).multiplyScalar(0.5);
+            const ref = Math.abs(nd.y) > 0.98 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+            const ex = new THREE.Vector3().crossVectors(ref, nd).normalize(), ey = new THREE.Vector3().crossVectors(nd, ex).normalize();
+            mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ex, ey, nd));
+            mesh.scale.set(1, 1, L2 / u.length);
+            const mat = mesh.material as THREE.MeshStandardMaterial;
+            if (mat?.color) mat.color.setHex(cfg.color ? colorRatio(sd.ratio[u.segmentId] ?? 0) : (u.colorBase ?? 0x64748b));
+          });
         } else {
           // Reset de posiciones globales
           modelo.position.set(0, 0, 0);
+          modelo.children.forEach(c => { if (c.userData.__visSismo !== undefined) { c.visible = c.userData.__visSismo; delete c.userData.__visSismo; } });
 
           // Reset de posiciones y materiales de los tubos tras finalizar sismo
           if (tubesGroup) {
@@ -3658,6 +3673,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               if (uData && uData.origPos) {
                 mesh.position.copy(uData.origPos);
               }
+              if (uData?.origQuat) { mesh.quaternion.copy(uData.origQuat); delete uData.origQuat; }
               mesh.scale.set(1.0, 1.0, 1.0);
               const mat = mesh.material as THREE.MeshStandardMaterial;
               if (mat) mat.color.setHex(mesh.userData?.colorBase ?? 0x64748b);
@@ -4459,11 +4475,11 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                 <div className="flex items-center gap-1.5 min-w-0">
                   <Activity className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
                   <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 truncate">
-                    Sismo {sismoMagnitud} Mw
+                    Sismo de diseño E.030 · dirección {sismoDir}
                   </span>
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border shrink-0 ${diagSismo.bg} ${diagSismo.color}`}>
-                    {diagSismo.badge}
-                  </span>
+                  {memoriaSismo?.sismo && <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border shrink-0 ${memoriaSismo.sismo.estado === 'CUMPLE' ? 'bg-emerald-950/60 border-emerald-700 text-emerald-300' : 'bg-rose-950/60 border-rose-700 text-rose-300'}`}>
+                    {memoriaSismo.sismo.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}
+                  </span>}
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
@@ -4486,40 +4502,43 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               {/* CONTENIDO EXPANDIDO O MINIMIZADO */}
               {!isHudCollapsed && (
                 <div className="space-y-2.5 pt-2 mt-2 border-t border-slate-800/80 animate-in fade-in duration-150 text-xs">
-                  {/* DICTAMEN ESTRUCTURAL */}
-                  <div className={`p-2 rounded-xl border ${diagSismo.bg}`}>
-                    <div className={`text-[11px] font-black ${diagSismo.color}`}>
-                      {diagSismo.mensaje}
+                  {memoriaSismo?.sismo ? (() => { const q = memoriaSismo.sismo!; const Tdin = (() => { const de = q.deltaCm / (0.75 * q.R); const k = de > 0 ? (q.VKg * 9.81) / (de / 100) : 0; return k > 0 ? 2 * Math.PI * Math.sqrt(q.PKg / k) : q.T; })(); return (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-4 gap-1.5 text-center">
+                        {[[`${(sismoDir === 'Y' && !q.concreto ? Tdin * 2 : Tdin).toFixed(2)} s`, `Periodo modo ${sismoDir === 'X' ? 1 : 2}`], [`${Math.round(q.VKg).toLocaleString('es-PE')} kg`, 'Cortante V'], [`${q.deltaCm.toFixed(2)} cm`, 'Δ techo'], [q.deriva.toFixed(4), `Deriva ≤ ${q.derivaLim}`]].map(([v, t]) => (
+                          <div key={t} className="bg-slate-950/70 border border-slate-800 rounded-lg p-1.5"><div className="text-[12px] font-black text-white">{v}</div><div className="text-[9px] text-slate-400">{t}</div></div>
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-slate-400">Dirección:</span>
+                        {(['X', 'Y'] as const).map(d => (
+                          <button key={d} onClick={() => setSismoDir(d)} className={`px-2 py-0.5 rounded-md text-[10px] font-black cursor-pointer ${sismoDir === d ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-300'}`}>{d === 'X' ? 'X (pórticos)' : 'Y (a lo largo)'}</button>
+                        ))}
+                        <span className="text-[10px] font-bold text-slate-400 ml-1">Escala:</span>
+                        <select value={sismoExag} onChange={e => setSismoExag(Number(e.target.value))} className="bg-slate-800 text-slate-200 text-[10px] font-bold rounded-md px-1 py-0.5">
+                          <option value={0}>Auto</option>{[10, 25, 50, 100].map(v => <option key={v} value={v}>×{v}</option>)}
+                        </select>
+                        <label className="flex items-center gap-1 text-[10px] font-bold text-slate-300 ml-1 cursor-pointer"><input type="checkbox" checked={sismoColor} onChange={e => setSismoColor(e.target.checked)} className="accent-amber-500" />Colores por exigencia</label>
+                      </div>
+                      {sismoColor && (
+                        <div className="flex items-center gap-1 text-[9px] text-slate-300">
+                          {[['#2563eb', '< 0.5'], ['#16a34a', '0.5–0.7'], ['#eab308', '0.7–0.9'], ['#f97316', '0.9–1.0'], ['#dc2626', '> 1.0']].map(([c, t]) => (
+                            <span key={t} className="flex items-center gap-0.5"><span className="w-3 h-2 rounded-sm" style={{ background: c }} />{t}</span>
+                          ))}
+                          <span className="text-slate-500 ml-1">ratio demanda / capacidad</span>
+                        </div>
+                      )}
+                      <p className="text-[9px] text-slate-500 leading-snug">Deformada del modo {sismoDir === 'X' ? 1 : 2} con el desplazamiento calculado (E.030, R = {q.R}), exagerada para que se vea. Detalle completo en Análisis estructural → Comportamiento sísmico.</p>
                     </div>
-                    <div className="text-[10px] text-slate-300 mt-0.5 leading-relaxed">
-                      {diagSismo.descripcion}
-                    </div>
-                  </div>
+                  ); })() : <p className="text-[10px] text-slate-400">Arma el techo con columnas para ver su comportamiento sísmico.</p>}
 
-                  {/* BOTÓN DE ACCIÓN RÁPIDA */}
                   <button
                     onClick={handleApplyAllOptimizations}
                     className="w-full py-1.5 px-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-lg text-[11px] flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer active:scale-98"
-                    title="Aplica automáticamente todos los tubos recomendados según Norma E.090 a la estructura"
-                  >
+                    title="Aplica los perfiles recomendados por la memoria de cálculo">
                     <Wrench className="w-3.5 h-3.5 text-slate-950" />
                     <span>⚡ APLICAR CAMBIOS RECOMENDADOS (E.090)</span>
                   </button>
-
-                  {/* Slider de Intensidad Sísmica */}
-                  <div className="flex items-center gap-2 bg-slate-950/70 p-1.5 rounded-xl border border-slate-800">
-                    <span className="text-[10px] font-bold text-slate-400 shrink-0">Sismo:</span>
-                    <input
-                      type="range"
-                      min="5.0"
-                      max="8.5"
-                      step="0.1"
-                      value={sismoMagnitud}
-                      onChange={(e) => setSismoMagnitud(parseFloat(e.target.value))}
-                      className="flex-1 accent-amber-500 cursor-pointer h-1.5"
-                    />
-                    <span className="text-[11px] font-mono font-black text-amber-400 shrink-0">{sismoMagnitud} Mw</span>
-                  </div>
 
                   {/* RECOMENDACIÓN TÉCNICA NORMA PERUANA E.090 / E.030 */}
                   <div className="p-2 bg-slate-950/90 border border-slate-800 rounded-xl text-[11px] space-y-1">
@@ -4538,7 +4557,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                     </div>
                     <div className="flex items-center gap-1 text-[10px] text-emerald-300 font-bold">
                       <Wrench className="w-3 h-3 text-emerald-400 shrink-0" />
-                      <span>Refuerzo Sugerido: {diagSismo.perfilSugerido}</span>
+                      <span>Cambiar el perfil de una zona: «Elegir por zona». Para reforzar según el cálculo, usa «Aplicar cambios recomendados».</span>
                     </div>
                   </div>
 
