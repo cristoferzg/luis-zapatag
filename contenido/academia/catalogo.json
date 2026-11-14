@@ -6,8 +6,8 @@
       "nombre": "Soldadura Estructural SMAW y MIG",
       "descripcion": "Aprende a soldar estructuras metálicas con calidad de obra: seguridad, regulación de la máquina, elección de electrodos (E6011, E6013, E7018) y alambre MIG, preparación de juntas, posiciones 1G-4G / 1F-4F, técnica de cordón, defectos y cómo inspeccionarlos según AWS D1.1. Incluye tabla de amperajes y checklist de inspección para tu taller.",
       "gratis": false,
-      "precioSoles": 89,
-      "precioAntesSoles": 129,
+      "precioSoles": 49,
+      "precioAntesSoles": 79,
       "destacado": true,
       "enSlider": true,
       "portada": "portadas/soldadura.png",
@@ -58,8 +58,8 @@
       "nombre": "Naves Parabólicas",
       "descripcion": "El curso completo para construir naves parabólicas, de la teoría a InnovApp: geometría del arco (luz y flecha óptima 0.14 L), cordones, montantes y diagonales, correas, arriostres y tensores, placas base y pernos J, trazado en piso, izaje y montaje seguro, cobertura aluzinc TR4 y metrado. En cada clase lo practicas en Techos Metálicos. Incluye tabla de trazo, checklist de montaje y plantillas de naves listas para usar.",
       "gratis": false,
-      "precioSoles": 129,
-      "precioAntesSoles": 179,
+      "precioSoles": 79,
+      "precioAntesSoles": 119,
       "destacado": true,
       "enSlider": true,
       "portada": "portadas/naves.png",
@@ -118,8 +118,8 @@
       "nombre": "Estructuras Metálicas",
       "descripcion": "Domina los elementos de una estructura metálica: perfiles comerciales y su peso, vigas, columnas y tijerales, conexiones soldadas y empernadas, control de calidad en taller, pintura y montaje. Incluye tabla de perfiles con pesos y checklist de control de calidad.",
       "gratis": false,
-      "precioSoles": 99,
-      "precioAntesSoles": 139,
+      "precioSoles": 59,
+      "precioAntesSoles": 89,
       "destacado": false,
       "enSlider": true,
       "portada": "portadas/estructuras.png",
@@ -170,8 +170,8 @@
       "nombre": "Carpintería Metálica",
       "descripcion": "Fabrica y cotiza los trabajos que más se piden: puertas, portones batientes y corredizos, rejas, barandas y escaleras. Toma de medidas, holguras, despiece y optimización de barras de 6 m, armado a escuadra, bisagras y chapas, acabado y cotización. Incluye guía de medidas y hoja de despiece.",
       "gratis": false,
-      "precioSoles": 69,
-      "precioAntesSoles": 99,
+      "precioSoles": 39,
+      "precioAntesSoles": 59,
       "destacado": true,
       "enSlider": false,
       "portada": "portadas/carpinteria.png",
@@ -222,8 +222,8 @@
       "nombre": "Lectura de Planos Metálicos",
       "descripcion": "Entiende cualquier plano de estructura metálica: escalas, vistas y cortes, ejes y cotas, simbología de soldadura AWS A2.4, especificación de perfiles y pernos, y cómo pasar del plano a la lista de cortes. Incluye guía de simbología de soldadura y glosario.",
       "gratis": false,
-      "precioSoles": 49,
-      "precioAntesSoles": 69,
+      "precioSoles": 29,
+      "precioAntesSoles": 49,
       "destacado": false,
       "enSlider": false,
       "portada": "portadas/planos.png",
@@ -278,8 +278,8 @@
         "archivo": "plantillas/nave-parabolica-12x24.json"
       },
       "portada": "plantillas/nave-parabolica-12x24.jpg",
-      "precioSoles": 19.9,
-      "precioAntesSoles": 29.9,
+      "precioSoles": 9.9,
+      "precioAntesSoles": 19.9,
       "destacado": false
     },
     {
@@ -293,8 +293,8 @@
         "archivo": "plantillas/nave-parabolica-15x30.json"
       },
       "portada": "plantillas/nave-parabolica-15x30.jpg",
-      "precioSoles": 19.9,
-      "precioAntesSoles": 29.9,
+      "precioSoles": 9.9,
+      "precioAntesSoles": 19.9,
       "destacado": true
     },
     {
@@ -308,8 +308,8 @@
         "archivo": "plantillas/nave-parabolica-20x40.json"
       },
       "portada": "plantillas/nave-parabolica-20x40.jpg",
-      "precioSoles": 19.9,
-      "precioAntesSoles": 29.9,
+      "precioSoles": 9.9,
+      "precioAntesSoles": 19.9,
       "destacado": false
     }
   ]
