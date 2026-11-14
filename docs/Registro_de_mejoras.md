@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Columnas de concreto armado (Asistente, cálculo E.060, 3D, metrado y detalles en E-02) |
+| Última mejora sin compilar | Columnas de concreto armado + zapatas + comportamiento sísmico animado |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -33,6 +33,25 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-14 · Zapatas, botón de material de columnas y comportamiento sísmico
+- Pedido del dueño: añadir lo que faltaba (zapata y pasar columnas existentes a concreto) y ver el comportamiento sísmico
+  como en los programas de ingeniería.
+- Qué se hizo:
+  - `techos/zapata.ts` (nuevo): zapata aislada cuadrada Z-1 (E.050/E.060): área con presión por sismo q = P/A(1+6e/B)
+    ≤ 1.33qa, peralte por punzonamiento y corte como viga, malla Ø 5/8" en dos sentidos; metrado (excavación, solado,
+    concreto, fierro). Selector "Suelo qa" (0.8–4 kg/cm²) en Análisis estructural. Va en la memoria (app y E-03), en el
+    Resumen y en la lámina E-02 (Detalle 5 corte y planta 1:25 + cuadro de zapatas). Funciona con columnas de acero y de concreto.
+  - Panel de piezas: "Material de las columnas: Metálicas (tubo) / Concreto armado" (`setColumnasMaterial`), pasa todas
+    las columnas del techo dibujado y calcula su sección; al volver a metal pone el perfil que cumple.
+  - `techos/ComportamientoSismico.tsx` (nuevo, en Análisis estructural): periodo fundamental dinámico (Rayleigh) y de norma,
+    cortante basal y % del peso, desplazamiento del techo, deriva; pórtico deformado ANIMADO (modo 1) con columnas curvas
+    (voladizo o nudo rígido) coloreadas por deriva y la fuerza V; espectro de diseño E.030 con T marcado; fuerzas en la
+    base y barra deriva vs límite.
+- Pruebas: tsc 0 errores; dos aguas 10×18×4 m con concreto: T = 0.30 s, V = 1 572 kg, Δ = 2.03 cm, deriva 0.0051 ≤ 0.007,
+  zapata 1.25 × 1.25 × 0.50 m 6 Ø 5/8" @ 22 → CUMPLE; con acero: zapata 1.20 m (parabólico 1.50 m).
+- Versión: sin compilar aún.
+- Pendiente: análisis modal con varios modos (dirección Y con arriostres); animación en el 3D.
 
 ## 2026-11-14 · Columnas de concreto armado para techos metálicos
 - Pedido del dueño: ver cómo sería la mejora de columnas de concreto armado en techos metálicos (capturas antes de compilar).

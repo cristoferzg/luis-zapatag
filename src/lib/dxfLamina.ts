@@ -136,6 +136,7 @@ export interface MemoriaDxf {
   reacciones: { servicioKg: number; ultimaKg: number; levantamientoKg: number; nCols: number };
   pesoTotalKg: number; kgM2: number; estado: string;
   tijeral: { w: number; luz: number; d: number; M: number; Ncordon: number; V: number } | null;
+  zapata?: { B: number; h: number; d: number; Df: number; qa: number; PKg: number; PuKg: number; MKgM: number; qMax: number; qLim: number; vuPunzKg: number; phiVcPunzKg: number; vuCorteKg: number; phiVcCorteKg: number; barra: string; n: number; sep: number; estado: string; motivo: string } | null;
   sismo?: {
     Z: number; U: number; C: number; S: number; R: number; Tp: number; TL: number; T: number; hn: number; zona: string; suelo: string; categoria: string;
     PKg: number; VKg: number; VColKg: number; nCols: number; perfilCol: string; deltaCm: number; deriva: number; derivaLim: number;
@@ -520,7 +521,7 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
       d.caja(gx - wcol / 2, gy0, gx + wcol / 2, gy0 + Hc * k2, 'COLUMNAS', 0.5);
       d.caja(gx - 22, gy0 - 22, gx + 22, gy0 - 10, 'EJES', 0.25);  // zapata (referencial)
       d.linea([gx - wcol / 2, gy0], [gx - wcol / 2, gy0 - 10], 'COLUMNAS'); d.linea([gx + wcol / 2, gy0], [gx + wcol / 2, gy0 - 10], 'COLUMNAS');
-      d.texto([gx + 25, gy0 - 17], 'ZAPATA: ver Obra Civil', TXT_S, 'COTAS');
+      d.texto([gx + 25, gy0 - 17], o.memoria?.zapata ? 'ZAPATA Z-1: ver detalle 5' : 'ZAPATA: ver Obra Civil', TXT_S, 'COTAS');
       const Lo = ca.LoCm * 10;
       const marcas: number[] = [50];
       for (let z = 150; z <= Lo; z += 100) marcas.push(z);
@@ -579,6 +580,37 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
       const tiposCol = new Map<string, number>(); cols.forEach(s => tiposCol.set(s.profileId || '', (tiposCol.get(s.profileId || '') || 0) + 1));
       tabla(ox + ML + 6, ey - 120, 'CUADRO DE COLUMNAS', ['Tipo', 'Cant.', 'Perfil', 'Altura (m)', 'Placa base (mm)', 'Pernos'],
         [...tiposCol.entries()].map(([id, n], i) => [`C-${i + 1}`, String(n), nombreCorto(id), m2(alturaCol), `${placa2}×${placa2}×${ePlaca2}`, `${anclaje2?.numPernos || 4} Ø ${anclaje2?.boltDiameter || '5/8"'} J`]), TXT);
+    }
+    // Detalle 5: zapata aislada Z-1 (corte y planta, 1:25) + cuadro de zapatas.
+    const zp = o.memoria?.zapata;
+    if (zp) {
+      const e5 = 25, k5 = 1000 / e5 / 1000;                        // m → mm de papel
+      const B = zp.B * 1000 * k5 / 1000 * 1000 / 1000, Hz = zp.h * 1000 * k5, Dfz = zp.Df * 1000 * k5;
+      const cLado = (ca ? Math.max(ca.b, ca.h) * 10 : 400) * k5;
+      const zx = ox + ML + 60, zy = MB + 140;                  // fondo de la zapata (corte)
+      void B;
+      const Bp = zp.B * 1000 * k5;
+      // Corte
+      d.caja(zx - Bp / 2 - 4, zy - 4, zx + Bp / 2 + 4, zy, 'ARRIOSTRES', 0.2);           // solado
+      d.caja(zx - Bp / 2, zy, zx + Bp / 2, zy + Hz, 'COLUMNAS', 0.5);
+      d.caja(zx - cLado / 2, zy + Hz, zx + cLado / 2, zy + Dfz + 18, 'COLUMNAS', 0.5);  // columna / pedestal
+      d.linea([zx - Bp / 2 - 18, zy + Dfz], [zx + Bp / 2 + 18, zy + Dfz], 'EJES');     // nivel de terreno
+      d.texto([zx + Bp / 2 + 19, zy + Dfz + 1.5], 'NTN', TXT_S, 'COTAS');
+      d.gruesa([[zx - Bp / 2 + 3, zy + 3], [zx + Bp / 2 - 3, zy + 3]], 0.5, 'CORDON_SUPERIOR');  // malla
+      for (let i = 0; i < Math.min(zp.n, 12); i++) d.circulo([zx - Bp / 2 + 4 + (Bp - 8) * i / Math.max(1, Math.min(zp.n, 12) - 1), zy + 4.6], 0.6, 'CORDON_SUPERIOR');
+      cota([zx - Bp / 2, zy], [zx + Bp / 2, zy], -9, `B = ${zp.B.toFixed(2)}`);
+      cota([zx - Bp / 2, zy], [zx - Bp / 2, zy + Hz], -7, `h ${zp.h.toFixed(2)}`, true);
+      cota([zx + Bp / 2, zy], [zx + Bp / 2, zy + Dfz], 7, `Df ${zp.Df.toFixed(2)}`, true);
+      d.texto([zx - Bp / 2, zy - 16], `SOLADO 1:12 e = 0.10 · ${zp.n} Ø ${zp.barra} @ ${zp.sep} cm (2 sentidos)`, TXT_S, 'COTAS');
+      // Planta
+      const px5 = zx + Bp / 2 + 45, py5 = zy + Hz / 2 + 4;
+      d.caja(px5 - Bp / 2, py5 - Bp / 2, px5 + Bp / 2, py5 + Bp / 2, 'COLUMNAS', 0.5);
+      d.caja(px5 - cLado / 2, py5 - cLado / 2, px5 + cLado / 2, py5 + cLado / 2, 'COLUMNAS', 0.35);
+      for (let i = 0; i < Math.min(zp.n, 12); i++) { const t = -Bp / 2 + 3 + (Bp - 6) * i / Math.max(1, Math.min(zp.n, 12) - 1); d.linea([px5 + t, py5 - Bp / 2 + 2], [px5 + t, py5 + Bp / 2 - 2], 'CORDON_SUPERIOR'); d.linea([px5 - Bp / 2 + 2, py5 + t], [px5 + Bp / 2 - 2, py5 + t], 'CORDON_SUPERIOR'); }
+      d.texto([zx + 22, zy + Dfz + 30], 'DETALLE 5: ZAPATA AISLADA Z-1 (CORTE Y PLANTA)', TXT, 'TEXTOS', 'centro');
+      d.texto([zx + 22, zy + Dfz + 24], `ESC. 1:25 · f'c = 210 kg/cm² · fy = 4 200 kg/cm² · qa = ${zp.qa} kg/cm²`, TXT_S, 'TEXTOS', 'centro');
+      tabla(px5 + Bp / 2 + 25, zy + Dfz + 20, 'CUADRO DE ZAPATAS', ['Tipo', 'B × B (m)', 'h (m)', 'Df (m)', 'Acero', 'q máx / 1.33qa'],
+        [['Z-1', `${zp.B.toFixed(2)} × ${zp.B.toFixed(2)}`, zp.h.toFixed(2), zp.Df.toFixed(2), `${zp.n} Ø ${zp.barra} @ ${zp.sep} cm`, `${zp.qMax.toFixed(2)} / ${zp.qLim.toFixed(2)} kg/cm²`]], TXT);
     }
     // Especificaciones técnicas y parámetros sísmicos (columna derecha).
     const xe = ox + (FORMATOS.A1[0]) * 0.56;
@@ -661,6 +693,12 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
       `Resultado: ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · ${sis.motivo}`,
     ]);
     const r = mem.reacciones;
+    const zm = mem.zapata;
+    if (zm) bloque(`${n++}. ZAPATA AISLADA Z-1 (E.050 / E.060)`, [
+      `B = ${zm.B.toFixed(2)} m · h = ${zm.h.toFixed(2)} m · Df = ${zm.Df.toFixed(2)} m · ${zm.n} Ø ${zm.barra} @ ${zm.sep} cm en dos sentidos · qa = ${zm.qa} kg/cm²`,
+      `P = ${zm.PKg.toFixed(0)} kg, M sismo = ${zm.MKgM.toFixed(0)} kg·m → q máx = ${zm.qMax.toFixed(2)} ≤ 1.33·qa = ${zm.qLim.toFixed(2)} kg/cm²`,
+      `Punzonamiento ${zm.vuPunzKg.toFixed(0)} ≤ ${zm.phiVcPunzKg.toFixed(0)} kg · corte ${zm.vuCorteKg.toFixed(0)} ≤ ${zm.phiVcCorteKg.toFixed(0)} kg · ${zm.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`,
+    ]);
     bloque(`${n++}. REACCIONES POR COLUMNA Y PESO`, [
       `Servicio ${r.servicioKg.toFixed(0)} kg · Última (U2) ${r.ultimaKg.toFixed(0)} kg · Levantamiento (U3) ${r.levantamientoKg.toFixed(0)} kg`,
       `Corte sísmico en la base ${sis ? sis.VColKg.toFixed(0) : '—'} kg · Peso del acero ${mem.pesoTotalKg.toFixed(0)} kg (${mem.kgM2.toFixed(1)} kg/m²)`,

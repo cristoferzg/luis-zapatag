@@ -17,11 +17,12 @@ import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
 import { perfilSuperior, alerosConCanaleta } from './canaletas';
 import { zonaPrincipal } from './mecanismoMovil';
 import { disenarColumnaCA, type DisenoColumnaCA } from './columnaConcreto';
+import { disenarZapata, type DisenoZapata } from './zapata';
 
 export type Riesgo = 'BAJO' | 'MEDIO' | 'ALTO';
 export type EstadoMemoria = 'CUMPLE' | 'OBSERVACION' | 'NO_CUMPLE';
 
-export interface EntradasCargas { cargaMuertaKgM2?: number; cargaVivaKgM2?: number; velocidadVientoKmH?: number; zonaSismica?: string; tipoSuelo?: string; categoriaUso?: string }
+export interface EntradasCargas { cargaMuertaKgM2?: number; cargaVivaKgM2?: number; velocidadVientoKmH?: number; zonaSismica?: string; tipoSuelo?: string; categoriaUso?: string; capacidadSueloKgCm2?: number }
 
 const E_ACERO = 200e9; // Pa
 const G = 9.81;
@@ -259,6 +260,8 @@ export interface Memoria {
   tijeral: { w: number; luz: number; d: number; M: number; Ncordon: number; V: number } | null;
   /** Análisis sísmico estático (E.030-2018). */
   sismo: Sismo | null;
+  /** Zapata aislada típica (E.050 / E.060). */
+  zapata: DisenoZapata | null;
 }
 
 /**
@@ -438,10 +441,24 @@ export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<
   const cuenta: Record<Riesgo, number> = { BAJO: 0, MEDIO: 0, ALTO: 0 };
   piezas.forEach(p => { cuenta[p.riesgo]++; });
   const sismo = calcularSismo(nodes, segments, inputs, area, cargas.D, cargas.L, pesoTotalKg, ctx.nCols, cargas.U2);
+  // Zapata típica: carga de servicio y última por columna + peso de la columna; momento del sismo en la base.
+  const zapata = (() => {
+    const cols = Object.values(segments).filter(s => /^columna/.test(s.rolEstructural || '') && nodes[s.nodeAId] && nodes[s.nodeBId]);
+    if (!cols.length) return null;
+    const h = Math.max(...cols.map(s => Math.abs(nodes[s.nodeAId].y - nodes[s.nodeBId].y)));
+    const ca = sismo?.concreto;
+    const pesoCol = ca ? (ca.b / 100) * (ca.h / 100) * h * 2400 : 0;
+    const P = (area * (cargas.D + cargas.L)) / ctx.nCols + pesoCol;
+    const Pu = (area * cargas.U2) / ctx.nCols + 1.4 * pesoCol;
+    // Concreto en voladizo: M = V·h. Acero con nudo rígido: M = V·h/2 (placa base sobre pedestal de c = 40 cm).
+    const M = sismo ? (ca ? sismo.VColKg * h : sismo.VColKg * h / 2) : 0;
+    const c = ca ? Math.max(ca.b, ca.h) : 40;
+    try { return disenarZapata(P, Pu, M, c, inputs.capacidadSueloKgCm2 || 1.5); } catch { return null; }
+  })();
   const estado: EstadoMemoria = grupos.some(g => g.estado === 'NO_CUMPLE') || sismo?.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : grupos.some(g => g.estado === 'OBSERVACION') ? 'OBSERVACION' : 'CUMPLE';
   return {
     datos: { tipo, luz, largo, alturaCol, alturaMax: ys.length ? Math.max(...ys) : 0, area, pendientePct, nCols: ctx.nCols, nPiezas: piezas.length, cobertura },
-    cargas, grupos, reacciones, pesoTotalKg, kgM2: area > 0 ? pesoTotalKg / area : 0, estado, piezas, cuenta, tijeral: ctx.tijeral, sismo,
+    cargas, grupos, reacciones, pesoTotalKg, kgM2: area > 0 ? pesoTotalKg / area : 0, estado, piezas, cuenta, tijeral: ctx.tijeral, sismo, zapata,
   };
 }
 

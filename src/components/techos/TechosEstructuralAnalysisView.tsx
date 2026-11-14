@@ -16,6 +16,7 @@ import {
 import { UseTechosCadEngineReturn } from './useTechosCadEngineState';
 import PandeoEstructura3D, { Riesgo } from './PandeoEstructura3D';
 import { calcularMemoria, perfilesQueCumplen } from './memoriaCalculo';
+import ComportamientoSismico from './ComportamientoSismico';
 import MemoriaCalculoTechos, { ESTILO_ESTADO } from './MemoriaCalculoTechos';
 import { useCatalogo } from '../../lib/catalogoPrecios';
 import { simb } from '../../lib/currency';
@@ -245,7 +246,7 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
             <option value="Z1">Zona 1 (Z = 0.10g)</option>
           </select>
           <p className="text-[10px] text-slate-500">Factor de zona sísmica Z</p>
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="grid grid-cols-3 gap-2 pt-1">
             <label className="text-[10px] font-bold text-slate-600">Suelo
               <select value={structuralInputs.tipoSuelo || 'S2'} onChange={(e) => setStructuralInputs(prev => ({ ...prev, tipoSuelo: e.target.value as any }))}
                 className="mt-0.5 w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-slate-900 text-[11px] font-bold">
@@ -259,11 +260,19 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
                 <option value="C">C Común (U 1.0)</option><option value="B">B Importante (U 1.3)</option><option value="A">A Esencial (U 1.5)</option>
               </select>
             </label>
+            <label className="text-[10px] font-bold text-slate-600">Suelo qa
+              <select value={structuralInputs.capacidadSueloKgCm2 || 1.5} onChange={(e) => setStructuralInputs(prev => ({ ...prev, capacidadSueloKgCm2: Number(e.target.value) }))}
+                className="mt-0.5 w-full bg-slate-50 border border-slate-300 rounded-lg p-1.5 text-slate-900 text-[11px] font-bold">
+                {[0.8, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0].map(v => <option key={v} value={v}>{v.toFixed(1)} kg/cm²</option>)}
+              </select>
+            </label>
           </div>
         </div>
       </div>
 
       {/* MEMORIA DE CÁLCULO (imprimible) */}
+      <ComportamientoSismico memoria={memoria} nodes={nodes} segments={segments} />
+
       <MemoriaCalculoTechos memoria={memoria} nombreProyecto={nombreProyecto} onAplicarRecomendados={aplicarRecomendados} />
 
       {/* 3. SIMULADOR ANIMADO DE PANDEO ESTRUCTURAL */}

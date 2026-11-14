@@ -550,6 +550,24 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               </select>
             </div>
 
+            {/* Material de las columnas: metal ↔ concreto armado (aplica a TODAS) */}
+            {(() => {
+              const vals = Object.values(segments) as any[];
+              const nMet = vals.filter(s => s.rolEstructural === 'columna').length, nCA = vals.filter(s => s.rolEstructural === 'columna_concreto').length;
+              if (!nMet && !nCA) return null;
+              const sec = vals.find(s => s.rolEstructural === 'columna_concreto')?.seccionCm;
+              return (
+                <div className="p-2.5 rounded-xl bg-white border border-stone-300 space-y-1.5">
+                  <span className="block text-[10px] font-black text-stone-800 uppercase tracking-wide">🏗️ Material de las columnas</span>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button onClick={() => engineState?.setColumnasMaterial?.('metal')} className={`px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nMet && !nCA ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Metálicas (tubo)</button>
+                    <button onClick={() => engineState?.setColumnasMaterial?.('concreto')} className={`px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nCA && !nMet ? 'bg-stone-700 text-white border-stone-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Concreto armado</button>
+                  </div>
+                  <p className="text-[9px] text-slate-500 leading-snug">{nCA ? `${nCA} columnas de concreto${sec ? ` de ${sec[0]}×${sec[1]} cm` : ''}: sección, fierro y zapata calculados (E.060). ` : ''}{nMet ? `${nMet} columnas metálicas.` : ''}</p>
+                </div>
+              );
+            })()}
+
             {/* Columnas mixtas: concreto abajo + metal arriba (aplica a TODAS) */}
             <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-300 space-y-1.5">
               <span className="block text-[10px] font-black text-stone-800 uppercase tracking-wide">

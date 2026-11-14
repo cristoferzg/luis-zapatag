@@ -155,6 +155,8 @@ export interface UseTechosCadEngineReturn {
   // Columnas mixtas (concreto abajo + metal arriba) — solo visual.
   columnasConcretoBaseM: number;
   setColumnasConcretoBaseM: (metros: number) => void;        // aplica a TODAS las columnas
+  /** Pasa TODAS las columnas a concreto armado (con su sección diseñada) o de vuelta a metal (perfil apto). */
+  setColumnasMaterial: (material: 'concreto' | 'metal') => void;
   setSegmentoConcretoBase: (segmentId: string, metros: number) => void; // por columna
   generateMultinivel: (luzM?: number, largoM?: number, numPisos?: number, alturaPisoM?: number, numVanosX?: number, numVanosZ?: number) => void;
   generateRoofMonitor: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, anchoMonitorM?: number, alturaMonitorM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
@@ -4009,6 +4011,26 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     });
   }, [nodes, coverageZones, pushHistory]);
 
+  const setColumnasMaterial = useCallback((material: 'concreto' | 'metal') => {
+    let segs: Record<string, Segment3D> = {};
+    for (const [id, s] of Object.entries(segments)) {
+      if (material === 'concreto' && s.rolEstructural === 'columna') segs[id] = { ...s, rolEstructural: 'columna_concreto', concretoBaseM: undefined };
+      else if (material === 'metal' && s.rolEstructural === 'columna_concreto') segs[id] = { ...s, rolEstructural: 'columna', seccionCm: undefined, profileId: 'perfil_sq_4x4_30' };
+      else segs[id] = s;
+    }
+    try {
+      const mem = calcularMemoria(nodes, segs, coverageZones, structuralInputs);
+      const ca = mem.sismo?.concreto;
+      if (ca) Object.values(segs).forEach(sg => { if (sg.rolEstructural === 'columna_concreto') segs[sg.id] = { ...sg, seccionCm: [ca.b, ca.h] }; });
+      if (material === 'metal') {
+        const rec = mem.grupos.find(g => g.rol === 'columna' && g.recomendadoId && g.estado !== 'CUMPLE');
+        if (rec) { segs = { ...segs }; rec.ids.forEach(id => { if (segs[id]) segs[id] = { ...segs[id], profileId: rec.recomendadoId! }; }); }
+      }
+    } catch { /* sin memoria */ }
+    setSegments(segs);
+    pushHistory(nodes, segs, coverageZones);
+  }, [nodes, segments, coverageZones, structuralInputs, pushHistory]);
+
   // Ajuste fino: define el concreto de UNA columna en particular.
   const setSegmentoConcretoBase = useCallback((segmentId: string, metros: number) => {
     const m = Math.max(0, metros || 0);
@@ -4538,6 +4560,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     generateRoofTijeralCurvo,
     columnasConcretoBaseM,
     setColumnasConcretoBaseM,
+    setColumnasMaterial,
     setSegmentoConcretoBase,
     generateMultinivel,
     generateRoofMonitor,

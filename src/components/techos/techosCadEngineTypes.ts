@@ -349,6 +349,8 @@ export interface StructuralAnalysisInput {
   tipoSuelo: 'S0' | 'S1' | 'S2' | 'S3';
   /** Categoría de uso E.030: A esencial (U 1.5), B importante (1.3), C común (1.0). */
   categoriaUso?: 'A' | 'B' | 'C';
+  /** Capacidad admisible del suelo (kg/cm²), del estudio de suelos. */
+  capacidadSueloKgCm2?: number;
 }
 
 export interface MemberStructuralResult {

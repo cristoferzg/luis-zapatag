@@ -55,6 +55,7 @@ import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModa
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { dxfLamina, dxfModelo3D } from '../../lib/dxfLamina';
 import { metradoColumnasCA } from './columnaConcreto';
+import { metradoZapatas } from './zapata';
 import { calcularMemoria } from './memoriaCalculo';
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { perfilesQueCumplen } from './memoriaCalculo';
@@ -191,8 +192,12 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
   const totalStructuralCost = profileStats.reduce((sum, item) => sum + item.totalCost, 0);
 
   // METRADO DE CONCRETO ARMADO: columnas de concreto con la sección y el acero que diseña la memoria (E.060).
-  const disenoCA = React.useMemo(() => { try { return calcularMemoria(nodes, segments, coverageZones, engineState?.structuralInputs || {}).sismo?.concreto || null; } catch { return null; } },
+  const memoriaRes = React.useMemo(() => { try { return calcularMemoria(nodes, segments, coverageZones, engineState?.structuralInputs || {}); } catch { return null; } },
     [nodes, segments, coverageZones, engineState?.structuralInputs]); // eslint-disable-line react-hooks/exhaustive-deps
+  const disenoCA = memoriaRes?.sismo?.concreto || null;
+  const zapataRes = memoriaRes?.zapata || null;
+  const nColsZap = segmentList.filter((sg: any) => /^columna/.test(sg.rolEstructural || '') && Math.min(nodes[sg.nodeAId]?.y ?? 9, nodes[sg.nodeBId]?.y ?? 9) < 0.1).length;
+  const zapMetrado = zapataRes && nColsZap ? metradoZapatas(zapataRes, nColsZap) : null;
   const concretoMetrado = React.useMemo(() => {
     const m = metradoColumnasCA(nodes, segments, disenoCA);
     return { ...m, longitudTotalM: m.alturaTotalM, seccionCm: disenoCA ? `${disenoCA.b}×${disenoCA.h}` : '25×25' };
@@ -283,7 +288,25 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
               <div key={String(t)} className="bg-stone-50 border border-stone-200 rounded-xl p-3"><p className="text-lg font-black text-stone-800">{v}</p><p className="text-[10px] font-bold text-stone-500 uppercase">{t}</p></div>
             ))}
           </div>
-          <p className="px-4 pb-3 text-[10px] text-stone-400">Concreto f'c = 210 kg/cm² (1:2:3). El fierro incluye anclaje en la zapata y estribos con ganchos. La zapata se diseña en Obra Civil.</p>
+          <p className="px-4 pb-3 text-[10px] text-stone-400">Concreto f'c = 210 kg/cm² (1:2:3). El fierro incluye anclaje en la zapata y estribos con ganchos. La zapata se calcula abajo (Zapatas aisladas Z-1).</p>
+        </div>
+      )}
+
+      {/* ZAPATAS (cimentación de las columnas) */}
+      {zapataRes && zapMetrado && (
+        <div className="bg-white border border-stone-300 rounded-2xl shadow-xs overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-stone-200 bg-stone-100/70 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-black text-stone-800">Zapatas aisladas Z-1</h3>
+              <p className="text-[11px] text-stone-500">{zapMetrado.n} zapatas de {zapataRes.B.toFixed(2)} × {zapataRes.B.toFixed(2)} × {zapataRes.h.toFixed(2)} m · {zapataRes.n} Ø {zapataRes.barra} @ {zapataRes.sep} cm en dos sentidos · suelo qa = {zapataRes.qa} kg/cm²</p>
+            </div>
+            <span className={`text-[11px] font-black px-2 py-1 rounded-lg ${zapataRes.estado === 'CUMPLE' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{zapataRes.estado === 'CUMPLE' ? 'Cumple suelo, punzonamiento y corte' : 'No cumple'}</span>
+          </div>
+          <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            {[[zapMetrado.excavacionM3.toFixed(2), 'm³ excavación'], [zapMetrado.soladoM3.toFixed(2), 'm³ solado'], [zapMetrado.concretoM3.toFixed(2), "m³ concreto f'c 210"], [Math.ceil(zapMetrado.aceroKg), 'kg de fierro']].map(([v, t]) => (
+              <div key={String(t)} className="bg-stone-50 border border-stone-200 rounded-xl p-3"><p className="text-lg font-black text-stone-800">{v}</p><p className="text-[10px] font-bold text-stone-500 uppercase">{t}</p></div>
+            ))}
+          </div>
         </div>
       )}
 

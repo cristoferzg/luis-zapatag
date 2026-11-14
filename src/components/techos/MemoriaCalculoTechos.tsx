@@ -261,6 +261,28 @@ export default function MemoriaCalculoTechos({ memoria, nombreProyecto, onAplica
           </section>
         ); })()}
 
+        {/* Zapata aislada */}
+        {memoria.zapata && (() => { const z = memoria.zapata; return (
+          <section className="[break-inside:avoid] grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+              <p className={sec}>Zapata aislada Z-1 (E.050 / E.060)</p>
+              {dato('Dimensiones', `${f2(z.B)} × ${f2(z.B)} m · h = ${f2(z.h)} m · Df = ${f2(z.Df)} m`)}
+              {dato('Acero (malla inferior, 2 sentidos)', `${z.n} Ø ${z.barra} @ ${z.sep} cm`)}
+              {dato("Concreto", "f'c = 210 kg/cm² · solado 1:12 e = 10 cm")}
+              {dato('Carga de servicio / última', `${f0(z.PKg)} / ${f0(z.PuKg)} kg`)}
+              {dato('Momento por sismo en la base', `${f0(z.MKgM)} kg·m`)}
+            </div>
+            <div>
+              <p className={sec}>Verificaciones de la zapata</p>
+              {dato(`Presión del suelo ≤ 1.33·qa (qa = ${z.qa} kg/cm²)`, `${z.qMax.toFixed(2)} ≤ ${z.qLim.toFixed(2)} kg/cm² ${z.qMax <= z.qLim ? '✓' : '✗'}`)}
+              {dato('Punzonamiento Vu ≤ φVc', `${f0(z.vuPunzKg)} ≤ ${f0(z.phiVcPunzKg)} kg ${z.vuPunzKg <= z.phiVcPunzKg ? '✓' : '✗'}`)}
+              {dato('Corte como viga Vu ≤ φVc', `${f0(z.vuCorteKg)} ≤ ${f0(z.phiVcCorteKg)} kg ${z.vuCorteKg <= z.phiVcCorteKg ? '✓' : '✗'}`)}
+              <p className="text-[10px] text-slate-500 mt-1">La capacidad admisible del suelo (qa) la da el estudio de mecánica de suelos (EMS). Se eligió en "Suelo qa".</p>
+              <p className={`text-[11px] font-black mt-1 ${z.estado === 'CUMPLE' ? 'text-emerald-700' : 'text-rose-700'}`}>{z.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'} · {z.motivo}</p>
+            </div>
+          </section>
+        ); })()}
+
         {/* 9. Conclusión (con las firmas, sin partirse entre hojas) */}
         <section className="[break-inside:avoid]">
           <p className={sec}>9. Conclusión</p>
