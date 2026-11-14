@@ -54,6 +54,7 @@ import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { dxfLamina, dxfModelo3D } from '../../lib/dxfLamina';
+import { calcularMemoria } from './memoriaCalculo';
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { perfilesQueCumplen } from './memoriaCalculo';
 import { safeStorage } from '../../lib/storageManager';
@@ -593,7 +594,11 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
   const descargarDxf = (tipo: 'lamina' | 'modelo3d') => {
     const base = nombreProyecto.toLowerCase().replace(/\s+/g, '_') || 'techo';
     const texto = tipo === 'lamina'
-      ? dxfLamina(engineState.nodes, engineState.segments, { nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre })
+      ? dxfLamina(engineState.nodes, engineState.segments, {
+          nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre,
+          despiece: engineState.bomReport?.despiecePerfiles as any,
+          memoria: (() => { try { return calcularMemoria(engineState.nodes, engineState.segments, engineState.coverageZones || {}, engineState.structuralInputs || {}) as any; } catch { return null; } })(),
+        })
       : dxfModelo3D(engineState.nodes, engineState.segments, nombreProyecto);
     const url = URL.createObjectURL(new Blob([texto], { type: 'application/dxf' }));
     const a = document.createElement('a');
@@ -1152,8 +1157,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
               <button onClick={() => setShowDxf(false)} aria-label="Cerrar" className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4 text-slate-500" /></button>
             </div>
             <button onClick={() => descargarDxf('lamina')} className="w-full text-left p-3.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 cursor-pointer">
-              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><LayoutGrid className="w-4 h-4 text-amber-600" />Lámina con 4 vistas <span className="text-[10px] font-black text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Recomendado</span></span>
-              <span className="block text-[11px] text-slate-600 mt-1">Planta, elevación frontal, elevación lateral y vista isométrica, con cotas, ejes, cuadro de perfiles y rótulo. Lista para imprimir.</span>
+              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><LayoutGrid className="w-4 h-4 text-amber-600" />Juego de láminas para imprimir <span className="text-[10px] font-black text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Recomendado</span></span>
+              <span className="block text-[11px] text-slate-600 mt-1">3 láminas A1 con marco y rótulo: estructura (planta, elevaciones e isométrica con todas las cotas), despiece de cortes de cada barra y memoria de cálculo.</span>
             </button>
             <button onClick={() => descargarDxf('modelo3d')} className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
               <span className="flex items-center gap-2 font-black text-sm text-slate-900"><Box className="w-4 h-4 text-blue-600" />Modelo 3D</span>

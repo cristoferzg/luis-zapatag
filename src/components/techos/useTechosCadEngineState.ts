@@ -1,5 +1,6 @@
 import { aVigaSimple } from './vigaSimple';
 import { aplicarPerfilesAptos } from './perfilesAptos';
+import { calcularMemoria } from './memoriaCalculo';
 import { aplicarCortaviento, type OpcionesCortaviento } from './cortaviento';
 // Hook de Gestión de Estado Vectorial CAD y Trazado Libre (Node-to-Node / Line-to-Line)
 // Manejo de lienzo interactivo 2D/3D con enlace a Inteligencia de Materiales y Análisis Estructural Paramétrico
@@ -437,9 +438,20 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     if (vigaSimplePendiente.current || cortavientoPendiente.current) return;
     perfilesAptosPendiente.current = false;
     const r = aplicarPerfilesAptos(nodes, segments);
-    if (!r.cambios) return;
-    setSegments(r.segs);
-    pushHistory(nodes, r.segs, coverageZones);
+    // Lo que la memoria de cálculo marca "NO CUMPLE" se refuerza con su perfil recomendado
+    // (el mismo de "Aplicar recomendados"), así el techo sale verificado desde el Asistente.
+    let segs = r.segs, cambios = r.cambios;
+    for (let vuelta = 0; vuelta < 2; vuelta++) {
+      let mem;
+      try { mem = calcularMemoria(nodes, segs, coverageZones, structuralInputs); } catch { break; }
+      const refuerzos = mem.grupos.filter(g => g.estado === 'NO_CUMPLE' && g.recomendadoId);
+      if (!refuerzos.length) break;
+      segs = { ...segs };
+      refuerzos.forEach(g => g.ids.forEach(id => { if (segs[id]) { segs[id] = { ...segs[id], profileId: g.recomendadoId! }; cambios++; } }));
+    }
+    if (!cambios) return;
+    setSegments(segs);
+    pushHistory(nodes, segs, coverageZones);
   }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateNodeAnchorBolts = useCallback((nodeId: string, numPernos: number, boltDiameter: string) => {

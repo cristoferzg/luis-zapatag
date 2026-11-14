@@ -5,6 +5,18 @@
 // Es un predimensionamiento práctico: el Análisis estructural (E.090) sigue verificándolo.
 import type { Node3D, Segment3D } from './techosCadEngineTypes';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
+import { propsPerfil } from './propiedadesPerfil';
+
+/** Correas y arriostres: el más liviano de la lista con esbeltez λ = 0.8·L/r ≤ 260 (límite 300, con margen). */
+const CAND_CORREA = ['perfil_rec_2x1_15', 'perfil_rec_3x15_20', 'perfil_rec_3x2_20', 'perfil_rec_4x2_20', 'perfil_sq_3x3_25', 'perfil_rec_4x2_30', 'perfil_sq_4x4_25', 'perfil_rec_6x2_30', 'perfil_sq_4x4_30'];
+const CAND_ARRIOSTRE = ['perfil_round_34_15', 'perfil_round_1_20', 'perfil_round_1_5_20', 'perfil_round_2_20', 'perfil_sq_2x2_15', 'perfil_sq_25x25_20', 'perfil_sq_3x3_25'];
+function porEsbeltez(cands: string[], L: number): string | null {
+  for (const id of cands) {
+    const p = INVENTARIO_PERFILES_TUBULARES.find(x => x.id === id), pr = propsPerfil(p);
+    if (pr && (0.8 * L * 100) / pr.rMinCm <= 260) return id;
+  }
+  return null;
+}
 
 export interface PerfilesAptos { columna: string; cordon: string; alma: string; correa: string; viga: string; arriostre: string }
 
@@ -12,8 +24,9 @@ export interface PerfilesAptos { columna: string; cordon: string; alma: string; 
 export function perfilesAptos(luzM: number, alturaM: number, sepM: number): PerfilesAptos {
   const L = Math.max(1, luzM), H = Math.max(1, alturaM), S = Math.max(1, sepM);
   // Columna: manda la altura (pandeo) y el tamaño del techo que carga.
-  const columna = L <= 6 && H <= 3.5 ? 'perfil_sq_3x3_25'
-    : L <= 10 && H <= 5 ? 'perfil_sq_4x4_25'
+  // (mínimo de obra de la memoria: 3" × 3" y 3 mm de espesor)
+  const columna = L <= 6 && H <= 3.5 ? 'perfil_sq_3x3_30'
+    : L <= 10 && H <= 5 ? 'perfil_sq_4x4_30'
     : L <= 15 && H <= 6.5 ? 'perfil_sq_4x4_32'
     : L <= 20 && H <= 8 ? 'perfil_sq_5x5_45'
     : 'perfil_sq_6x6_45';
@@ -75,7 +88,12 @@ export function aplicarPerfilesAptos(nodes: Record<string, Node3D>, segs: Record
   for (const [id, s] of Object.entries(segs)) {
     const nuevo = porRol[s.rolEstructural || ''];
     // En un tijeral la viga principal hace de cordón (no de viga sola).
-    const elegido = s.rolEstructural === 'viga_principal' && (s as any).tijeral ? p.cordon : nuevo;
+    const A = nodes[s.nodeAId], B = nodes[s.nodeBId];
+    const largo = A && B ? Math.hypot(A.x - B.x, A.y - B.y, (A.z || 0) - (B.z || 0)) : 0;
+    const elegido = s.rolEstructural === 'viga_principal' && (s as any).tijeral ? p.cordon
+      : s.rolEstructural === 'correa' ? (porEsbeltez(CAND_CORREA, largo) || nuevo)
+      : s.rolEstructural === 'arriostre' ? (porEsbeltez(CAND_ARRIOSTRE, largo) || nuevo)
+      : nuevo;
     if (elegido && s.profileId && RELLENO.has(s.profileId) && !/^tq[0-9a-z]+_/.test(id)) { out[id] = { ...s, profileId: elegido }; cambios++; }
     else out[id] = s;
   }
