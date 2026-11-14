@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   FolderOpen,
   X,
+  LayoutGrid,
   Trash2,
   Sparkles,
   UploadCloud,
@@ -52,6 +53,7 @@ import { TechosInteractiveTutorial } from './TechosInteractiveTutorial';
 import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
+import { dxfLamina, dxfModelo3D } from '../../lib/dxfLamina';
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { perfilesQueCumplen } from './memoriaCalculo';
 import { safeStorage } from '../../lib/storageManager';
@@ -585,21 +587,20 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     return () => { clearTimeout(t); window.removeEventListener('innova_archivo_pendiente', abrir); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleExportDxf = () => {
-    const dxfString = engineState.exportDxf(nombreProyecto);
-    const dataStr = "data:application/dxf;charset=utf-8," + encodeURIComponent(dxfString);
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `${nombreProyecto.toLowerCase().replace(/\s+/g, '_')}.dxf`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    if (downloadAnchor && downloadAnchor.parentNode) {
-      try {
-        downloadAnchor.parentNode.removeChild(downloadAnchor);
-      } catch (_e) {
-        // ignore
-      }
-    }
+  // AutoCAD: se elige LÁMINA (4 vistas, cotas, cuadro y rótulo) o MODELO 3D (altura en Z).
+  const [showDxf, setShowDxf] = useState(false);
+  const handleExportDxf = () => setShowDxf(true);
+  const descargarDxf = (tipo: 'lamina' | 'modelo3d') => {
+    const base = nombreProyecto.toLowerCase().replace(/\s+/g, '_') || 'techo';
+    const texto = tipo === 'lamina'
+      ? dxfLamina(engineState.nodes, engineState.segments, { nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre })
+      : dxfModelo3D(engineState.nodes, engineState.segments, nombreProyecto);
+    const url = URL.createObjectURL(new Blob([texto], { type: 'application/dxf' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `${base}_${tipo === 'lamina' ? 'lamina' : '3d'}.dxf`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    setShowDxf(false);
   };
 
   // Abrir modal de guardado inteligente
@@ -1139,6 +1140,29 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           </div>
         </div>
       </header>
+
+      {showDxf && createPortal(
+        <div className="fixed inset-0 z-[120] bg-slate-900/50 flex items-center justify-center p-4" onClick={() => setShowDxf(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Exportar a AutoCAD</h3>
+                <p className="text-xs text-slate-500">Archivo .DXF (AutoCAD lo abre y lo guarda como .DWG). ¿Qué quieres llevar?</p>
+              </div>
+              <button onClick={() => setShowDxf(false)} aria-label="Cerrar" className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4 text-slate-500" /></button>
+            </div>
+            <button onClick={() => descargarDxf('lamina')} className="w-full text-left p-3.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 cursor-pointer">
+              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><LayoutGrid className="w-4 h-4 text-amber-600" />Lámina con 4 vistas <span className="text-[10px] font-black text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Recomendado</span></span>
+              <span className="block text-[11px] text-slate-600 mt-1">Planta, elevación frontal, elevación lateral y vista isométrica, con cotas, ejes, cuadro de perfiles y rótulo. Lista para imprimir.</span>
+            </button>
+            <button onClick={() => descargarDxf('modelo3d')} className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
+              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><Box className="w-4 h-4 text-blue-600" />Modelo 3D</span>
+              <span className="block text-[11px] text-slate-600 mt-1">La estructura en 3D con la altura hacia arriba, para girarla en AutoCAD (Órbita 3D). Capas por tipo de pieza.</span>
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* 2. BARRA DE PESTAÑAS NAVEGACIÓN PRINCIPAL (ESTILO HERRERÍA) */}
       <nav 

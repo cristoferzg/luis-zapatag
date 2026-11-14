@@ -23,6 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
+| Última mejora sin compilar | Exportar a AutoCAD (lámina 4 vistas + modelo 3D) |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -32,6 +33,25 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-14 · Exportar a AutoCAD: lámina con 4 vistas y modelo 3D
+- Pedido del dueño: al exportar a AutoCAD solo se veía la vista frontal/lateral (el sistema "elegía" la vista);
+  quería otra maquetación.
+- Causa: se exportaban las líneas 3D con la altura en el eje Y; AutoCAD abre mirando desde arriba (plano X-Y) y solo
+  se veía el frente con todos los pórticos encimados.
+- Qué se hizo: el botón "DXF AutoCAD" abre una ventana con dos opciones:
+  1. **Lámina con 4 vistas (recomendado):** planta de techo y correas, elevación frontal (pórtico), elevación lateral e
+     isométrica; cotas (luz, largo, alturas), ejes A-B y 1..n, cuadro de elementos y perfiles (cantidad, perfil,
+     longitud), notas técnicas, marco y rótulo (empresa, proyecto, fecha, lámina TM-01, escala). Capas por tipo de pieza
+     con colores (COLUMNAS, CORDON_SUPERIOR, CORREAS, EJES discontinua, COTAS…).
+  2. **Modelo 3D:** altura en Z y largo en Y (sin espejo), capas por pieza, para girar con Órbita 3D.
+  DXF R12 (abre en cualquier AutoCAD), tildes como \U+XXXX, extensión del dibujo en la cabecera.
+- Archivos: `src/lib/dxfLamina.ts` (nuevo: `dxfLamina`, `dxfModelo3D`), `techos/TechosModuleView.tsx` (ventana de opciones).
+- Cómo se probó: tsc 0 errores; se descargaron los DXF reales desde la app (dos aguas 10×18 y parabólico 12×24) antes y
+  después y se dibujaron con un visor propio como AutoCAD (fondo negro, colores por capa).
+- Versión: sin compilar aún (esperando "compila").
+- Pendiente / a vigilar: confirmar en el AutoCAD del dueño (abrir, ZOOM EXTENSIÓN, imprimir). Posible siguiente paso:
+  la misma exportación para Obra Civil, Drywall y Carpintería metálica.
 
 ## 2026-11-14 · Inicio del registro de mejoras
 - Pedido del dueño: trabajar una mejora nueva por conversación y llevar este documento con los datos.
