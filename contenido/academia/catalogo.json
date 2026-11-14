@@ -56,7 +56,7 @@
     {
       "clave": "naves",
       "nombre": "Naves Parabólicas",
-      "descripcion": "El curso completo para construir naves parabólicas: geometría del arco (luz y flecha), arcos reticulados, correas, arriostres y tensores, placas base y anclajes, trazado en piso, izaje y montaje seguro, cobertura y metrado para presupuestar. Incluye tabla de trazo del arco y checklist de montaje.",
+      "descripcion": "El curso completo para construir naves parabólicas, de la teoría a InnovApp: geometría del arco (luz y flecha óptima 0.14 L), cordones, montantes y diagonales, correas, arriostres y tensores, placas base y pernos J, trazado en piso, izaje y montaje seguro, cobertura aluzinc TR4 y metrado. En cada clase lo practicas en Techos Metálicos. Incluye tabla de trazo, checklist de montaje y plantillas de naves listas para usar.",
       "gratis": false,
       "precioSoles": 129,
       "precioAntesSoles": 179,
@@ -125,7 +125,7 @@
       "portada": "portadas/estructuras.png",
       "recursos": [
         {
-          "nombre": "Tabla de perfiles y pesos (ángulos y tubos).pdf",
+          "nombre": "Tabla de perfiles y pesos (catálogo InnovApp).pdf",
           "archivo": "recursos/estructuras-tabla-perfiles.pdf"
         },
         {
@@ -264,6 +264,53 @@
           "descripcion": "Ejercicio completo: un tijeral del plano al despiece."
         }
       ]
+    }
+  ],
+  "recursos_tecnicos": [
+    {
+      "clave": "nave12",
+      "titulo": "Nave parabólica 12 × 24 m",
+      "categoria": "Techos Metálicos",
+      "tipo": "documento",
+      "descripcion": "Plantilla lista para abrir en InnovApp → Techos Metálicos (botón «Usar plantilla»). Luz 12 m, largo 24 m, columnas de 4.5 m, flecha óptima 1.68 m (0.14 L), arco clásico Warren, aluzinc TR4. Perfiles elegidos y verificados con la memoria de cálculo de la app (todo CUMPLE). Úsala como base y ajústala a tu obra. Material del curso Naves Parabólicas.",
+      "plantilla": {
+        "modulo": "techos",
+        "archivo": "plantillas/nave-parabolica-12x24.json"
+      },
+      "portada": "plantillas/nave-parabolica-12x24.jpg",
+      "precioSoles": 19.9,
+      "precioAntesSoles": 29.9,
+      "destacado": false
+    },
+    {
+      "clave": "nave15",
+      "titulo": "Nave parabólica 15 × 30 m",
+      "categoria": "Techos Metálicos",
+      "tipo": "documento",
+      "descripcion": "Plantilla lista para abrir en InnovApp → Techos Metálicos (botón «Usar plantilla»). Luz 15 m, largo 30 m, columnas de 5 m, flecha óptima 2.10 m (0.14 L), arco clásico Warren, aluzinc TR4. Perfiles elegidos y verificados con la memoria de cálculo de la app (todo CUMPLE). Úsala como base y ajústala a tu obra. Material del curso Naves Parabólicas.",
+      "plantilla": {
+        "modulo": "techos",
+        "archivo": "plantillas/nave-parabolica-15x30.json"
+      },
+      "portada": "plantillas/nave-parabolica-15x30.jpg",
+      "precioSoles": 19.9,
+      "precioAntesSoles": 29.9,
+      "destacado": true
+    },
+    {
+      "clave": "nave20",
+      "titulo": "Nave parabólica 20 × 40 m",
+      "categoria": "Techos Metálicos",
+      "tipo": "documento",
+      "descripcion": "Plantilla lista para abrir en InnovApp → Techos Metálicos (botón «Usar plantilla»). Luz 20 m, largo 40 m, columnas de 6 m, flecha óptima 2.80 m (0.14 L), arco clásico Warren, aluzinc TR4. Perfiles elegidos y verificados con la memoria de cálculo de la app (todo CUMPLE). Úsala como base y ajústala a tu obra. Material del curso Naves Parabólicas.",
+      "plantilla": {
+        "modulo": "techos",
+        "archivo": "plantillas/nave-parabolica-20x40.json"
+      },
+      "portada": "plantillas/nave-parabolica-20x40.jpg",
+      "precioSoles": 19.9,
+      "precioAntesSoles": 29.9,
+      "destacado": false
     }
   ]
 }
