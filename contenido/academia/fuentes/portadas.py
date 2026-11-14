@@ -27,7 +27,7 @@ def naves():
     def par(x0, x1, base, alto, t):
         return x0 + (x1 - x0) * t, base - 4 * alto * t * (1 - t)
     out = ['''<defs><linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f97316" stop-opacity="0"/><stop offset="1" stop-color="#f97316" stop-opacity=".35"/></linearGradient></defs>
-<circle cx="430" cy="610" r="170" fill="#ffb347" opacity=".28"/><circle cx="430" cy="610" r="260" fill="#f97316" opacity=".10"/>''']
+<defs><radialGradient id="sol"><stop offset="0" stop-color="#ffb347" stop-opacity=".55"/><stop offset=".5" stop-color="#f97316" stop-opacity=".18"/><stop offset="1" stop-color="#f97316" stop-opacity="0"/></radialGradient></defs><circle cx="380" cy="640" r="300" fill="url(#sol)"/>''']
     # arcos del fondo (perspectiva)
     for k in range(5):
         x0, x1, base, alto = 250 + k*4 - 0, 690 - k*4, 600 - k*14, 300 - k*22
@@ -166,13 +166,34 @@ PORTADAS = [
   ('planos', 'Lectura de <span>Planos</span>', 'Interpreta planos de estructuras metálicas y pásalos a la lista de cortes', 'CURSO PREMIUM', ['Simbología AWS', 'Cortes y detalles', 'Del plano al taller']),
 ]
 
+def sin_piso(svg):
+    import re
+    return re.sub(r'<rect x="0" y="6[0-9]{2}" width="760" height="[0-9]+" fill="#0a2238"/>', '', svg)
+
+def html_limpio(clave):
+    """Portada SIN textos: la Academia ya pone el título y el precio encima (carrusel) y debajo (tarjeta).
+    Lo importante va en la franja central: el carrusel recorta arriba y abajo."""
+    return f'''<!doctype html><html><head><meta charset="utf-8"><style>
+*{{margin:0;padding:0}}
+body{{width:1280px;height:720px;overflow:hidden;position:relative;
+ background:radial-gradient(90% 120% at 75% 50%, {NAVY2} 0%, {NAVY} 55%, #061a2c 100%)}}
+.grid{{position:absolute;inset:0;background-image:linear-gradient(rgba(143,169,194,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(143,169,194,.08) 1px,transparent 1px);background-size:40px 40px}}
+.ilus{{position:absolute;left:470px;top:60px;width:634px;height:600px;overflow:visible}}
+.piso{{position:absolute;left:0;right:0;top:600px;bottom:0;background:linear-gradient(180deg,rgba(6,26,44,.0),rgba(6,26,44,.9) 30%)}}
+.marca{{position:absolute;right:34px;bottom:96px;width:70px;height:68px;background:#fff;border-radius:16px;padding:7px;box-shadow:0 6px 20px rgba(0,0,0,.35)}}
+.barra{{position:absolute;left:0;bottom:0;width:100%;height:10px;background:linear-gradient(90deg,{NAR},#ffb347)}}
+
+</style></head><body><div class="grid"></div>
+<svg class="ilus" viewBox="0 0 760 720">{sin_piso(ILUSTRACIONES[clave])}</svg><div class="piso"></div>
+<img class="marca" src="data:image/png;base64,{EMBLEMA}"><div class="barra"></div></body></html>'''
+
 if __name__ == '__main__':
     SALIDA.mkdir(exist_ok=True)
     with sync_playwright() as p:
         b = p.chromium.launch(executable_path='/usr/bin/google-chrome')
         pg = b.new_page(viewport={'width': 1280, 'height': 720})
         for clave, *resto in PORTADAS:
-            pg.set_content(html(clave, *resto)); pg.wait_for_timeout(150)
+            pg.set_content(html_limpio(clave)); pg.wait_for_timeout(150)
             pg.screenshot(path=str(SALIDA / f'{clave}.png'))
             print('ok', clave)
         b.close()

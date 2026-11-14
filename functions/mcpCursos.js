@@ -221,7 +221,10 @@ export function crearAcademia({ db, bucket, fetchFn = fetch, ahora = () => Date.
     const ruta = `academia/mcp/${carpeta}/${ahora()}_${nombre}`;
     const token = randomUUID();
     await bucket.file(ruta).save(datos, { resumable: datos.length > 8 * 1024 * 1024, contentType: tipo, metadata: { metadata: { firebaseStorageDownloadTokens: token } } });
-    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(ruta)}?alt=media&token=${token}`;
+    // En los emuladores el enlace apunta al emulador de Storage (pruebas locales).
+    const emu = process.env.FIREBASE_STORAGE_EMULATOR_HOST;
+    const base = emu ? `http://${emu.replace(/^https?:\/\//, '')}` : 'https://firebasestorage.googleapis.com';
+    const url = `${base}/v0/b/${bucket.name}/o/${encodeURIComponent(ruta)}?alt=media&token=${token}`;
     return { ok: true, url, nombre, tipo, tamano: datos.length, ruta };
   }
 
