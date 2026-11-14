@@ -4,13 +4,10 @@
 // Antes se exportaban las líneas en 3D tal cual (la altura en el eje Y): AutoCAD abre
 // mirando desde arriba (plano X-Y) y solo se veía el FRENTE, con los pórticos encimados.
 // Ahora hay dos formas:
-//   1. JUEGO DE LÁMINAS listo para imprimir (A1 en milímetros; en A3 "ajustar al papel"):
-//      TM-01 Estructura: planta, elevación frontal, elevación lateral e isométrica a escala
-//            normalizada, con cotas completas, ejes, cuadro de perfiles, leyenda y notas.
-//      TM-02 Despiece y cortes: cada barra de 6 m dibujada con sus cortes y su sobrante.
-//      TM-03 Memoria de cálculo: datos, cargas, verificación por pieza, reacciones y peso.
-//      Cada lámina con marco, margen de encuadernación y rótulo. Las piezas se dibujan con
-//      grosor proporcional al perfil (una columna de 4" sale gruesa; una diagonal de 1", delgada).
+//   1. LÁMINAS ESTRUCTURALES listas para imprimir (A1/A0 en mm): E-01 estructura (planta, elevaciones e
+//      isométrica a escala 1:50 / 1:75 / 1:100, cotas y ejes), E-02 detalles y especificaciones técnicas
+//      (placa base, empalme, cuadro de columnas, cargas y parámetros sísmicos) y E-03 memoria de cálculo
+//      (E.020, E.090 y sismo E.030). Marco y rótulo estructural; trazos con grosor según el perfil.
 //   2. MODELO 3D: la estructura con la altura en Z, para girarla con Órbita 3D.
 // =============================================================================
 import type { Node3D, Segment3D } from '../components/techos/techosCadEngineTypes';
@@ -24,7 +21,7 @@ const CAPAS: [string, number, string][] = [
   ['CORDON_INFERIOR', 3, 'CONTINUOUS'], ['MONTANTES', 6, 'CONTINUOUS'], ['DIAGONALES', 5, 'CONTINUOUS'],
   ['CORREAS', 4, 'CONTINUOUS'], ['ARRIOSTRES', 8, 'CONTINUOUS'], ['TENSORES', 9, 'CONTINUOUS'],
   ['EJES', 8, 'DASHED'], ['COTAS', 30, 'CONTINUOUS'], ['TEXTOS', 7, 'CONTINUOUS'],
-  ['MARCO', 7, 'CONTINUOUS'], ['CUADRO', 7, 'CONTINUOUS'], ['DESPIECE', 4, 'CONTINUOUS'],
+  ['MARCO', 7, 'CONTINUOUS'], ['CUADRO', 7, 'CONTINUOUS'],
   ['NO_CUMPLE', 1, 'CONTINUOUS'],
 ];
 const CAPA_ROL: Record<string, string> = {
@@ -130,13 +127,8 @@ export function dxfModelo3D(nodes: Record<string, Node3D>, segments: Record<stri
 }
 
 // ---------------------------------------------------------------------------
-// Datos opcionales de despiece y memoria (los da el motor de Techos).
+// Datos de la memoria de cálculo (los da el motor de Techos).
 // ---------------------------------------------------------------------------
-export interface DespieceDxf {
-  profileId: string; nombrePerfil: string; totalBarrasComerciales6m: number; totalMetrosRequeridosM: number;
-  totalPesoAceroKg: number; eficienciaPromedioPorcentaje: number;
-  patronesBarras: { longitudBarraComercialM: number; cortes: { longitudM: number; rolEstructural: string }[]; desperdicioSobraM: number }[];
-}
 export interface MemoriaDxf {
   datos: { tipo: string; luz: number; largo: number; alturaCol: number; alturaMax: number; area: number; pendientePct: number | null; nCols: number; nPiezas: number; cobertura: string };
   cargas: { D: number; L: number; V: number; qViento: number; succion: number; zona: string; Z: number; U1: number; U2: number; U3: number };
@@ -151,7 +143,7 @@ export interface MemoriaDxf {
   } | null;
 }
 /** escala: 0 = automática (la mayor que quepa: 1:50, 1:75, 1:100…); 50, 75 o 100 = fija para planta y elevaciones. */
-export interface OpcionesLamina { nombre: string; empresa?: string; fecha?: string; despiece?: DespieceDxf[]; memoria?: MemoriaDxf | null; escala?: number }
+export interface OpcionesLamina { nombre: string; empresa?: string; fecha?: string; memoria?: MemoriaDxf | null; escala?: number }
 
 // Formatos de papel apaisados (mm). Margen de encuadernación a la izquierda.
 const FORMATOS = { A1: [841, 594], A0: [1189, 841] } as const;
@@ -165,7 +157,8 @@ const RW = 180, RH = 64; // rótulo
  * JUEGO DE LÁMINAS ESTRUCTURALES listo para imprimir:
  *  E-01… Estructura (planta, elevaciones e isométrica a la escala elegida; si no caben en A1 se
  *        reparten en más láminas o se usa A0, sin cambiar la escala), E-0n Detalles y
- *        especificaciones, E-0n Despiece y cortes, E-0n Memoria de cálculo (con análisis sísmico).
+ *        especificaciones, E-0n Memoria de cálculo (con análisis sísmico). Solo contenido estructural:
+ *        el despiece de cortes es información de taller y NO va en las láminas.
  */
 export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, o: OpcionesLamina): string {
   const d = new Dibujo();
@@ -430,8 +423,9 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
     return { W, alto };
   };
   const filasCuadro = [...porRol.entries()].sort((p, q) => ORDEN_ROL.indexOf(p[0]) - ORDEN_ROL.indexOf(q[0]))
-    .map(([rol, r]) => [NOMBRE_ROL[rol] || rol, String(r.n), [...r.perf.keys()].map(nombreCorto).join(' / '), m2(r.m)]);
-  const t1 = tabla(X0 + 4, yFr, 'CUADRO DE ELEMENTOS Y PERFILES', ['Elemento', 'Cant.', 'Perfil', 'Long. (m)'], filasCuadro);
+    .map(([rol, r]) => [NOMBRE_ROL[rol] || rol, String(r.n), [...r.perf.keys()].map(nombreCorto).join(' / '),
+      [...new Set([...r.perf.keys()].map(id => { const c = perfilDe(id)?.categoria || ''; return /perfil_c|perfil_z|angulo|perfil_h/.test(c) ? 'ASTM A36' : 'ASTM A500 Gr. B'; }))].join(' / ')]);
+  const t1 = tabla(X0 + 4, yFr, 'CUADRO DE ELEMENTOS ESTRUCTURALES', ['Elemento', 'Cant.', 'Perfil', 'Material'], filasCuadro);
   const xLey = X0 + 4 + t1.W + 10;
   d.texto([xLey, yFr - 3], 'LEYENDA (grosor según el perfil)', TXT_S, 'TEXTOS');
   [...porRol.keys()].sort((p, q) => ORDEN_ROL.indexOf(p) - ORDEN_ROL.indexOf(q)).forEach((rol, i) => {
@@ -442,7 +436,7 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
   });
   const xNot = xLey + 92;
   const sis = o.memoria?.sismo;
-  ['NOTAS:', '1. Cotas en metros; láminas en mm.', '2. Ver especificaciones técnicas y detalles en E-02.', '3. Ver despiece y memoria de cálculo.',
+  ['NOTAS:', '1. Cotas en metros; láminas en mm.', '2. Ver especificaciones técnicas y detalles en E-02.', '3. Ver memoria de cálculo estructural.',
     sis ? `4. Sismo E.030: Z=${sis.Z} U=${sis.U} S=${sis.S} R=${sis.R} · V=${sis.VKg.toFixed(0)} kg` : '4. Cargas según RNE E.020.',
     '5. Prediseño: revisar y firmar por ingeniero CIP.']
     .forEach((t, i) => { if (xNot + 60 < X0 + FORMATOS.A1[0] - ML - MR - RW - 8) d.texto([xNot, yFr - 3 - i * 5.6], t, i ? TXT_S : TXT, 'TEXTOS'); });
@@ -536,55 +530,6 @@ export function dxfLamina(nodes: Record<string, Node3D>, segments: Record<string
       `Deriva máxima ${sis.deriva.toFixed(4)} ≤ ${sis.derivaLim} (acero) · ${sis.estado === 'CUMPLE' ? 'CUMPLE' : 'NO CUMPLE'}`,
     ]);
     bloque('NORMAS', ['RNE E.020 Cargas · E.030 Diseño sismorresistente · E.090 Estructuras metálicas', 'AWS D1.1 Soldadura estructural · ASTM A500 / A36 / A307']);
-  }
-
-  // =========================================================================
-  // DESPIECE Y CORTES (barras de 6 m)
-  // =========================================================================
-  const desp = (o.despiece || []).filter(p => p.patronesBarras?.length);
-  if (desp.length) {
-    let hj = hoja('DESPIECE Y CORTES (BARRAS DE 6 m)', 'S/E');
-    let x0 = hj.ox + ML + 6;
-    const yIni = hj.H - MT - 8, yFin = MB + RH + 8;
-    let y = yIni;
-    const resumen = desp.map(p => [nombreCorto(p.profileId), String(p.totalBarrasComerciales6m), m2(p.totalMetrosRequeridosM), p.totalPesoAceroKg.toFixed(1), `${Math.min(100, Math.round(p.eficienciaPromedioPorcentaje))} %`]);
-    const tr = tabla(x0, y, 'RESUMEN DE COMPRA', ['Perfil', 'Barras 6 m', 'Metros', 'Peso (kg)', 'Aprovech.'], resumen);
-    y -= tr.alto + 10;
-    const barraMm = 330;
-    const siguiente = (alto: number) => { if (y - alto >= yFin) return; hj = hoja('DESPIECE Y CORTES (continuación)', 'S/E'); x0 = hj.ox + ML + 6; y = hj.H - MT - 8; };
-    desp.forEach(p => {
-      const grupos = new Map<string, { n: number; pat: DespieceDxf['patronesBarras'][number] }>();
-      p.patronesBarras.forEach(b => { const kk = b.cortes.map(c => c.longitudM.toFixed(3)).sort().join('+'); const g = grupos.get(kk); if (g) g.n++; else grupos.set(kk, { n: 1, pat: b }); });
-      siguiente(20);
-      d.texto([x0, y], `${nombreCorto(p.profileId)}  —  ${p.totalBarrasComerciales6m} barras de 6 m · ${m2(p.totalMetrosRequeridosM)} m · ${p.totalPesoAceroKg.toFixed(1)} kg`, TXT, 'TEXTOS');
-      d.gruesa([[x0, y - 1.6], [x0 + hj.W - ML - MR - 12, y - 1.6]], 0.25, 'TEXTOS');
-      y -= 11;
-      [...grupos.values()].sort((a, b) => b.n - a.n).forEach((g, i) => {
-        siguiente(13);
-        const L6 = g.pat.longitudBarraComercialM || 6, kk = barraMm / L6;
-        d.texto([x0, y - 5], `${letra(i)}  ×${g.n}`, TXT, 'TEXTOS');
-        const bx = x0 + 22;
-        const cortes = [...g.pat.cortes].sort((a, b) => b.longitudM - a.longitudM);
-        if (cortes.some(c => c.longitudM > L6 + 1e-6)) {
-          d.caja(bx, y, bx + barraMm, y - 7, 'NO_CUMPLE', 0.5);
-          d.texto([bx + barraMm / 2, y - 3.5], `PIEZA DE ${m2(Math.max(...cortes.map(c => c.longitudM)))} m > ${m2(L6)} m: EMPALME SOLDADO (DETALLE 3, E-02)`, TXT_S, 'NO_CUMPLE', 'centro');
-          y -= 11; return;
-        }
-        d.caja(bx, y, bx + barraMm, y - 7, 'DESPIECE', 0.35);
-        let cx = bx;
-        cortes.forEach(c => {
-          const w = c.longitudM * kk;
-          d.linea([cx + w, y], [cx + w, y - 7], 'DESPIECE');
-          if (w > anchoTxt(m2(c.longitudM), TXT_S) + 1.5) d.texto([cx + w / 2, y - 3.5], m2(c.longitudM), TXT_S, 'TEXTOS', 'centro');
-          cx += w;
-        });
-        for (let xx = cx + 2; xx < bx + barraMm - 0.5; xx += 3) d.linea([xx, y - 7], [Math.min(bx + barraMm, xx + 3), y], 'ARRIOSTRES');
-        const rt = `${cortes.map(c => m2(c.longitudM)).join(' + ')}  · sobra ${m2(g.pat.desperdicioSobraM)}`;
-        d.texto([bx + barraMm + 4, y - 4.6], rt.length > 95 ? rt.slice(0, 93) + '…' : rt, TXT_S, 'TEXTOS');
-        y -= 11;
-      });
-      y -= 4;
-    });
   }
 
   // =========================================================================

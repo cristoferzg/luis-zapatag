@@ -597,7 +597,6 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
     const texto = tipo === 'lamina'
       ? dxfLamina(engineState.nodes, engineState.segments, {
           nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre, escala: escalaDxf,
-          despiece: engineState.bomReport?.despiecePerfiles as any,
           memoria: (() => { try { return calcularMemoria(engineState.nodes, engineState.segments, engineState.coverageZones || {}, engineState.structuralInputs || {}) as any; } catch { return null; } })(),
         })
       : dxfModelo3D(engineState.nodes, engineState.segments, nombreProyecto);
@@ -1169,7 +1168,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             </div>
             <button onClick={() => descargarDxf('lamina')} className="w-full text-left p-3.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 cursor-pointer">
               <span className="flex items-center gap-2 font-black text-sm text-slate-900"><LayoutGrid className="w-4 h-4 text-amber-600" />Láminas estructurales para imprimir <span className="text-[10px] font-black text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded">Recomendado</span></span>
-              <span className="block text-[11px] text-slate-600 mt-1">E-01 estructura (planta, elevaciones e isométrica con cotas y ejes), E-02 detalles y especificaciones, despiece de cortes y memoria de cálculo con análisis sísmico. Marco y rótulo estructural.</span>
+              <span className="block text-[11px] text-slate-600 mt-1">E-01 estructura (planta, elevaciones e isométrica con cotas y ejes), E-02 detalles y especificaciones técnicas, E-03 memoria de cálculo con análisis sísmico. Marco y rótulo estructural.</span>
             </button>
             <button onClick={() => descargarDxf('modelo3d')} className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
               <span className="flex items-center gap-2 font-black text-sm text-slate-900"><Box className="w-4 h-4 text-blue-600" />Modelo 3D</span>

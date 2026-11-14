@@ -34,6 +34,16 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-14 · Láminas solo estructurales (sin despiece)
+- Pedido del dueño: el despiece de cortes NO va en las láminas; verificar que todas sean estructurales.
+- Qué se hizo: se quitó la lámina de despiece del DXF (queda en la app, pestaña Despiece y cortes). Juego final: E-01 estructura,
+  E-02 detalles y especificaciones técnicas, E-03 memoria de cálculo (E.020, E.090, sismo E.030). El cuadro de E-01 pasó a
+  "CUADRO DE ELEMENTOS ESTRUCTURALES" con Material (ASTM A500 Gr. B / A36) en vez de longitudes (eso es metrado).
+  Notas sin referencias al despiece. Regla: en las láminas solo contenido estructural.
+- Archivos: `src/lib/dxfLamina.ts`, `techos/TechosModuleView.tsx`.
+- Pruebas: tsc 0 errores; DXF descargados (dos aguas 1:100 y 1:50, parabólico 1:50, cuatro aguas 1:100): sin despiece.
+- Versión: sin compilar aún.
+
 ## 2026-11-14 · Láminas estructurales E-01…, escala 1:50 / 1:100 y análisis sísmico E.030
 - Pedido del dueño: escala 1:50 o 1:100 que se pueda elegir; cálculo sísmico; que las láminas salgan como láminas estructurales.
 - Qué se hizo:
