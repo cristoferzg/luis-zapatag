@@ -1,9 +1,10 @@
-// MCP de Academia (cursos y clases) para Innova Contratistas.
+// MCP de Academia (cursos y clases) y Recursos Técnicos (archivos y plantillas) para Innova Contratistas.
 //
 // Servidor MCP (Model Context Protocol, transporte "Streamable HTTP" sin sesión) que deja a un
 // asistente de IA cargar contenido en la Academia igual que el panel del administrador:
 //   - `cursos/<id>`     → CourseCategory  (mismos campos que UsabilidadVideosView)
 //   - `tutoriales/<id>` → TutorialVideo   (la clase pertenece al curso por `category` = nombre del curso)
+//   - `biblioteca/<id>` → BibliotecaItem (Recursos Técnicos: documentos, planos y plantillas de Techos/Carpintería/Drywall)
 //   - Storage `academia/mcp/...` → videos, portadas y materiales (enlace con token, como la app).
 // Escribe con el Admin SDK, así que las reglas no cambian. Los avisos push (avisoClaseNueva, etc.)
 // se disparan solos como cuando el admin sube una clase.
@@ -101,6 +102,45 @@ export const HERRAMIENTAS = [
         carpeta: { type: 'string', description: 'Subcarpeta, p. ej. soldadura (opcional)' },
       },
       required: ['nombre'],
+    },
+  },
+  {
+    name: 'listar_recursos',
+    description: 'Lista los Recursos Técnicos (biblioteca: documentos, planos, libros, plantillas) con precio y si tienen plantilla.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'guardar_recurso',
+    description: 'Crea o actualiza un Recurso Técnico (archivo descargable, plano o plantilla prediseñada de Techos / Carpintería metálica / Drywall). Sin id busca por título; si no existe, lo crea. Conserva los compradores.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string' },
+        titulo: { type: 'string' },
+        descripcion: { type: 'string' },
+        categoria: { type: 'string', description: 'p. ej. Techos Metálicos, Estructuras Metálicas, Planos y Detalles, Cálculo Estructural' },
+        tipo: { type: 'string', enum: ['documento', 'plano', 'libro', 'video'] },
+        archivoUrl: { type: 'string', description: 'Enlace de descarga (usa subir_archivo)' },
+        nombreArchivo: { type: 'string' },
+        portadaUrl: { type: 'string' },
+        videoUrl: { type: 'string' },
+        gratis: { type: 'boolean' },
+        precioSoles: { type: 'number' },
+        precioAntesSoles: { type: 'number' },
+        descuentoPct: { type: 'number' },
+        descuentoHasta: { type: 'string' },
+        masComprado: { type: 'boolean' },
+        destacado: { type: 'boolean' },
+        enSlider: { type: 'boolean' },
+        adjuntos: ADJUNTOS,
+        plantilla: {
+          type: 'object',
+          description: 'Plantilla prediseñada que el usuario abre en su módulo: {modulo: techos|carpimetal|drywall, datos: <diseño guardado del módulo>}',
+          properties: { modulo: { type: 'string', enum: ['techos', 'carpimetal', 'drywall'] }, datos: { type: 'object' } },
+          required: ['modulo', 'datos'],
+        },
+      },
+      required: ['titulo'],
     },
   },
 ];
@@ -228,7 +268,59 @@ export function crearAcademia({ db, bucket, fetchFn = fetch, ahora = () => Date.
     return { ok: true, url, nombre, tipo, tamano: datos.length, ruta };
   }
 
-  return { listar_cursos, guardar_curso, guardar_clase, subir_archivo };
+  const recursos = () => db.collection('biblioteca');
+
+  async function listar_recursos() {
+    return (await todos(recursos())).map((r) => ({
+      id: r.id, titulo: r.titulo, categoria: r.categoria || '', tipo: r.tipo || 'documento',
+      gratis: r.isFree === true || (r.isFree !== false && !(r.precioSoles > 0)), precioSoles: r.precioSoles || 0,
+      plantilla: r.plantilla?.modulo || null, archivo: r.fileName || '', compradores: (r.allowedUserIds || []).length,
+    }));
+  }
+
+  async function guardar_recurso(a) {
+    const titulo = String(a.titulo || '').trim();
+    if (!titulo) throw new Error('Falta el título del recurso.');
+    const lista = await todos(recursos());
+    const previo = a.id ? lista.find((r) => r.id === a.id) : lista.find((r) => mismoNombre(r.titulo, titulo));
+    if (a.id && !previo) throw new Error(`No existe un recurso con id ${a.id}.`);
+    if (a.plantilla && !['techos', 'carpimetal', 'drywall'].includes(a.plantilla.modulo)) throw new Error('plantilla.modulo debe ser techos, carpimetal o drywall.');
+    const gratis = a.gratis ?? (previo ? previo.isFree === true : false);
+    const precio = gratis ? 0 : num(a.precioSoles) ?? previo?.precioSoles ?? 0;
+    if (!gratis && !(precio > 0)) throw new Error('Un recurso de pago necesita precioSoles mayor que 0.');
+    if (!previo && !a.archivoUrl && !a.plantilla && !a.videoUrl) throw new Error('Un recurso nuevo necesita archivoUrl, videoUrl o plantilla.');
+    const antes = num(a.precioAntesSoles);
+    const datos = sinIndefinidos({
+      tipo: a.tipo || previo?.tipo || 'documento',
+      titulo: a.id ? titulo : previo?.titulo || titulo,
+      descripcion: a.descripcion !== undefined ? String(a.descripcion) : undefined,
+      categoria: a.categoria,
+      isFree: gratis,
+      precioSoles: precio,
+      precioOriginalSoles: !gratis && antes > precio ? antes : undefined,
+      isOferta: !gratis && ((antes > precio) || (num(a.descuentoPct) > 0)) ? true : undefined,
+      isMasComprado: a.masComprado,
+      isDestacado: a.destacado,
+      enSlider: a.enSlider,
+      adjuntos: a.adjuntos,
+      plantilla: a.plantilla,
+      fileName: a.nombreArchivo,
+      enlaceDescargaUrl: a.archivoUrl,
+      enlaceVideoUrl: a.videoUrl,
+      previewImageUrl: a.portadaUrl,
+      discountPercentage: gratis ? 0 : num(a.descuentoPct),
+      discountExpiryDate: a.descuentoHasta !== undefined ? (a.descuentoHasta ? new Date(a.descuentoHasta).toISOString() : '') : undefined,
+    });
+    if (previo) {
+      await recursos().doc(previo.id).set(datos, { merge: true });
+      return { ok: true, accion: 'actualizado', id: previo.id, titulo: datos.titulo };
+    }
+    const id = `bib_${ahora()}`;
+    await recursos().doc(id).set({ categoria: 'Planos y Detalles', fileName: 'documento_tecnico.pdf', imageWidth: 0, imageHeight: 0, ...datos, allowedUserIds: [] });
+    return { ok: true, accion: 'creado', id, titulo: datos.titulo };
+  }
+
+  return { listar_cursos, guardar_curso, guardar_clase, subir_archivo, listar_recursos, guardar_recurso };
 }
 
 /** Procesa un mensaje JSON-RPC del protocolo MCP. Devuelve la respuesta o null (notificaciones). */
@@ -246,7 +338,7 @@ export async function atenderMensaje(msg, academia) {
         protocolVersion: VERSIONES.includes(pedida) ? pedida : VERSIONES[0],
         capabilities: { tools: { listChanged: false } },
         serverInfo: { name: 'innova-academia', title: 'Academia Innova Contratistas', version: '1.0.0' },
-        instructions: 'Carga cursos y clases en la Academia de InnovApp. Primero listar_cursos; sube archivos con subir_archivo y usa la url que devuelve. Los precios van en soles.',
+        instructions: 'Carga cursos y clases en la Academia de InnovApp y archivos o plantillas en Recursos Técnicos. Primero listar_cursos / listar_recursos; sube archivos con subir_archivo y usa la url que devuelve. Los precios van en soles.',
       });
     }
     case 'ping': return ok({});
@@ -256,7 +348,7 @@ export async function atenderMensaje(msg, academia) {
       if (!HERRAMIENTAS.some((h) => h.name === params.name) || !fn) return error(-32602, `Herramienta desconocida: ${params.name}`);
       try {
         const r = await fn(params.arguments || {});
-        return ok({ content: [{ type: 'text', text: JSON.stringify(r, null, 2) }], structuredContent: Array.isArray(r) ? { cursos: r } : r, isError: false });
+        return ok({ content: [{ type: 'text', text: JSON.stringify(r, null, 2) }], structuredContent: Array.isArray(r) ? { [params.name === 'listar_recursos' ? 'recursos' : 'cursos']: r } : r, isError: false });
       } catch (e) {
         return ok({ content: [{ type: 'text', text: `Error: ${e?.message || e}` }], isError: true });
       }

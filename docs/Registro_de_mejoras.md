@@ -49,6 +49,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Qué se hizo:
   - Cloud Function `mcpCursos` (MCP por HTTP, protegida con el secreto `MCP_CLAVE`): `listar_cursos`, `guardar_curso`, `guardar_clase`, `subir_archivo`. Escribe en `cursos`/`tutoriales` igual que el panel del admin (los avisos push salen solos). No borra nada.
   - Catálogo de 5 cursos de pago (`contenido/academia/catalogo.json`): Soldadura Estructural S/ 89 (antes 129), Naves Parabólicas S/ 129 (antes 179), Estructuras Metálicas S/ 99 (antes 139), Carpintería Metálica S/ 69 (antes 99), Lectura de Planos S/ 49 (antes 69), con el temario de clases (la 1.ª de cada curso, gratis de muestra).
+  - MCP ampliado a Recursos Técnicos: `listar_recursos` y `guardar_recurso` (archivos, planos y plantillas prediseñadas de Techos/Carpintería/Drywall).
+  - Video de Naves Parabólicas · Clase 1 (2:54, 1080p, voz IA es-MX) y su generador en `contenido/academia/videos/`.
   - 5 portadas 1280×720 con la marca y 10 PDF de material (tablas de electrodos, trazo de arcos, perfiles y pesos, checklists, guía de medidas, hoja de despiece, simbología AWS, glosario).
 - Archivos principales: `functions/mcpCursos.js`, `functions/index.js` (export), `seguridad/mcpCursos.test.mjs`, `contenido/academia/*`.
 - Cómo se probó: `npm run test:mcp` (base y Storage simulados) y cliente MCP oficial contra el servidor local (listar herramientas, crear curso, listar).
