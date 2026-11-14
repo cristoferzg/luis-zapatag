@@ -499,61 +499,172 @@ function construirLaminas(nodes: Record<string, Node3D>, segments: Record<string
   }
 
   // =========================================================================
-  // DETALLES DE CONEXIONES (escala 1:10, esquemáticos)
+  // DETALLES DE CONEXIONES (escala 1:5, con las medidas reales de los perfiles)
   // =========================================================================
   {
-    const { ox, H: Hh } = hoja('DETALLES DE CONEXIONES METÁLICAS', '1:10');
-    const k = 1 / 10; // mm reales → mm de papel
-    const cord = segs.find(s => s.rolEstructural === 'cordon_superior') || segs.find(s => s.rolEstructural === 'viga_principal');
-    const corr = segs.find(s => s.rolEstructural === 'correa');
-    const col = segs.find(s => s.rolEstructural === 'columna');
-    const ladoC = (cord ? ladoMm(cord.profileId) : 50) * k, ladoR = (corr ? ladoMm(corr.profileId) : 100) * k, ladoCol = (col ? ladoMm(col.profileId) : 100) * k;
-    const titulo = (x: number, y: number, t: string, sub: string) => { d.texto([x, y], t, TXT, 'TEXTOS', 'centro'); d.texto([x, y - 6], sub, TXT_S, 'TEXTOS', 'centro'); };
-    const y1 = Hh - MT - 120;
-    // D-1: correa sobre cordón superior con clip angular.
-    const x1 = ox + ML + 90;
-    d.caja(x1 - 60, y1 - ladoC, x1 + 60, y1, 'CORDON_SUPERIOR', 0.6);                                    // cordón (vista lateral)
-    d.caja(x1 - ladoR * 0.25, y1, x1 + ladoR * 0.25, y1 + ladoR, 'CORREAS', 0.6);                          // correa (sección)
-    d.gruesa([[x1 + ladoR * 0.25 + 0.3, y1 + 0.3], [x1 + ladoR * 0.25 + 5.1, y1 + 0.3], [x1 + ladoR * 0.25 + 0.3, y1 + 0.3], [x1 + ladoR * 0.25 + 0.3, y1 + 5.1]], 0.5, 'VIGAS'); // clip L
-    d.circulo([x1 + ladoR * 0.25 + 0.3, y1 + 3], 0.6, 'COTAS'); d.circulo([x1 + ladoR * 0.25 + 3, y1 + 0.3], 0.6, 'COTAS');
-    d.texto([x1 + 14, y1 + ladoR + 4], `CORREA ${nombreCorto(corr?.profileId)}`, TXT_S, 'COTAS');
-    d.texto([x1 + 14, y1 + 4], 'CLIP ÁNGULO L 2"×2"×3/16" · 2 PERNOS Ø 1/2" O SOLDADURA 4 mm', TXT_S, 'COTAS');
-    d.texto([x1 - 58, y1 - ladoC - 5], `CORDÓN SUPERIOR ${nombreCorto(cord?.profileId)}`, TXT_S, 'COTAS');
-    titulo(x1, y1 + ladoR + 20, 'D-1: CORREA SOBRE TIJERAL', 'ESC. 1:10');
-    // D-2: cumbrera (unión de cordones superiores con cartela).
-    const x2 = ox + ML + 330, y2 = y1 - 10;
-    const ang = 0.2;
-    d.gruesa([[x2 - 70, y2 - 70 * ang], [x2, y2]], ladoC, 'CORDON_SUPERIOR'); d.gruesa([[x2, y2], [x2 + 70, y2 - 70 * ang]], ladoC, 'CORDON_SUPERIOR');
-    d.gruesa([[x2, y2 - 6], [x2, y2 - 40]], ladoC * 0.6, 'MONTANTES');
-    d.gruesa([[x2 - 14, y2 - 14 * ang - 3], [x2 + 14, y2 - 14 * ang - 3], [x2, y2 + 4], [x2 - 14, y2 - 14 * ang - 3]], 0.4, 'VIGAS', true);
-    d.texto([x2 + 18, y2 + 8], 'CARTELA e = 1/4" A AMBOS LADOS', TXT_S, 'COTAS');
-    d.texto([x2 + 18, y2 + 2], 'SOLDADURA FILETE 5 mm TODO EL CONTORNO (E-7018)', TXT_S, 'COTAS');
-    titulo(x2, y2 + 24, 'D-2: CUMBRERA', 'ESC. 1:10');
-    // D-3: apoyo del tijeral sobre columna (metálica: placa de cabeza; concreto: plancha embebida).
-    const x3 = ox + ML + 90, y3 = y1 - 170;
-    if (sis?.concreto) {
-      d.caja(x3 - sis.concreto.b * 10 * k / 2, y3 - 60, x3 + sis.concreto.b * 10 * k / 2, y3, 'COLUMNAS', 0.6);
-      d.texto([x3 + sis.concreto.b * 10 * k / 2 + 3, y3 - 30], `COLUMNA C-1 ${sis.concreto.b}×${sis.concreto.h} cm`, TXT_S, 'COTAS');
-    } else {
-      d.caja(x3 - ladoCol / 2, y3 - 60, x3 + ladoCol / 2, y3, 'COLUMNAS', 0.6);
-      d.texto([x3 + ladoCol / 2 + 3, y3 - 30], `COLUMNA ${nombreCorto(col?.profileId)}`, TXT_S, 'COTAS');
+    const { ox, W: Wh, H: Hh } = hoja('DETALLES DE CONEXIONES METÁLICAS', 'INDICADA');
+    let k = 1 / 2.5;                                             // mm reales → mm de papel (D-3 va a 1:5)
+    const segDe = (re: RegExp) => segs.find(s => re.test(s.rolEstructural || ''));
+    const dims = (re: RegExp, def: [number, number]): [number, number] => {
+      const p = perfilDe(segDe(re)?.profileId);
+      return p ? [Math.min(p.anchoMm, p.altoMm || p.anchoMm), Math.max(p.anchoMm, p.altoMm || p.anchoMm)] : def;
+    };
+    const [, cordH] = dims(/cordon_superior|viga_principal/, [50, 50]);
+    const [, infH] = dims(/cordon_inferior/, [cordH, cordH]);
+    const [, almaH] = dims(/montante|diagonal/, [25, 25]);
+    const [corB, corH] = dims(/^correa$/, [50, 100]);
+    const [, colH] = dims(/^columna$/, [100, 100]);
+    const ca = sis?.concreto;
+    const pend = (o.memoria?.datos.pendientePct ?? 20) / 100, t = Math.min(0.6, Math.max(0.05, pend));
+    // Cuadrícula 2 × 2 sobre toda la hoja.
+    const X0 = ox + ML + 4, X1 = ox + Wh - MR - 4, Y0 = MB + 4, Y1 = Hh - MT - 4;
+    const cw = (X1 - X0) / 2, ch = (Y1 - Y0) / 2;
+    d.linea([X0 + cw, Y0], [X0 + cw, Y1], 'CUADRO'); d.linea([X0, Y0 + ch], [X1, Y0 + ch], 'CUADRO');
+    const celda = (i: number) => ({ x0: X0 + (i % 2) * cw, y0: Y0 + (i < 2 ? ch : 0) });
+    // Ayudas de dibujo.
+    const sub = (a: P2, b: P2): P2 => [a[0] - b[0], a[1] - b[1]];
+    const add = (a: P2, v: P2, s = 1): P2 => [a[0] + v[0] * s, a[1] + v[1] * s];
+    const unit = (v: P2): P2 => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+    /** Pieza con contorno a escala (ancho w en mm de papel) y su eje. */
+    const barra = (a: P2, b: P2, w: number, capa: string) => {
+      const u = unit(sub(b, a)), n: P2 = [-u[1], u[0]];
+      d.gruesa([add(a, n, w / 2), add(b, n, w / 2), add(b, n, -w / 2), add(a, n, -w / 2)], 0.45, capa, true);
+      d.linea(add(a, u, -3), add(b, u, 3), 'EJES');
+    };
+    /** Corte de continuidad (zigzag) al final de una pieza. */
+    const corte = (p: P2, dir: P2, w: number) => {
+      const u = unit(dir), n: P2 = [-u[1], u[0]], e = w / 2 + 2.5;
+      d.gruesa([add(p, n, e), add(add(p, n, 1.2), u, 1.5), add(add(p, n, -1.2), u, -1.5), add(p, n, -e)], 0.25, 'COTAS');
+    };
+    /** Cordón de soldadura (triángulo rojo) en un punto. */
+    const sold = (p: P2, s = 2.2) => d.gruesa([p, [p[0] + s, p[1]], [p[0], p[1] + s]], 0.3, 'NO_CUMPLE', true);
+    /** Nota con flecha: punto → texto sobre una línea de referencia. */
+    const nota = (p: P2, q: P2, txt: string, der = true) => {
+      d.circulo(p, 0.7, 'COTAS'); d.linea(p, q, 'COTAS');
+      const w = anchoTxt(txt, TXT_S) + 2, q2: P2 = [q[0] + (der ? w : -w), q[1]];
+      d.linea(q, q2, 'COTAS'); d.texto([der ? q[0] + 1 : q2[0] + 1, q[1] + 1.2], txt, TXT_S, 'COTAS');
+    };
+    /** Título del detalle: círculo con número + nombre + escala. */
+    const tituloDet = (c: { x0: number; y0: number }, n: number, txt: string, esc = '1:2.5') => {
+      const p: P2 = [c.x0 + 16, c.y0 + 16];
+      d.circulo(p, 7, 'TEXTOS'); d.linea([p[0] - 7, p[1]], [p[0] + 7, p[1]], 'TEXTOS');
+      d.texto([p[0], p[1] + 3.3], String(n), 4, 'TEXTOS', 'centro'); d.texto([p[0], p[1] - 3.3], 'E-03', 2.2, 'TEXTOS', 'centro');
+      d.texto([p[0] + 11, p[1] + 1], txt, TXT_T * 0.9, 'TEXTOS');
+      d.gruesa([[p[0] + 11, p[1] - 1.3], [p[0] + 11 + anchoTxt(txt, TXT_T * 0.9), p[1] - 1.3]], 0.35, 'TEXTOS');
+      d.texto([p[0] + 11, p[1] - 6], `ESC. ${esc}`, TXT_S, 'TEXTOS');
+    };
+
+    // ---- D-1: CORREA SOBRE EL CORDÓN SUPERIOR ----
+    {
+      const c = celda(0), cx = c.x0 + cw * 0.36, cy = c.y0 + ch * 0.5;
+      const hC = cordH * k, wR = corB * k, hR = corH * k, L = 100;
+      barra([cx - L, cy], [cx + L, cy], hC, 'CORDON_SUPERIOR');
+      corte([cx - L, cy], [-1, 0], hC); corte([cx + L, cy], [1, 0], hC);
+      const y0 = cy + hC / 2;
+      d.gruesa([[cx - wR / 2, y0], [cx + wR / 2, y0], [cx + wR / 2, y0 + hR], [cx - wR / 2, y0 + hR]], 0.5, 'CORREAS', true);
+      d.linea([cx, y0 - 3], [cx, y0 + hR + 3], 'EJES');
+      const e = 4.8 * k, a = 50 * k, xL = cx + wR / 2;                   // ángulo L 2"×2"×3/16"
+      d.gruesa([[xL, y0], [xL + a, y0], [xL + a, y0 + e], [xL + e, y0 + e], [xL + e, y0 + a], [xL, y0 + a]], 0.45, 'VIGAS', true);
+      d.circulo([xL + e / 2, y0 + a * 0.62], 12.7 * k / 2, 'COTAS'); d.linea([xL - 2, y0 + a * 0.62], [xL + e + 2, y0 + a * 0.62], 'COTAS');
+      sold([xL + a, y0]); sold([cx - wR / 2 - 2.2, y0]);
+      cota([cx - wR / 2, y0 + hR], [cx + wR / 2, y0 + hR], 6, `${corB}`);
+      cota([cx - wR / 2, y0], [cx - wR / 2, y0 + hR], -6, `${corH}`, true);
+      cota([cx - L, cy - hC / 2], [cx - L, cy + hC / 2], -6, `${cordH}`, true);
+      const tx = cx + L + 14;
+      nota([cx + wR * 0.25, y0 + hR], [tx, y0 + hR + 22], `CORREA ${nombreCorto(segDe(/^correa$/)?.profileId)}`);
+      nota([xL + a * 0.7, y0 + e / 2], [tx, y0 + 12], 'CLIP ÁNGULO L 2"×2"×3/16" (L = 10 cm)');
+      nota([xL + e / 2, y0 + a * 0.62], [tx, y0 + 4], 'PERNO Ø 1/2" CON TUERCA Y ARANDELA');
+      nota([xL + a, y0 + 1], [tx, y0 - 4], 'SOLDADURA FILETE 4 mm (E-7018)');
+      nota([cx + L * 0.6, cy - hC / 2], [tx, cy - hC / 2 - 12], `CORDÓN SUPERIOR ${nombreCorto(segDe(/cordon_superior|viga_principal/)?.profileId)}`);
+      tituloDet(c, 1, 'CORREA SOBRE TIJERAL');
     }
-    d.caja(x3 - 15, y3, x3 + 15, y3 + 1.27, 'VIGAS', 0.6);
-    d.gruesa([[x3 - 8, y3 + 1.3], [x3 + 60, y3 + 1.3 + 60 * 0.2]], ladoC, 'CORDON_SUPERIOR');
-    d.gruesa([[x3 - 8, y3 + 1.3], [x3 + 60, y3 + 1.3]], ladoC, 'CORDON_INFERIOR');
-    d.texto([x3 + 18, y3 - 6], sis?.concreto ? 'PLANCHA EMBEBIDA e = 1/2" + 4 ESPÁRRAGOS Ø 5/8"' : 'PLACA DE CABEZA e = 1/2" SOLDADA A LA COLUMNA', TXT_S, 'COTAS');
-    d.texto([x3 + 18, y3 - 12], 'CORDONES SOLDADOS A LA PLACA: FILETE 6 mm (E-7018)', TXT_S, 'COTAS');
-    titulo(x3 + 20, y3 + 34, 'D-3: APOYO DEL TIJERAL EN LA COLUMNA', 'ESC. 1:10');
-    // D-4: nudo del tijeral (diagonal y montante soldados al cordón).
-    const x4 = ox + ML + 330, y4 = y3 - 10;
-    d.gruesa([[x4 - 60, y4], [x4 + 60, y4]], ladoC, 'CORDON_INFERIOR');
-    d.gruesa([[x4, y4], [x4, y4 + 45]], ladoC * 0.6, 'MONTANTES');
-    d.gruesa([[x4 + 2, y4], [x4 + 40, y4 + 45]], ladoC * 0.6, 'DIAGONALES');
-    d.gruesa([[x4 - 4, y4 + ladoC / 2 + 0.6], [x4 + 4, y4 + ladoC / 2 + 0.6]], 0.5, 'NO_CUMPLE');
-    d.texto([x4 + 44, y4 + 30], 'DIAGONAL Y MONTANTE CORTADOS A BOCA DE PESCADO', TXT_S, 'COTAS');
-    d.texto([x4 + 44, y4 + 24], 'SOLDADURA FILETE 4 mm TODO EL CONTORNO', TXT_S, 'COTAS');
-    titulo(x4, y4 + 58, 'D-4: NUDO DEL TIJERAL', 'ESC. 1:10');
-    d.texto([ox + ML + 6, MB + RH + 20], 'Detalles esquemáticos referenciales: las dimensiones finales de placas, cartelas y soldaduras las define el ingeniero responsable.', TXT_S, 'TEXTOS');
+
+    // ---- D-2: CUMBRERA ----
+    {
+      const c = celda(1), ax = c.x0 + cw * 0.36, ay = c.y0 + ch * 0.66;
+      const hC = cordH * k, hA = almaH * k, L = 95;
+      const u: P2 = unit([1, -t]), apex: P2 = [ax, ay];
+      const izq = add(apex, [-u[0], u[1]], L), der = add(apex, u, L);
+      barra(izq, apex, hC, 'CORDON_SUPERIOR'); barra(apex, der, hC, 'CORDON_SUPERIOR');
+      corte(izq, [-u[0], u[1]], hC); corte(der, u, hC);
+      const pieMont: P2 = [ax, ay - 70];
+      barra([ax, ay - hC / 2], pieMont, hA, 'MONTANTES'); corte(pieMont, [0, -1], hA);
+      // Cartela a ambos lados (e = 1/4").
+      const nY = hC / 2 / Math.cos(Math.atan(t));
+      const g1 = add([ax - 24, ay - 24 * t], [0, -nY]), g2: P2 = [ax, ay - nY], g3 = add([ax + 24, ay - 24 * t], [0, -nY]);
+      d.gruesa([g1, g2, g3, [ax + 9, ay - 34], [ax - 9, ay - 34]], 0.5, 'VIGAS', true);
+      sold([ax + hA / 2, ay - 34 + 1]); sold([ax + 14, ay - 14 * t - nY]);
+      d.texto([ax + L * 0.55, ay - L * t * 0.55 + hC + 4], `PENDIENTE ${Math.round(t * 100)} %`, TXT_S, 'COTAS', 'centro');
+      const tx = ax + L + 16;
+      nota([ax + 14, ay - 22], [tx, ay - 6], 'CARTELA e = 1/4" (6 mm) A AMBOS LADOS');
+      nota([ax + 14, ay - 14 * t - nY], [tx, ay - 14], 'SOLDADURA FILETE 5 mm TODO EL CONTORNO');
+      nota([ax + hA / 2, ay - 55], [tx, ay - 50], `MONTANTE ${nombreCorto(segDe(/montante/)?.profileId)}`);
+      nota([ax + L * 0.75, ay - L * 0.75 * t], [tx, ay + 16], `CORDÓN SUPERIOR ${nombreCorto(segDe(/cordon_superior|viga_principal/)?.profileId)}`);
+      tituloDet(c, 2, 'CUMBRERA DEL TIJERAL');
+    }
+
+    // ---- D-3: APOYO DEL TIJERAL EN LA COLUMNA ----
+    {
+      k = 1 / 5;
+      const c = celda(2), cx = c.x0 + cw * 0.28, top = c.y0 + ch * 0.62;
+      const wCol = ca ? Math.max(ca.b, ca.h) * 10 * k : colH * k, hCol = 90;
+      const ePl = 12.7 * k, wPl = ca ? wCol - 50 * k : wCol + 50 * k;
+      // Columna
+      d.gruesa([[cx - wCol / 2, top - hCol], [cx + wCol / 2, top - hCol], [cx + wCol / 2, top], [cx - wCol / 2, top]], 0.5, 'COLUMNAS', true);
+      corte([cx, top - hCol], [0, -1], wCol);
+      if (ca) {
+        for (let yy = top - hCol + 6; yy < top - 4; yy += 6) d.linea([cx - wCol / 2, yy], [cx - wCol / 2 + 4, yy + 4], 'ARRIOSTRES');
+        const r = 40 * k;                                       // recubrimiento
+        [-1, 1].forEach(sx => d.linea([cx + sx * (wCol / 2 - r), top - hCol + 2], [cx + sx * (wCol / 2 - r), top - 2], 'CORDON_INFERIOR'));
+        [-1, 1].forEach(sx => { const px = cx + sx * (wPl / 2 - 35 * k); d.gruesa([[px, top], [px, top - 300 * k], [px - sx * 40 * k, top - 300 * k]], 0.45, 'COTAS'); });
+      }
+      d.gruesa([[cx - wPl / 2, top], [cx + wPl / 2, top], [cx + wPl / 2, top + ePl], [cx - wPl / 2, top + ePl]], 0.6, 'VIGAS', true);
+      // Tijeral: cordón inferior horizontal y superior inclinado que se encuentran sobre la columna.
+      const hI = infH * k, hS = cordH * k, L = 110;
+      const nodo: P2 = [cx, top + ePl + hI / 2];
+      barra(nodo, [cx + L, nodo[1]], hI, 'CORDON_INFERIOR'); corte([cx + L, nodo[1]], [1, 0], hI);
+      const fin = add(nodo, unit([1, t]), L);
+      barra(nodo, fin, hS, 'CORDON_SUPERIOR'); corte(fin, unit([1, t]), hS);
+      const mont: P2 = [cx + 45, nodo[1]];
+      barra(add(mont, [0, hI / 2]), add(mont, [0, 45 * t + hI / 2 - hS / 2]), almaH * k, 'MONTANTES');
+      d.gruesa([[cx - hS * 0.3, top + ePl], [cx + 30, top + ePl], [cx + 30, top + ePl + hI + 30 * t], [cx - hS * 0.3, top + ePl + hI]], 0.4, 'VIGAS', true);
+      sold([cx + wPl / 2 - 2.2, top + ePl]); sold([cx - wPl / 2, top + ePl]);
+      cota([cx - wCol / 2, top - hCol], [cx + wCol / 2, top - hCol], -7, ca ? `${ca.b * 10}` : `${colH}`);
+      cota([cx - wPl / 2, top + ePl], [cx + wPl / 2, top + ePl], 26, `${Math.round(wPl / k)}`);
+      const tx = cx + L + 18;
+      nota([cx + wPl / 2 - 1, top + ePl / 2], [tx, top + 2], ca ? `PLANCHA EMBEBIDA ${Math.round(wPl / k)}×${Math.round(wPl / k)}×12.7 mm` : 'PLACA DE CABEZA e = 1/2" SOLDADA A LA COLUMNA');
+      if (ca) nota([cx + wPl / 2 - 35 * k, top - 300 * k + 1], [tx, top - 22], '4 ESPÁRRAGOS Ø 5/8" L = 30 cm CON GANCHO');
+      nota([cx + 20, top + ePl + hI + 10 * t], [tx, top + 30], 'CARTELA e = 1/4" · FILETE 6 mm (E-7018)');
+      nota([cx + wCol / 2, top - hCol * 0.6], [tx, top - 44], ca ? `COLUMNA C-1 ${ca.b}×${ca.h} cm · ${ca.n} Ø ${ca.barra}` : `COLUMNA ${nombreCorto(segDe(/^columna$/)?.profileId)}`);
+      nota([cx + L * 0.8, nodo[1] - hI / 2], [tx, top + 14], `CORDÓN INFERIOR ${nombreCorto(segDe(/cordon_inferior/)?.profileId)}`);
+      tituloDet(c, 3, 'APOYO DEL TIJERAL EN LA COLUMNA', '1:5');
+      k = 1 / 2.5;
+    }
+
+    // ---- D-4: NUDO DEL TIJERAL (montante y diagonal sobre el cordón inferior) ----
+    {
+      const c = celda(3), nx = c.x0 + cw * 0.24, ny = c.y0 + ch * 0.42;
+      const hI = infH * k, hA = almaH * k, L = 75;
+      barra([nx - L, ny], [nx + L, ny], hI, 'CORDON_INFERIOR'); corte([nx - L, ny], [-1, 0], hI); corte([nx + L, ny], [1, 0], hI);
+      const mTop: P2 = [nx, ny + 80];
+      barra([nx, ny + hI / 2], mTop, hA, 'MONTANTES'); corte(mTop, [0, 1], hA);
+      const dFin = add([nx + hA, ny + hI / 2], unit([1, 1.1]), 95);
+      barra([nx + hA, ny + hI / 2], dFin, hA, 'DIAGONALES'); corte(dFin, unit([1, 1.1]), hA);
+      sold([nx - hA / 2 - 2.2, ny + hI / 2]); sold([nx + hA / 2, ny + hI / 2]); sold([nx + hA * 2.2, ny + hI / 2]);
+      d.gruesa([[nx - 5, ny + hI / 2 + 6], [nx + 6, ny + hI / 2 + 6]], 0.3, 'COTAS');
+      d.texto([nx - 6, ny + hI / 2 + 9], 'g ≥ 10 mm', 2.2, 'COTAS', 'der');
+      const tx = c.x0 + cw * 0.22 + 70;
+      nota([nx + 30, ny + 40], [tx, ny + 64], `DIAGONAL ${nombreCorto(segDe(/diagonal/)?.profileId)}`);
+      nota([nx, ny + 60], [tx, ny + 84], `MONTANTE ${nombreCorto(segDe(/montante/)?.profileId)}`);
+      nota([nx + hA * 2.2, ny + hI / 2 + 1], [tx, ny + 40], 'CORTE A BOCA DE PESCADO · FILETE 4 mm');
+      nota([nx - L * 0.6, ny - hI / 2], [nx - L * 0.6 + 8, ny - hI / 2 - 18], `CORDÓN INFERIOR ${nombreCorto(segDe(/cordon_inferior/)?.profileId)}`);
+      tituloDet(c, 4, 'NUDO DEL TIJERAL');
+      // Notas generales (sobre el rótulo).
+      const xn = ox + Wh - MR - RW, yn = MB + RH + 44;
+      ['NOTAS DE CONEXIONES:', '1. Soldadura AWS D1.1 con E-7018; filete mínimo indicado,', '   continuo y en todo el contorno.', '2. Pernos ASTM A307 Ø 1/2" con tuerca y arandela.',
+        '3. Placas, cartelas y ángulos ASTM A36.', '4. Esmerilar escoria; 2 manos anticorrosivo y 2 de esmalte.', '5. Medidas en mm. Verificar en obra antes de fabricar.']
+        .forEach((tx2, i) => d.texto([xn, yn - i * 5.4], tx2, i ? TXT_S : TXT, 'TEXTOS'));
+    }
   }
 
   // =========================================================================

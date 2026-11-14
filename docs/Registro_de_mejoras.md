@@ -34,6 +34,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-14 · Lámina E-03 (detalles de conexiones) rehecha
+- Pedido del dueño: "E-03 está mal replanteado".
+- Qué se hizo: cuadrícula 2×2 que ocupa la hoja; cada detalle a escala con las medidas reales de los perfiles del diseño
+  (D-1 correa sobre tijeral 1:2.5 con clip L, perno y soldadura; D-2 cumbrera 1:2.5 con cartela y pendiente; D-3 apoyo del
+  tijeral en la columna 1:5 con plancha embebida y espárragos o placa de cabeza; D-4 nudo del tijeral 1:2.5); piezas con
+  contorno y eje, cortes de continuidad, notas con flecha, cotas, título con número de detalle y notas de conexiones.
+- Archivo: `src/lib/dxfLamina.ts`. Pruebas: tsc 0 errores; DXF descargado de la app y revisado.
+- Versión: sin compilar aún.
+
 ## 2026-11-14 · Paquete de 11 mejoras (despiece, presupuesto, ingeniería, planos, presentación)
 - Pedido del dueño: "hazlo todo" (lista de pendientes).
 - Qué se hizo:
