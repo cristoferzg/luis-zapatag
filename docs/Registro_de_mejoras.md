@@ -23,10 +23,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Pantallas anchas: Academia de borde a borde y contenido más ancho |
-| Última versión compilada | Web **2026.11.14.2236** · Android **código 26110419** (15/11/2026: Academia nueva, pestañas integradas, Membresía para vender, Yape + transferencia, Techos y E-03) |
+| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última versión compilada | Web **2026.11.14.2313** · Android **código 26110420** (15/11/2026: pantallas anchas; antes 26110419 con Academia, Membresía y pagos) |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
-| Próximo código Android | **26110420** (el contador sigue +1 desde aquí; nunca bajar de 26110419) |
+| Próximo código Android | **26110421** (el contador sigue +1 desde aquí; nunca bajar de 26110420) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026), conector "Academia Innova". 5 cursos con portada + 2 PDF. **Naves Parabólicas: 9 clases subidas** (la 1 gratis). Soldadura: clase 1 de muestra con estilo nuevo, por aprobar. Faltan las 3 plantillas de naves: el MCP ya acepta `plantilla.datosUrl` → volver a desplegar `functions:mcpCursos`. Videos en la rama `academia-videos` |
@@ -42,7 +42,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
   1280 px; Membresía de 1024 a 1152 px. Los módulos de diseño ya iban a todo el ancho.
 - Archivos: `src/App.tsx`, `academia/AcademiaTienda.tsx`, `academia/AcademiaView.tsx`, `UsabilidadVideosView.tsx`, `MembresiaView.tsx`.
 - Cómo se probó: tsc 0 errores; capturas antes/después a 1920 px (Academia, Inicio, Proyectos, Membresía, Configuración).
-- Versión: sin compilar aún (próximo Android 26110420).
+- Versión: web 2026.11.14.2313 · Android código 26110420 (llave 01:D3…74:33). Manual sin cambios.
 
 ## 2026-11-15 · Membresía pensada para vender + cobro solo con Yape (Luis Zap*) y transferencia bancaria
 - Pedido del dueño: "mejorar la membresía porque no hay ventas todavía"; no tiene Plin; a nombre de "Luis Zap*"; aceptar
