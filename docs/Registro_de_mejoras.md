@@ -25,7 +25,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 |---|---|
 | Última mejora sin compilar | Academia en Android: cursos de pago con clase de muestra visibles |
 | Última versión compilada | Web **2026.11.14.2336** · Android **código 26110421** (15/11/2026: arreglos de Techos 3D; incluye pantallas anchas, Academia, Membresía y pagos) |
-| Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
+| Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
 | Próximo código Android | **26110422** (el contador sigue +1 desde aquí; nunca bajar de 26110421) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
