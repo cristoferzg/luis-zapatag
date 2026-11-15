@@ -152,6 +152,7 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
     
     const roleMeta: Record<string, { label: string; icon: string; colorBadge: string }> = {
       columna: { label: 'Columnas Estructurales', icon: '🏛️', colorBadge: 'bg-blue-50 text-blue-700 border-blue-200' },
+      columna_concreto: { label: sencillo ? 'Columnas de concreto' : 'Columnas de Concreto Armado', icon: '🧱', colorBadge: 'bg-stone-100 text-stone-700 border-stone-300' },
       viga_principal: { label: 'Vigas Principales', icon: '📏', colorBadge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
       viga_secundaria: { label: 'Vigas Secundarias / Viguetas', icon: '📐', colorBadge: 'bg-teal-50 text-teal-700 border-teal-200' },
       cordon_superior: { label: sencillo ? 'Tubo de arriba del tijeral' : 'Cordones Superiores (Tijeral)', icon: '🔺', colorBadge: 'bg-amber-50 text-amber-700 border-amber-200' },

@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última mejora sin compilar | Techos 3D: botón de cambios recomendados, arriostres, rueda del mouse, barra y cinta LED |
 | Última versión compilada | Web **2026.11.14.2313** · Android **código 26110420** (15/11/2026: pantallas anchas; antes 26110419 con Academia, Membresía y pagos) |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110421** (el contador sigue +1 desde aquí; nunca bajar de 26110420) |
@@ -34,6 +34,27 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-15 · Techos 3D: botón «Aplicar cambios recomendados», arriostres, rueda del mouse, barra y cinta LED
+- Pedido del dueño: el botón del sismo no funcionaba; los arriostres salían como correas; no podía mover la vista con la
+  rueda del mouse; la barra del 3D se cortaba; la casilla de cinta LED no funcionaba.
+- Qué se hizo:
+  - Botón del 3D: antes ponía perfiles FIJOS a todo y cambiaba el rol de las piezas (tensores/arriostres → "correa",
+    cordón inferior → superior): el sismo seguía NO CUMPLE. Ahora usa la memoria de cálculo (`cambiosRecomendados` en
+    memoriaCalculo.ts + `aplicarCambiosRecomendados` del motor): perfil más económico que cumple en cada pieza, columnas
+    al tubo más económico que cumple la deriva X (se recalcula con cada candidato), cruces de pared si falla Y, y repara
+    los arriostres que quedaron como correa (diagonales en planta → arriostre; en pared → tensor). Muestra qué cambió.
+    Prueba: deriva 2.84 (NO CUMPLE) → 0.0091 (CUMPLE).
+  - Inspector: "Columnas de concreto armado" con su nombre (salía COLUMNA_CONCRETO).
+  - Rueda del mouse: zoom proporcional a la distancia y sin que se desplace la página (listener no pasivo); rueda
+    apretada (botón del medio) mueve la vista sin que Windows active el desplazamiento automático.
+  - Barra de herramientas del 3D: pasa a dos líneas cuando no cabe (antes se cortaba bajo el inspector).
+  - Cinta LED: si el techo es de tijerales (sin vigas) va bajo el cordón inferior (antes no marcaba nada).
+- Archivos: `techos/TechosViewer3D.tsx`, `techos/useTechosCadEngineState.ts`, `techos/memoriaCalculo.ts`, `techos/PropiedadesCad.tsx`.
+- Cómo se probó: tsc 0 errores; navegador: botón (NO CUMPLE → CUMPLE), casilla LED, zoom con rueda, barra a 1500 px;
+  capturas antes/después.
+- Versión: sin compilar aún (próximo Android 26110421).
+- Pendiente: el diseño del dueño que ya quedó con arriostres como correas se repara al tocar el botón nuevo (o con «Atrás»).
 
 ## 2026-11-15 · Pantallas anchas: la Academia de borde a borde y más ancho en todos los apartados
 - Pedido del dueño: en la PC la Academia dejaba franjas vacías a los lados ("me quita espacio"); revisar otros apartados.

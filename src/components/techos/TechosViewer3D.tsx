@@ -1098,7 +1098,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       const delta = touchPinchDistRef.current - dist;
       touchPinchDistRef.current = dist;
       // Proximidad ultra-cercana hasta 0.15 metros sin cortarse
-      cameraRadiusRef.current = Math.max(0.15, Math.min(60, cameraRadiusRef.current + delta * 0.04));
+      cameraRadiusRef.current = Math.max(0.15, Math.min(120, cameraRadiusRef.current + delta * 0.04));
       // PAN con dos dedos: desplaza el modelo según el movimiento del centroide.
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
@@ -1116,13 +1116,29 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   };
 
   // Zoom por rueda de ratón con proximidad ultra-cercana
-  const handleWheel = (e: React.WheelEvent) => {
+  // Rueda del mouse: zoom proporcional a la distancia (se nota igual en una nave chica o grande).
+  // Se escucha con { passive: false } para que la página NO se desplace a la vez (con onWheel de React
+  // el preventDefault no surte efecto).
+  const handleWheelRef = useRef<(e: WheelEvent) => void>(() => {});
+  handleWheelRef.current = (e: WheelEvent) => {
     e.preventDefault();
     if (caminandoRef.current) { caminar(e.deltaY < 0 ? 0.6 : -0.6, 0); return; }
-    const zoomFactor = e.deltaY * 0.008;
-    cameraRadiusRef.current = Math.max(0.15, Math.min(60, cameraRadiusRef.current + zoomFactor));
+    const pasos = e.deltaMode === 1 ? e.deltaY / 3 : e.deltaMode === 2 ? e.deltaY * 10 : e.deltaY / 100; // líneas / páginas / píxeles
+    const factor = Math.pow(1.12, Math.max(-6, Math.min(6, pasos)));
+    cameraRadiusRef.current = Math.max(0.15, Math.min(120, cameraRadiusRef.current * factor));
     updateCameraPos();
   };
+  useEffect(() => {
+    const el = mountRef.current;
+    if (!el) return;
+    const fn = (e: WheelEvent) => handleWheelRef.current(e);
+    // Botón del medio (rueda apretada): sin esto, Windows activa el "desplazamiento automático" y no se mueve la vista.
+    const sinAutoScroll = (e: MouseEvent) => { if (e.button === 1) e.preventDefault(); };
+    el.addEventListener('wheel', fn, { passive: false });
+    el.addEventListener('mousedown', sinAutoScroll);
+    el.addEventListener('auxclick', sinAutoScroll);
+    return () => { el.removeEventListener('wheel', fn); el.removeEventListener('mousedown', sinAutoScroll); el.removeEventListener('auxclick', sinAutoScroll); };
+  }, []);
 
   // Botones de Zoom e Inspección de Proximidad
   const handleZoomIn = () => {
@@ -1131,7 +1147,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   };
 
   const handleZoomOut = () => {
-    cameraRadiusRef.current = Math.min(60, cameraRadiusRef.current * 1.30);
+    cameraRadiusRef.current = Math.min(120, cameraRadiusRef.current * 1.30);
     updateCameraPos();
   };
 
@@ -1414,42 +1430,23 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const [isHudCollapsed, setIsHudCollapsed] = useState<boolean>(true);
 
   // Aplicar optimización completa de perfiles con un solo clic según Norma E.090
+  // «Aplicar cambios recomendados»: lo que dice la memoria de cálculo (E.090 + sismo E.030), no perfiles fijos.
+  // Antes ponía siempre los mismos tubos (y perfil de correa a tensores y arriostres) y el sismo seguía sin cumplir.
+  const [avisoRecom, setAvisoRecom] = useState<{ ok: boolean; t: string } | null>(null);
   const handleApplyAllOptimizations = () => {
-    if (!engineState) {
-      alert("⚠️ Motor CAD no disponible en este momento.");
-      return;
-    }
-    const { segments, updateMultipleSegmentsProfile } = engineState;
-    const allSegs = Object.values(segments);
-    if (allSegs.length === 0) {
-      alert("⚠️ No hay elementos estructurales en el modelo. Dibuja o genera un techo primero.");
-      return;
-    }
-
-    const colSegs: string[] = [];
-    const diagSegs: string[] = [];
-    const cordonSegs: string[] = [];
-    const correaSegs: string[] = [];
-
-    allSegs.forEach(seg => {
-      const rol = seg.rolEstructural || '';
-      if (rol === 'columna' || (!rol && seg.nodeAId && nodes[seg.nodeAId]?.y < 1.0)) {
-        colSegs.push(seg.id);
-      } else if (rol === 'diagonal' || rol === 'montante') {
-        diagSegs.push(seg.id);
-      } else if (rol === 'cordon_superior' || rol === 'cordon_inferior' || rol === 'viga_principal' || !rol) {
-        cordonSegs.push(seg.id);
-      } else {
-        correaSegs.push(seg.id);
-      }
-    });
-
-    if (colSegs.length > 0) updateMultipleSegmentsProfile(colSegs, 'perfil_sq_4x4_30', 'columna');
-    if (cordonSegs.length > 0) updateMultipleSegmentsProfile(cordonSegs, 'perfil_rec_4x2_25', 'cordon_superior');
-    if (diagSegs.length > 0) updateMultipleSegmentsProfile(diagSegs, 'perfil_sq_2x2_20', 'diagonal');
-    if (correaSegs.length > 0) updateMultipleSegmentsProfile(correaSegs, 'perfil_c_4x2_20', 'correa');
-
-    alert("⚡ ¡Optimización y perfiles recomendados según Norma E.090 aplicados con éxito a todos los elementos del modelo!");
+    if (!engineState?.aplicarCambiosRecomendados) { setAvisoRecom({ ok: false, t: 'El motor CAD no está listo todavía. Intenta de nuevo en un momento.' }); return; }
+    if (!Object.keys(engineState.segments || {}).length) { setAvisoRecom({ ok: false, t: 'No hay estructura: arma o dibuja un techo primero.' }); return; }
+    const r = engineState.aplicarCambiosRecomendados();
+    const partes: string[] = [];
+    if (r.reparados) partes.push(`${r.reparados} arriostre${r.reparados === 1 ? '' : 's'} recuperado${r.reparados === 1 ? '' : 's'} (estaban marcados como correa)`);
+    if (r.piezas) partes.push(`${r.piezas} pieza${r.piezas === 1 ? '' : 's'} con su perfil recomendado`);
+    if (r.columna) partes.push(`columnas → ${r.columna} (cumplen la deriva del sismo X)`);
+    if (r.cruces) partes.push('cruces de arriostre en las paredes (sismo Y)');
+    if (r.sinColumna) partes.push('⚠ ningún tubo del catálogo alcanza la deriva X: usa columnas de concreto o arriostra los pórticos');
+    setAvisoRecom(partes.length
+      ? { ok: !r.sinColumna, t: `✓ Aplicado: ${partes.join(' · ')}.` }
+      : { ok: true, t: '✓ Todo ya cumple con el perfil más económico: no hay nada que cambiar.' });
+    setTimeout(() => setAvisoRecom(null), 14000);
   };
 
   // Cambiar perfil por zona estructural directamente desde el panel
@@ -3975,7 +3972,6 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
         className="absolute inset-0 cursor-grab active:cursor-grabbing touch-none"
       />
@@ -4058,7 +4054,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           {engineState?.setLedVigas && (
             <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
               <input type="checkbox" checked={Object.values(segmentsTodos).some(sg => (sg as any).led)} onChange={e => engineState.setLedVigas(e.target.checked)} />
-              Cinta LED bajo las vigas (luz cálida; suma al presupuesto)
+              Cinta LED bajo las vigas o tijerales (luz cálida; suma al presupuesto)
             </label>
           )}
           <div>
@@ -4262,7 +4258,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         </div>
 
         {/* Lado Derecho: Simulación (Lluvia, Sismo), Iluminación, Cámara y Zoom */}
-        <div className={`${barra3dAbierta ? '' : 'max-sm:hidden '}flex flex-wrap sm:flex-nowrap items-center gap-1 sm:gap-1.5 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full sm:overflow-x-auto sm:touch-pan-x scrollbar-none select-none`}>
+        <div className={`${barra3dAbierta ? '' : 'max-sm:hidden '}flex flex-wrap items-center gap-1 sm:gap-1.5 bg-white/95 border border-slate-200 p-1.5 rounded-2xl shadow-xl backdrop-blur-md pointer-events-auto max-w-full select-none`}>
 
           {/* Badge de estado 3D (estilo Herrería, limpio y consistente) */}
           <div className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold shrink-0">
@@ -4569,6 +4565,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                     <Wrench className="w-3.5 h-3.5 text-slate-950" />
                     <span>⚡ APLICAR CAMBIOS RECOMENDADOS (E.090)</span>
                   </button>
+                  {avisoRecom && <p className={`text-[10px] font-bold leading-snug rounded-lg px-2 py-1.5 ${avisoRecom.ok ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-800' : 'bg-amber-950/70 text-amber-300 border border-amber-800'}`}>{avisoRecom.t}</p>}
 
                   {/* RECOMENDACIÓN TÉCNICA NORMA PERUANA E.090 / E.030 */}
                   <div className="p-2 bg-slate-950/90 border border-slate-800 rounded-xl text-[11px] space-y-1">

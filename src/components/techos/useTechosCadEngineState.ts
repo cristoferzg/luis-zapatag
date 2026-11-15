@@ -1,6 +1,6 @@
 import { aVigaSimple } from './vigaSimple';
 import { aplicarPerfilesAptos } from './perfilesAptos';
-import { calcularMemoria } from './memoriaCalculo';
+import { calcularMemoria , cambiosRecomendados } from './memoriaCalculo';
 import { metradoColumnasCA } from './columnaConcreto';
 import { metradoZapatas } from './zapata';
 import { agregarCrucesPared, crucesPared } from './arriostresPared';
@@ -163,6 +163,8 @@ export interface UseTechosCadEngineReturn {
   setColumnasMaterial: (material: 'concreto' | 'metal') => void;
   /** Agrega cruces de arriostre (varilla) en las paredes laterales: 1.er y último paño. */
   agregarCrucesParedes: () => void;
+  /** Botón «Aplicar cambios recomendados»: perfiles de la memoria de cálculo + columnas que cumplen el sismo X + cruces si falla el Y. */
+  aplicarCambiosRecomendados: () => { piezas: number; columna: string | null; sinColumna: boolean; cruces: boolean; reparados: number };
   setSegmentoConcretoBase: (segmentId: string, metros: number) => void; // por columna
   generateMultinivel: (luzM?: number, largoM?: number, numPisos?: number, alturaPisoM?: number, numVanosX?: number, numVanosZ?: number) => void;
   generateRoofMonitor: (luzM: number, largoM?: number, alturaColM?: number, pendientePct?: number, anchoMonitorM?: number, alturaMonitorM?: number, tipoTijeral?: TipoTijeral, numTijerales?: number, orientacionTijeral?: OrientacionTijeral) => void;
@@ -703,9 +705,12 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   // Cinta LED bajo las vigas (sol y sombra / pérgola): quitarla o ponerla en las vigas.
   const setLedVigas = useCallback((on: boolean) => {
     const newSegs: Record<string, Segment3D> = {};
+    // Debajo de las vigas; si el techo es de tijerales (sin vigas), debajo del cordón inferior.
+    const hayVigas = Object.values(segments).some(sg => /^viga/.test(sg.rolEstructural || ''));
+    const destino = hayVigas ? /^viga/ : /^cordon_inferior$/;
     Object.values(segments).forEach(s => {
       const { led: _l, ...resto } = s as Segment3D & { led?: boolean }; void _l;
-      newSegs[s.id] = on && /^viga/.test(s.rolEstructural || '') ? { ...resto, led: true } as Segment3D : resto as Segment3D;
+      newSegs[s.id] = on && destino.test(s.rolEstructural || '') ? { ...resto, led: true } as Segment3D : resto as Segment3D;
     });
     setSegments(newSegs);
     pushHistory(nodes, newSegs, coverageZones);
@@ -4040,6 +4045,33 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(nodes, segs, coverageZones);
   }, [nodes, segments, coverageZones, structuralInputs, pushHistory]);
 
+  const aplicarCambiosRecomendados = useCallback(() => {
+    // Repara los arriostres que el botón anterior convirtió en "correa": una correa corre paralela a un eje
+    // de la nave; un tramo marcado como correa que va en diagonal en planta (o en la pared) es un arriostre.
+    let reparados = 0;
+    let segs0 = segments;
+    Object.values(segments).forEach(sg => {
+      if (sg.rolEstructural !== 'correa') return;
+      const a = nodes[sg.nodeAId], b = nodes[sg.nodeBId];
+      if (!a || !b) return;
+      const dx = Math.abs(a.x - b.x), dy = Math.abs(a.y - b.y), dz = Math.abs((a.z || 0) - (b.z || 0));
+      const enPlanta = dx > 0.3 && dz > 0.3;          // cruz de techo
+      const enPared = dx < 0.05 && dy > 0.5 && dz > 0.5; // cruz de pared
+      if (!enPlanta && !enPared) return;
+      if (segs0 === segments) segs0 = { ...segments };
+      segs0[sg.id] = { ...sg, rolEstructural: enPared ? 'tensor_viento' : 'arriostre', profileId: enPared ? 'TEN-VAR-58' : sg.profileId };
+      reparados++;
+    });
+    const r = cambiosRecomendados(nodes, segs0, coverageZones, structuralInputs);
+    let segs = segs0;
+    const ids = Object.keys(r.nuevos).filter(id => segs[id] && segs[id].profileId !== r.nuevos[id]);
+    if (ids.length) { segs = { ...segs }; ids.forEach(id => { segs[id] = { ...segs[id], profileId: r.nuevos[id] }; }); }
+    const cruces = r.necesitaCrucesY && !crucesPared(nodes, segs).length;
+    if (cruces) segs = agregarCrucesPared(nodes, segs);
+    if (ids.length || cruces || reparados) { setSegments(segs); pushHistory(nodes, segs, coverageZones); }
+    return { piezas: ids.length, columna: r.columnaSismo, sinColumna: r.sinColumnaQueCumpla, cruces, reparados };
+  }, [nodes, segments, coverageZones, structuralInputs, pushHistory]);
+
   const agregarCrucesParedes = useCallback(() => {
     const segs = agregarCrucesPared(nodes, segments);
     setSegments(segs);
@@ -4602,6 +4634,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setColumnasConcretoBaseM,
     setColumnasMaterial,
     agregarCrucesParedes,
+    aplicarCambiosRecomendados,
     setSegmentoConcretoBase,
     generateMultinivel,
     generateRoofMonitor,

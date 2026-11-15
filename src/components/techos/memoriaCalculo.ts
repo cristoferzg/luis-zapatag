@@ -547,3 +547,44 @@ export function perfilesQueCumplen(nodes: Record<string, Node3D>, segments: Reco
   analizarPiezas(nodes, segments, inputs).forEach(p => { if (p.optimoId && p.optimoId !== p.perfilId) nuevos[p.id] = p.optimoId; });
   return nuevos;
 }
+
+/**
+ * Cambios recomendados COMPLETOS (botón «Aplicar cambios recomendados» del 3D):
+ *  1. el perfil más económico que cumple en cada pieza (como en Análisis estructural);
+ *  2. si el sismo X (pórticos) no cumple deriva o flexión, las columnas metálicas pasan al tubo
+ *     más económico del catálogo con el que sí cumplen (se recalcula la memoria con cada candidato);
+ *  3. si el sismo Y (a lo largo) no cumple, se indica que hacen falta cruces de pared (las agrega el 3D).
+ */
+export function cambiosRecomendados(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zonas: Record<string, CoverageZone3D>, inputs: EntradasCargas): {
+  nuevos: Record<string, string>; columnaSismo: string | null; sinColumnaQueCumpla: boolean; necesitaCrucesY: boolean; sismoAntes: boolean;
+} {
+  const nuevos = perfilesQueCumplen(nodes, segments, inputs);
+  const conCambios = (base: Record<string, Segment3D>, cambios: Record<string, string>) => {
+    const out: Record<string, Segment3D> = { ...base };
+    Object.entries(cambios).forEach(([id, perfil]) => { if (out[id]) out[id] = { ...out[id], profileId: perfil }; });
+    return out;
+  };
+  const sismoXok = (q: Sismo | null) => !q || (q.deriva <= q.derivaLim && q.ratioFlexion <= 1);
+  const segs1 = conCambios(segments, nuevos);
+  const antes = calcularMemoria(nodes, segments, zonas, inputs).sismo;
+  let mem = calcularMemoria(nodes, segs1, zonas, inputs);
+  let columnaSismo: string | null = null, sinColumnaQueCumpla = false;
+  const cols = Object.values(segs1).filter(s => s.rolEstructural === 'columna');
+  if (cols.length && !sismoXok(mem.sismo)) {
+    const actual = perfilDe(cols[0].profileId);
+    const galv = !!actual?.id?.includes('galv');
+    const iAct = propsPerfil(actual)?.iMinCm4 || 0;
+    const candidatos = INVENTARIO_PERFILES_TUBULARES
+      .filter(p => ['tubo_cuadrado', 'tubo_rectangular'].includes(p.categoria) && p.id.includes('galv') === galv && (propsPerfil(p)?.iMinCm4 || 0) > iAct)
+      .map(p => ({ p, $: precioMetroPerfil(p) })).filter(x => x.$ > 0)
+      .sort((a, b) => a.$ - b.$ || a.p.pesoLinealKgM - b.p.pesoLinealKgM);
+    for (const { p } of candidatos) {
+      const prueba: Record<string, string> = {}; cols.forEach(c => { prueba[c.id] = p.id; });
+      const m = calcularMemoria(nodes, conCambios(segs1, prueba), zonas, inputs);
+      if (sismoXok(m.sismo)) { Object.assign(nuevos, prueba); columnaSismo = p.nombre; mem = m; break; }
+    }
+    if (!columnaSismo) sinColumnaQueCumpla = true;
+  }
+  const necesitaCrucesY = !!mem.sismo?.dirY && mem.sismo.dirY.estado === 'NO_CUMPLE' && mem.sismo.dirY.sistema === 'voladizo';
+  return { nuevos, columnaSismo, sinColumnaQueCumpla, necesitaCrucesY, sismoAntes: !!antes && antes.estado === 'NO_CUMPLE' };
+}
