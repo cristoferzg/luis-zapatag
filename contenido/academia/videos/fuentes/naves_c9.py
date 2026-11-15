@@ -9,7 +9,7 @@ E = []
 # 0. Gancho
 E.append(dict(antes=0.8, frases=[
   'Un error en el presupuesto, y trabajas gratis. Otro error, y pierdes la obra por cara.',
-  '¡Bienvenido a la última clase! Hoy juntamos todo lo aprendido para metrar y presupuestar la nave completa, con números reales de InnovApp.',
+  '¡Bienvenido a la última clase del módulo principal! Hoy juntamos todo lo aprendido para metrar y presupuestar la nave completa, con números reales de InnovApp.',
 ], zoom=[(0, 1.0, 50, 50), (1, 1.04, 55, 45)], html='''
 <div style="position:absolute;left:1000px;top:260px;width:760px;font-family:DejaVu Sans Mono,monospace;font-size:44px;line-height:1.7;text-align:right">
  <div class="ap" data-en="0" data-mas="0.3">Acero ........ <b style="color:#ffd166">5 449 kg</b></div>
@@ -18,7 +18,7 @@ E.append(dict(antes=0.8, frases=[
  <div class="ap" data-en="0" data-mas="1.8" style="border-top:3px solid #f97316;margin-top:10px">TOTAL ... <b class="nar">S/ ?</b></div>
 </div>
 <div style="position:absolute;left:120px;top:300px;width:760px">
- <div class="paso pop" data-en="1"><b>9</b>CLASE 9 DE 9</div>
+ <div class="paso pop" data-en="1"><b>9</b>CLASE 9 · MÓDULO PRINCIPAL</div>
  <h1 class="t ap" data-en="1" data-mas="0.3" style="margin-top:30px">Metrado y <span class="nar">presupuesto</span></h1>
 </div>'''))
 
@@ -108,24 +108,23 @@ E.append(dict(frases=[
   ('Barras sin sobrantes', 'Las correas: 66 barras, no 55.'), ('Olvidar la obra civil', 'O no aclarar que no está incluida.'), ('No cobrar operativos', 'Grúa, transporte, andamios y EPP.'),
   ('Precios viejos', 'Actualiza el Catálogo de precios.'), ('Solo por m², sin metrar', 'El m² es referencia, no presupuesto.')])))
 
-# 9. Cierre del curso
+# 9. Cierre del módulo principal
 temas = ['Qué es y dónde conviene', 'Geometría y trazo del arco', 'Arcos reticulados', 'Correas, arriostres y tensores', 'Columnas y anclajes',
          'Fabricación en serie', 'Izaje y montaje seguro', 'Cobertura y canaletas', 'Metrado y presupuesto']
 E.append(dict(frases=[
-  '¡Y con esto, terminaste el curso de naves parabólicas! Mira todo lo que aprendiste.',
+  '¡Y con esto, terminaste el módulo principal del curso de naves parabólicas! Mira todo lo que aprendiste.',
   'Desde qué es una nave parabólica, la geometría y el trazo del arco, la fabricación y el montaje, hasta el presupuesto completo.',
-  'Ahora tienes el conocimiento y la herramienta. Usa las plantillas de naves en Recursos Técnicos para tu próxima cotización.',
-], zoom=[(0, 1.0, 50, 50)], html=titulo('¡Curso <span class="nar">completado</span>!', top=100) + '<div style="position:absolute;left:220px;right:220px;top:220px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px">' +
+  'Pero el curso sigue. Ahora viene el módulo avanzado: naves de luces grandes, luz y ventilación, cerramientos y mantenimiento.',
+], zoom=[(0, 1.0, 50, 50)], html=titulo('¡Módulo principal <span class="nar">completado</span>!', top=100) + '<div style="position:absolute;left:220px;right:220px;top:220px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px">' +
  ''.join(f'<div class="ap" data-en="1" data-mas="{0.35*i:.2f}" style="display:flex;gap:14px;align-items:center;background:rgba(126,224,138,.08);border:2px solid rgba(126,224,138,.5);border-radius:16px;padding:16px 18px;font-size:25px;font-weight:800"><span style="background:#3f9e5a;border-radius:50%;width:40px;height:40px;display:grid;place-items:center;flex:none">✓</span>{i+1}. {t}</div>' for i, t in enumerate(temas)) +
- '</div><div class="paso pop" data-en="2" style="position:absolute;left:50%;transform:translateX(-50%);top:640px;font-size:26px"><b>↓</b>PLANTILLAS DE NAVES EN RECURSOS TÉCNICOS</div>'))
-E.append(dict(antes=0.3, despues=3.0, frases=[
-  'Gracias por aprender con Innova Contratistas. Sigue creciendo con nuestros otros cursos: soldadura estructural, estructuras metálicas, carpintería metálica, y lectura de planos.',
-  '¡Éxitos en tus obras, y nos vemos en la próxima!',
+ '</div><div class="paso pop" data-en="2" style="position:absolute;left:50%;transform:translateX(-50%);top:640px;font-size:26px"><b>→</b>PRÓXIMA: NAVES DE LUCES GRANDES</div>'))
+E.append(dict(antes=0.3, despues=2.6, frases=[
+  'Recuerda: metra pieza por pieza, cobra los gastos operativos, y pon los precios de tu zona.',
+  '¡Nos vemos en la clase diez!',
 ], html=f'''
-<div style="position:absolute;left:0;right:0;top:200px;text-align:center">
- <img class="pop" data-en="0" src="data:image/png;base64,{EMBLEMA}" style="width:190px;height:184px;background:#fff;border-radius:38px;padding:16px">
- <h2 class="t ap" data-en="0" data-mas="0.4" style="margin-top:30px">¡Gracias y <span class="nar">éxitos en tus obras</span>!</h2>
- <div style="margin-top:34px;display:flex;justify-content:center;gap:16px;flex-wrap:wrap">''' + ''.join(f'<div class="paso pop" data-en="0" data-mas="{2+0.6*i:.1f}" style="font-size:22px">{c}</div>' for i, c in enumerate(['SOLDADURA ESTRUCTURAL', 'ESTRUCTURAS METÁLICAS', 'CARPINTERÍA METÁLICA', 'LECTURA DE PLANOS'])) + '''</div>
+<div style="position:absolute;left:0;right:0;top:220px;text-align:center">
+ <img class="pop" data-en="0" src="data:image/png;base64,{EMBLEMA}" style="width:170px;height:164px;background:#fff;border-radius:34px;padding:14px">
+ <h2 class="t ap" data-en="0" data-mas="0.4" style="margin-top:30px">Presupuesta con <span class="nar">números reales</span></h2>
  <div class="ap" data-en="1" style="margin-top:46px;font-size:26px;color:#8fa9c2;font-weight:700;letter-spacing:2px">INNOVA CONTRATISTAS · ACADEMIA TÉCNICA · WHATSAPP 966 000 500</div>
 </div>'''))
 
