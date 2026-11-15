@@ -29,7 +29,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110420** (el contador sigue +1 desde aquí; nunca bajar de 26110419) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
-| MCP de Academia | **Publicado y conectado** (15/11/2026): `mcpCursos` desplegado con su clave `MCP_CLAVE`; conector "Academia Innova" en Claude (6 herramientas). Contenido listo en `contenido/academia/` para cargar |
+| MCP de Academia | **Publicado y conectado** (15/11/2026), conector "Academia Innova". Cargados por MCP los 5 cursos del catálogo (portada + 2 PDF cada uno, precios 29–79 con precio tachado). **Faltan sus clases** (necesitan video) y las 3 plantillas de naves |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
