@@ -11,3 +11,11 @@
 
 - Naves Parabólicas completo: `naves-clase-1.mp4` … `naves-clase-9.mp4` (fuentes `fuentes/naves_c1v2.py`, `naves_c2.py` … `naves_c9.py`;
   piezas comunes en `fuentes/comun.py`). El motor repite los cuadros quietos (render ~4 veces más rápido).
+
+## Cursos completos (15/11/2026)
+- Videos publicados en la rama `academia-videos` (se suben a la plataforma con el MCP `subir_archivo` desde el enlace raw).
+- Generadores: `fuentes/sold_c1..8.py` (Soldadura), `est_c1..7.py` (Estructuras, obra: mezanine 4×6), `carp_c1..7.py`
+  (Carpintería, obra: casa de 2 pisos), `plan_c1..6.py` (Lectura de planos). Piezas comunes: `sold_comun.py`, `vis_soldadura.py`.
+- Voz del dueño: `guion.py modulo "Título" salida.pdf` genera el guion; con el audio: `transcribir.py audio json`
+  (sherpa-onnx whisper small) y `alinear.py modulo audio json salida.mp4` (alinea trozos ↔ frases y arma el video).
+- Publicar: `publicar.sh video.mp4 nombre.mp4` → URL raw → MCP `subir_archivo` + `guardar_clase`.

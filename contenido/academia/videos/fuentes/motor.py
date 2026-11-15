@@ -27,7 +27,11 @@ def tts():
 
 VEL = float(os.environ.get('VEL', '1.12'))
 
+VOZ_PROPIA = []  # clips (np.float32, sr) grabados por el dueño, en el orden de las frases
+
 def decir(texto, vel=None):
+    if VOZ_PROPIA:
+        return VOZ_PROPIA.pop(0)
     vel = vel or VEL
     # La pronunciación: el texto hablado puede diferir del subtítulo (siglas, números).
     a = tts().generate(texto, sid=0, speed=vel)
