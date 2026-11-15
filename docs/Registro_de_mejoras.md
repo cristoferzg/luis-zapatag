@@ -41,7 +41,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última mejora sin compilar | Techos 3D más rápido en techos grandes |
 | Última versión compilada | Web **2026.11.15.0021** · Android **código 26110422** (15/11/2026: cursos visibles en la app de Android; incluye todo lo anterior) |
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
 | Próximo código Android | **26110423** (el contador sigue +1 desde aquí; nunca bajar de 26110422) |
@@ -52,6 +52,25 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-15 · Techos 3D más rápido en techos grandes (y en PCs con Windows 7/8)
+- Pedido del dueño: su techo parabólico 23 × 35 m (2 792 piezas, 1 115 nudos) se ponía lento en el 3D y al desplazarse.
+- Causa: cada pieza era un objeto aparte con material clonado y contorno propio (≈ 6 800 dibujos por imagen, 2 804
+  materiales, 659 000 triángulos); los nudos eran esferas de 16×16; en cada imagen se recorrían los 2 792 tubos; y la
+  memoria de cálculo (2 s) se calculaba varias veces al abrir porque `luzLibre` comparaba cada pieza con todas.
+- Qué se hizo (TechosViewer3D.tsx y memoriaCalculo.ts):
+  - Materiales COMPARTIDOS por color (2 804 → 13); contornos de todos los tubos en UN objeto (`bordes_tubos`);
+    nudos en una malla instanciada liviana (`joint_nudos`).
+  - Techos > 400 piezas: FUSIÓN de los tubos por material (`tubos_fusionados`); las piezas sueltas siguen debajo para
+    tocar/seleccionar, y se muestran solas en sismo y «Exigencia». La seleccionada recibe su propio material.
+  - El ciclo de imagen solo repone/repinta los tubos al cambiar algo (no en cada imagen).
+  - Memoria de cálculo: caché por techo/cargas/precios y `luzLibre` con candidatos (columnas/apoyos) → 1 959 → 215 ms,
+    resultados idénticos (comprobado con huella en 2 techos).
+  - Resultado con el techo del dueño: 6 840 → 161 dibujos por imagen; abrir 3D 20 → 12 s (equipo de prueba sin GPU);
+    1.6 → 3.7 img/s en el equipo de prueba (en una PC real, mucho más).
+- Cómo se probó: tsc 0 errores; medición antes/después; selección de pieza; sismo en techo grande (piezas sueltas en
+  sismo, fusión al volver); botón de cambios recomendados (NO CUMPLE → CUMPLE) en techo chico.
+- Versión: sin compilar aún (próximo Android 26110423).
 
 ## 2026-11-15 · Academia en la app de Android: no se veían los cursos de pago
 - Pedido del dueño: "no se ven los cursos".

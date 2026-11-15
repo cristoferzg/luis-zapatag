@@ -160,7 +160,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 ## 3D (WebGL)
 - TODOS los visores crean y liberan el lienzo con `crearRenderer` / `liberarRenderer` (src/lib/webglSeguro.ts): reintento con
   opciones livianas y `forceContextLoss` al desmontar (antes se acumulaban contextos → "Error creating WebGL context").
-  Nunca usar `new THREE.WebGLRenderer` directo. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
+  Nunca usar `new THREE.WebGLRenderer` directo. Techos 3D RÁPIDO: materiales compartidos (`materialTuboRef`), contornos en un
+  objeto (`bordes_tubos`), nudos instanciados, fusión de tubos > 400 piezas (`tubos_fusionados`; piezas sueltas en sismo/exigencia/
+  selección) y ciclo de imagen que solo repinta al cambiar algo. memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
 
 ## Impresión en la app Android
 - El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo

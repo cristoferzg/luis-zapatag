@@ -13,7 +13,7 @@
 import type { Node3D, Segment3D, CoverageZone3D, RolEstructuralSegmento, PerfilTubularItem } from './techosCadEngineTypes';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
 import { propsPerfil, factorK, limitesLambda, seAnaliza, cumpleTramo, perfilMasEconomico, CargasGrupo } from './propiedadesPerfil';
-import { precio, clavePerfilDe } from '../../lib/catalogoPrecios';
+import { precio, clavePerfilDe, leerCatalogo } from '../../lib/catalogoPrecios';
 import { perfilSuperior, alerosConCanaleta } from './canaletas';
 import { zonaPrincipal } from './mecanismoMovil';
 import { disenarColumnaCA, type DisenoColumnaCA } from './columnaConcreto';
@@ -59,6 +59,18 @@ export function precioMetroPerfil(p: PerfilTubularItem): number {
  * Columnas, barras de tijeral y arriostres: su propio largo (van de nudo a nudo).
  */
 const APOYA_CORREA = /^viga|^cordon_superior/;
+// Candidatos por techo (se calculan una vez por objeto `segments`): antes, cada pieza recorría TODAS
+// las demás (millones de comparaciones en un techo de 2 800 piezas).
+const candidatosLuz = new WeakMap<object, { apoyos: Segment3D[]; columnas: Segment3D[] }>();
+const candidatosDe = (segments: Record<string, Segment3D>) => {
+  let c = candidatosLuz.get(segments);
+  if (!c) {
+    const todos = Object.values(segments);
+    c = { apoyos: todos.filter(o => APOYA_CORREA.test(o.rolEstructural) && o.rolEstructural !== 'correa'), columnas: todos.filter(o => o.rolEstructural === 'columna') };
+    candidatosLuz.set(segments, c);
+  }
+  return c;
+};
 export function luzLibre(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, s: Segment3D): number {
   const a = nodes[s.nodeAId], b = nodes[s.nodeBId];
   if (!a || !b) return 0;
@@ -69,7 +81,8 @@ export function luzLibre(nodes: Record<string, Node3D>, segments: Record<string,
   if (!esCorrea && !esViga) return L;
   const ts: number[] = [];
   const ax = a.x, az = a.z || 0, dx = b.x - a.x, dz = (b.z || 0) - az;
-  Object.values(segments).forEach(o => {
+  const cand = candidatosDe(segments);
+  (esCorrea && esViga ? [...cand.apoyos, ...cand.columnas] : esCorrea ? cand.apoyos : cand.columnas).forEach(o => {
     if (o.id === s.id) return;
     const c = nodes[o.nodeAId], d = nodes[o.nodeBId];
     if (!c || !d) return;
@@ -434,7 +447,23 @@ function tipoDeTecho(nodes: Record<string, Node3D>): { tipo: string; pendientePc
   return { tipo: 'Plano o caída a lo largo', pendientePct: null };
 }
 
+/**
+ * Memoria temporal: varias partes de la pantalla (módulo, visor 3D, análisis) piden la memoria del MISMO techo
+ * a la vez; en un techo grande (2 800 piezas) cada cálculo tarda segundos. Si no cambió nada (mismos nudos,
+ * piezas, zonas, cargas y precios del catálogo) se devuelve el último resultado.
+ */
+const memoriaCache: { nodes?: object; segments?: object; zonas?: object; inputs?: string; catalogo?: object; resultado?: Memoria }[] = [];
 export function calcularMemoria(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zonas: Record<string, CoverageZone3D>, inputs: EntradasCargas): Memoria {
+  const claveInputs = JSON.stringify(inputs || {}), catalogo = leerCatalogo();
+  const hit = memoriaCache.find(c => c.nodes === nodes && c.segments === segments && c.zonas === zonas && c.inputs === claveInputs && c.catalogo === catalogo);
+  if (hit?.resultado) return hit.resultado;
+  const resultado = calcularMemoriaSinCache(nodes, segments, zonas, inputs);
+  memoriaCache.unshift({ nodes, segments, zonas, inputs: claveInputs, catalogo, resultado });
+  if (memoriaCache.length > 6) memoriaCache.length = 6;
+  return resultado;
+}
+
+function calcularMemoriaSinCache(nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zonas: Record<string, CoverageZone3D>, inputs: EntradasCargas): Memoria {
   const ctx = contextoCargas(nodes, segments, inputs);
   const piezas = analizarPiezas(nodes, segments, inputs);
   const ns = Object.values(nodes);

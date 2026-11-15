@@ -6,6 +6,7 @@
 // e Iluminación Simplificada en 2 Modos Únicos: Claro y Oscuro
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
 import { panoUnaAgua } from './coberturaAuto';
 import { esCortaviento } from './cortaviento';
@@ -854,9 +855,13 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const r = rendererRef.current;
     if (r) { const el = r.domElement; r.setPixelRatio(pixelRatio3d(c)); r.setSize(el.clientWidth, el.clientHeight); }
     const op = refuerzoBordes(c) ? 0.8 : 0.38;
-    sceneRef.current?.traverse(o => { const l = o as THREE.LineSegments; if (l.isLineSegments && o.parent?.parent?.name === 'tubes_group') { (l.material as THREE.LineBasicMaterial).opacity = op; } });
+    sceneRef.current?.traverse(o => { const l = o as THREE.LineSegments; if (l.isLineSegments && (o.name === 'bordes_tubos' || o.parent?.parent?.name === 'tubes_group')) { (l.material as THREE.LineBasicMaterial).opacity = op; } });
   }), []);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  // Materiales compartidos de los tubos (los crea la escena) y estado del ciclo de imagen: los tubos solo
+  // se reponen/repintan cuando algo cambia (antes se recorrían todos en CADA imagen).
+  const materialTuboRef = useRef<((concreto: boolean, hex: number, metal?: { metalness: number; roughness: number }) => THREE.MeshStandardMaterial) | null>(null);
+  const cicloTubosRef = useRef<{ grupo: string; clave: string; enSismo: boolean }>({ grupo: '', clave: '', enSismo: false });
   const animFrameIdRef = useRef<number | null>(null);
   const rainLinesRef = useRef<THREE.Group | null>(null);
   const rainWaterMetaRef = useRef<any>(null);
@@ -1063,8 +1068,21 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       const mesh = child as THREE.Mesh;
       const segId = mesh.userData?.segmentId;
       const isSelected = !!segId && allSelectedIds.has(segId);
+      const u = mesh.userData || {};
+      // Tubos con material COMPARTIDO: el seleccionado recibe su propio material (si no, se
+      // iluminarían todos los del mismo color); al deseleccionarlo vuelve al compartido.
+      if (u.origPos && materialTuboRef.current) {
+        const fusionada = !!(tubesGroup.userData?.fusion && !tubesGroup.userData?.sueltas);
+        if (isSelected && !u.seleccionado) {
+          mesh.material = (mesh.material as THREE.MeshStandardMaterial).clone(); u.seleccionado = true;
+          if (fusionada) { mesh.visible = true; mesh.scale.set(1.04, 1.04, 1.0); }
+        } else if (!isSelected && u.seleccionado) {
+          mesh.material = materialTuboRef.current(!!u.esConcreto, u.colorBase ?? 0x64748b, u.metal); u.seleccionado = false; cicloTubosRef.current.grupo = '';
+          if (fusionada) { mesh.visible = !!u.fueraFusion; mesh.scale.set(1, 1, 1); }
+        }
+      }
       const mat = mesh.material as THREE.MeshStandardMaterial;
-      if (mat) {
+      if (mat && (isSelected || !(u.origPos && materialTuboRef.current))) {
         if (isSelected) {
           mat.emissive = new THREE.Color(0x06b6d4); // Cyan brillante
           mat.emissiveIntensity = 0.9;
@@ -1307,7 +1325,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     // En render: sin esferas de nudos ni contornos de dibujo técnico.
     modelo?.traverse(o => {
       if (o.name.startsWith('joint_')) o.visible = !on;
-      else if ((o as THREE.LineSegments).isLineSegments && o.parent?.parent?.name === 'tubes_group') o.visible = !on || presentacionRef.current;
+      else if ((o as THREE.LineSegments).isLineSegments && (o.name === 'bordes_tubos' || o.name === 'bordes_concreto' || o.parent?.parent?.name === 'tubes_group')) o.visible = !on || presentacionRef.current;
     });
     modelo?.traverse(o => {
       const m = o as THREE.Mesh;
@@ -2645,6 +2663,32 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       wireframe: isWire
     });
 
+    // RENDIMIENTO (techos grandes, PCs con Windows 7/8): los tubos del mismo color COMPARTEN material
+    // (antes cada tubo clonaba el suyo: 2 800 materiales), los contornos de todos los tubos van en UN
+    // solo objeto y los nudos en una malla instanciada. Así un techo de 2 800 piezas se gira fluido.
+    const cacheMat = new Map<string, THREE.MeshStandardMaterial>();
+    const materialTubo = (concreto: boolean, hex: number, metal?: { metalness: number; roughness: number }) => {
+      const clave = `${concreto ? 'c' : 'a'}|${hex}|${metal ? `${metal.metalness}/${metal.roughness}` : ''}`;
+      let m = cacheMat.get(clave);
+      if (!m) {
+        m = (concreto ? concreteMat : steelTubeMat).clone();
+        m.color.setHex(hex);
+        if (metal) { m.metalness = metal.metalness; m.roughness = metal.roughness; }
+        cacheMat.set(clave, m);
+      }
+      return m;
+    };
+    materialTuboRef.current = materialTubo;
+    const bordesPos: number[] = []; // segmentos de contorno de todos los tubos (coordenadas del mundo)
+    const bordesConcPos: number[] = [];
+    const bordesDe = (geom: THREE.BufferGeometry, matriz: THREE.Matrix4, destino: number[]) => {
+      const e = new THREE.EdgesGeometry(geom, 22);
+      const a = e.attributes.position as THREE.BufferAttribute;
+      const v = new THREE.Vector3();
+      for (let i = 0; i < a.count; i++) { v.fromBufferAttribute(a, i).applyMatrix4(matriz); destino.push(v.x, v.y, v.z); }
+      e.dispose();
+    };
+
     // Contabilizar grado de conectividad por nodo para generar nudos de unión sólidos
     const nodeDegreeMap: Record<string, { count: number; maxProfileWidth: number }> = {};
 
@@ -2747,27 +2791,20 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       }
 
       const isSelected = seg.id === activeSelectedSegId;
-      const tubeMat = (esConcreto3D ? concreteMat : steelTubeMat).clone();
+      const colorPieza = presentacionRef.current && !esConcreto3D ? COLOR_PIEZA[seg.rolEstructural || ''] : undefined;
+      const colorBaseTubo = esConcreto3D ? 0x9a938c : (colorPieza ?? colorEstructuraRef.current);
+      const metalPieza = colorPieza !== undefined ? { metalness: 0.15, roughness: 0.5 } : undefined;
+      let tubeMat: THREE.MeshStandardMaterial;
       if (isSelected) {
+        // El seleccionado tiene su propio material (brillo celeste).
+        tubeMat = materialTubo(esConcreto3D, colorBaseTubo, metalPieza).clone();
         tubeMat.emissive = new THREE.Color(0x06b6d4);
         tubeMat.emissiveIntensity = 0.9;
+      } else {
+        tubeMat = materialTubo(esConcreto3D, colorBaseTubo, metalPieza);
       }
-      const colorPieza = presentacionRef.current && !esConcreto3D ? COLOR_PIEZA[seg.rolEstructural || ''] : undefined;
-      if (colorPieza !== undefined) { tubeMat.color.setHex(colorPieza); tubeMat.metalness = 0.15; tubeMat.roughness = 0.5; }
       const tubeMesh = new THREE.Mesh(geom, tubeMat);
-      tubeMesh.userData.colorBase = esConcreto3D ? 0x9a938c : (colorPieza ?? colorEstructuraRef.current);
-
-      // Contornos nítidos para visibilidad perfecta de cada tubo y pieza individual
-      if (!isWire) {
-        const edgesGeo = new THREE.EdgesGeometry(geom, 22);
-        const edgeLineMat = new THREE.LineBasicMaterial({
-          color: presentacionRef.current ? 0x0f172a : modoIluminacion === 'claro' ? 0x1e293b : 0x38bdf8,
-          transparent: true,
-          opacity: presentacionRef.current ? 0.55 : refuerzoBordes() ? 0.8 : modoIluminacion === 'claro' ? 0.38 : 0.55
-        });
-        const tubeLines = new THREE.LineSegments(edgesGeo, edgeLineMat);
-        tubeMesh.add(tubeLines);
-      }
+      tubeMesh.userData.colorBase = colorBaseTubo;
 
       const midPoint = new THREE.Vector3().addVectors(pA, pB).multiplyScalar(0.5);
       tubeMesh.position.copy(midPoint);
@@ -2782,6 +2819,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const ejeY = new THREE.Vector3().crossVectors(dir, ejeX).normalize();
         tubeMesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ejeX, ejeY, dir));
       }
+      // Contornos nítidos de cada tubo, juntados en un solo objeto (ver «bordes_tubos» más abajo).
+      if (!isWire) { tubeMesh.updateMatrix(); bordesDe(geom, tubeMesh.matrix, bordesPos); }
       
       const isCriticalZone = seg.rolEstructural === 'diagonal' || 
                              seg.rolEstructural === 'montante' ||
@@ -2790,6 +2829,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
 
       tubeMesh.userData = {
         colorBase: tubeMesh.userData.colorBase, // la pintura elegida (si se pierde, se repinta gris cada cuadro)
+        esConcreto: esConcreto3D, metal: metalPieza, seleccionado: isSelected,
         segmentId: seg.id,
         rolEstructural: seg.rolEstructural || 'viga_principal',
         isCriticalZone,
@@ -2834,34 +2874,76 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         const concMesh = new THREE.Mesh(concGeom, concColMat);
         concMesh.position.copy(baseP.clone().add(upDir.clone().multiplyScalar(hConc / 2)));
         concMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), upDir);
-        if (!isWire) {
-          const cEdges = new THREE.LineSegments(new THREE.EdgesGeometry(concGeom, 22),
-            new THREE.LineBasicMaterial({ color: modoIluminacion === 'claro' ? 0x57534e : 0x78716c, transparent: true, opacity: 0.5 }));
-          concMesh.add(cEdges);
-        }
+        if (!isWire) { concMesh.updateMatrix(); bordesDe(concGeom, concMesh.matrix, bordesConcPos); }
         concMesh.userData = { segmentId: seg.id, rolEstructural: 'columna', esEncamisadoConcreto: true };
         tubesGroup.add(concMesh);
       }
     });
 
-    // 5. NUDOS DE CONEXIÓN Y ESFERAS DE UNIÓN EN VÉRTICES ESTRUCTURALES (Como en la imagen)
-    Object.entries(nodeDegreeMap).forEach(([nId, data]) => {
-      const node = nodes[nId];
-      if (!node) return;
-      
-      // Mostrar esfera de unión azul en todas las conexiones superiores (evitando superponer sobre la placa base en y=0)
-      if (node.y > 0.10 && data.count >= 1) {
-        // El nudo no puede sobresalir de la cara de arriba del tubo: si fuera más grande atraviesa la
-        // cobertura (malla raschel, planchas) y parece que la estructura va encima.
-        const anchoNudo = data.maxProfileWidth || 0.08;
-        const jointRadius = Math.min(Math.max(0.055, Math.min(0.12, anchoNudo * 0.65)), anchoNudo / 2 + 0.006);
-        const jointGeo = new THREE.SphereGeometry(jointRadius, 16, 16);
-        const jointMesh = new THREE.Mesh(jointGeo, nudoJointMat);
-        jointMesh.position.set(node.x, node.y, node.z || 0);
-        jointMesh.name = `joint_${nId}`;
-        modeloGroup.add(jointMesh);
+    // FUSIÓN (techos grandes, > 400 piezas): los tubos del mismo material se dibujan como UN objeto.
+    // Las piezas individuales siguen en «tubes_group» (ocultas) para tocar/seleccionar, el sismo
+    // animado y los colores por exigencia: en esos modos se muestran ellas y se oculta la fusión.
+    if (tubesGroup.children.length > 400) {
+      const porMat = new Map<THREE.Material, THREE.BufferGeometry[]>();
+      tubesGroup.children.forEach(c => {
+        const m = c as THREE.Mesh;
+        if (!m.isMesh || m.userData.seleccionado) return;
+        m.updateMatrix();
+        const g = m.geometry.index ? m.geometry.clone() : m.geometry.clone();
+        g.applyMatrix4(m.matrix);
+        const mat = m.material as THREE.Material;
+        (porMat.get(mat) || porMat.set(mat, []).get(mat)!).push(g);
+      });
+      const fusion = new THREE.Group();
+      fusion.name = 'tubos_fusionados';
+      porMat.forEach((geos, mat) => {
+        let unida: THREE.BufferGeometry | null = null;
+        try { unida = mergeGeometries(geos, false); } catch { unida = null; }
+        geos.forEach(g => g.dispose());
+        if (!unida) return;
+        const mm = new THREE.Mesh(unida, mat);
+        mm.raycast = () => {};
+        fusion.add(mm);
+      });
+      if (fusion.children.length) {
+        modeloGroup.add(fusion);
+        tubesGroup.children.forEach(c => { if (c.userData.seleccionado) c.userData.fueraFusion = true; else c.visible = false; });
+        tubesGroup.userData.fusion = fusion;
       }
-    });
+    }
+
+    // Contornos de todos los tubos: UN solo objeto (antes una línea por tubo = miles de dibujos por imagen).
+    const opBordes = presentacionRef.current ? 0.55 : refuerzoBordes() ? 0.8 : modoIluminacion === 'claro' ? 0.38 : 0.55;
+    if (bordesPos.length) {
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(bordesPos, 3));
+      const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: presentacionRef.current ? 0x0f172a : modoIluminacion === 'claro' ? 0x1e293b : 0x38bdf8, transparent: true, opacity: opBordes }));
+      l.name = 'bordes_tubos'; l.raycast = () => {}; modeloGroup.add(l);
+    }
+    if (bordesConcPos.length) {
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(bordesConcPos, 3));
+      const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: modoIluminacion === 'claro' ? 0x57534e : 0x78716c, transparent: true, opacity: 0.5 }));
+      l.name = 'bordes_concreto'; l.raycast = () => {}; modeloGroup.add(l);
+    }
+
+    // 5. NUDOS DE CONEXIÓN: esferas azules en las uniones, todas en UNA malla instanciada (esfera liviana).
+    const nudos = Object.entries(nodeDegreeMap).filter(([nId, data]) => { const n = nodes[nId]; return n && n.y > 0.10 && data.count >= 1; });
+    if (nudos.length) {
+      const muchos = nudos.length > 400;
+      const jointGeo = new THREE.SphereGeometry(1, muchos ? 8 : 14, muchos ? 6 : 10);
+      const inst = new THREE.InstancedMesh(jointGeo, nudoJointMat, nudos.length);
+      const m4 = new THREE.Matrix4(), q0 = new THREE.Quaternion(), esc = new THREE.Vector3(), pos = new THREE.Vector3();
+      nudos.forEach(([nId, data], i) => {
+        const node = nodes[nId];
+        // El nudo no puede sobresalir de la cara de arriba del tubo (si no, atraviesa la cobertura).
+        const anchoNudo = data.maxProfileWidth || 0.08;
+        const r = Math.min(Math.max(0.055, Math.min(0.12, anchoNudo * 0.65)), anchoNudo / 2 + 0.006);
+        m4.compose(pos.set(node.x, node.y, node.z || 0), q0, esc.set(r, r, r));
+        inst.setMatrixAt(i, m4);
+      });
+      inst.instanceMatrix.needsUpdate = true;
+      inst.name = 'joint_nudos';
+      modeloGroup.add(inst);
+    }
 
     // Extraer envolvente superior exacta de la estructura para ajustar la cobertura y la lluvia
     const topPointsMap: Record<number, number> = {};
@@ -3627,6 +3709,18 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
                           scene.getObjectByName('tubes_group') || 
                           scene.getObjectByName('tubos_estructurales')) as THREE.Group;
 
+      // Techos grandes con fusión: piezas sueltas solo en sismo o exigencia (necesitan moverse/colorearse una por una).
+      const fusionTubos = tubesGroup?.userData?.fusion as THREE.Group | undefined;
+      if (fusionTubos && tubesGroup) {
+        const sueltas = currentModo === 'sismo' || verExigenciaRef.current;
+        if (tubesGroup.userData.sueltas !== sueltas) {
+          tubesGroup.userData.sueltas = sueltas;
+          fusionTubos.visible = !sueltas;
+          if (fusionTubos.userData.__visSismo !== undefined) fusionTubos.userData.__visSismo = !sueltas;
+          tubesGroup.children.forEach(c => { c.visible = sueltas || !!c.userData.seleccionado || !!c.userData.fueraFusion; });
+        }
+      }
+
       // 1. ANIMACIÓN DE SISMO CON PANDEO DINÁMICO Y GRADIENTE DE RIESGO POR ZONAS CRÍTICAS
       if (modelo) {
         if (currentModo === 'sismo' && sismoDatosRef.current && tubesGroup) {
@@ -3665,16 +3759,24 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
             const ex = new THREE.Vector3().crossVectors(ref, nd).normalize(), ey = new THREE.Vector3().crossVectors(nd, ex).normalize();
             mesh.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ex, ey, nd));
             mesh.scale.set(1, 1, L2 / u.length);
+            const hexS = cfg.color ? colorRatio(sd.ratio[u.segmentId] ?? 0) : (u.colorBase ?? 0x64748b);
             const mat = mesh.material as THREE.MeshStandardMaterial;
-            if (mat?.color) mat.color.setHex(cfg.color ? colorRatio(sd.ratio[u.segmentId] ?? 0) : (u.colorBase ?? 0x64748b));
+            if (u.seleccionado || !materialTuboRef.current) { if (mat?.color) mat.color.setHex(hexS); }
+            else mesh.material = materialTuboRef.current(!!u.esConcreto, hexS, u.metal);
           });
+          cicloTubosRef.current.enSismo = true;
         } else {
           // Reset de posiciones globales
           modelo.position.set(0, 0, 0);
           modelo.children.forEach(c => { if (c.userData.__visSismo !== undefined) { c.visible = c.userData.__visSismo; delete c.userData.__visSismo; } });
 
-          // Reset de posiciones y materiales de los tubos tras finalizar sismo
-          if (tubesGroup) {
+          // Reset de posiciones y materiales de los tubos: SOLO al salir del sismo, al activar/quitar
+          // «Exigencia» o con una escena nueva (antes en cada imagen: lento en techos grandes).
+          const ciclo = cicloTubosRef.current;
+          const claveCiclo = `${verExigenciaRef.current ? 'E' : 'N'}|${sismoDatosRef.current ? Object.keys(sismoDatosRef.current.ratioGrav || {}).length : 0}`;
+          const hayQueReponer = tubesGroup && (ciclo.enSismo || ciclo.grupo !== tubesGroup.uuid || ciclo.clave !== claveCiclo);
+          if (tubesGroup && hayQueReponer) {
+            ciclo.enSismo = false; ciclo.grupo = tubesGroup.uuid; ciclo.clave = claveCiclo;
             tubesGroup.children.forEach(child => {
               const mesh = child as THREE.Mesh;
               const uData = mesh.userData;
@@ -3685,7 +3787,9 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
               mesh.scale.set(1.0, 1.0, 1.0);
               const mat = mesh.material as THREE.MeshStandardMaterial;
               const rx = verExigenciaRef.current ? sismoDatosRef.current?.ratioGrav?.[uData?.segmentId] : undefined;
-              if (mat) mat.color.setHex(rx !== undefined ? (rx < 0.5 ? 0x2563eb : rx < 0.7 ? 0x16a34a : rx < 0.9 ? 0xeab308 : rx <= 1 ? 0xf97316 : 0xdc2626) : (mesh.userData?.colorBase ?? 0x64748b));
+              const hexR = rx !== undefined ? (rx < 0.5 ? 0x2563eb : rx < 0.7 ? 0x16a34a : rx < 0.9 ? 0xeab308 : rx <= 1 ? 0xf97316 : 0xdc2626) : (mesh.userData?.colorBase ?? 0x64748b);
+              if (uData?.seleccionado || !materialTuboRef.current || !uData?.origPos) { if (mat?.color) mat.color.setHex(hexR); }
+              else mesh.material = materialTuboRef.current(!!uData.esConcreto, hexR, uData.metal);
             });
           }
         }
