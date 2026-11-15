@@ -41,10 +41,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Techos 3D más rápido en techos grandes |
-| Última versión compilada | Web **2026.11.15.0021** · Android **código 26110422** (15/11/2026: cursos visibles en la app de Android; incluye todo lo anterior) |
+| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última versión compilada | Web **2026.11.15.1250** · Android **código 26110423** (15/11/2026: 3D rápido en techos grandes + «Cargando cursos…»; incluye todo lo anterior) |
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
-| Próximo código Android | **26110423** (el contador sigue +1 desde aquí; nunca bajar de 26110422) |
+| Próximo código Android | **26110424** (el contador sigue +1 desde aquí; nunca bajar de 26110423) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026). **5 cursos completos** (56 clases): Naves Parabólicas 13 (S/ 79, ≈1 h), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz: la mexicana automática (el dueño no quiso usar la suya). Videos en la rama `academia-videos` |
@@ -58,7 +58,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Qué se hizo: tarjetas "fantasma" animadas con «Cargando cursos…» y cifras "…" mientras llegan; si en 15 s no llega
   nada, aviso de revisar la conexión (antes: "No hay cursos que coincidan").
 - Archivo: `academia/AcademiaTienda.tsx`. Pruebas: tsc 0 errores; capturas antes/después (celular).
-- Versión: se compila junto con la optimización del 3D.
+- Versión: web 2026.11.15.1250 · Android código 26110423.
 
 ## 2026-11-15 · Techos 3D más rápido en techos grandes (y en PCs con Windows 7/8)
 - Pedido del dueño: su techo parabólico 23 × 35 m (2 792 piezas, 1 115 nudos) se ponía lento en el 3D y al desplazarse.
@@ -77,7 +77,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
     1.6 → 3.7 img/s en el equipo de prueba (en una PC real, mucho más).
 - Cómo se probó: tsc 0 errores; medición antes/después; selección de pieza; sismo en techo grande (piezas sueltas en
   sismo, fusión al volver); botón de cambios recomendados (NO CUMPLE → CUMPLE) en techo chico.
-- Versión: sin compilar aún (próximo Android 26110423).
+- Versión: web 2026.11.15.1250 · Android código 26110423 (llave 01:D3…74:33). Manual sin cambios.
 
 ## 2026-11-15 · Academia en la app de Android: no se veían los cursos de pago
 - Pedido del dueño: "no se ven los cursos".
