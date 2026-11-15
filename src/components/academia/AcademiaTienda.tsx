@@ -17,7 +17,7 @@ import type { CourseCategory, TutorialVideo } from '../UsabilidadVideosView';
 import type { BibliotecaItem } from '../BibliotecaPremiumView';
 import { comprasPermitidas } from '../../lib/plataforma';
 import { precioPEN } from '../../lib/currency';
-import { leerPagoDirecto, pagoDirectoListo, type ConfigPagoDirecto, type PedidoDirecto } from '../../lib/pagoDirecto';
+import { leerPagoDirecto, pagoDirectoListo, nombreMediosPago, type ConfigPagoDirecto, type PedidoDirecto } from '../../lib/pagoDirecto';
 import { escucharPaquetes, guardarPaquetes, ID_COMPRA_PAQUETE, type PaqueteAcademia } from '../../lib/paquetesAcademia';
 import VentanaPagoDirecto from '../VentanaPagoDirecto';
 
@@ -150,7 +150,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
       {/* BENEFICIOS */}
       <div className="max-w-6xl mx-auto px-4 sm:px-8 relative -mt-5">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-          {[[InfinityIcon, 'Acceso permanente', 'Pagas una vez'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [ShieldCheck, 'Pago seguro', 'Yape o Plin']].map(([Ic, t, d]: any) => (
+          {[[InfinityIcon, 'Acceso permanente', 'Pagas una vez'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [ShieldCheck, 'Pago seguro', nombreMediosPago(cfgPago)]].map(([Ic, t, d]: any) => (
             <div key={t} className="rounded-xl p-3 flex items-center gap-2.5 bg-white border border-slate-200 shadow-sm">
               <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-600"><Ic className="w-4.5 h-4.5" /></span>
               <span className="min-w-0"><span className={`block text-xs font-black ${tx}`}>{t}</span><span className={`block text-[10px] ${sub}`}>{d}</span></span>

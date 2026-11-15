@@ -16,7 +16,7 @@ import { usaGooglePlay, iniciarPagosPlay, comprarEnPlay, precioPlay, idProductoP
 import { safeStorage } from '../lib/storageManager';
 import { pagoEnLineaDisponible, pagarEnLinea } from '../lib/pagoEnLinea';
 import { registrarEmbudo } from '../lib/embudoVentas';
-import { leerPagoDirecto, pagoDirectoListo, type ConfigPagoDirecto, type PedidoDirecto } from '../lib/pagoDirecto';
+import { leerPagoDirecto, pagoDirectoListo, nombreMediosPago, type ConfigPagoDirecto, type PedidoDirecto } from '../lib/pagoDirecto';
 import VentanaPagoDirecto from './VentanaPagoDirecto';
 import { precioPEN, precioConSoles } from '../lib/currency';
 
@@ -72,9 +72,9 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
     setSaldo(saldoEfectivo(a, pl));
     setBono(!a?.primeraRecarga && await primeraRecargaDobleActiva());
   };
-  // Condiciones de uso: se aceptan una vez antes de pedir un plan o recarga.
-  const [acepto, setAcepto] = useState(() => !!safeStorage.getItem<boolean>('innova_ia_condiciones_ok', false));
-  const aceptar = (v: boolean) => { setAcepto(v); safeStorage.setItem('innova_ia_condiciones_ok', v); };
+  // Condiciones de uso: al comprar se aceptan (se avisa junto a los botones, con el enlace para leerlas).
+  // Antes una casilla bloqueaba los botones y las recargas se veían apagadas: frenaba las ventas.
+  const aceptar = () => { safeStorage.setItem('innova_ia_condiciones_ok', true); };
 
   useEffect(() => { if (comprasIAPermitidas()) registrarEmbudo('abreTienda'); }, []);
   useEffect(() => {
@@ -111,7 +111,8 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
     catch { setComprando(null); setMsgPlay({ ok: false, t: 'No se pudo abrir el pago en línea. Intenta de nuevo o pide tu recarga por WhatsApp.' }); }
   };
   const pedirPlan = async (plan: AIPlan) => {
-    if (!acepto || soloVista()) return;
+    if (soloVista()) return;
+    aceptar();
     const periodo = anual && plan.precioAnualSoles ? 'anual' : 'mensual';
     registrarEmbudo('eligeCompra');
     if (play) return comprarPlay(plan.id, idProductoPlan(plan.id), periodo);
@@ -124,7 +125,8 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
   };
 
   const pedirPack = async (p: PackCreditos) => {
-    if (!acepto || soloVista()) return;
+    if (soloVista()) return;
+    aceptar();
     registrarEmbudo('eligeCompra');
     if (play) return comprarPlay(p.id, idProductoPack(p.creditos));
     if (directo) return setPedidoDirecto({ clave: p.id, itemId: `ai_creditos_${p.creditos}`, itemName: `Recarga de ${p.creditos} créditos`, amount: p.precioSoles });
@@ -172,6 +174,7 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
               <span>📲 Paga al instante con</span>
               {cfgDirecto?.yape?.numero && <span className="px-2.5 py-0.5 rounded-full bg-[#742284] text-white font-black">Yape</span>}
               {cfgDirecto?.plin?.numero && <span className="px-2.5 py-0.5 rounded-full bg-[#00b2a9] text-white font-black">Plin</span>}
+              {cfgDirecto?.transferencia?.cuenta && <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-white font-black">Transferencia</span>}
               <span className="text-slate-600 font-semibold">· eliges, pagas y subes la captura aquí mismo</span>
             </div>
           )}
@@ -183,7 +186,33 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
             </div>
           )}
 
+          {/* Recargas */}
+          {packs.length > 0 && (
+            <div id="recargas-ia" className="scroll-mt-24 rounded-2xl border border-slate-200 p-4">
+              {bono && (
+                <div className="mb-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-3 flex items-center gap-2.5">
+                  <Gift className="w-6 h-6 shrink-0" />
+                  <div><p className="text-sm font-black leading-tight">Tu primera recarga vale el DOBLE</p><p className="text-[11px] font-semibold text-white/90">Compra cualquier recarga y recibes el doble de créditos. Solo la primera vez.</p></div>
+                </div>
+              )}
+              <p className="text-sm font-black text-slate-800 flex items-center gap-2"><Coins className="w-4 h-4 text-amber-500" />Recarga créditos: pagas una vez, sin suscripción</p>
+              <p className="text-[11px] text-slate-500 mb-3">No vencen. Empieza con la más chica para probar.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {packs.filter(k => !(play && listoPlay && !precioPlay(idProductoPack(k.creditos)))).map((k, i) => (
+                  <button key={k.id} disabled={comprando !== null} onClick={() => pedirPack(k)}
+                    className={`rounded-xl border p-3 text-left cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-default ${enviado === k.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50'}`}>
+                    {i === 0 && <span className="block text-[9px] font-black uppercase text-amber-700">Para probar</span>}
+                    <span className="block text-lg font-black text-slate-900">{bono ? <><s className="text-slate-400 text-sm mr-1">+{k.creditos}</s><span className="text-emerald-600">+{k.creditos * 2}</span></> : `+${k.creditos}`}</span>
+                    <span className="block text-[11px] text-slate-500">créditos · ≈ {Math.max(1, Math.floor((bono ? k.creditos * 2 : k.creditos) / COSTO_CREDITOS.croquis))} plano{Math.floor((bono ? k.creditos * 2 : k.creditos) / COSTO_CREDITOS.croquis) === 1 ? '' : 's'}</span>
+                    <span className="block text-sm font-black text-slate-800 mt-1">{comprando === k.id ? '…' : enviado === k.id ? (play ? '✓ Sumados' : directo ? '✓ En revisión' : '✓ Enviado') : precio(k.precioSoles, idProductoPack(k.creditos))}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Planes */}
+          <p className="text-sm font-black text-slate-800 pt-1">¿Lo usas todas las semanas? Un plan te sale más barato</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {pagos.map(p => {
               const esAnual = anual && !!p.precioAnualSoles;
@@ -199,10 +228,11 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
                   {esAnual && <p className="text-[11px] font-bold text-emerald-700">Ahorras {precioPEN(p.precioSoles * 12 - p.precioAnualSoles!)} al año</p>}
                   <p className="text-sm font-bold text-slate-700 mt-2 flex items-center gap-1.5"><Zap className="w-4 h-4 text-amber-500" />{p.creditosMes.toLocaleString('es-PE')} créditos al mes</p>
                   <p className="text-[11px] text-slate-500">≈ {p.creditosMes.toLocaleString('es-PE')} boletas o {Math.floor(p.creditosMes / COSTO_CREDITOS.croquis)} planos</p>
+                  {!play && p.creditosMes >= COSTO_CREDITOS.croquis && <p className="mt-1 inline-flex self-start text-[11px] font-black text-emerald-700 bg-emerald-50 rounded-full px-2 py-0.5">≈ {precioPEN(p.precioSoles / Math.floor(p.creditosMes / COSTO_CREDITOS.croquis))} por plano a mano</p>}
                   <ul className="text-xs text-slate-600 mt-3 space-y-1.5 flex-1">
                     {(p.beneficios || []).map(b => <li key={b} className="flex items-start gap-1.5"><Check className="w-3.5 h-3.5 text-emerald-500 mt-0.5 shrink-0" />{b}</li>)}
                   </ul>
-                  <button disabled={deshabilitado || !acepto || comprando !== null} onClick={() => pedirPlan(p)}
+                  <button disabled={deshabilitado || comprando !== null} onClick={() => pedirPlan(p)}
                     className={`mt-4 w-full py-2.5 rounded-xl text-sm font-black cursor-pointer active:scale-95 disabled:cursor-not-allowed ${enviado === p.id ? 'bg-emerald-500 text-white' : p.destacado ? 'bg-amber-400 hover:bg-amber-300 text-amber-950' : 'bg-slate-900 hover:bg-slate-700 text-white'}`}>
                     {comprando === p.id ? (play ? 'Abriendo Google Play…' : 'Abriendo el pago…') : enviado === p.id ? (play ? '✓ Plan activo' : directo ? '✓ En revisión' : '✓ Solicitud enviada') : saldo?.planId === p.id ? 'Renovar' : 'Elegir plan'}
                   </button>
@@ -211,58 +241,29 @@ export function PlanesIAContenido({ motivo, sinSaldo = false, className = 'p-4 s
             })}
           </div>
 
-          {/* Recargas */}
-          {packs.length > 0 && (
-            <div id="recargas-ia" className="scroll-mt-24 rounded-2xl border border-slate-200 p-4">
-              {bono && (
-                <div className="mb-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white p-3 flex items-center gap-2.5">
-                  <Gift className="w-6 h-6 shrink-0" />
-                  <div><p className="text-sm font-black leading-tight">Tu primera recarga vale el DOBLE</p><p className="text-[11px] font-semibold text-white/90">Compra cualquier recarga y recibes el doble de créditos. Solo la primera vez.</p></div>
-                </div>
-              )}
-              <p className="text-sm font-black text-slate-800 flex items-center gap-2"><Coins className="w-4 h-4 text-amber-500" />¿Se acabaron tus créditos? Recarga sin cambiar de plan</p>
-              <p className="text-[11px] text-slate-500 mb-3">Las recargas no vencen: se usan cuando se acaban los créditos del mes.</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {packs.filter(k => !(play && listoPlay && !precioPlay(idProductoPack(k.creditos)))).map((k, i) => (
-                  <button key={k.id} disabled={!acepto || comprando !== null} onClick={() => pedirPack(k)}
-                    className={`rounded-xl border p-3 text-left cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-default ${enviado === k.id ? 'border-emerald-400 bg-emerald-50' : 'border-slate-200 hover:border-amber-300 hover:bg-amber-50'}`}>
-                    {i === 0 && <span className="block text-[9px] font-black uppercase text-amber-700">Para probar</span>}
-                    <span className="block text-lg font-black text-slate-900">{bono ? <><s className="text-slate-400 text-sm mr-1">+{k.creditos}</s><span className="text-emerald-600">+{k.creditos * 2}</span></> : `+${k.creditos}`}</span>
-                    <span className="block text-[11px] text-slate-500">créditos · ≈ {Math.max(1, Math.floor((bono ? k.creditos * 2 : k.creditos) / COSTO_CREDITOS.croquis))} plano{Math.floor((bono ? k.creditos * 2 : k.creditos) / COSTO_CREDITOS.croquis) === 1 ? '' : 's'}</span>
-                    <span className="block text-sm font-black text-slate-800 mt-1">{comprando === k.id ? '…' : enviado === k.id ? (play ? '✓ Sumados' : directo ? '✓ En revisión' : '✓ Enviado') : precio(k.precioSoles, idProductoPack(k.creditos))}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           </>)}
 
           {msgPlay && <p className={`text-xs font-bold rounded-xl p-3 ${msgPlay.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800'}`}>{msgPlay.t}</p>}
 
           {comprasIAPermitidas() && (
-            <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600 leading-snug" open={!acepto}>
-              <summary className="font-black text-slate-800 cursor-pointer">Condiciones de uso de las funciones inteligentes</summary>
+            <details className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-[11px] text-slate-600 leading-snug">
+              <summary className="font-bold text-slate-700 cursor-pointer">Al comprar aceptas las <span className="underline">condiciones de uso</span> (toca para leerlas)</summary>
               <ul className="list-disc pl-4 mt-2 space-y-1">
                 <li>Las funciones inteligentes (leer boletas sin QR y planos a mano) se usan con un plan pagado o una recarga de créditos. La lectura de boletas con código QR sigue siendo gratis.</li>
                 <li>Cada uso descuenta créditos según la tabla de arriba (por ejemplo boleta sin QR = {COSTO_CREDITOS.boleta}, plano a mano = {COSTO_CREDITOS.croquis}). Si la lectura falla o no detecta nada, los créditos se devuelven.</li>
                 <li>Los créditos del plan se renuevan cada mes mientras el plan esté vigente y no se acumulan; las recargas no vencen.</li>
                 <li>El resultado es una propuesta: revisa y corrige medidas, cantidades y montos antes de usarlos en una cotización o en obra. No reemplaza el criterio de un profesional.</li>
                 <li>Sube solo fotos tuyas o de tus clientes con su permiso. Las imágenes se usan solo para leerlas y no se publican.</li>
-                <li>{play ? 'El pago lo hace Google Play con tu cuenta de Google; las suscripciones se renuevan solas y las cancelas en Google Play → Pagos y suscripciones.' : directo ? 'Los pagos con Yape o Plin se revisan (monto y N° de operación) antes de cargar los créditos; una captura ya usada no se acepta. Los planes no se renuevan solos.' : enLinea ? 'El pago en línea lo procesa Mercado Pago; los planes pagados en línea no se renuevan solos.' : 'Los pagos se validan por el administrador.'} No hay devoluciones de créditos ya usados.</li>
+                <li>{play ? 'El pago lo hace Google Play con tu cuenta de Google; las suscripciones se renuevan solas y las cancelas en Google Play → Pagos y suscripciones.' : directo ? `Los pagos con ${nombreMediosPago(cfgDirecto)} se revisan (monto y N° de operación) antes de cargar los créditos; una captura ya usada no se acepta. Los planes no se renuevan solos.` : enLinea ? 'El pago en línea lo procesa Mercado Pago; los planes pagados en línea no se renuevan solos.' : 'Los pagos se validan por el administrador.'} No hay devoluciones de créditos ya usados.</li>
               </ul>
-              <label className="mt-2 flex items-center gap-2 font-bold text-slate-800 cursor-pointer">
-                <input type="checkbox" checked={acepto} onChange={e => aceptar(e.target.checked)} /> Leí y acepto las condiciones de uso
-              </label>
             </details>
           )}
-          {comprasIAPermitidas() && !acepto && <p className="text-[11px] font-bold text-amber-700">Acepta las condiciones de uso para pedir un plan o una recarga.</p>}
 
           {pedidoDirecto && cfgDirecto && (
             <VentanaPagoDirecto cfg={cfgDirecto} pedido={pedidoDirecto} onClose={() => setPedidoDirecto(null)} onEnviado={() => { setEnviado(pedidoDirecto.clave); registrarEmbudo('pagoEnLinea'); }} />
           )}
           {comprasIAPermitidas() && <p className="text-[11px] text-slate-400 leading-snug">
-            {play ? 'El pago se hace con Google Play. Apenas Google lo confirma, los créditos se cargan solos.' : directo ? 'Pagas con Yape o Plin y subes la captura aquí. Apenas revisamos el pago, tus créditos se cargan solos y te llega un aviso.' : enLinea ? 'Pagas en línea con Yape, tarjeta o transferencia (Mercado Pago). Apenas se confirma el pago, los créditos se cargan solos.' : 'Al elegir se envía tu pedido al administrador por WhatsApp. Cuando valide tu pago, los créditos se cargan solos.'} Los créditos del plan se renuevan cada mes mientras esté vigente.
+            {play ? 'El pago se hace con Google Play. Apenas Google lo confirma, los créditos se cargan solos.' : directo ? `Pagas con ${nombreMediosPago(cfgDirecto)} y subes la captura aquí. Apenas revisamos el pago, tus créditos se cargan solos y te llega un aviso.` : enLinea ? 'Pagas en línea con Yape, tarjeta o transferencia (Mercado Pago). Apenas se confirma el pago, los créditos se cargan solos.' : 'Al elegir se envía tu pedido al administrador por WhatsApp. Cuando valide tu pago, los créditos se cargan solos.'} Los créditos del plan se renuevan cada mes mientras esté vigente.
           </p>}
         </div>
   );

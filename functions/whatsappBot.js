@@ -219,7 +219,7 @@ export function crearWhatsappBot({ onRequest, onCall, HttpsError, db, Anthropic,
     let img;
     try { img = await bajarImagen(mediaId); } catch (e) { console.error('[WA] media', e?.message); }
     const lectura = img ? await leerCaptura(img).catch(() => ({ esPago: false })) : { esPago: false };
-    if (!lectura?.esPago) return { texto: 'Recibí tu imagen 🙌 pero no logro ver un pago en ella. ¿Me envías la captura completa del Yape o Plin (donde se vea el monto y el N° de operación)?' };
+    if (!lectura?.esPago) return { texto: 'Recibí tu imagen 🙌 pero no logro ver un pago en ella. ¿Me envías la captura completa del pago (donde se vea el monto y el N° de operación)?' };
     const quiere = conv.pedido || {};
     const tipo = quiere.tipo === 'creditos' ? 'creditos' : 'acceso';
     const pack = tipo === 'creditos' ? aj.packs.find((p) => Number(p.creditos) === Number(quiere.creditos)) || aj.packs.find((p) => Math.abs(Number(p.precioSoles) - Number(lectura.monto)) < 0.01) : null;

@@ -35,6 +35,30 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-15 · Membresía pensada para vender + cobro solo con Yape (Luis Zap*) y transferencia bancaria
+- Pedido del dueño: "mejorar la membresía porque no hay ventas todavía"; no tiene Plin; a nombre de "Luis Zap*"; aceptar
+  también transferencia bancaria (usuarios de otros países) sin incumplir las normas de Google Play.
+- Qué se hizo:
+  - Membresía: arriba la oferta ("Saca la foto de tu plano y el techo se arma solo", primera recarga doble 40 créditos por
+    S/ 3.90, "Recargar ahora" / "Ver planes") con un dibujo de plano a mano → techo armado; beneficios con el tiempo que
+    ahorran; recargas ANTES que los planes; costo "≈ S/ x por plano a mano" en cada plan; tarjeta de la Academia;
+    "licencia para siempre" pasa al final; en el celular, botón fijo "40 créditos por S/ 3.90 · Recargar".
+  - Se quitó la casilla "Leí y acepto" que dejaba las recargas en gris: ahora "Al comprar aceptas las condiciones" (enlace).
+  - Texto corregido: ya no dice "coordinas el pago por WhatsApp" (se paga ahí mismo).
+  - Cobro directo: Plin se oculta si no hay número; los textos dicen "Yape" o "Yape o transferencia bancaria" según lo
+    configurado (`nombreMediosPago`). Nuevo medio **transferencia bancaria** (banco, titular, cuenta, CCI, SWIFT, moneda,
+    indicaciones) en `config_ia/pago_directo.transferencia`; editor en Configuración → Planes y créditos; en la ventana de
+    pago, pestaña "Transferencia" con botones Copiar y aviso para pagos desde otro país. Compras muestran "Transferencia · voucher".
+    Como Yape, NUNCA en la app de Android (Google Play).
+- Archivos principales: `src/components/MembresiaView.tsx`, `PlanesIAModal.tsx`, `VentanaPagoDirecto.tsx`, `VentasIAPanel.tsx`,
+  `TarjetaGooglePlay.tsx`, `AdminPurchasesView.tsx`, `academia/AcademiaTienda.tsx`, `src/lib/pagoDirecto.ts`,
+  `functions/index.js` (aviso "(transferencia)"), `functions/whatsappBot.js` (texto).
+- Cómo se probó: tsc 0 errores; capturas antes/después en celular y PC (inicio de Membresía, recargas y botón fijo, ventana
+  de pago Yape y transferencia, editor del admin).
+- Versión: se compila en esta misma vuelta.
+- Pendiente / a vigilar: el dueño debe poner en el panel su Yape (titular "Luis Zap*"), borrar Plin y, si quiere, su cuenta
+  bancaria; confirmar que "Funciones inteligentes activadas para usuarios" esté encendido.
+
 ## 2026-11-15 · Academia: Recursos integrado (Mis plantillas), diseño A y pestañas sin cuadro en otros apartados
 - Pedido del dueño: no le gustó la franja de pestañas "como un cuadrado"; quiere el contenido integrado. Eligió el diseño A
   y pidió juntar "Recursos / plantillas" dentro de la Academia y revisar que los otros apartados se integren igual.

@@ -200,8 +200,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Pago en línea web/PC (nunca en la app Android): Mercado Pago (APAGADO: exports comentados en index.js para no pedir el secreto al desplegar), `functions/pagoEnLinea.js` (`crearPagoEnLinea`,
   `webhookMercadoPago`), secreto `MP_ACCESS_TOKEN`, interruptor `config_ia/planes.pagoEnLinea`; pedidos en `pagos_en_linea`
   (solo servidor). Prueba: `cd seguridad && npm run test:pago`. Vuelta con `?pago=ok|pendiente|error`.
-- Cobro DIRECTO Yape/Plin (web/PC, prioridad sobre Mercado Pago y WhatsApp): `config_ia/pago_directo` {activo, yape/plin
-  {numero, titular, qr (dataURL)}} (`lib/pagoDirecto.ts`, editor en `VentasIAPanel`). El usuario sube la captura
+- Cobro DIRECTO Yape/Plin/transferencia (web/PC, prioridad sobre Mercado Pago y WhatsApp): `config_ia/pago_directo` {activo, yape/plin
+  {numero, titular, qr (dataURL)}, transferencia {banco, titular, cuenta, cci, swift, moneda, notas}} (el dueño: solo Yape a nombre
+  "Luis Zap*", sin Plin; textos con `nombreMediosPago`). Membresía: oferta arriba, sin casilla de condiciones (comprar = aceptar) (`lib/pagoDirecto.ts`, editor en `VentasIAPanel`). El usuario sube la captura
   (`VentanaPagoDirecto`) → `purchases` pendiente con `voucherUrl` (dataURL), `metodo`, `origen: 'pago_directo'`. El admin
   la lee gratis (LectorComprobante, N° de operación repetido) y valida. Push: `avisoCompraNueva` (admin) y
   `avisoCompraEstado` (solo el comprador; ya NO se publica un comunicado general al validar). DEV: `__pagoDirectoSimulado`.

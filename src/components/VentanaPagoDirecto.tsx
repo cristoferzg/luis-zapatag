@@ -1,25 +1,33 @@
-// Ventana "Paga con Yape o Plin": QR y número del dueño, monto exacto y subir la captura.
+// Ventana de pago directo: Yape / Plin (QR y número) o transferencia bancaria (datos de la cuenta,
+// también para usuarios de otros países), monto exacto y subir la captura o el voucher.
 // Al enviar queda una compra pendiente con el comprobante; el admin la valida y los
 // créditos (o el plan) se cargan solos. Ver src/lib/pagoDirecto.ts.
 import { useRef, useState } from 'react';
-import { X, Copy, Check, Upload, Loader2, Smartphone, ShieldCheck } from 'lucide-react';
-import { ConfigPagoDirecto, PedidoDirecto, comprimirImagen, enviarComprobante } from '../lib/pagoDirecto';
+import { X, Copy, Check, Upload, Loader2, Smartphone, ShieldCheck, Landmark } from 'lucide-react';
+import { ConfigPagoDirecto, PedidoDirecto, MetodoDirecto, comprimirImagen, enviarComprobante, metodosListos } from '../lib/pagoDirecto';
 import { precioPEN } from '../lib/currency';
 import { getAICtx } from '../lib/aiAccess';
 
 export default function VentanaPagoDirecto({ cfg, pedido, onClose, onEnviado }: { cfg: ConfigPagoDirecto; pedido: PedidoDirecto; onClose: () => void; onEnviado: () => void }) {
-  const metodos = (['yape', 'plin'] as const).filter(m => cfg[m]?.numero);
-  const [metodo, setMetodo] = useState<'yape' | 'plin'>(metodos[0] || 'yape');
-  const cuenta = cfg[metodo];
-  const [copiado, setCopiado] = useState(false);
+  const metodos = metodosListos(cfg);
+  const [metodo, setMetodo] = useState<MetodoDirecto>(metodos[0] || 'yape');
+  const cuenta = metodo === 'transferencia' ? undefined : cfg[metodo];
+  const banco = cfg.transferencia;
+  const [copiado, setCopiado] = useState<string | false>(false);
   const [captura, setCaptura] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [listo, setListo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const color = metodo === 'yape' ? { bg: 'bg-[#742284]', txt: 'text-[#742284]', borde: 'border-[#742284]' } : { bg: 'bg-[#00b2a9]', txt: 'text-[#008c85]', borde: 'border-[#00b2a9]' };
+  const color = metodo === 'yape' ? { bg: 'bg-[#742284]', txt: 'text-[#742284]', borde: 'border-[#742284]' }
+    : metodo === 'plin' ? { bg: 'bg-[#00b2a9]', txt: 'text-[#008c85]', borde: 'border-[#00b2a9]' }
+    : { bg: 'bg-slate-800', txt: 'text-slate-900', borde: 'border-slate-800' };
+  const ETIQ: Record<MetodoDirecto, string> = { yape: 'Yape', plin: 'Plin', transferencia: 'Transferencia' };
 
-  const copiar = async () => { try { await navigator.clipboard.writeText((cuenta?.numero || '').replace(/\s/g, '')); setCopiado(true); setTimeout(() => setCopiado(false), 1800); } catch { /* sin portapapeles */ } };
+  const copiar = async (txt: string, clave = 'num') => { try { await navigator.clipboard.writeText(txt.replace(/\s/g, '')); setCopiado(clave); setTimeout(() => setCopiado(false), 1800); } catch { /* sin portapapeles */ } };
+  const BotonCopiar = ({ txt, clave }: { txt: string; clave: string }) => (
+    <button onClick={() => copiar(txt, clave)} className="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 cursor-pointer">{copiado === clave ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}{copiado === clave ? 'Copiado' : 'Copiar'}</button>
+  );
   const elegir = async (f?: File) => {
     if (!f) return; setError(null);
     try { setCaptura(await comprimirImagen(f)); } catch { setError('No se pudo leer la imagen. Prueba con otra captura.'); }
@@ -53,31 +61,43 @@ export default function VentanaPagoDirecto({ cfg, pedido, onClose, onEnviado }: 
         ) : (
           <div className="p-5 space-y-4">
             {metodos.length > 1 && (
-              <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-2xl">
+              <div className={`grid ${metodos.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-1 p-1 bg-slate-100 rounded-2xl`}>
                 {metodos.map(m => (
-                  <button key={m} onClick={() => setMetodo(m)} className={`py-2 rounded-xl text-sm font-black cursor-pointer ${metodo === m ? (m === 'yape' ? 'bg-[#742284] text-white' : 'bg-[#00b2a9] text-white') : 'text-slate-500'}`}>{m === 'yape' ? 'Yape' : 'Plin'}</button>
+                  <button key={m} onClick={() => setMetodo(m)} className={`py-2 rounded-xl text-sm font-black cursor-pointer ${metodo === m ? (m === 'yape' ? 'bg-[#742284] text-white' : m === 'plin' ? 'bg-[#00b2a9] text-white' : 'bg-slate-800 text-white') : 'text-slate-500'}`}>{ETIQ[m]}</button>
                 ))}
               </div>
             )}
 
             <div className="flex gap-2 items-start"><span className={`w-6 h-6 rounded-full ${color.bg} text-white text-xs font-black flex items-center justify-center shrink-0`}>1</span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-slate-800">Yapea o plinea el monto exacto</p>
+                {metodo === 'transferencia' && banco ? (<>
+                  <p className="text-sm font-black text-slate-800">Transfiere el monto exacto a esta cuenta</p>
+                  <div className="mt-2 rounded-2xl border border-slate-200 divide-y divide-slate-100">
+                    <div className="p-3"><p className="text-[11px] text-slate-500 flex items-center gap-1"><Landmark className="w-3.5 h-3.5" />Banco</p><p className="text-sm font-black text-slate-900">{banco.banco}{banco.moneda ? ` · cuenta en ${banco.moneda}` : ''}</p><p className="text-[11px] text-slate-600">A nombre de <b>{banco.titular}</b></p></div>
+                    {([['Número de cuenta', banco.cuenta, 'cta'], ['CCI (desde otro banco del Perú)', banco.cci, 'cci'], ['Código SWIFT (desde otro país)', banco.swift, 'swift']] as const).filter(([, v]) => v).map(([t, v, k]) => (
+                      <div key={k} className="p-3 flex items-center justify-between gap-2"><div className="min-w-0"><p className="text-[11px] text-slate-500">{t}</p><p className="text-base font-black text-slate-900 break-all">{v}</p></div><BotonCopiar txt={v as string} clave={k} /></div>
+                    ))}
+                  </div>
+                  {banco.notas && <p className="mt-2 text-[11px] text-slate-600 whitespace-pre-line">{banco.notas}</p>}
+                  <p className="mt-2 text-[11px] text-slate-500">Si pagas desde otro país, envía el equivalente a {precioPEN(pedido.amount)}; las comisiones de tu banco corren por tu cuenta.</p>
+                </>) : (<>
+                <p className="text-sm font-black text-slate-800">{metodos.filter(m => m !== 'transferencia').length > 1 ? 'Yapea o plinea el monto exacto' : metodo === 'plin' ? 'Plinea el monto exacto' : 'Yapea el monto exacto'}</p>
                 {cuenta?.qr && <img src={cuenta.qr} alt={`QR de ${metodo}`} className={`mt-2 w-44 h-44 mx-auto object-contain rounded-2xl border-4 ${color.borde} bg-white`} />}
                 <div className="mt-2 rounded-2xl border border-slate-200 p-3 flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[11px] text-slate-500 flex items-center gap-1"><Smartphone className="w-3.5 h-3.5" />Número de {metodo === 'yape' ? 'Yape' : 'Plin'}</p>
+                    <p className="text-[11px] text-slate-500 flex items-center gap-1"><Smartphone className="w-3.5 h-3.5" />Número de {ETIQ[metodo]}</p>
                     <p className={`text-xl font-black ${color.txt}`}>{cuenta?.numero}</p>
                     <p className="text-[11px] text-slate-600 truncate">A nombre de <b>{cuenta?.titular}</b></p>
                   </div>
-                  <button onClick={copiar} className="shrink-0 inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 cursor-pointer">{copiado ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}{copiado ? 'Copiado' : 'Copiar'}</button>
+                  <BotonCopiar txt={cuenta?.numero || ''} clave="num" />
                 </div>
+                </>)}
               </div>
             </div>
 
             <div className="flex gap-2 items-start"><span className={`w-6 h-6 rounded-full ${color.bg} text-white text-xs font-black flex items-center justify-center shrink-0`}>2</span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-slate-800">Sube la captura de tu pago</p>
+                <p className="text-sm font-black text-slate-800">{metodo === 'transferencia' ? 'Sube la foto o captura del voucher' : 'Sube la captura de tu pago'}</p>
                 <input ref={input} data-captura type="file" accept="image/*" className="hidden" onChange={e => elegir(e.target.files?.[0])} />
                 {captura ? (
                   <div className="mt-2 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-2">

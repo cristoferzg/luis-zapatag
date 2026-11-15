@@ -9,7 +9,7 @@ import { Download, Smartphone, X, Coins } from 'lucide-react';
 import { abrirEnlace, enlaceAndroid, plataforma, appEnCuenta, appInstaladaEnEsteCelular } from '../lib/appDescargas';
 import { safeStorage } from '../lib/storageManager';
 import { iaVisibleParaUI } from '../lib/aiAccess';
-import { leerPagoDirecto, pagoDirectoListo } from '../lib/pagoDirecto';
+import { leerPagoDirecto, pagoDirectoListo, nombreMediosPago } from '../lib/pagoDirecto';
 
 const K_RECARGA = 'innova_tarjeta_recarga_web_oculta';
 const irARecargas = () => {
@@ -27,7 +27,8 @@ export default function TarjetaGooglePlay() {
   // ¿Se puede recargar aquí con Yape/Plin? (IA activa para usuarios y cobro directo listo)
   const [yapeListo, setYapeListo] = useState(false);
   const [recargaOculta, setRecargaOculta] = useState(() => Number(safeStorage.getItem(K_RECARGA, 0)) > Date.now());
-  useEffect(() => { leerPagoDirecto().then(c => setYapeListo(pagoDirectoListo(c))); }, []);
+  const [medios, setMedios] = useState('Yape');
+  useEffect(() => { leerPagoDirecto().then(c => { setYapeListo(pagoDirectoListo(c)); setMedios(nombreMediosPago(c)); }); }, []);
   useEffect(() => {
     const f = () => setYaLaTiene(v => v || appEnCuenta());
     window.addEventListener('innova_app_en_cuenta', f);
@@ -40,7 +41,7 @@ export default function TarjetaGooglePlay() {
   const btnYape = (
     <button type="button" onClick={irARecargas}
       className="inline-flex items-center gap-2 h-10 px-4 rounded-xl bg-[#742284] text-white text-sm font-bold cursor-pointer active:opacity-90">
-      <Coins className="w-4 h-4" /> Recargar con Yape o Plin
+      <Coins className="w-4 h-4" /> Recargar con {medios}
     </button>
   );
   // Ya tiene la app: solo el recordatorio de recargar aquí (si el cobro directo está listo).
@@ -50,8 +51,8 @@ export default function TarjetaGooglePlay() {
       <div className="relative p-4 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-teal-50 shadow-sm flex items-center gap-4">
         <div className="p-3 bg-[#742284] text-white rounded-xl shrink-0"><Coins className="w-6 h-6" /></div>
         <div className="min-w-0 flex-1 pr-6">
-          <p className="text-sm font-black text-slate-900">Recarga créditos con Yape o Plin aquí</p>
-          <p className="text-xs text-slate-600">Desde el navegador pagas con Yape o Plin en segundos. Tus créditos son los mismos: los usas en la app y en la computadora.</p>
+          <p className="text-sm font-black text-slate-900">Recarga créditos con {medios} aquí</p>
+          <p className="text-xs text-slate-600">Desde el navegador pagas con {medios} en segundos. Tus créditos son los mismos: los usas en la app y en la computadora.</p>
           <div className="mt-2">{btnYape}</div>
         </div>
         <button type="button" onClick={() => { safeStorage.setItem(K_RECARGA, Date.now() + 30 * 864e5); setRecargaOculta(true); }} aria-label="Ocultar" title="Ocultar"
@@ -72,7 +73,7 @@ export default function TarjetaGooglePlay() {
           </button>
           {conYape && btnYape}
         </div>
-        {conYape && <p className="mt-2 text-[11px] text-slate-500">💡 Para recargar créditos con <b>Yape o Plin</b>, hazlo desde aquí (el navegador). Son los mismos créditos en la app y en la computadora.</p>}
+        {conYape && <p className="mt-2 text-[11px] text-slate-500">💡 Para recargar créditos con <b>{medios}</b>, hazlo desde aquí (el navegador). Son los mismos créditos en la app y en la computadora.</p>}
       </div>
       <button type="button" onClick={cerrar} aria-label="Ocultar" title="Ocultar"
         className="absolute top-2 right-2 w-8 h-8 grid place-items-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4" /></button>

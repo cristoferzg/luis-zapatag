@@ -1175,7 +1175,7 @@ export const avisoCompraNueva = onDocumentCreated({ ...opcionesAviso, document: 
   const p = e.data?.data() || {};
   if (p.status !== 'pendiente' || sinPrefijo(p.userId) === 'admin') return;
   const monto = Number(p.amount) > 0 ? ` · S/ ${Number(p.amount).toFixed(2)}` : '';
-  const via = p.metodo === 'yape' ? ' (Yape)' : p.metodo === 'plin' ? ' (Plin)' : '';
+  const via = p.metodo === 'yape' ? ' (Yape)' : p.metodo === 'plin' ? ' (Plin)' : p.metodo === 'transferencia' ? ' (transferencia)' : '';
   await enviarPush({ aAdmin: true }, '💰 Pago por validar' + via, `${p.userName || 'Un usuario'}: ${p.itemName || ''}${monto}`, 'admin_purchases');
 });
 export const avisoCompraEstado = onDocumentUpdated({ ...opcionesAviso, document: 'purchases/{id}' }, async (e) => {

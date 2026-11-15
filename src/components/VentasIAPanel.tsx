@@ -5,11 +5,11 @@
 // (dónde se pierde la gente antes de comprar).
 // =============================================================================
 import { useEffect, useState } from 'react';
-import { TrendingUp, Check, X, CreditCard, Gift, Smartphone, Upload, Save } from 'lucide-react';
+import { TrendingUp, Check, X, CreditCard, Gift, Smartphone, Upload, Save, Landmark } from 'lucide-react';
 import { primeraRecargaDobleActiva, setPrimeraRecargaDoble, CREDITOS_BIENVENIDA, CREDITOS_REFERIDO } from '../lib/aiAccess';
 import { pagoEnLineaDisponible, setPagoEnLinea } from '../lib/pagoEnLinea';
 import { leerEmbudo, PASOS_EMBUDO, type PasoEmbudo } from '../lib/embudoVentas';
-import { leerPagoDirecto, guardarPagoDirecto, pagoDirectoListo, comprimirImagen, type ConfigPagoDirecto, type CuentaPago } from '../lib/pagoDirecto';
+import { leerPagoDirecto, guardarPagoDirecto, pagoDirectoListo, comprimirImagen, metodosListos, type ConfigPagoDirecto, type CuentaPago, type CuentaBanco } from '../lib/pagoDirecto';
 
 /** Número, titular y QR de Yape o de Plin. */
 function CuentaEditor({ nombre, color, c, onChange }: { nombre: string; color: string; c?: CuentaPago; onChange: (c: CuentaPago) => void }) {
@@ -34,6 +34,26 @@ function CuentaEditor({ nombre, color, c, onChange }: { nombre: string; color: s
   );
 }
 
+/** Datos de la cuenta bancaria para transferencias (también desde otros países). */
+function BancoEditor({ c, onChange }: { c?: CuentaBanco; onChange: (c: CuentaBanco) => void }) {
+  const v = c || { banco: '', titular: '', cuenta: '' };
+  const campo = 'w-full mt-0.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-800 outline-none focus:border-slate-400';
+  const f = (k: keyof CuentaBanco, t: string, ph: string) => (
+    <label className="text-[10px] font-bold text-slate-500 uppercase">{t}<input value={(v[k] as string) || ''} onChange={e => onChange({ ...v, [k]: e.target.value })} placeholder={ph} className={campo} /></label>
+  );
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 sm:col-span-2">
+      <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><Landmark className="w-4 h-4" />Transferencia bancaria <span className="font-semibold text-slate-500">(opcional · sirve para usuarios de otros países)</span></p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {f('banco', 'Banco', 'BCP')}{f('titular', 'A nombre de', 'Nombre del titular')}{f('moneda', 'Moneda de la cuenta', 'Soles')}
+        {f('cuenta', 'N° de cuenta', '191-12345678-0-12')}{f('cci', 'CCI', '002-191-...')}{f('swift', 'SWIFT (otros países)', 'BCPLPEPL')}
+      </div>
+      <label className="block text-[10px] font-bold text-slate-500 uppercase">Indicaciones (opcional)<textarea value={v.notas || ''} onChange={e => onChange({ ...v, notas: e.target.value })} rows={2} placeholder="Ej. Desde el extranjero: transferencia internacional en dólares; envía el equivalente." className={campo} /></label>
+      <p className="text-[10px] text-slate-500">Para que aparezca, llena al menos el banco y el número de cuenta. Solo se ofrece en la web y la PC (nunca en la app de Android).</p>
+    </div>
+  );
+}
+
 export default function VentasIAPanel({ iaActiva, googlePlay, onError }: { iaActiva: boolean; comprasEnApp?: boolean; googlePlay: boolean; onError: (e: unknown, accion: string) => void }) {
   const [enLinea, setEnLinea] = useState(pagoEnLineaDisponible());
   const [doble, setDoble] = useState(true);
@@ -48,7 +68,7 @@ export default function VentasIAPanel({ iaActiva, googlePlay, onError }: { iaAct
   const checks: { ok: boolean; t: string; d: string }[] = [
     { ok: iaActiva, t: 'Funciones inteligentes activadas para usuarios', d: 'Sin esto los usuarios no ven créditos ni planes: nadie puede comprar.' },
     { ok: googlePlay, t: 'Cobro con Google Play en la app de Android', d: 'Es la ÚNICA forma de vender dentro de la app (candado de Google Play). Con los productos creados y activos en Play Console, incluida la recarga creditos_20.' },
-    { ok: pagoDirectoListo(directo) || enLinea, t: 'Cobro en la web y la PC (Yape / Plin)', d: 'El usuario paga a tu Yape o Plin y sube la captura en la app; tú validas con un toque en Compras. Sin esto, la compra va por WhatsApp.' },
+    { ok: pagoDirectoListo(directo) || enLinea, t: 'Cobro en la web y la PC (Yape, Plin o transferencia)', d: 'El usuario paga a tu Yape, Plin o cuenta y sube la captura en la app; tú validas con un toque en Compras. Sin esto, la compra va por WhatsApp.' },
   ];
   const listos = checks.filter(c => c.ok).length;
   const total = (k: PasoEmbudo) => embudo.reduce((s, d) => s + (d.datos[k] || 0), 0);
@@ -75,18 +95,19 @@ export default function VentasIAPanel({ iaActiva, googlePlay, onError }: { iaAct
       <div className={`rounded-2xl border p-3 space-y-2.5 ${directo.activo ? 'bg-violet-50 border-violet-200' : 'bg-white border-slate-200'}`}>
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><Smartphone className="w-4 h-4 text-violet-600" />Cobro directo con Yape / Plin: {directo.activo ? <span className="text-emerald-700">ACTIVO</span> : <span className="text-slate-500">APAGADO</span>}</p>
-            <p className="text-[11px] text-slate-500">Web y PC. El dinero llega directo a tu número, sin comisión. Te llega un aviso por cada captura y validas en Administración → Compras.</p>
+            <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><Smartphone className="w-4 h-4 text-violet-600" />Cobro directo (Yape, Plin o transferencia): {directo.activo ? <span className="text-emerald-700">ACTIVO</span> : <span className="text-slate-500">APAGADO</span>}</p>
+            <p className="text-[11px] text-slate-500">Web y PC. El dinero llega directo a tu número o tu cuenta, sin comisión. Deja vacío lo que no uses (por ejemplo Plin). Te llega un aviso por cada captura y validas en Administración → Compras.</p>
           </div>
-          <button className={boton(directo.activo)} disabled={!directo.activo && !(directo.yape?.numero || directo.plin?.numero)}
-            title={!(directo.yape?.numero || directo.plin?.numero) ? 'Primero pon tu número de Yape o Plin' : ''}
+          <button className={boton(directo.activo)} disabled={!directo.activo && !metodosListos(directo).length}
+            title={!metodosListos(directo).length ? 'Primero pon tu número de Yape o los datos de tu cuenta' : ''}
             onClick={() => guardarDirecto({ ...directo, activo: !directo.activo })}>{directo.activo ? 'Apagar' : 'Activar'}</button>
         </div>
         <div className="grid sm:grid-cols-2 gap-2">
           <CuentaEditor nombre="Yape" color="#742284" c={directo.yape} onChange={c => cambiarDirecto({ yape: c })} />
           <CuentaEditor nombre="Plin" color="#00a19a" c={directo.plin} onChange={c => cambiarDirecto({ plin: c })} />
+          <BancoEditor c={directo.transferencia} onChange={c => cambiarDirecto({ transferencia: c })} />
         </div>
-        {!dirGuardado && <button onClick={() => guardarDirecto()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black cursor-pointer"><Save className="w-4 h-4" />Guardar Yape / Plin</button>}
+        {!dirGuardado && <button onClick={() => guardarDirecto()} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black cursor-pointer"><Save className="w-4 h-4" />Guardar datos de cobro</button>}
       </div>
 
       <div className="grid sm:grid-cols-2 gap-2">

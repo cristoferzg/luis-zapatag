@@ -175,7 +175,7 @@ export default function AdminPurchasesView() {
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.c}`}>{t.l}</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border capitalize ${BADGE[purchase.status]}`}>{purchase.status}</span>
-                  {(purchase as any).metodo && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-white ${(purchase as any).metodo === 'yape' ? 'bg-[#742284]' : 'bg-[#00b2a9]'}`}>{(purchase as any).metodo === 'yape' ? 'Yape' : 'Plin'} · captura</span>}
+                  {(purchase as any).metodo && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full text-white ${(purchase as any).metodo === 'yape' ? 'bg-[#742284]' : (purchase as any).metodo === 'transferencia' ? 'bg-slate-800' : 'bg-[#00b2a9]'}`}>{(purchase as any).metodo === 'yape' ? 'Yape' : (purchase as any).metodo === 'transferencia' ? 'Transferencia' : 'Plin'} · {(purchase as any).metodo === 'transferencia' ? 'voucher' : 'captura'}</span>}
                   {esPrueba(purchase) && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Prueba del admin</span>}
                   {purchase.createdAt && <span className="text-[10px] text-slate-400">{fecha(purchase.createdAt)}</span>}
                   {purchase.nroOperacion && <span className="text-[10px] font-mono font-bold text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">Op. {purchase.nroOperacion}{purchase.montoPagado !== undefined ? ` · S/ ${S(purchase.montoPagado)}` : ''}</span>}
