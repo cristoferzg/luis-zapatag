@@ -62,6 +62,11 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
   const [busca, setBusca] = useState('');
   const [detalle, setDetalle] = useState<CourseCategory | null>(null);
   const [editor, setEditor] = useState(false);
+  // Mientras llegan los cursos de internet (la primera vez tardan unos segundos) se muestran tarjetas
+  // "fantasma" con «Cargando cursos…» en vez del espacio vacío. Si en 15 s no llega nada, se avisa.
+  const [esperaVencida, setEsperaVencida] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setEsperaVencida(true), 15000); return () => clearTimeout(t); }, []);
+  const cargandoCursos = cursos.length === 0 && !esperaVencida;
 
   useEffect(() => escucharPaquetes(setPaquetes), []);
   useEffect(() => { if (vende) leerPagoDirecto().then(setCfgPago); }, [vende]);
@@ -140,7 +145,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
-            {[[nCursos, 'cursos'], [nClases, 'clases en video'], [nPlantillas || recursosVis.length, nPlantillas ? 'plantillas' : 'recursos']].map(([n, t]) => (
+            {[[cargandoCursos ? '…' : nCursos, 'cursos'], [cargandoCursos ? '…' : nClases, 'clases en video'], [nPlantillas || recursosVis.length, nPlantillas ? 'plantillas' : 'recursos']].map(([n, t]) => (
               <div key={String(t)} className="rounded-[16px] ring-1 ring-white/10 p-3 sm:p-4 text-center" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <p className="text-2xl sm:text-3xl font-black" style={{ color: '#fff' }}>{n}</p><p className="text-[11px] font-bold" style={{ color: '#cbd5e1' }}>{t}</p>
               </div>
@@ -230,7 +235,19 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
         <section id="cursos" className="space-y-3">
           <div><h2 className={`text-lg sm:text-xl font-black ${tx} flex items-center gap-2`}><PlayCircle className="w-5 h-5 text-indigo-600" />Cursos</h2>
             <p className={`text-xs ${sub}`}>Toca un curso para ver sus clases y su material.</p></div>
-          {cursosVis.length === 0 ? <p className="text-sm text-slate-500 bg-white rounded-xl border border-slate-200 p-6 text-center">No hay cursos que coincidan.</p> : (
+          {cargandoCursos ? (
+            <div aria-busy="true">
+              <p className="text-sm font-black text-indigo-700 flex items-center gap-2 mb-3"><span className="w-4 h-4 rounded-full border-2 border-indigo-200 border-t-indigo-600 animate-spin" />Cargando cursos…</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-pulse">
+                    <div className="aspect-video bg-slate-200" />
+                    <div className="p-4 space-y-2.5"><div className="h-4 bg-slate-200 rounded w-3/4" /><div className="h-3 bg-slate-100 rounded w-full" /><div className="h-3 bg-slate-100 rounded w-2/3" /><div className="h-5 bg-slate-200 rounded w-1/3 mt-3" /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : cursosVis.length === 0 ? <p className="text-sm text-slate-500 bg-white rounded-xl border border-slate-200 p-6 text-center">{cursos.length ? 'No hay cursos que coincidan.' : 'Todavía no hay cursos. Revisa tu conexión a internet o vuelve a entrar en un momento.'}</p> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {cursosVis.map(c => {
                 const cl = clasesDe(c), acceso = tieneCurso(c), pr = precioCurso(c), gratis = c.isFree !== false || !(Number(c.priceSoles) > 0);

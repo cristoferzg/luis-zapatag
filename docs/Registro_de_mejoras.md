@@ -53,6 +53,13 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-15 · Academia: «Cargando cursos…» mientras llegan
+- Pedido del dueño: la Tienda parecía vacía unos segundos (los cursos llegan de internet).
+- Qué se hizo: tarjetas "fantasma" animadas con «Cargando cursos…» y cifras "…" mientras llegan; si en 15 s no llega
+  nada, aviso de revisar la conexión (antes: "No hay cursos que coincidan").
+- Archivo: `academia/AcademiaTienda.tsx`. Pruebas: tsc 0 errores; capturas antes/después (celular).
+- Versión: se compila junto con la optimización del 3D.
+
 ## 2026-11-15 · Techos 3D más rápido en techos grandes (y en PCs con Windows 7/8)
 - Pedido del dueño: su techo parabólico 23 × 35 m (2 792 piezas, 1 115 nudos) se ponía lento en el 3D y al desplazarse.
 - Causa: cada pieza era un objeto aparte con material clonado y contorno propio (≈ 6 800 dibujos por imagen, 2 804
