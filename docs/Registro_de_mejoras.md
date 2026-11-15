@@ -23,10 +23,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Techos 3D: botón de cambios recomendados, arriostres, rueda del mouse, barra y cinta LED |
-| Última versión compilada | Web **2026.11.14.2313** · Android **código 26110420** (15/11/2026: pantallas anchas; antes 26110419 con Academia, Membresía y pagos) |
+| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última versión compilada | Web **2026.11.14.2336** · Android **código 26110421** (15/11/2026: arreglos de Techos 3D; incluye pantallas anchas, Academia, Membresía y pagos) |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
-| Próximo código Android | **26110421** (el contador sigue +1 desde aquí; nunca bajar de 26110420) |
+| Próximo código Android | **26110422** (el contador sigue +1 desde aquí; nunca bajar de 26110421) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026), conector "Academia Innova". 5 cursos con portada + 2 PDF. **Naves Parabólicas: 9 clases subidas** (la 1 gratis). Soldadura: clase 1 (gratis, estilo nuevo) subida. 3 plantillas de naves subidas a Recursos Técnicos (S/ 9.90; el MCP acepta `plantilla.datosUrl`, desplegado 15/11/2026). Videos en la rama `academia-videos` |
@@ -53,7 +53,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Archivos: `techos/TechosViewer3D.tsx`, `techos/useTechosCadEngineState.ts`, `techos/memoriaCalculo.ts`, `techos/PropiedadesCad.tsx`.
 - Cómo se probó: tsc 0 errores; navegador: botón (NO CUMPLE → CUMPLE), casilla LED, zoom con rueda, barra a 1500 px;
   capturas antes/después.
-- Versión: sin compilar aún (próximo Android 26110421).
+- Versión: web 2026.11.14.2336 · Android código 26110421 (llave 01:D3…74:33). Manual sin cambios.
 - Pendiente: el diseño del dueño que ya quedó con arriostres como correas se repara al tocar el botón nuevo (o con «Atrás»).
 
 ## 2026-11-15 · Pantallas anchas: la Academia de borde a borde y más ancho en todos los apartados
