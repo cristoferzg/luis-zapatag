@@ -107,13 +107,14 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
   - Catálogo de 5 cursos de pago (`contenido/academia/catalogo.json`): precios bajados a pedido del dueño: Naves Parabólicas S/ 79 (antes 119), Estructuras Metálicas S/ 59 (antes 89), Soldadura Estructural S/ 49 (antes 79), Carpintería Metálica S/ 39 (antes 59), Lectura de Planos S/ 29 (antes 49); plantillas S/ 9.90 (antes 19.90), con el temario de clases (la 1.ª de cada curso, gratis de muestra).
   - MCP ampliado a Recursos Técnicos: `listar_recursos` y `guardar_recurso` (archivos, planos y plantillas prediseñadas de Techos/Carpintería/Drywall).
   - Video de Naves Parabólicas · Clase 1 rehecho a pedido del dueño (7:41: voz más ágil con música, ejemplo 15×30 m, práctica con pantallas reales de Techos Metálicos, errores y reto).
+  - Curso Naves Parabólicas COMPLETO en video: 9 clases (≈ 48 min) con teoría animada, ejemplos con números del motor de InnovApp (15 × 30 m), pantallas reales de Techos Metálicos, errores comunes y retos encadenados. Videos en `contenido/academia/videos/naves-clase-N.mp4`; `cargar.mjs` crea las clases.
   - Compatibilidad con Techos Metálicos: flecha óptima 0.14 L y nombres del módulo en materiales y videos; tabla de perfiles = catálogo de la app; 3 plantillas de naves parabólicas (12×24, 15×30, 20×40) generadas con el motor real y verificadas (CUMPLE) para Recursos Técnicos, con portada 3D.
   - 5 portadas 1280×720 con la marca y 10 PDF de material (tablas de electrodos, trazo de arcos, perfiles y pesos, checklists, guía de medidas, hoja de despiece, simbología AWS, glosario).
 - Archivos principales: `functions/mcpCursos.js`, `functions/index.js` (export), `seguridad/mcpCursos.test.mjs`, `contenido/academia/*`.
 - Cómo se probó: `npm run test:mcp` (base y Storage simulados) y cliente MCP oficial contra el servidor local (listar herramientas, crear curso, listar).
 - Versión: sin compilar (no cambia la app; solo una función nueva).
 - Commit(s): ver rama.
-- Pendiente / a vigilar: desplegar la función y la clave; correr `contenido/academia/cargar.mjs` (o pedírselo a la IA con el conector); grabar los videos de las clases y subirlos con `guardar_clase`.
+- Pendiente / a vigilar: desplegar la función y la clave; correr `contenido/academia/cargar.mjs` (o pedírselo a la IA con el conector); grabar los videos de los otros 4 cursos (Soldadura, Estructuras, Carpintería, Planos) y adaptar Carpintería a su módulo.
 
 ---
 ## 2026-11-14 · Paquete de 11 mejoras (despiece, presupuesto, ingeniería, planos, presentación)
