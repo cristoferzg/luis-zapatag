@@ -81,6 +81,7 @@ interface UsabilidadVideosViewProps {
   isAdmin?: boolean;
   currentSettings?: any;
   currentUser?: any; // The logged-in worker / employeeUser
+  cursoInicial?: string | null; // abrir directo este curso (desde la Tienda de la Academia)
 }
 
 function getYoutubeEmbedUrl(url: string) {
@@ -98,7 +99,8 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   setVideos,
   isAdmin = false,
   currentSettings: _currentSettings,
-  currentUser
+  currentUser,
+  cursoInicial = null,
 }) => {
   const [usuariosList] = useFirestoreArraySync<SystemUser>('usuarios', 'global', true);
   const [dbVideos, setDbVideos] = useFirestoreArraySync<TutorialVideo>('tutoriales', 'global', true);
@@ -206,7 +208,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
 
   // Navigation tabs: 'cursos' (Carpetas de Cursos), 'todos' (Todas las clases), 'ofertas' (De Pago / Destacadas), 'admin'
   const [activeTab, setActiveTab] = useState<'cursos' | 'todos' | 'ofertas' | 'admin'>('cursos');
-  const [selectedCourseFolder, setSelectedCourseFolder] = useState<string | null>(null);
+  const [selectedCourseFolder, setSelectedCourseFolder] = useState<string | null>(cursoInicial);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [showCategoryManagerModal, setShowCategoryManagerModal] = useState(false);
 

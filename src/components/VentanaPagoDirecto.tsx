@@ -95,7 +95,7 @@ export default function VentanaPagoDirecto({ cfg, pedido, onClose, onEnviado }: 
               className={`w-full py-3.5 rounded-2xl text-white text-base font-black cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${color.bg}`}>
               {enviando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />} Enviar comprobante
             </button>
-            <p className="text-[11px] text-slate-500 flex items-start gap-1.5"><ShieldCheck className="w-4 h-4 shrink-0 text-slate-400" />Revisamos cada pago (monto y N° de operación) antes de cargar los créditos. Una captura que ya se usó no se acepta.</p>
+            <p className="text-[11px] text-slate-500 flex items-start gap-1.5"><ShieldCheck className="w-4 h-4 shrink-0 text-slate-400" />Revisamos cada pago (monto y N° de operación) antes de habilitar tu compra. Una captura que ya se usó no se acepta.</p>
           </div>
         )}
       </div>

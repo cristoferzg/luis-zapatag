@@ -79,6 +79,7 @@ const ObraIntegralView = lazy(() => import('./components/ObraIntegralView'));
 const AcabadosView = lazy(() => import('./components/AcabadosView'));
 const BibliotecaPremiumView = lazy(() => import('./components/BibliotecaPremiumView'));
 const UsabilidadVideosView = lazy(() => import('./components/UsabilidadVideosView'));
+const AcademiaView = lazy(() => import('./components/academia/AcademiaView'));
 
 export * from './types';
 import { ViewType, Project, Client, FinanceRecord, SystemUser, SystemConfig, GlobalNotification } from './types';
@@ -1646,7 +1647,7 @@ export default function App() {
   const [cursos, setCursos] = useFirestoreArraySync<CourseCategory>('cursos', activeUid, true, isAdmin, enVista('usabilidad', 'settings'));
   const [tickets, setTickets] = useFirestoreArraySync<Ticket>('tickets', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
   const [asesorias, setAsesorias] = useFirestoreArraySync<Asesoria>('asesorias', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
-  const [biblioteca, setBiblioteca] = useFirestoreArraySync<BibliotecaItem>('biblioteca', activeUid, true, isAdmin, enVista('biblioteca', 'settings'));
+  const [biblioteca, setBiblioteca] = useFirestoreArraySync<BibliotecaItem>('biblioteca', activeUid, true, isAdmin, enVista('biblioteca', 'usabilidad', 'settings'));
   const [tutoriales, setTutoriales] = useFirestoreArraySync<TutorialVideo>('tutoriales', activeUid, true, isAdmin, enVista('usabilidad', 'settings'));
   const [todosLosComunicados, setGlobalNotifs] = useFirestoreArraySync<GlobalNotification>('notificaciones', 'global', true);
   // Los avisos viejos de compras (se publicaban para todos) no se muestran en el carrusel ni en la campana.
@@ -2464,12 +2465,19 @@ export default function App() {
         );
       case 'usabilidad':
         return (
-          <UsabilidadVideosView 
-            videos={tutoriales}
-            setVideos={setTutoriales}
-            isAdmin={isAdmin}
-            currentSettings={currentSettings}
-            currentUser={user}
+          <AcademiaView
+            cursos={cursos} tutoriales={tutoriales} biblioteca={biblioteca} isAdmin={isAdmin} currentUser={user}
+            onIrRecursos={() => setCurrentView('biblioteca' as ViewType)}
+            renderClases={(cursoInicial) => (
+              <UsabilidadVideosView
+                videos={tutoriales}
+                setVideos={setTutoriales}
+                isAdmin={isAdmin}
+                currentSettings={currentSettings}
+                currentUser={user}
+                cursoInicial={cursoInicial}
+              />
+            )}
           />
         );
       case 'membresia': return <MembresiaView isAdmin={isAdmin} />;

@@ -6,6 +6,8 @@ import type { CourseCategory, TutorialVideo } from './UsabilidadVideosView';
 import { grantAIPlan, grantCreditos } from '../lib/aiAccess';
 import { precioPEN } from '../lib/currency';
 import { leerComprobante } from '../lib/pagoDirecto';
+import { esCompraPaquete, leerPaquetes } from '../lib/paquetesAcademia';
+import type { BibliotecaItem } from './BibliotecaPremiumView';
 
 interface Purchase {
   id: string;
@@ -25,6 +27,7 @@ export default function AdminPurchasesView() {
   const [purchases] = useFirestoreArraySync<Purchase>('purchases', 'admin', true);
   const [cursos] = useFirestoreArraySync<CourseCategory>('cursos', 'admin', true);
   const [tutoriales] = useFirestoreArraySync<TutorialVideo>('tutoriales', 'admin', true);
+  const [biblioteca] = useFirestoreArraySync<BibliotecaItem>('biblioteca', 'admin', true);
   const [selectedVoucher, setSelectedVoucher] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Purchase['status']>('pendiente');
   const [busca, setBusca] = useState('');
@@ -62,6 +65,19 @@ export default function AdminPurchasesView() {
       if (n > 0) { const suma = await grantCreditos(uid, n); if (suma > n) alert(`Primera recarga de este usuario: se sumaron ${suma} créditos (el doble de ${n}).`); }
       return;
     }
+    // 0c) ¿Es un PAQUETE de la Academia? (itemId = 'paq_<id>') → todos sus cursos y recursos.
+    const darCurso = async (c: CourseCategory) => updateRecord('cursos', c.id, { ...c, allowedUserIds: Array.from(new Set([...(c.allowedUserIds || []), uid])) });
+    const darRecurso = async (r: BibliotecaItem) => updateRecord('biblioteca', r.id, { ...r, allowedUserIds: Array.from(new Set([...(r.allowedUserIds || []), uid])) });
+    if (esCompraPaquete(purchase.itemId)) {
+      const paq = (await leerPaquetes()).find(p => `paq_${p.id}` === purchase.itemId);
+      if (!paq) { alert('No se encontró el paquete (¿lo borraste?). Habilita el acceso a mano.'); return; }
+      for (const id of paq.cursos) { const c = cursos.find(x => x.id === id); if (c) await darCurso(c); }
+      for (const id of paq.recursos) { const r = biblioteca.find(x => x.id === id); if (r) await darRecurso(r); }
+      return;
+    }
+    // 0d) ¿Es una PLANTILLA / RECURSO de la biblioteca?
+    const rec = biblioteca.find(r => r.id === purchase.itemId);
+    if (rec) { await darRecurso(rec); return; }
     // 1) ¿El ítem es un CURSO? (por id o por nombre)
     const curso = cursos.find(c => c.id === purchase.itemId || c.name === purchase.itemName);
     if (curso) {
@@ -100,6 +116,7 @@ export default function AdminPurchasesView() {
   const S = (n: number) => n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const tipoDe = (p: Purchase) => p.itemId?.startsWith('ai_plan_') ? { l: 'Plan IA', Ic: Sparkles, c: 'bg-amber-100 text-amber-700' }
     : p.itemId?.startsWith('ai_creditos_') ? { l: 'Créditos', Ic: Coins, c: 'bg-violet-100 text-violet-700' }
+    : esCompraPaquete(p.itemId) ? { l: 'Paquete', Ic: GraduationCap, c: 'bg-indigo-100 text-indigo-700' }
     : { l: 'Curso / clase', Ic: GraduationCap, c: 'bg-sky-100 text-sky-700' };
   const fecha = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : `${d.toLocaleDateString('es-PE')} · ${d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`; };
   const BADGE: Record<Purchase['status'], string> = { pendiente: 'bg-amber-50 text-amber-700 border-amber-200', validada: 'bg-emerald-50 text-emerald-700 border-emerald-200', rechazada: 'bg-rose-50 text-rose-700 border-rose-200' };

@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Paquete de 11 mejoras (despiece con empalmes, obra civil en presupuesto, dir. Y, modos, anclaje, cimentación, conexiones, PDF, video sismo, exigencia) |
+| Última mejora sin compilar | Academia técnica rediseñada: Tienda con paquetes, cursos, plantillas y compra con Yape/Plin (+ las 11 mejoras de Techos y la lámina E-03) |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -34,6 +34,31 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-14 · Academia técnica rediseñada: Tienda con paquetes, cursos y plantillas
+- Pedido del dueño: vender en la Academia por paquetes (p. ej. 5 cursos por un único precio), que los cursos se vean más
+  atractivos y que los usuarios puedan comprar todo el contenido, plantillas incluidas. Rediseñar la Academia técnica.
+- Qué se hizo:
+  - Academia con dos pestañas: **Tienda** (nueva) y **Mis clases** (el reproductor y la gestión de siempre).
+  - Tienda: portada con cifras (cursos, clases, plantillas), beneficios, buscador, **Paquetes con descuento** (portadas de
+    sus cursos, "Por separado S/ X", "Ahorras N %", "Más vendido"), cursos en tarjetas grandes con portada, nº de clases,
+    materiales, precio con descuento y "Tienes acceso / Pago en revisión", ficha del curso con su temario (candado en lo
+    que falta comprar) y **Plantillas y recursos** de la biblioteca con su precio.
+  - Comprar (curso, paquete o plantilla): en web/PC con **Yape/Plin** (captura → compra pendiente); si el cobro directo no
+    está listo, WhatsApp. En la app de Android **no se vende** (solo se ve lo gratis y lo que ya se tiene).
+  - Editor de paquetes (solo admin, botón "Gestionar paquetes"): nombre, descripción, cursos y plantillas de pago, precio,
+    color, "Más vendido" y visible/oculto. Se guarda en `config_academia/paquetes` (regla existente: lee con PIN, escribe admin).
+  - Validar compras: `paq_<id>` habilita todos los cursos y recursos del paquete; una compra con id de la biblioteca
+    habilita ese recurso/plantilla.
+- Archivos principales: `src/components/academia/AcademiaView.tsx`, `src/components/academia/AcademiaTienda.tsx`,
+  `src/lib/paquetesAcademia.ts`, `src/components/AdminPurchasesView.tsx`, `src/App.tsx`, `src/components/UsabilidadVideosView.tsx`
+  (`cursoInicial`), `src/components/VentanaPagoDirecto.tsx` (texto).
+- Cómo se probó: tsc 0 errores; capturas antes/después en PC y celular (usuario y admin) con datos simulados
+  (`__paquetesSimulados`, `__comprasAcademiaSimuladas`, `__pagoDirectoSimulado`).
+- Versión: sin compilar aún.
+- Commit(s): ver rama.
+- Pendiente / a vigilar: crear los paquetes reales desde "Gestionar paquetes"; incluir `__paquetesSimulados` y
+  `__comprasAcademiaSimuladas` en el grep del dist.
 
 ## 2026-11-14 · Lámina E-03 (detalles de conexiones) rehecha
 - Pedido del dueño: "E-03 está mal replanteado".
