@@ -57,6 +57,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
     Reporte, Carpeta, WhatsApp, Supervisión (ya estaban bien).
   - Prueba de adaptación: 18 apartados medidos en celular chico (360 px), celular (390), tablet (768) y PC (1366):
     nada se sale de la pantalla. Arreglo: en 360 px las pestañas de la Academia se partían en dos líneas.
+  - Barra superior del celular RECTA (sin las esquinas curvas de abajo): sobre la portada oscura de la Academia dejaba
+    una cuña de otro color. Cambio en `src/index.css` (`.app-marca .barra-app`), vale para toda la app.
 - Archivos principales: `src/components/academia/AcademiaView.tsx`, `AcademiaTienda.tsx`, `src/App.tsx`,
   `src/components/BibliotecaPremiumView.tsx` (`sinTitulo`), `src/components/common/PestanasMovil.tsx`, `src/components/ContratosYEPPView.tsx`,
   vistas de módulos (Acabados, Drywall, Electricidad, Gasfitería, Melamina, ObraIntegral, ConcretoMetrados, CatalogoPrecios, techos/TechosModuleView, herreria/HerreriaModuleView, carpinteria/comun/ui).

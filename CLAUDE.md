@@ -152,7 +152,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Diseño de frentes por mueble: `estiloPuerta` (lisa/ranurada/vidrio), `tirador` (barra/boton/gola/push), `colorFrente`
   (bicolor: las piezas llevan `color` y se optimizan con ese tablero). 3D: puertas y cajones se abren (tocar o "Abrir puertas").
 - Pestañas en el celular: integradas (raya de color, sin cuadro blanco; `common/PestanasMovil`). El dueño no quiere
-  franjas de pestañas "como un cuadrado".
+  franjas de pestañas "como un cuadrado". La barra superior del celular es recta (sin curva abajo).
 - Diseñador: en Android el arrastre bloquea el scroll solo si el toque empieza sobre un mueble (`data-mueble`).
 
 ## 3D (WebGL)

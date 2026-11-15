@@ -31,7 +31,7 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-siz
 /* Barra superior: azul de la marca, sólida */
 .app-marca .barra-app {
   height: auto !important; min-height: 64px; padding: 10px 16px 12px !important; gap: 12px !important;
-  background: rgb(var(--marca-azul)) !important; border-radius: 0 0 20px 20px;
+  background: rgb(var(--marca-azul)) !important; border-radius: 0; /* recta: empalma limpio con cualquier contenido (pedido del dueño, 15/11/2026) */
   box-shadow: 0 2px 6px rgba(var(--marca-azul), .25) !important; z-index: 30;
 }
 .app-marca .barra-app img { width: 40px !important; height: 40px !important; border: none !important; border-radius: 12px !important; padding: 3px !important; background: #fff !important; }
