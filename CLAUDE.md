@@ -131,7 +131,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   "llave_google_play.zip" → `innovapp-upload.jks`, alias `innovapp`, creada el 04/11/2026, SHA-256 01:D3:26:…:74:33; la
   contraseña está en su LEEME_llave_google_play.txt (la misma para almacén y llave). Al compilar, PEDIRLE al dueño ese ZIP
   (no inventar otra llave). La llave del 10/11 (alias innovapp-upload, 95:A5:…) NO está registrada: no usarla.
-  Nunca subir llaves al repo. Si Maven Central da 429, usar el espejo de Google (~/.gradle/init.d con
+  Nunca subir llaves al repo. SUBIDA AUTOMÁTICA: `.github/workflows/subir-play.yml` (workflow_dispatch; Claude lo lanza con la
+  herramienta de GitHub `actions_run_trigger`): compila, firma con los secretos KEYSTORE_BASE64/KEYSTORE_PASSWORD, verifica la huella
+  01:D3…74:33 y sube a Prueba interna con PLAY_SERVICE_ACCOUNT_JSON. Antes: subir codigo-version.txt y hacer push. Si Maven Central da 429, usar el espejo de Google (~/.gradle/init.d con
   maven-central.storage-download.googleapis.com). SDK: /opt/android-sdk + android/local.properties.
 
 ## Compras con Google Play (app Android)
