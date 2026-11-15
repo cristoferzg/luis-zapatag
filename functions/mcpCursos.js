@@ -135,9 +135,9 @@ export const HERRAMIENTAS = [
         adjuntos: ADJUNTOS,
         plantilla: {
           type: 'object',
-          description: 'Plantilla prediseñada que el usuario abre en su módulo: {modulo: techos|carpimetal|drywall, datos: <diseño guardado del módulo>}',
-          properties: { modulo: { type: 'string', enum: ['techos', 'carpimetal', 'drywall'] }, datos: { type: 'object' } },
-          required: ['modulo', 'datos'],
+          description: 'Plantilla prediseñada que el usuario abre en su módulo: {modulo: techos|carpimetal|drywall, datos: <diseño guardado del módulo>} o, para diseños grandes, datosUrl (https de un .json con ese diseño).',
+          properties: { modulo: { type: 'string', enum: ['techos', 'carpimetal', 'drywall'] }, datos: { type: 'object' }, datosUrl: { type: 'string' } },
+          required: ['modulo'],
         },
       },
       required: ['titulo'],
@@ -285,6 +285,17 @@ export function crearAcademia({ db, bucket, fetchFn = fetch, ahora = () => Date.
     const previo = a.id ? lista.find((r) => r.id === a.id) : lista.find((r) => mismoNombre(r.titulo, titulo));
     if (a.id && !previo) throw new Error(`No existe un recurso con id ${a.id}.`);
     if (a.plantilla && !['techos', 'carpimetal', 'drywall'].includes(a.plantilla.modulo)) throw new Error('plantilla.modulo debe ser techos, carpimetal o drywall.');
+    if (a.plantilla && !a.plantilla.datos) {
+      const u = String(a.plantilla.datosUrl || '');
+      if (!/^https:\/\//i.test(u)) throw new Error('La plantilla necesita datos o datosUrl (https).');
+      const r = await fetchFn(u, { redirect: 'follow' });
+      if (!r.ok) throw new Error(`No se pudo descargar la plantilla (${r.status}).`);
+      const texto = await r.text();
+      if (texto.length > 800 * 1024) throw new Error('La plantilla pesa más de 800 KB.');
+      let datosPl; try { datosPl = JSON.parse(texto); } catch { throw new Error('datosUrl no es un JSON válido.'); }
+      if (!datosPl || typeof datosPl !== 'object') throw new Error('datosUrl no es un diseño válido.');
+      a = { ...a, plantilla: { modulo: a.plantilla.modulo, datos: datosPl } };
+    }
     const gratis = a.gratis ?? (previo ? previo.isFree === true : false);
     const precio = gratis ? 0 : num(a.precioSoles) ?? previo?.precioSoles ?? 0;
     if (!gratis && !(precio > 0)) throw new Error('Un recurso de pago necesita precioSoles mayor que 0.');

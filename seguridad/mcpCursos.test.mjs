@@ -24,6 +24,7 @@ const fetchFn = async (url) => ({
   ok: url.includes('ok'), status: url.includes('ok') ? 200 : 404,
   headers: { get: (h) => (h === 'content-length' ? '4' : 'application/pdf') },
   async arrayBuffer() { return new Uint8Array([1, 2, 3, 4]).buffer; },
+  async text() { return url.includes('malo') ? 'no es json' : '{"nodes":{"n0":{"id":"n0"}},"segments":{},"coverageZones":{}}'; },
 });
 const db = baseSimulada();
 let t = 1000;
@@ -88,6 +89,12 @@ const r2 = await academia.guardar_recurso({ titulo: 'NAVE PARABÓLICA 20 M', pre
 assert.equal(r2.id, r1.id); assert.equal(db.datos.biblioteca.get(r1.id).titulo, 'Nave parabólica 20 m'); assert.deepEqual(db.datos.biblioteca.get(r1.id).allowedUserIds, ['u9']);
 const lr = await academia.listar_recursos();
 assert.equal(lr[0].plantilla, 'techos'); assert.equal(lr[0].compradores, 1); assert.equal(lr[0].precioSoles, 30);
+
+// 6c) Plantilla grande por enlace (datosUrl)
+const r3 = await academia.guardar_recurso({ titulo: 'Nave por enlace', plantilla: { modulo: 'techos', datosUrl: 'https://ok/nave.json' }, precioSoles: 9.9 });
+assert.equal(db.datos.biblioteca.get(r3.id).plantilla.datos.nodes.n0.id, 'n0');
+await assert.rejects(academia.guardar_recurso({ titulo: 'Nave mala', plantilla: { modulo: 'techos', datosUrl: 'https://ok/malo.json' }, precioSoles: 9.9 }), /JSON/);
+await assert.rejects(academia.guardar_recurso({ titulo: 'Nave sin', plantilla: { modulo: 'techos' }, precioSoles: 9.9 }), /datos o datosUrl/);
 
 // 7) Protocolo MCP
 const init = await atenderMensaje({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } }, academia);
