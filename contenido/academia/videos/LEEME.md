@@ -8,3 +8,6 @@
   `fuentes/naves_cNv2.py` con sus escenas. `python3 naves_clase1.py prueba` saca cuadros de control;
   sin argumento renderiza el video completo. Normalizar el audio al final (loudnorm I=-16).
 - Subir con el MCP: `subir_archivo` (url cruda de GitHub de este archivo) → `guardar_clase` con esa `videoUrl`.
+
+- Naves Parabólicas completo: `naves-clase-1.mp4` … `naves-clase-9.mp4` (fuentes `fuentes/naves_c1v2.py`, `naves_c2.py` … `naves_c9.py`;
+  piezas comunes en `fuentes/comun.py`). El motor repite los cuadros quietos (render ~4 veces más rápido).
