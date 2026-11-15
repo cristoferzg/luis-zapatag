@@ -76,40 +76,49 @@
       "clases": [
         {
           "titulo": "1. Qué es una nave parabólica y dónde conviene",
-          "descripcion": "Usos (almacenes, coliseos, talleres), ventajas frente a la nave a dos aguas y partes de la estructura. Clase de muestra gratis.",
-          "gratis": true
+          "descripcion": "Teoría, usos, comparación con la nave a dos aguas, partes con los nombres de InnovApp, ejemplo resuelto de 15 × 30 m y práctica completa en Techos Metálicos. Clase de muestra gratis.",
+          "gratis": true,
+          "video": "videos/naves-clase-1.mp4"
         },
         {
           "titulo": "2. Geometría del arco: luz, flecha y fórmula",
-          "descripcion": "Relación flecha/luz, ecuación de la parábola y cómo sacar las alturas para el trazo."
+          "descripcion": "La fórmula de la parábola paso a paso, la tabla rápida, por qué no trazar con cuerda, largo del arco, los dos cordones y el trazo en el piso del taller.",
+          "video": "videos/naves-clase-2.mp4"
         },
         {
-          "titulo": "3. Arcos reticulados: bridas y celosía",
-          "descripcion": "Perfiles para bridas y diagonales, peralte del arco y armado de los módulos."
+          "titulo": "3. Arcos reticulados: cordones y celosía",
+          "descripcion": "Piezas del arco, los 4 tipos de tijeral de InnovApp, peralte, perfiles de referencia, Exigencia en 3D, cordón rolado o por tramos, nudos, secuencia de soldadura y empalmes.",
+          "video": "videos/naves-clase-3.mp4"
         },
         {
           "titulo": "4. Correas, arriostres y tensores",
-          "descripcion": "Separación de correas, arriostramiento en cruz y templadores para que la nave no se mueva."
+          "descripcion": "Funciones y metrado de correas (la trampa del sobrante), unión correa-arco, arriostres en cruz, tensores y el primer módulo rígido.",
+          "video": "videos/naves-clase-4.mp4"
         },
         {
           "titulo": "5. Columnas, placas base y anclajes",
-          "descripcion": "Apoyo del arco, plancha base, pernos de anclaje, nivelación y grout."
+          "descripcion": "Columnas metálicas o de concreto, placa base y perno J contra el levantamiento por viento, plantilla de pernos, tolerancias, nivelación, grout y zapatas.",
+          "video": "videos/naves-clase-5.mp4"
         },
         {
-          "titulo": "6. Trazado en piso y fabricación en taller",
-          "descripcion": "Plantilla del arco a escala real, control de medidas y secuencia de soldadura."
+          "titulo": "6. Fabricación en serie en el taller",
+          "descripcion": "Plan con Plano, Cortes y Materiales; corte en serie y codificación; mesa de armado; control de cada arco; pintura y transporte a la obra.",
+          "video": "videos/naves-clase-6.mp4"
         },
         {
           "titulo": "7. Izaje y montaje seguro",
-          "descripcion": "Plan de izaje, arriostramiento provisional, aplome y trabajo en altura."
+          "descripcion": "Peso del arco, equipos de izaje, cómo enganchar con balancín y cuerdas guía, secuencia de montaje, plomo y alineación, y seguridad (Norma G.050).",
+          "video": "videos/naves-clase-7.mp4"
         },
         {
           "titulo": "8. Cobertura, canaletas y acabados",
-          "descripcion": "Calamina y TR4 curvada, traslapes, fijaciones, canaletas y pintura anticorrosiva."
+          "descripcion": "Aluzinc TR4, curvado según el radio del arco, instalación, metrado de planchas y pernos, canaletas y bajadas en InnovApp, y acabados.",
+          "video": "videos/naves-clase-8.mp4"
         },
         {
           "titulo": "9. Metrado y presupuesto de la nave",
-          "descripcion": "Longitud del arco, kilos de acero, m² de cobertura, mano de obra y precio final."
+          "descripcion": "Las 5 partidas, metrado del acero y la obra civil, presupuesto formal en InnovApp, precio por m² y cómo presentar la propuesta al cliente.",
+          "video": "videos/naves-clase-9.mp4"
         }
       ]
     },

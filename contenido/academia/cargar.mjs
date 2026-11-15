@@ -1,12 +1,12 @@
 // Carga el catálogo de la Academia (catalogo.json) usando el MCP desplegado (functions/mcpCursos.js).
 // Sube portadas y materiales a Storage, crea o actualiza cada curso con su precio y publica las plantillas en Recursos Técnicos.
-// Las clases NO se crean aquí: se agregan con guardar_clase cuando cada video está listo.
+// Las clases se crean solo si su video ya está en contenido/academia/videos/ (no repite las que ya existen).
 //
 // Uso:
 //   MCP_URL="https://us-central1-innovacontratistas-434d2.cloudfunctions.net/mcpCursos" \
 //   MCP_CLAVE="<tu clave>" node contenido/academia/cargar.mjs [--prueba]
 // --prueba: solo muestra lo que haría, sin escribir nada.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -45,6 +45,14 @@ for (const c of catalogo.cursos) {
     destacado: c.destacado, enSlider: c.enSlider, portadaUrl: portada.url, adjuntos,
   });
   console.log('  ✔', res.accion || 'ok', res.id || '');
+  // Clases con video listo (el video se sube desde GitHub y se enlaza a la clase).
+  const existentes = PRUEBA ? [] : ((await herramienta('listar_cursos', {})).cursos.find((x) => x.nombre === c.nombre)?.clases || []);
+  for (const k of c.clases.filter((k) => k.video && existsSync(join(AQUI, k.video)))) {
+    if (existentes.some((e) => e.titulo === k.titulo)) { console.log('  · ya existe:', k.titulo); continue; }
+    const v = await herramienta('subir_archivo', { nombre: k.video.split('/').pop(), url: CRUDO + k.video, carpeta: c.clave, tipo: 'video/mp4' });
+    await herramienta('guardar_clase', { curso: c.nombre, titulo: k.titulo, descripcion: k.descripcion, videoUrl: v.url, portadaUrl: portada.url, gratis: !!k.gratis });
+    console.log('  ✔ clase:', k.titulo);
+  }
 }
 // Recursos Técnicos: plantillas de Techos Metálicos (se abren con «Usar plantilla»).
 for (const r of catalogo.recursos_tecnicos || []) {
@@ -58,4 +66,4 @@ for (const r of catalogo.recursos_tecnicos || []) {
   });
   console.log('  ✔', res.accion || 'ok', res.id || '');
 }
-console.log('\nListo. Las clases se agregan con guardar_clase cuando cada video esté subido.');
+console.log('\nListo.');
