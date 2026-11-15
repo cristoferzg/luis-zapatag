@@ -23,10 +23,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Academia técnica rediseñada (diseño A; Tienda · Mis cursos · Mis plantillas; paquetes y compra con Yape/Plin) + pestañas integradas en el celular (+ las 11 mejoras de Techos y la lámina E-03) |
-| Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
+| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última versión compilada | Web **2026.11.14.2236** · Android **código 26110419** (15/11/2026: Academia nueva, pestañas integradas, Membresía para vender, Yape + transferencia, Techos y E-03) |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
-| Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
+| Próximo código Android | **26110420** (el contador sigue +1 desde aquí; nunca bajar de 26110419) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | Programado y probado (`mcpCursos`); **falta** `firebase functions:secrets:set MCP_CLAVE` + `firebase deploy --only functions:mcpCursos` y agregarlo como conector en Claude. Contenido listo en `contenido/academia/` |
@@ -55,7 +55,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
   `functions/index.js` (aviso "(transferencia)"), `functions/whatsappBot.js` (texto).
 - Cómo se probó: tsc 0 errores; capturas antes/después en celular y PC (inicio de Membresía, recargas y botón fijo, ventana
   de pago Yape y transferencia, editor del admin).
-- Versión: se compila en esta misma vuelta.
+- Versión: web 2026.11.14.2236 · Android código 26110419 (firmado con la llave 01:D3…74:33). Manual: capítulo 16 rehecho
+  (`docs/herramientas/manual_academia.mjs`).
 - Pendiente / a vigilar: el dueño debe poner en el panel su Yape (titular "Luis Zap*"), borrar Plin y, si quiere, su cuenta
   bancaria; confirmar que "Funciones inteligentes activadas para usuarios" esté encendido.
 

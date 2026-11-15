@@ -15,13 +15,13 @@ const img = n => `data:image/png;base64,${readFileSync(`${carpeta}/m_${n}.png`).
 
 const CAPITULO = [
   'Academia: Tienda, Mis cursos y Mis plantillas', 'Paquetes con descuento', 'La ficha de un curso',
-  'Comprar con Yape o Plin', 'Mis cursos', 'Mis plantillas', 'Ayuda y soporte: tu chat', 'Agendar asesoría o reportar un problema',
+  'Comprar con Yape o transferencia', 'Mis cursos', 'Mis plantillas', 'Ayuda y soporte: tu chat', 'Agendar asesoría o reportar un problema',
 ];
 const PASOS = [
   ['Academia: Tienda, Mis cursos y Mis plantillas', 'La Academia técnica junta en un solo lugar los cursos y las plantillas (lo que antes era “Recursos”). Arriba eliges la pestaña: <b>Tienda</b> para ver y comprar, <b>Mis cursos</b> para ver tus clases y <b>Mis plantillas</b> para abrir tus diseños listos.', '1_tienda', ['Cambiar de pestaña', 'Ver los paquetes', 'Buscar cursos o plantillas']],
   ['Paquetes con descuento', 'Un paquete trae varios cursos (y a veces plantillas) por un único precio. Verás cuánto costarían por separado y cuánto ahorras. Al validar tu pago se habilita todo lo que incluye.', '2_paquetes', ['Precio por separado', 'Lo que ahorras', 'Comprar el paquete']],
   ['La ficha de un curso', 'Toca un curso para ver su temario (las clases con candado se abren al comprarlo), el material descargable y las plantillas para practicar. Si ya lo tienes, toca “Ir a las clases”.', '3_ficha', ['Temario del curso', 'Plantillas para practicar', 'Comprar el curso']],
-  ['Comprar con Yape o Plin', 'Desde la web, el programa de PC o Chrome del celular. Yapea o plinea el monto exacto, toca “Elegir captura”, sube la foto del pago y “Enviar comprobante”. Mientras se revisa verás “Pago en revisión”; al validarse se habilita solo y te llega un aviso. En la app de Android no se vende: ahí ves lo gratis y lo que ya compraste.', '4_pago', ['Copiar el número', 'Subir la captura', 'Enviar comprobante']],
+  ['Comprar con Yape o transferencia', 'Desde la web, el programa de PC o Chrome del celular. Yapea el monto exacto (o elige “Transferencia” para pagar a la cuenta bancaria, también desde otro país), toca “Elegir captura”, sube la foto del pago y “Enviar comprobante”. Mientras se revisa verás “Pago en revisión”; al validarse se habilita solo y te llega un aviso. En la app de Android no se vende: ahí ves lo gratis y lo que ya compraste.', '4_pago', ['Copiar el número', 'Subir la captura', 'Enviar comprobante']],
   ['Mis cursos', 'Tus cursos con su avance. Toca uno para ver sus clases; al ver una clase se marca como completada. Si el curso trae material (PDF, planos, fotos), lo descargas desde arriba.', '5_miscursos', ['Pestaña Mis cursos', 'Buscar un curso', 'Curso destacado']],
   ['Mis plantillas', 'Plantillas listas (techos, puertas, drywall), planos y libros técnicos. Toca “Abrir en Techos / Carpintería / Drywall” y se abre una COPIA para que cambies medidas y precios; lo que tenías abierto se guarda como respaldo. Las de pago se solicitan y se habilitan al validar el pago.', '6_misplantillas', ['Solo plantillas', 'Buscar', 'Solicitar una de pago']],
 ];
