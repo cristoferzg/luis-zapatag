@@ -6,121 +6,311 @@
       "nombre": "Soldadura Estructural SMAW y MIG",
       "descripcion": "Aprende a soldar estructuras metálicas con calidad de obra: seguridad, regulación de la máquina, elección de electrodos (E6011, E6013, E7018) y alambre MIG, preparación de juntas, posiciones 1G-4G / 1F-4F, técnica de cordón, defectos y cómo inspeccionarlos según AWS D1.1. Incluye tabla de amperajes y checklist de inspección para tu taller.",
       "gratis": false,
-      "precioSoles": 89,
-      "precioAntesSoles": 129,
+      "precioSoles": 49,
+      "precioAntesSoles": 79,
       "destacado": true,
       "enSlider": true,
       "portada": "portadas/soldadura.png",
       "recursos": [
-        { "nombre": "Tabla de electrodos, amperajes y MIG.pdf", "archivo": "recursos/soldadura-tabla-electrodos.pdf" },
-        { "nombre": "Checklist de inspección visual de soldadura.pdf", "archivo": "recursos/soldadura-checklist-inspeccion.pdf" }
+        {
+          "nombre": "Tabla de electrodos, amperajes y MIG.pdf",
+          "archivo": "recursos/soldadura-tabla-electrodos.pdf"
+        },
+        {
+          "nombre": "Checklist de inspección visual de soldadura.pdf",
+          "archivo": "recursos/soldadura-checklist-inspeccion.pdf"
+        }
       ],
       "clases": [
-        { "titulo": "1. Seguridad y EPP del soldador", "descripcion": "Careta y sombra correcta, guantes, casaca de cuero, ventilación, riesgo eléctrico y de incendio. Clase de muestra gratis.", "gratis": true },
-        { "titulo": "2. Procesos y equipos: SMAW y MIG", "descripcion": "Cómo funciona cada proceso, polaridad (DCEP/DCEN/AC), regulación de la máquina y cuándo usar cada uno." },
-        { "titulo": "3. Electrodos, alambre y acero A36", "descripcion": "Lectura de la clasificación AWS, E6011 vs E6013 vs E7018, alambre ER70S-6, gases y cuidado del 7018 en horno." },
-        { "titulo": "4. Juntas, biseles y posiciones", "descripcion": "Tipos de junta, bisel y talón, separación de raíz y posiciones 1G-4G y 1F-4F." },
-        { "titulo": "5. Técnica de cordón: raíz, relleno y presentación", "descripcion": "Amperaje, ángulo de trabajo y de avance, velocidad, longitud de arco y secuencia para evitar deformaciones." },
-        { "titulo": "6. Defectos e inspección visual (AWS D1.1)", "descripcion": "Porosidad, socavación, falta de fusión, grietas y cráteres: causas, cómo evitarlos y cómo inspeccionar." },
-        { "titulo": "7. Soldadura en naves parabólicas y tijerales", "descripcion": "Uniones de arcos reticulados, placas base, anclajes y empalmes en obra." }
+        {
+          "titulo": "1. Seguridad y EPP del soldador",
+          "descripcion": "Careta y sombra correcta, guantes, casaca de cuero, ventilación, riesgo eléctrico y de incendio. Clase de muestra gratis.",
+          "gratis": true
+        },
+        {
+          "titulo": "2. Procesos y equipos: SMAW y MIG",
+          "descripcion": "Cómo funciona cada proceso, polaridad (DCEP/DCEN/AC), regulación de la máquina y cuándo usar cada uno."
+        },
+        {
+          "titulo": "3. Electrodos, alambre y acero A36",
+          "descripcion": "Lectura de la clasificación AWS, E6011 vs E6013 vs E7018, alambre ER70S-6, gases y cuidado del 7018 en horno."
+        },
+        {
+          "titulo": "4. Juntas, biseles y posiciones",
+          "descripcion": "Tipos de junta, bisel y talón, separación de raíz y posiciones 1G-4G y 1F-4F."
+        },
+        {
+          "titulo": "5. Técnica de cordón: raíz, relleno y presentación",
+          "descripcion": "Amperaje, ángulo de trabajo y de avance, velocidad, longitud de arco y secuencia para evitar deformaciones."
+        },
+        {
+          "titulo": "6. Defectos e inspección visual (AWS D1.1)",
+          "descripcion": "Porosidad, socavación, falta de fusión, grietas y cráteres: causas, cómo evitarlos y cómo inspeccionar."
+        },
+        {
+          "titulo": "7. Soldadura en naves parabólicas y tijerales",
+          "descripcion": "Uniones de arcos reticulados, placas base, anclajes y empalmes en obra."
+        }
       ]
     },
     {
       "clave": "naves",
-      "nombre": "Naves Parabólicas: Diseño, Fabricación y Montaje",
-      "descripcion": "El curso completo para construir naves parabólicas: geometría del arco (luz y flecha), arcos reticulados, correas, arriostres y tensores, placas base y anclajes, trazado en piso, izaje y montaje seguro, cobertura y metrado para presupuestar. Incluye tabla de trazo del arco y checklist de montaje.",
+      "nombre": "Naves Parabólicas",
+      "descripcion": "El curso completo para construir naves parabólicas, de la teoría a InnovApp: geometría del arco (luz y flecha óptima 0.14 L), cordones, montantes y diagonales, correas, arriostres y tensores, placas base y pernos J, trazado en piso, izaje y montaje seguro, cobertura aluzinc TR4 y metrado. En cada clase lo practicas en Techos Metálicos. Incluye tabla de trazo, checklist de montaje y plantillas de naves listas para usar.",
       "gratis": false,
-      "precioSoles": 129,
-      "precioAntesSoles": 179,
+      "precioSoles": 79,
+      "precioAntesSoles": 119,
       "destacado": true,
       "enSlider": true,
       "portada": "portadas/naves.png",
       "recursos": [
-        { "nombre": "Tabla de trazo de arcos parabólicos.pdf", "archivo": "recursos/naves-tabla-trazo-arco.pdf" },
-        { "nombre": "Checklist de montaje de nave parabólica.pdf", "archivo": "recursos/naves-checklist-montaje.pdf" }
+        {
+          "nombre": "Tabla de trazo de arcos parabólicos.pdf",
+          "archivo": "recursos/naves-tabla-trazo-arco.pdf"
+        },
+        {
+          "nombre": "Checklist de montaje de nave parabólica.pdf",
+          "archivo": "recursos/naves-checklist-montaje.pdf"
+        }
       ],
       "clases": [
-        { "titulo": "1. Qué es una nave parabólica y dónde conviene", "descripcion": "Usos (almacenes, coliseos, talleres), ventajas frente a la nave a dos aguas y partes de la estructura. Clase de muestra gratis.", "gratis": true },
-        { "titulo": "2. Geometría del arco: luz, flecha y fórmula", "descripcion": "Relación flecha/luz, ecuación de la parábola y cómo sacar las alturas para el trazo." },
-        { "titulo": "3. Arcos reticulados: bridas y celosía", "descripcion": "Perfiles para bridas y diagonales, peralte del arco y armado de los módulos." },
-        { "titulo": "4. Correas, arriostres y tensores", "descripcion": "Separación de correas, arriostramiento en cruz y templadores para que la nave no se mueva." },
-        { "titulo": "5. Columnas, placas base y anclajes", "descripcion": "Apoyo del arco, plancha base, pernos de anclaje, nivelación y grout." },
-        { "titulo": "6. Trazado en piso y fabricación en taller", "descripcion": "Plantilla del arco a escala real, control de medidas y secuencia de soldadura." },
-        { "titulo": "7. Izaje y montaje seguro", "descripcion": "Plan de izaje, arriostramiento provisional, aplome y trabajo en altura." },
-        { "titulo": "8. Cobertura, canaletas y acabados", "descripcion": "Calamina y TR4 curvada, traslapes, fijaciones, canaletas y pintura anticorrosiva." },
-        { "titulo": "9. Metrado y presupuesto de la nave", "descripcion": "Longitud del arco, kilos de acero, m² de cobertura, mano de obra y precio final." }
+        {
+          "titulo": "1. Qué es una nave parabólica y dónde conviene",
+          "descripcion": "Usos (almacenes, coliseos, talleres), ventajas frente a la nave a dos aguas y partes de la estructura. Clase de muestra gratis.",
+          "gratis": true
+        },
+        {
+          "titulo": "2. Geometría del arco: luz, flecha y fórmula",
+          "descripcion": "Relación flecha/luz, ecuación de la parábola y cómo sacar las alturas para el trazo."
+        },
+        {
+          "titulo": "3. Arcos reticulados: bridas y celosía",
+          "descripcion": "Perfiles para bridas y diagonales, peralte del arco y armado de los módulos."
+        },
+        {
+          "titulo": "4. Correas, arriostres y tensores",
+          "descripcion": "Separación de correas, arriostramiento en cruz y templadores para que la nave no se mueva."
+        },
+        {
+          "titulo": "5. Columnas, placas base y anclajes",
+          "descripcion": "Apoyo del arco, plancha base, pernos de anclaje, nivelación y grout."
+        },
+        {
+          "titulo": "6. Trazado en piso y fabricación en taller",
+          "descripcion": "Plantilla del arco a escala real, control de medidas y secuencia de soldadura."
+        },
+        {
+          "titulo": "7. Izaje y montaje seguro",
+          "descripcion": "Plan de izaje, arriostramiento provisional, aplome y trabajo en altura."
+        },
+        {
+          "titulo": "8. Cobertura, canaletas y acabados",
+          "descripcion": "Calamina y TR4 curvada, traslapes, fijaciones, canaletas y pintura anticorrosiva."
+        },
+        {
+          "titulo": "9. Metrado y presupuesto de la nave",
+          "descripcion": "Longitud del arco, kilos de acero, m² de cobertura, mano de obra y precio final."
+        }
       ]
     },
     {
       "clave": "estructuras",
-      "nombre": "Estructuras Metálicas: Perfiles, Conexiones y Montaje",
+      "nombre": "Estructuras Metálicas",
       "descripcion": "Domina los elementos de una estructura metálica: perfiles comerciales y su peso, vigas, columnas y tijerales, conexiones soldadas y empernadas, control de calidad en taller, pintura y montaje. Incluye tabla de perfiles con pesos y checklist de control de calidad.",
       "gratis": false,
-      "precioSoles": 99,
-      "precioAntesSoles": 139,
+      "precioSoles": 59,
+      "precioAntesSoles": 89,
       "destacado": false,
       "enSlider": true,
       "portada": "portadas/estructuras.png",
       "recursos": [
-        { "nombre": "Tabla de perfiles y pesos (ángulos y tubos).pdf", "archivo": "recursos/estructuras-tabla-perfiles.pdf" },
-        { "nombre": "Checklist de control de calidad en taller.pdf", "archivo": "recursos/estructuras-checklist-calidad.pdf" }
+        {
+          "nombre": "Tabla de perfiles y pesos (catálogo InnovApp).pdf",
+          "archivo": "recursos/estructuras-tabla-perfiles.pdf"
+        },
+        {
+          "nombre": "Checklist de control de calidad en taller.pdf",
+          "archivo": "recursos/estructuras-checklist-calidad.pdf"
+        }
       ],
       "clases": [
-        { "titulo": "1. El acero estructural y los perfiles comerciales", "descripcion": "Acero A36 y A500, ángulos, canales, tubos, vigas H e I: cómo se piden y cuánto pesan. Clase de muestra gratis.", "gratis": true },
-        { "titulo": "2. Vigas, columnas y tijerales", "descripcion": "Cómo trabaja cada elemento y configuraciones típicas de tijerales (Pratt, Howe, Warren)." },
-        { "titulo": "3. Conexiones soldadas", "descripcion": "Filetes y penetración, tamaños mínimos y detalles que fallan en obra." },
-        { "titulo": "4. Conexiones empernadas", "descripcion": "Pernos A325 y comunes, distancias al borde, ajuste y verificación." },
-        { "titulo": "5. Fabricación y control de calidad", "descripcion": "Corte, armado, tolerancias, inspección y registro de cada pieza." },
-        { "titulo": "6. Pintura y protección anticorrosiva", "descripcion": "Limpieza, base anticorrosiva, espesores y acabado." },
-        { "titulo": "7. Montaje de estructuras", "descripcion": "Secuencia, aplome, nivelación, izaje y seguridad en altura." }
+        {
+          "titulo": "1. El acero estructural y los perfiles comerciales",
+          "descripcion": "Acero A36 y A500, ángulos, canales, tubos, vigas H e I: cómo se piden y cuánto pesan. Clase de muestra gratis.",
+          "gratis": true
+        },
+        {
+          "titulo": "2. Vigas, columnas y tijerales",
+          "descripcion": "Cómo trabaja cada elemento y configuraciones típicas de tijerales (Pratt, Howe, Warren)."
+        },
+        {
+          "titulo": "3. Conexiones soldadas",
+          "descripcion": "Filetes y penetración, tamaños mínimos y detalles que fallan en obra."
+        },
+        {
+          "titulo": "4. Conexiones empernadas",
+          "descripcion": "Pernos A325 y comunes, distancias al borde, ajuste y verificación."
+        },
+        {
+          "titulo": "5. Fabricación y control de calidad",
+          "descripcion": "Corte, armado, tolerancias, inspección y registro de cada pieza."
+        },
+        {
+          "titulo": "6. Pintura y protección anticorrosiva",
+          "descripcion": "Limpieza, base anticorrosiva, espesores y acabado."
+        },
+        {
+          "titulo": "7. Montaje de estructuras",
+          "descripcion": "Secuencia, aplome, nivelación, izaje y seguridad en altura."
+        }
       ]
     },
     {
       "clave": "carpinteria",
-      "nombre": "Carpintería Metálica: Puertas, Portones, Rejas y Barandas",
+      "nombre": "Carpintería Metálica",
       "descripcion": "Fabrica y cotiza los trabajos que más se piden: puertas, portones batientes y corredizos, rejas, barandas y escaleras. Toma de medidas, holguras, despiece y optimización de barras de 6 m, armado a escuadra, bisagras y chapas, acabado y cotización. Incluye guía de medidas y hoja de despiece.",
       "gratis": false,
-      "precioSoles": 69,
-      "precioAntesSoles": 99,
+      "precioSoles": 39,
+      "precioAntesSoles": 59,
       "destacado": true,
       "enSlider": false,
       "portada": "portadas/carpinteria.png",
       "recursos": [
-        { "nombre": "Guía de medidas y holguras.pdf", "archivo": "recursos/carpinteria-guia-medidas.pdf" },
-        { "nombre": "Hoja de despiece y cotización.pdf", "archivo": "recursos/carpinteria-hoja-despiece.pdf" }
+        {
+          "nombre": "Guía de medidas y holguras.pdf",
+          "archivo": "recursos/carpinteria-guia-medidas.pdf"
+        },
+        {
+          "nombre": "Hoja de despiece y cotización.pdf",
+          "archivo": "recursos/carpinteria-hoja-despiece.pdf"
+        }
       ],
       "clases": [
-        { "titulo": "1. Herramientas y toma de medidas en obra", "descripcion": "Qué medir, cómo verificar escuadra y nivel del vano, y cómo anotarlo. Clase de muestra gratis.", "gratis": true },
-        { "titulo": "2. Despiece y optimización de barras de 6 m", "descripcion": "Lista de cortes, desperdicio mínimo y cálculo de material." },
-        { "titulo": "3. Puertas metálicas", "descripcion": "Marco, hoja, holguras, bisagras y chapa." },
-        { "titulo": "4. Portones batientes y corredizos", "descripcion": "Rieles, ruedas, guías, refuerzos y cómo evitar que se descuelguen." },
-        { "titulo": "5. Rejas y barandas", "descripcion": "Diseños, altura y separación de barrotes, anclaje a muro y losa." },
-        { "titulo": "6. Escaleras metálicas", "descripcion": "Huella, contrahuella, zancas y pasos." },
-        { "titulo": "7. Acabado, instalación y cotización", "descripcion": "Esmerilado, pintura, instalación y cómo armar un precio que deje ganancia." }
+        {
+          "titulo": "1. Herramientas y toma de medidas en obra",
+          "descripcion": "Qué medir, cómo verificar escuadra y nivel del vano, y cómo anotarlo. Clase de muestra gratis.",
+          "gratis": true
+        },
+        {
+          "titulo": "2. Despiece y optimización de barras de 6 m",
+          "descripcion": "Lista de cortes, desperdicio mínimo y cálculo de material."
+        },
+        {
+          "titulo": "3. Puertas metálicas",
+          "descripcion": "Marco, hoja, holguras, bisagras y chapa."
+        },
+        {
+          "titulo": "4. Portones batientes y corredizos",
+          "descripcion": "Rieles, ruedas, guías, refuerzos y cómo evitar que se descuelguen."
+        },
+        {
+          "titulo": "5. Rejas y barandas",
+          "descripcion": "Diseños, altura y separación de barrotes, anclaje a muro y losa."
+        },
+        {
+          "titulo": "6. Escaleras metálicas",
+          "descripcion": "Huella, contrahuella, zancas y pasos."
+        },
+        {
+          "titulo": "7. Acabado, instalación y cotización",
+          "descripcion": "Esmerilado, pintura, instalación y cómo armar un precio que deje ganancia."
+        }
       ]
     },
     {
       "clave": "planos",
-      "nombre": "Lectura de Planos de Estructuras Metálicas",
+      "nombre": "Lectura de Planos Metálicos",
       "descripcion": "Entiende cualquier plano de estructura metálica: escalas, vistas y cortes, ejes y cotas, simbología de soldadura AWS A2.4, especificación de perfiles y pernos, y cómo pasar del plano a la lista de cortes. Incluye guía de simbología de soldadura y glosario.",
       "gratis": false,
-      "precioSoles": 49,
-      "precioAntesSoles": 69,
+      "precioSoles": 29,
+      "precioAntesSoles": 49,
       "destacado": false,
       "enSlider": false,
       "portada": "portadas/planos.png",
       "recursos": [
-        { "nombre": "Guía de simbología de soldadura AWS A2.4.pdf", "archivo": "recursos/planos-simbologia-soldadura.pdf" },
-        { "nombre": "Glosario de planos estructurales.pdf", "archivo": "recursos/planos-glosario.pdf" }
+        {
+          "nombre": "Guía de simbología de soldadura AWS A2.4.pdf",
+          "archivo": "recursos/planos-simbologia-soldadura.pdf"
+        },
+        {
+          "nombre": "Glosario de planos estructurales.pdf",
+          "archivo": "recursos/planos-glosario.pdf"
+        }
       ],
       "clases": [
-        { "titulo": "1. Partes de un plano: rótulo, escalas y láminas", "descripcion": "Cómo está organizado un juego de planos y qué revisar primero. Clase de muestra gratis.", "gratis": true },
-        { "titulo": "2. Vistas, cortes y detalles", "descripcion": "Planta, elevación, cortes y llamadas a detalle." },
-        { "titulo": "3. Ejes, cotas y niveles", "descripcion": "Cómo leer medidas acumuladas, parciales y niveles." },
-        { "titulo": "4. Simbología de soldadura AWS", "descripcion": "Línea de referencia, flecha, lado de la flecha y otro lado, filete, bisel, todo alrededor y soldadura en campo." },
-        { "titulo": "5. Perfiles, pernos y especificaciones", "descripcion": "Cómo se nombran los perfiles y qué dicen las notas generales." },
-        { "titulo": "6. Del plano a la lista de cortes", "descripcion": "Ejercicio completo: un tijeral del plano al despiece." }
+        {
+          "titulo": "1. Partes de un plano: rótulo, escalas y láminas",
+          "descripcion": "Cómo está organizado un juego de planos y qué revisar primero. Clase de muestra gratis.",
+          "gratis": true
+        },
+        {
+          "titulo": "2. Vistas, cortes y detalles",
+          "descripcion": "Planta, elevación, cortes y llamadas a detalle."
+        },
+        {
+          "titulo": "3. Ejes, cotas y niveles",
+          "descripcion": "Cómo leer medidas acumuladas, parciales y niveles."
+        },
+        {
+          "titulo": "4. Simbología de soldadura AWS",
+          "descripcion": "Línea de referencia, flecha, lado de la flecha y otro lado, filete, bisel, todo alrededor y soldadura en campo."
+        },
+        {
+          "titulo": "5. Perfiles, pernos y especificaciones",
+          "descripcion": "Cómo se nombran los perfiles y qué dicen las notas generales."
+        },
+        {
+          "titulo": "6. Del plano a la lista de cortes",
+          "descripcion": "Ejercicio completo: un tijeral del plano al despiece."
+        }
       ]
+    }
+  ],
+  "recursos_tecnicos": [
+    {
+      "clave": "nave12",
+      "titulo": "Nave parabólica 12 × 24 m",
+      "categoria": "Techos Metálicos",
+      "tipo": "documento",
+      "descripcion": "Plantilla lista para abrir en InnovApp → Techos Metálicos (botón «Usar plantilla»). Luz 12 m, largo 24 m, columnas de 4.5 m, flecha óptima 1.68 m (0.14 L), arco clásico Warren, aluzinc TR4. Perfiles elegidos y verificados con la memoria de cálculo de la app (todo CUMPLE). Úsala como base y ajústala a tu obra. Material del curso Naves Parabólicas.",
+      "plantilla": {
+        "modulo": "techos",
+        "archivo": "plantillas/nave-parabolica-12x24.json"
+      },
+      "portada": "plantillas/nave-parabolica-12x24.jpg",
+      "precioSoles": 9.9,
+      "precioAntesSoles": 19.9,
+      "destacado": false
+    },
+    {
+      "clave": "nave15",
+      "titulo": "Nave parabólica 15 × 30 m",
+      "categoria": "Techos Metálicos",
+      "tipo": "documento",
+      "descripcion": "Plantilla lista para abrir en InnovApp → Techos Metálicos (botón «Usar plantilla»). Luz 15 m, largo 30 m, columnas de 5 m, flecha óptima 2.10 m (0.14 L), arco clásico Warren, aluzinc TR4. Perfiles elegidos y verificados con la memoria de cálculo de la app (todo CUMPLE). Úsala como base y ajústala a tu obra. Material del curso Naves Parabólicas.",
+      "plantilla": {
+        "modulo": "techos",
+        "archivo": "plantillas/nave-parabolica-15x30.json"
+      },
+      "portada": "plantillas/nave-parabolica-15x30.jpg",
+      "precioSoles": 9.9,
+      "precioAntesSoles": 19.9,
+      "destacado": true
+    },
+    {
+      "clave": "nave20",
+      "titulo": "Nave parabólica 20 × 40 m",
+      "categoria": "Techos Metálicos",
+      "tipo": "documento",
+      "descripcion": "Plantilla lista para abrir en InnovApp → Techos Metálicos (botón «Usar plantilla»). Luz 20 m, largo 40 m, columnas de 6 m, flecha óptima 2.80 m (0.14 L), arco clásico Warren, aluzinc TR4. Perfiles elegidos y verificados con la memoria de cálculo de la app (todo CUMPLE). Úsala como base y ajústala a tu obra. Material del curso Naves Parabólicas.",
+      "plantilla": {
+        "modulo": "techos",
+        "archivo": "plantillas/nave-parabolica-20x40.json"
+      },
+      "portada": "plantillas/nave-parabolica-20x40.jpg",
+      "precioSoles": 9.9,
+      "precioAntesSoles": 19.9,
+      "destacado": false
     }
   ]
 }

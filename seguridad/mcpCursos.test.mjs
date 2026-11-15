@@ -5,7 +5,7 @@ import { crearAcademia, crearManejador, atenderMensaje } from '../functions/mcpC
 
 // --- Firestore simulado (solo lo que usa el MCP) ---
 function baseSimulada() {
-  const datos = { cursos: new Map(), tutoriales: new Map() };
+  const datos = { cursos: new Map(), tutoriales: new Map(), biblioteca: new Map() };
   const doc = (col, id) => ({
     async get() { return { exists: datos[col].has(id), data: () => datos[col].get(id) }; },
     async set(v, op) { datos[col].set(id, op?.merge ? { ...(datos[col].get(id) || {}), ...v } : { ...v }); },
@@ -75,12 +75,26 @@ assert.equal(s2.tamano, 4);
 await assert.rejects(academia.subir_archivo({ nombre: 'x.pdf', url: 'http://ok' }), /https/);
 await assert.rejects(academia.subir_archivo({ nombre: 'x.pdf', url: 'https://falla' }), /404/);
 
+// 6b) Recursos Técnicos y plantillas
+await assert.rejects(academia.guardar_recurso({ titulo: 'Sin nada', precioSoles: 10 }), /archivoUrl, videoUrl o plantilla/);
+await assert.rejects(academia.guardar_recurso({ titulo: 'Plano', archivoUrl: 'https://x', gratis: false }), /precioSoles/);
+await assert.rejects(academia.guardar_recurso({ titulo: 'Mala', plantilla: { modulo: 'otro', datos: {} }, gratis: true }), /modulo/);
+const r1 = await academia.guardar_recurso({ titulo: 'Nave parabólica 20 m', categoria: 'Techos Metálicos', plantilla: { modulo: 'techos', datos: { nodes: { a: 1 } } }, precioSoles: 25, precioAntesSoles: 40, destacado: true });
+const rec = db.datos.biblioteca.get(r1.id);
+assert.match(r1.id, /^bib_/); assert.equal(rec.isFree, false); assert.equal(rec.precioSoles, 25); assert.equal(rec.precioOriginalSoles, 40);
+assert.equal(rec.isOferta, true); assert.equal(rec.plantilla.modulo, 'techos'); assert.deepEqual(rec.allowedUserIds, []); assert.equal(rec.tipo, 'documento');
+rec.allowedUserIds = ['u9'];
+const r2 = await academia.guardar_recurso({ titulo: 'NAVE PARABÓLICA 20 M', precioSoles: 30 });
+assert.equal(r2.id, r1.id); assert.equal(db.datos.biblioteca.get(r1.id).titulo, 'Nave parabólica 20 m'); assert.deepEqual(db.datos.biblioteca.get(r1.id).allowedUserIds, ['u9']);
+const lr = await academia.listar_recursos();
+assert.equal(lr[0].plantilla, 'techos'); assert.equal(lr[0].compradores, 1); assert.equal(lr[0].precioSoles, 30);
+
 // 7) Protocolo MCP
 const init = await atenderMensaje({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-03-26' } }, academia);
 assert.equal(init.result.protocolVersion, '2025-03-26');
 assert.equal(await atenderMensaje({ jsonrpc: '2.0', method: 'notifications/initialized' }, academia), null);
 const tl = await atenderMensaje({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, academia);
-assert.deepEqual(tl.result.tools.map((x) => x.name), ['listar_cursos', 'guardar_curso', 'guardar_clase', 'subir_archivo']);
+assert.deepEqual(tl.result.tools.map((x) => x.name), ['listar_cursos', 'guardar_curso', 'guardar_clase', 'subir_archivo', 'listar_recursos', 'guardar_recurso']);
 const err = await atenderMensaje({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'guardar_clase', arguments: { curso: 'Nada', titulo: 'x', videoUrl: 'https://x' } } }, academia);
 assert.equal(err.result.isError, true);
 const desconocida = await atenderMensaje({ jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'borrar_todo' } }, academia);

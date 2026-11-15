@@ -234,7 +234,16 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 ## MCP de Academia (cursos)
 - `functions/mcpCursos.js` → Cloud Function `mcpCursos` (onRequest, MCP Streamable HTTP sin sesión, JSON-RPC). Clave: secreto
   `MCP_CLAVE` (Bearer o `?clave=`). Herramientas: `listar_cursos`, `guardar_curso`, `guardar_clase` (exige videoUrl al crear),
-  `subir_archivo` (url https o base64 → Storage `academia/mcp/<carpeta>/`, enlace con token). Sin herramientas de borrar.
+  `subir_archivo` (url https o base64 → Storage `academia/mcp/<carpeta>/`, enlace con token), `listar_recursos`,
+  `guardar_recurso` (Recursos Técnicos `biblioteca`: archivo, plano o `plantilla {modulo techos|carpimetal|drywall, datos}`).
+  Sin herramientas de borrar. Solo contenido: NO toca código ni despliega (decisión del dueño, 14/11/2026).
+- Indicación del dueño: cuando pida subir tutoriales, archivos o plantillas, hacerlo uno mismo con el MCP (sin pedirle que los suba).
+- Videos de clases: `contenido/academia/videos/` (generador `fuentes/motor.py`, voz es-MX elegida por el dueño). El dueño pidió clases
+  largas y animadas (≈8-10 min: teoría + ejemplo con números + práctica en el módulo real + errores + reto), no de 3 min.
+- Los materiales deben ser COMPATIBLES con Techos Metálicos: nombres del módulo (cordón superior/inferior, montantes, diagonales,
+  correas, tensores, perno J, aluzinc TR4), flecha 0.10–0.20 L (óptima 0.14 L, desde la cabeza de columna, como el Asistente),
+  peralte ≈ L/18, perfiles del catálogo `techosCadCatalog`. Plantillas de naves en `contenido/academia/plantillas/` (escena
+  {nodes, segments, coverageZones} generada con el motor real + perfiles aptos; memoria de cálculo CUMPLE) → Recursos Técnicos.
 - Escribe `cursos` / `tutoriales` con los MISMOS campos que `UsabilidadVideosView` (clase ↔ curso por nombre). Reglas sin cambios.
 - Contenido listo en `contenido/academia/` (catalogo.json, portadas, recursos PDF; generadores en `fuentes/`). Carga: `cargar.mjs`.
 - Prueba: `cd seguridad && npm run test:mcp` (base y Storage simulados).

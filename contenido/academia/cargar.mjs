@@ -1,5 +1,5 @@
 // Carga el catálogo de la Academia (catalogo.json) usando el MCP desplegado (functions/mcpCursos.js).
-// Sube portadas y materiales a Storage, y crea o actualiza cada curso con su precio.
+// Sube portadas y materiales a Storage, crea o actualiza cada curso con su precio y publica las plantillas en Recursos Técnicos.
 // Las clases NO se crean aquí: se agregan con guardar_clase cuando cada video está listo.
 //
 // Uso:
@@ -43,6 +43,18 @@ for (const c of catalogo.cursos) {
   const res = await herramienta('guardar_curso', {
     nombre: c.nombre, descripcion: c.descripcion, gratis: c.gratis, precioSoles: c.precioSoles, precioAntesSoles: c.precioAntesSoles,
     destacado: c.destacado, enSlider: c.enSlider, portadaUrl: portada.url, adjuntos,
+  });
+  console.log('  ✔', res.accion || 'ok', res.id || '');
+}
+// Recursos Técnicos: plantillas de Techos Metálicos (se abren con «Usar plantilla»).
+for (const r of catalogo.recursos_tecnicos || []) {
+  console.log(`\n▶ Recurso: ${r.titulo} (S/ ${r.precioSoles})`);
+  const portada = await herramienta('subir_archivo', { nombre: r.portada.split('/').pop(), url: CRUDO + r.portada, carpeta: 'plantillas' });
+  const datos = JSON.parse(readFileSync(join(AQUI, r.plantilla.archivo), 'utf8'));
+  const res = await herramienta('guardar_recurso', {
+    titulo: r.titulo, descripcion: r.descripcion, categoria: r.categoria, tipo: r.tipo, gratis: false,
+    precioSoles: r.precioSoles, precioAntesSoles: r.precioAntesSoles, destacado: r.destacado, portadaUrl: portada.url,
+    plantilla: { modulo: r.plantilla.modulo, datos },
   });
   console.log('  ✔', res.accion || 'ok', res.id || '');
 }

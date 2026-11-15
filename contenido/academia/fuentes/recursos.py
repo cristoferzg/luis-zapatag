@@ -122,7 +122,7 @@ def tabla_arco():
     return filas
 
 def ejemplo(L, f, paso=1.0):
-    n = int(L / paso)
+    n = int(round(L / paso))
     filas = []
     for i in range(0, n // 2 + 1):
         x = i * paso
@@ -138,7 +138,7 @@ def svg_arco():
     pts = ' '.join(f'{40 + 520 * t:.1f},{200 - 160 * 4 * t * (1 - t):.1f}' for t in [i / 50 for i in range(51)])
     return f'''<svg viewBox="0 0 600 240" width="100%" height="190"><polyline points="{pts}" fill="none" stroke="#f97316" stroke-width="4"/>
 <line x1="30" y1="200" x2="570" y2="200" stroke="#0b2a45" stroke-width="2"/>
-<line x1="300" y1="200" x2="300" y2="40" stroke="#0b2a45" stroke-dasharray="5 4"/>
+<line x1="300" y1="200" x2="300" y2="40" stroke="#0b2a45" stroke-dasharray="5 4"/><text x="40" y="190" font-size="12" fill="#64748b">cabeza de columna</text>
 <text x="306" y="125" font-size="15" fill="#0b2a45" font-weight="700">f (flecha)</text>
 <line x1="40" y1="222" x2="560" y2="222" stroke="#0b2a45"/><text x="282" y="238" font-size="15" fill="#0b2a45" font-weight="700">L (luz)</text>
 <line x1="170" y1="200" x2="170" y2="{200-160*4*0.25*0.75:.0f}" stroke="#0f766e" stroke-width="2"/><text x="120" y="215" font-size="13" fill="#0f766e">x</text>
@@ -147,15 +147,18 @@ def svg_arco():
 NAVES_TRAZO = doc('Tabla de trazo de arcos parabólicos', 'Naves Parabólicas: Diseño, Fabricación y Montaje',
  'Para trazar el arco a escala real en el piso del taller: marca la luz, divide en tramos y levanta en cada punto la altura y. La parábola es simétrica: calcula media luz y repite al otro lado.',
  svg_arco() +
- '<div class="caja"><b>Fórmula:</b> <span class="f">y = 4 · f · x · (L − x) / L²</span> &nbsp; donde L = luz, f = flecha (altura en el centro), x = distancia desde el apoyo. '
- '<br><b>Largo del arco (aprox.):</b> <span class="f">S ≈ L · [1 + 8/3·(f/L)² − 32/5·(f/L)⁴]</span> — útil para el metrado de bridas y la cobertura (válido para f/L ≤ 0.3; para arcos más altos calcula por tramos).'
- '<br><b>Proporción usual:</b> f/L entre 1/6 y 1/4 en naves y coliseos (lo define el proyecto).</div>' +
+ '<div class="caja"><b>Fórmula:</b> <span class="f">y = 4 · f · x · (L − x) / L²</span> &nbsp; donde L = luz, f = flecha, x = distancia desde el apoyo. '
+ '<br><b>Largo del arco (aprox.):</b> <span class="f">S ≈ L · [1 + 8/3·(f/L)² − 32/5·(f/L)⁴]</span> — para el metrado de cordones y cobertura.'
+ '<br><b>Flecha recomendada:</b> entre <b>0.10 L y 0.20 L</b>; la <b>óptima es 0.14 L</b>. Se mide desde la cabeza de la columna hasta lo más alto del arco.</div>'
+ '<div class="caja" style="background:#eff6ff;border-color:#93c5fd"><b>En InnovApp → Techos Metálicos → Asistente → Parabólico Rolado:</b> el arco se arma con esta misma fórmula. '
+ '«Aplicar Flecha Óptima» pone f = 0.14 L; el peralte del arco (separación entre cordón superior e inferior) sale ≈ L / 18 (entre 0.45 y 1.20 m); '
+ 'los arcos (tijerales) van cada 5 a 6 m y las correas cada 1.2 a 1.6 m. Usa esta tabla para trazar en el taller lo que diseñaste en la app.</div>' +
  '<div class="dos"><div><h2>Tabla universal</h2><p class="nota">Multiplica el factor por la flecha f para obtener y en cualquier luz.</p>' + tabla(['x / L', 'y / f'], tabla_arco()) + '</div>'
- '<div><h2>Ejemplo: L = 20 m, f = 4 m</h2>' + tabla(['x (m)', 'x espejo (m)', 'y (m)'], ejemplo(20, 4)) +
- f'<p class="nota">Largo del arco ≈ {largo_arco(20, 4):.2f} m (contra 20 m de luz).</p></div></div>' +
- '<h2>Largos de arco para luces frecuentes</h2>' + tabla(['Luz L (m)', 'Flecha f (m)', 'f / L', 'Largo del arco S (m)'],
-   [[f'{L}', f'{f}', f'{f/L:.2f}', f'{largo_arco(L, f):.2f}'] for L, f in [(10, 2), (12, 2.5), (15, 3), (18, 3.6), (20, 4), (24, 5), (25, 5), (30, 6)]]) +
- '<p class="nota">El arco reticulado tiene dos bridas: la exterior (extradós) y la interior (intradós) separadas por el peralte. Traza ambas con la misma fórmula usando su propia luz y flecha, o traza el eje y mide el peralte perpendicular al arco. Verifica el trazo con diagonales y prueba de simetría antes de soldar. Las dimensiones estructurales (perfiles, peralte, anclajes) las define el cálculo del ingeniero.</p>')
+ '<div><h2>Ejemplo del curso: L = 15 m, f = 2.10 m</h2>' + tabla(['x (m)', 'x espejo (m)', 'y (m)'], ejemplo(15, 2.1, 0.75)) +
+ f'<p class="nota">Largo del arco ≈ {largo_arco(15, 2.1):.2f} m (contra 15 m de luz). Cobertura de una nave de 30 m ≈ {largo_arco(15, 2.1)*30:.0f} m².</p></div></div>' +
+ '<h2>Naves frecuentes con la flecha óptima (0.14 L)</h2>' + tabla(['Luz L (m)', 'Flecha f (m)', 'Peralte ≈ L/18 (m)', 'Largo del arco S (m)'],
+   [[f'{L}', f'{0.14*L:.2f}', f'{min(1.2, max(0.45, L/18)):.2f}', f'{largo_arco(L, 0.14*L):.2f}'] for L in (10, 12, 15, 18, 20, 24, 30)]) +
+ '<p class="nota">El arco reticulado tiene dos cordones (o bridas): el cordón superior y el cordón inferior, separados por el peralte. Traza ambas con la misma fórmula usando su propia luz y flecha, o traza el eje y mide el peralte perpendicular al arco. Verifica el trazo con diagonales y prueba de simetría antes de soldar. Las dimensiones estructurales (perfiles, peralte, anclajes) las define el cálculo del ingeniero.</p>')
 
 NAVES_CHECK = doc('Checklist de montaje de nave parabólica', 'Naves Parabólicas: Diseño, Fabricación y Montaje',
  'Revísalo por etapas y marca cada punto. Una nave bien montada empieza en los anclajes: un error de nivel o de ejes ahí se multiplica arriba.',
@@ -163,9 +166,9 @@ NAVES_CHECK = doc('Checklist de montaje de nave parabólica', 'Naves Parabólica
  '<h2>1. Antes de montar</h2>' + checklist([
    'Planos aprobados en obra (estructuras, detalles de anclaje y arriostramiento).',
    'Ejes trazados y verificados con diagonales; distancias entre apoyos según plano.',
-   'Pernos de anclaje en posición, nivel y proyección correctos; roscas protegidas.',
+   'Pernos de anclaje (tipo J) en posición, nivel y proyección correctos; roscas protegidas.',
    'Concreto de apoyos con resistencia suficiente (respetar tiempo de curado indicado).',
-   'Arcos inspeccionados en taller: medidas, soldaduras y pintura base.',
+   'Arcos inspeccionados en taller: cordón superior, cordón inferior, montantes y diagonales según la lámina; soldaduras y pintura base.',
    'Plan de izaje: equipo (grúa / tecle / tirfor), puntos de enganche, eslingas revisadas.',
    'Personal con EPP, arnés y línea de vida; zona de izaje señalizada y sin terceros.',
  ]) +
@@ -173,13 +176,13 @@ NAVES_CHECK = doc('Checklist de montaje de nave parabólica', 'Naves Parabólica
    'Primer arco izado, aplomado y arriostrado provisionalmente (vientos / puntales) antes de soltarlo.',
    'Segundo arco montado y unido de inmediato con correas y arriostres para formar el primer módulo rígido.',
    'Placas base niveladas con tuercas de nivelación o lainas; tuercas ajustadas y punteadas si el plano lo indica.',
-   'Correas a la separación de plano, con sus tirantes / templadores.',
+   'Correas a la separación de plano (en InnovApp, cada 1.2 – 1.6 m), con sus tensores.',
    'Arriostramiento en cruz en los paños indicados (techo y laterales); templadores tensados sin deformar.',
    'Verificación de aplome y alineamiento cada 2 – 3 arcos.',
    'Soldaduras de campo inspeccionadas y retocadas con pintura anticorrosiva.',
  ]) +
  '<h2>3. Cobertura y cierre</h2>' + checklist([
-   'Calamina / TR4 curvada con el radio adecuado; traslapes longitudinales y laterales según fabricante.',
+   'Aluzinc TR4 (o calamina) curvada con el radio adecuado; traslapes según fabricante y cantidad de planchas según «Materiales» de InnovApp.',
    'Fijaciones (autoperforantes con arandela de neopreno) en cantidad y ubicación correctas.',
    'Canaletas y bajadas con pendiente; cumbrera y tapajuntas sellados.',
    'Grout bajo placas base vaciado y curado; limpieza final y retoque de pintura.',
@@ -216,14 +219,18 @@ def filas_tub():
 def filas_bar():
     return [[f'Ø {n} ({d} mm)', f'{math.pi*d*d/4:.0f}', f'{kg(math.pi*d*d/4):.2f}', f'{kg(math.pi*d*d/4)*6:.1f}'] for n, d in BAR]
 
-EST_PERF = doc('Tabla de perfiles y pesos', 'Estructuras Metálicas: Perfiles, Conexiones y Montaje',
- 'Pesos teóricos calculados con acero de 7850 kg/m³ y espesor nominal, sin radios de esquina. Sirven para metrar y presupuestar; para el pedido usa el catálogo del proveedor (los pesos reales varían unos pocos %).',
- '<h2>Ángulos de lados iguales (A36)</h2>' + tabla(['Perfil', 'Área (mm²)', 'kg / m', 'kg / barra 6 m'], filas_ang()) +
- '<h2>Tubos cuadrados y rectangulares (LAC / LAF, ASTM A500 / A513)</h2>' + tabla(['Perfil', 'Área (mm²)', 'kg / m', 'kg / barra 6 m'], filas_tub()) +
- '<h2>Barras redondas lisas</h2>' + tabla(['Barra', 'Área (mm²)', 'kg / m', 'kg / barra 6 m'], filas_bar()) +
- '<div class="caja"><b>Fórmulas para cualquier perfil:</b> peso (kg/m) = área (mm²) × 0.00785. &nbsp; Plancha: kg/m² = espesor (mm) × 7.85. '
- '&nbsp; Ángulo: área ≈ t · (2b − t). &nbsp; Tubo cuadrado: área ≈ 4 · t · (b − t). &nbsp; Platina: área = ancho × espesor.</div>' +
- '<p class="nota">Ejemplo de metrado: 14 barras de L 2" × 4.5 mm = 14 × 6 m × ' + f'{kg(4.5*(2*50.8-4.5)):.2f}' + ' kg/m ≈ ' + f'{14*6*kg(4.5*(2*50.8-4.5)):.0f}' + ' kg. Suma 5 – 10 % por desperdicio, soldadura y pernos.</p>')
+import json as _json
+_PERF = _json.loads((AQUI / 'perfiles_innovapp.json').read_text())
+_CATS = [('tubo_cuadrado', 'Tubos cuadrados (LAC)'), ('tubo_rectangular', 'Tubos rectangulares (LAC)'), ('tubo_redondo', 'Tubos redondos'),
+         ('perfil_c', 'Perfiles C'), ('perfil_z', 'Perfiles Z'), ('perfil_h_ipe', 'Vigas H / IPE')]
+def _filas(cat):
+    return [[x['cod'], x['nombre'].split(' [')[0], f"{x['peso']:.2f}", f"{x['peso']*6:.1f}"] for x in _PERF if x['cat'] == cat]
+EST_PERF = doc('Tabla de perfiles y pesos (catálogo de InnovApp)', 'Estructuras Metálicas: Perfiles, Conexiones y Montaje',
+ 'Son los mismos perfiles y pesos que usa InnovApp en Techos Metálicos (materiales, cortes y presupuesto). Así lo que metras a mano coincide con la app. Barras de 6 m.',
+ ''.join('<h2>' + t + '</h2>' + tabla(['Código', 'Perfil', 'kg / m', 'kg / barra 6 m'], _filas(c)) for c, t in _CATS) +
+ '<div class="caja"><b>Para cualquier otro perfil:</b> peso (kg/m) = área (mm²) × 0.00785. &nbsp; Plancha: kg/m² = espesor (mm) × 7.85. '
+ '&nbsp; Tubo cuadrado: área ≈ 4 · t · (b − t). &nbsp; Ángulo: área ≈ t · (2b − t).</div>'
+ '<p class="nota">Ejemplo: 26 barras de tubo rectangular 3" × 2" × 2.5 mm (LAC-75X50X2.5) ≈ 26 × 6 × 4.65 = 725 kg. En la app, «Resumen» te da el total de acero de toda la nave.</p>')
 
 EST_CHECK = doc('Checklist de control de calidad en taller', 'Estructuras Metálicas: Perfiles, Conexiones y Montaje',
  'Una hoja por pieza o lote. Lo que se controla en taller no se repara en obra (donde cuesta el triple).',
@@ -349,8 +356,8 @@ PL_GLOS = doc('Glosario de planos estructurales', 'Lectura de Planos de Estructu
    ['Elevación', 'Vista de frente o de costado.'],
    ['Corte / sección', 'Vista como si se cortara la estructura; se indica con una línea y letras (Corte A-A).'],
    ['Detalle', 'Ampliación de una zona (conexión, anclaje) a escala mayor; se llama con un círculo y número.'],
-   ['Brida (cordón)', 'Elemento superior o inferior de un tijeral o arco reticulado.'],
-   ['Montante / diagonal', 'Elementos verticales e inclinados que unen las bridas (celosía).'],
+   ['Cordón superior / inferior (brida)', 'Elemento de arriba o de abajo de un tijeral o arco reticulado. En InnovApp: «cordón superior» y «cordón inferior».'],
+   ['Montante / diagonal', 'Elementos verticales e inclinados que unen los cordones (celosía). Así se llaman también en InnovApp.'],
    ['Peralte', 'Altura total de una viga, tijeral o arco reticulado.'],
    ['Correa', 'Perfil que va sobre los tijerales o arcos y sostiene la cobertura.'],
    ['Arriostre', 'Elemento (a veces en cruz con templadores) que evita que la estructura se mueva o pandee.'],
