@@ -3049,7 +3049,7 @@ export default function App() {
 
         {vistasAbiertas.current.has('calculator') && (
         <div className={currentView === 'calculator' ? 'flex-1 overflow-y-auto bg-slate-50/50 px-2.5 py-3 sm:p-4 xl:p-8 scroll-smooth' : 'hidden'}>
-          <div className="max-w-7xl mx-auto h-full">
+          <div className="max-w-screen-2xl mx-auto h-full">
             {vistaBloqueada('calculator') ? renderMantenimiento() : <Suspense fallback={cargandoModulo}><CotizadorRapidoView /></Suspense>}
           </div>
         </div>
@@ -3074,7 +3074,7 @@ export default function App() {
         {currentView !== 'designer' && currentView !== 'calculator' && (
           <main className={(currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' ? "flex-1 overflow-hidden bg-slate-950 p-0" : currentView === 'concreto' || currentView === 'drywall' || currentView === 'melamina' || currentView === 'gasfiteria' || currentView === 'electricidad' || currentView === 'acabados' || currentView === 'madera' || currentView === 'vidrios' ? "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-0 scroll-smooth" : "flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/50 p-4 xl:p-8 scroll-smooth") + (fabActual ? ' pb-28 xl:pb-8' : '')}>
             {/* Obra Civil y Drywall: lienzo a todo el ancho, como Techos Metálicos */}
-            <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' || currentView === 'concreto' || currentView === 'drywall' || currentView === 'melamina' || currentView === 'gasfiteria' || currentView === 'electricidad' || currentView === 'acabados' || currentView === 'madera' || currentView === 'vidrios' ? "w-full h-full" : "max-w-7xl mx-auto h-full"}>
+            <div className={currentView === 'herreria' || currentView === 'carpinteria' || currentView === 'techos' || currentView === 'concreto' || currentView === 'drywall' || currentView === 'melamina' || currentView === 'gasfiteria' || currentView === 'electricidad' || currentView === 'acabados' || currentView === 'madera' || currentView === 'vidrios' ? "w-full h-full" : currentView === 'usabilidad' ? "w-full" : "max-w-screen-2xl mx-auto h-full"}>
               <EmpresaProvider value={empresaCtx}><Suspense fallback={cargandoModulo}>{renderView()}</Suspense></EmpresaProvider>
             </div>
           </main>

@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última mejora sin compilar | Pantallas anchas: Academia de borde a borde y contenido más ancho |
 | Última versión compilada | Web **2026.11.14.2236** · Android **código 26110419** (15/11/2026: Academia nueva, pestañas integradas, Membresía para vender, Yape + transferencia, Techos y E-03) |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110420** (el contador sigue +1 desde aquí; nunca bajar de 26110419) |
@@ -34,6 +34,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-15 · Pantallas anchas: la Academia de borde a borde y más ancho en todos los apartados
+- Pedido del dueño: en la PC la Academia dejaba franjas vacías a los lados ("me quita espacio"); revisar otros apartados.
+- Qué se hizo: el contenedor general pasa de máx. 1280 px (`max-w-7xl`) a 1536 px (`max-w-screen-2xl`) en todos los apartados
+  (y Cotización rápida); la Academia usa todo el ancho (portada oscura de borde a borde) y su contenido 1280 px; Mis cursos
+  1280 px; Membresía de 1024 a 1152 px. Los módulos de diseño ya iban a todo el ancho.
+- Archivos: `src/App.tsx`, `academia/AcademiaTienda.tsx`, `academia/AcademiaView.tsx`, `UsabilidadVideosView.tsx`, `MembresiaView.tsx`.
+- Cómo se probó: tsc 0 errores; capturas antes/después a 1920 px (Academia, Inicio, Proyectos, Membresía, Configuración).
+- Versión: sin compilar aún (próximo Android 26110420).
 
 ## 2026-11-15 · Membresía pensada para vender + cobro solo con Yape (Luis Zap*) y transferencia bancaria
 - Pedido del dueño: "mejorar la membresía porque no hay ventas todavía"; no tiene Plin; a nombre de "Luis Zap*"; aceptar

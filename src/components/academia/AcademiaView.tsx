@@ -57,7 +57,7 @@ export default function AcademiaView({ renderClases, renderPlantillas, conPlanti
         <>
           <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white">
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #6366f1 0, transparent 40%), radial-gradient(circle at 85% 70%, #f59e0b 0, transparent 35%)' }} />
-            <div className="relative max-w-6xl mx-auto px-4 sm:px-8 pt-4 pb-5 sm:pb-6">
+            <div className="relative max-w-7xl mx-auto px-4 sm:px-8 pt-4 pb-5 sm:pb-6">
               {selector}
               <h1 className="mt-4 text-xl sm:text-2xl font-black flex items-center gap-2" style={{ color: '#fff' }}><GraduationCap className="w-6 h-6 text-amber-300" />{TEXTO[pestana][0]}</h1>
               <p className="text-xs sm:text-sm" style={{ color: '#cbd5e1' }}>{TEXTO[pestana][1]}</p>

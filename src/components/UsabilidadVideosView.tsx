@@ -960,7 +960,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   );
 
   return (
-    <div className="w-full min-h-full space-y-6 pb-16 select-none max-w-6xl mx-auto px-3 sm:px-4">
+    <div className="w-full min-h-full space-y-6 pb-16 select-none max-w-7xl mx-auto px-3 sm:px-4">
       {/* HEADER COMPACTO Y CLARO (mismo estilo limpio de Recursos Técnicos) */}
       <header className="space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">

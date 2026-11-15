@@ -125,9 +125,9 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
     <div className="w-full min-h-full pb-6 bg-slate-50">
       {/* PORTADA */}
       <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white">
-        {pestanas && <div className="relative max-w-6xl mx-auto px-4 sm:px-8 pt-4">{pestanas}</div>}
+        {pestanas && <div className="relative max-w-7xl mx-auto px-4 sm:px-8 pt-4">{pestanas}</div>}
         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #6366f1 0, transparent 40%), radial-gradient(circle at 85% 70%, #f59e0b 0, transparent 35%)' }} />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-8 pt-5 pb-10 sm:pt-8 sm:pb-12 grid lg:grid-cols-[1.4fr_1fr] gap-6 items-center">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-8 pt-5 pb-10 sm:pt-8 sm:pb-12 grid lg:grid-cols-[1.4fr_1fr] gap-6 items-center">
           <div>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold"><GraduationCap className="w-3.5 h-3.5 text-amber-300" />Academia técnica InnovApp</span>
             <h1 className="mt-3 text-2xl sm:text-4xl font-black leading-tight">Aprende el oficio con <span className="text-amber-300">casos reales de obra</span></h1>
@@ -148,7 +148,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
       </section>
 
       {/* BENEFICIOS */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 relative -mt-5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 relative -mt-5">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
           {[[InfinityIcon, 'Acceso permanente', 'Pagas una vez'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [ShieldCheck, 'Pago seguro', nombreMediosPago(cfgPago)]].map(([Ic, t, d]: any) => (
             <div key={t} className="rounded-xl p-3 flex items-center gap-2.5 bg-white border border-slate-200 shadow-sm">
@@ -159,7 +159,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-10">
         {/* Buscador + admin */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">

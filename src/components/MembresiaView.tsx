@@ -124,7 +124,7 @@ export default function MembresiaView({ isAdmin }: { isAdmin: boolean }) {
   const irAcademia = () => { try { localStorage.setItem('academia_pestana', 'tienda'); } catch { /* nada */ } window.dispatchEvent(new CustomEvent('innova_navigate_tab', { detail: 'usabilidad' })); };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-5 pb-28 xl:pb-10">
+    <div className="max-w-6xl mx-auto space-y-5 pb-28 xl:pb-10">
       <AvisoPagoRetorno recargar={recargar} />
       {/* Oferta: lo primero que se ve */}
       <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-7 shadow-xl overflow-hidden relative">
