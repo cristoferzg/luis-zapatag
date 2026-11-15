@@ -85,12 +85,14 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
       palabras.some(w => `${r.titulo} ${r.categoria}`.toLowerCase().includes(w))
     )).slice(0, 4);
   };
+  // Cursos de pago con una clase gratis de muestra: en la app de Android se muestran (sin precio ni compra).
+  const tieneMuestra = (c: CourseCategory) => tutoriales.some(v => v.category === c.name && v.isFree !== false);
   const clasesDe = (c: CourseCategory) => tutoriales.filter(v => v.category === c.name);
   const q = busca.trim().toLowerCase();
   const coincide = (...t: (string | undefined)[]) => !q || t.some(x => (x || '').toLowerCase().includes(q));
 
   // En Android solo se muestra lo gratis y lo que ya se tiene (Google Play no permite vender por fuera).
-  const cursosVis = cursos.filter(c => (vende || tieneCurso(c)) && coincide(c.name, c.description))
+  const cursosVis = cursos.filter(c => (vende || tieneCurso(c) || tieneMuestra(c)) && coincide(c.name, c.description))
     .sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured) || clasesDe(b).length - clasesDe(a).length);
   const recursosVis = biblioteca.filter(r => r.tipo !== 'video' && (vende || tieneRecurso(r)) && coincide(r.titulo, r.descripcion, r.categoria))
     .sort((a, b) => Number(!!b.plantilla) - Number(!!a.plantilla) || Number(!!b.isMasComprado) - Number(!!a.isMasComprado));
@@ -150,7 +152,10 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
       {/* BENEFICIOS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 relative -mt-5">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-          {[[InfinityIcon, 'Acceso permanente', 'Pagas una vez'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [ShieldCheck, 'Pago seguro', nombreMediosPago(cfgPago)]].map(([Ic, t, d]: any) => (
+          {(vende
+            ? [[InfinityIcon, 'Acceso permanente', 'Pagas una vez'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [ShieldCheck, 'Pago seguro', nombreMediosPago(cfgPago)]]
+            // App de Android: nada que mencione pagos fuera de Google Play.
+            : [[InfinityIcon, 'Acceso permanente', 'Para siempre'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [PlayCircle, 'Clases de muestra', 'Gratis']]).map(([Ic, t, d]: any) => (
             <div key={t} className="rounded-xl p-3 flex items-center gap-2.5 bg-white border border-slate-200 shadow-sm">
               <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-600"><Ic className="w-4.5 h-4.5" /></span>
               <span className="min-w-0"><span className={`block text-xs font-black ${tx}`}>{t}</span><span className={`block text-[10px] ${sub}`}>{d}</span></span>
@@ -238,7 +243,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div className="absolute top-2 left-2 flex gap-1">
                         {c.isFeatured && <Insignia tono="bg-amber-400 text-slate-950"><Star className="w-3 h-3" />Destacado</Insignia>}
-                        {gratis ? <Insignia tono="bg-emerald-500 text-white">Gratis</Insignia> : pr.d > 0 ? <Insignia tono="bg-rose-600 text-white">-{pr.d}%</Insignia> : null}
+                        {gratis ? <Insignia tono="bg-emerald-500 text-white">Gratis</Insignia> : vende && pr.d > 0 ? <Insignia tono="bg-rose-600 text-white">-{pr.d}%</Insignia> : null}
                       </div>
                       <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white text-[11px] font-bold">
                         <span className="flex items-center gap-1"><PlayCircle className="w-3.5 h-3.5" />{cl.length} clase{cl.length === 1 ? '' : 's'}</span>
@@ -252,6 +257,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                       <div className="mt-3 flex items-center justify-between gap-2">
                         {acceso ? <span className="text-xs font-black text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />{gratis ? 'Acceso libre' : 'Tienes acceso'}</span>
                           : enRevision ? <span className="text-xs font-black text-amber-700 flex items-center gap-1"><Clock className="w-4 h-4" />Pago en revisión</span>
+                          : !vende ? <span className="text-xs font-black text-indigo-700 flex items-center gap-1"><PlayCircle className="w-4 h-4" />Clase de muestra gratis</span>
                           : <Precio {...pr} />}
                         <span className="text-xs font-black text-indigo-600 group-hover:underline">{acceso ? 'Entrar →' : 'Ver curso →'}</span>
                       </div>
@@ -301,7 +307,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
           </section>
         )}
 
-        {!vende && <p className="text-[11px] text-slate-500 text-center">En la app se muestran los cursos gratis y los que ya tienes. Para ver el catálogo completo y comprar, entra desde la web o la PC.</p>}
+        {/* App de Android: sin textos que inviten a comprar por fuera de Google Play (política de pagos). */}
       </div>
 
       {/* DETALLE DEL CURSO */}
@@ -356,8 +362,9 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
               </div>
               <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
                 {acceso ? <span className="text-sm font-black text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-5 h-5" />Tienes acceso</span>
-                  : enRevision ? <span className="text-sm font-black text-amber-700 flex items-center gap-1"><Clock className="w-5 h-5" />Pago en revisión</span> : <Precio {...pr} />}
-                {acceso ? <button onClick={() => { setDetalle(null); onVerCurso(c.name); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><PlayCircle className="w-4 h-4" />Ir a las clases</button>
+                  : enRevision ? <span className="text-sm font-black text-amber-700 flex items-center gap-1"><Clock className="w-5 h-5" />Pago en revisión</span>
+                  : !vende ? <span className="text-sm font-black text-indigo-700 flex items-center gap-1"><PlayCircle className="w-5 h-5" />Clase de muestra gratis</span> : <Precio {...pr} />}
+                {acceso || (!vende && tieneMuestra(c)) ? <button onClick={() => { setDetalle(null); onVerCurso(c.name); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><PlayCircle className="w-4 h-4" />{acceso ? 'Ir a las clases' : 'Ver clase gratis'}</button>
                   : vende && !enRevision ? <button onClick={() => { setDetalle(null); comprar(c.id, c.name, pr.precio); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><ShoppingCart className="w-4 h-4" />Comprar curso</button> : null}
               </div>
             </div>

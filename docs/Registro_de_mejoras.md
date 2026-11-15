@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última mejora sin compilar | Academia en Android: cursos de pago con clase de muestra visibles |
 | Última versión compilada | Web **2026.11.14.2336** · Android **código 26110421** (15/11/2026: arreglos de Techos 3D; incluye pantallas anchas, Academia, Membresía y pagos) |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110422** (el contador sigue +1 desde aquí; nunca bajar de 26110421) |
@@ -34,6 +34,18 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-15 · Academia en la app de Android: no se veían los cursos de pago
+- Pedido del dueño: "no se ven los cursos".
+- Causa: en la app de Android la Tienda solo mostraba cursos gratis o comprados (1 de 7). "Mis cursos" sí mostraba los que
+  tienen clase de muestra: incoherente. En la plataforma los datos estaban bien (7 cursos; Naves 9 clases, Soldadura 7).
+- Qué se hizo: en Android la Tienda muestra también los cursos de pago con clase de muestra gratis ("Clase de muestra
+  gratis", sin precio ni descuento; en la ficha "Ver clase gratis" lleva a Mis cursos). Se quitaron los textos que en
+  Android invitaban a pagar por fuera de Google Play ("entra desde la web o la PC para comprar", "Pago seguro · Yape",
+  "Pagas una vez"). Los cursos sin clases (Estructuras, Carpintería, Lectura de Planos) aparecen al subir sus videos.
+- Archivos: `academia/AcademiaTienda.tsx`, `src/lib/plataforma.ts` (DEV: `window.__androidSimulado`).
+- Cómo se probó: tsc 0 errores; Android simulado: 1 → 4 cursos; web: 7 cursos; capturas antes/después.
+- Versión: sin compilar aún (próximo Android 26110422).
 
 ## 2026-11-15 · Techos 3D: botón «Aplicar cambios recomendados», arriostres, rueda del mouse, barra y cinta LED
 - Pedido del dueño: el botón del sismo no funcionaba; los arriostres salían como correas; no podía mover la vista con la

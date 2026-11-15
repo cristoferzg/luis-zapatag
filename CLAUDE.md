@@ -255,4 +255,5 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Academia (`academia/AcademiaView`, diseño A elegido por el dueño): pestañas Tienda / Mis cursos / Mis plantillas (= Recursos
   Técnicos, `BibliotecaPremiumView sinTitulo`; la vista 'biblioteca' redirige ahí). Tienda: paquetes en `config_academia/paquetes {lista}`
   (`lib/paquetesAcademia.ts`), compra `paq_<id>` / id de curso / id de biblioteca con Yape/Plin; `AdminPurchasesView` habilita todo.
-  Android no vende. DEV: `__paquetesSimulados`, `__comprasAcademiaSimuladas` (incluir en el grep del dist).
+  Android no vende: muestra gratis + comprados + cursos de pago con clase de muestra (sin precio) y NINGÚN texto que invite a pagar
+  fuera de Play. DEV: `__paquetesSimulados`, `__comprasAcademiaSimuladas`, `__androidSimulado` (incluir en el grep del dist).

@@ -4,7 +4,7 @@
 // tiene habilitado, sin precios ni botones de compra. La web cobra como siempre.
 import { Capacitor } from '@capacitor/core';
 
-export const esAppAndroid = (): boolean => Capacitor.isNativePlatform();
+export const esAppAndroid = (): boolean => (import.meta.env.DEV && !!(window as any).__androidSimulado) || Capacitor.isNativePlatform();
 // CANDADO GOOGLE PLAY: en la app de Android NUNCA se vende por fuera de Google (ni WhatsApp,
 // ni Yape/Plin, ni Mercado Pago, ni precios de cursos o recursos). El antiguo interruptor
 // config_ia/planes.comprasEnApp ya no tiene efecto (queda solo para leerlo). En la web y en el
