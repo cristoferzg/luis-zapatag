@@ -29,7 +29,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110423** (el contador sigue +1 desde aquí; nunca bajar de 26110422) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
-| MCP de Academia | **Publicado y conectado** (15/11/2026), conector "Academia Innova". 5 cursos con portada + 2 PDF. **Naves Parabólicas: 9 clases subidas** (la 1 gratis). Soldadura: clase 1 (gratis, estilo nuevo) subida. 3 plantillas de naves subidas a Recursos Técnicos (S/ 9.90; el MCP acepta `plantilla.datosUrl`, desplegado 15/11/2026). Videos en la rama `academia-videos` |
+| MCP de Academia | **Publicado y conectado** (15/11/2026). **5 cursos completos y publicados** (37 clases): Naves Parabólicas 9, Soldadura 8, Estructuras Metálicas 7 (obra: mezanine 4×6), Carpintería Metálica 7 (obra: casa de 2 pisos), Lectura de Planos 6; la clase 1 de cada curso es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz propia del dueño: guion PDF + alineado automático (`alinear.py`). Videos en la rama `academia-videos` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
