@@ -3,6 +3,7 @@ from motor import EMBLEMA
 from comun import titulo, errores_html
 from vis_soldadura import CSS, arco, escena_soldando, soldador
 
+ETAPAS_AV = ['Posiciones', 'Tubos delgados', 'Galvanizado e inox', 'Certificación']
 ETAPAS = ['Seguridad', 'Electrodos', 'La máquina', 'Juntas', 'El cordón', 'Nudos del arco', 'Defectos', 'En obra y costos']
 WA = '966 000 500'
 
@@ -50,8 +51,8 @@ def mapa_obra(actual, etapas=None):
         f'<div class="pop" data-en="0" data-mas="{0.3*i:.2f}" style="text-align:center;width:180px;opacity:{1 if i <= actual else .45}"><div style="width:86px;height:86px;margin:0 auto;border-radius:50%;background:{"#f97316" if i == actual else ("#3f9e5a" if i < actual else "rgba(255,255,255,.08)")};border:3px solid {"#3f9e5a" if i < actual else "#f97316"};display:grid;place-items:center;font-size:34px;font-weight:900">{"✓" if i < actual else i+1}</div><div style="font-size:23px;font-weight:800;margin-top:12px">{t}</div></div>'
         for i, t in enumerate(etapas)) + '</div>'
 
-def escena_obra(actual, frases, meta, etapas=None, obra='almacén de 15 × 30 m'):
-    return dict(frases=frases, zoom=[(0, 1.0, 50, 50)], html=titulo(f'La obra: <span class="nar">{obra}</span>', top=120) + mapa_obra(actual, etapas) +
+def escena_obra(actual, frases, meta, etapas=None, obra='almacén de 15 × 30 m', cab='La obra: '):
+    return dict(frases=frases, zoom=[(0, 1.0, 50, 50)], html=titulo(f'{cab}<span class="nar">{obra}</span>', top=120) + mapa_obra(actual, etapas) +
                 f'<div class="tarjeta pop" data-en="{len(frases)-1}" style="position:absolute;left:420px;right:420px;top:600px;text-align:center;font-size:34px;font-weight:900">{meta}</div>')
 
 def reto(texto_html, siguiente):

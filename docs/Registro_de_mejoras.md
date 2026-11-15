@@ -19,6 +19,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-15 · Academia: módulo avanzado en 4 cursos y precios más bajos
+- Pedido del dueño: "En los otros cursos tienes que subirle los videos, son muy pocos para el precio" → eligió agregar clases y bajar precio.
+- Qué se hizo: 15 clases nuevas (Soldadura 9–12, Estructuras 8–11, Carpintería 8–11, Planos 7–9) publicadas con el MCP; cierre de la última clase del módulo principal vuelto a grabar ("¡Módulo principal completado!" y anuncio de la clase avanzada); descripciones de los cursos actualizadas. Precios: Soldadura S/ 39, Estructuras S/ 45, Carpintería S/ 29, Planos S/ 19 (Naves sigue en S/ 79).
+- Archivos principales: `contenido/academia/videos/fuentes/` (sold_c9-12, est_c8-11, carp_c8-11, plan_c7-9, sold_comun.py, cola3.sh, esperar_publicar.sh).
+- Cómo se probó: cuadros de prueba de cada clase revisados; `listar_cursos` confirma clases, videos y precios.
+- Versión: sin compilar (solo contenido, no cambia la app).
+- Commit(s): este.
+- Pendiente / a vigilar: el dueño borra los duplicados (3 plantillas .json de naves y el catálogo de barandas repetido).
+
 ## Estado actual (actualizar en cada entrada)
 
 | Dato | Valor |
@@ -29,7 +38,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110423** (el contador sigue +1 desde aquí; nunca bajar de 26110422) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
-| MCP de Academia | **Publicado y conectado** (15/11/2026). **5 cursos completos y publicados** (37 clases): Naves Parabólicas 9, Soldadura 8, Estructuras Metálicas 7 (obra: mezanine 4×6), Carpintería Metálica 7 (obra: casa de 2 pisos), Lectura de Planos 6; la clase 1 de cada curso es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz propia del dueño: guion PDF + alineado automático (`alinear.py`). Videos en la rama `academia-videos` |
+| MCP de Academia | **Publicado y conectado** (15/11/2026). **5 cursos completos** (52 clases): Naves Parabólicas 9 (S/ 79), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz: la mexicana automática (el dueño no quiso usar la suya). Videos en la rama `academia-videos` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 

@@ -91,13 +91,13 @@ E.append(dict(frases=[
 
 E.append(dict(frases=[
   'Tu reto final: calcula el costo de la soldadura de tu próximo trabajo. Metros de cordón, kilos de electrodo, días de soldador y ayudante, y consumibles.',
-  'Mándanos tu cálculo, y te ayudamos a revisarlo.',
-], html=reto('🧮 Calcula la soldadura de tu próximo trabajo:<br><b class="nar">metros · kilos · días · consumibles</b>', 'TU PRÓXIMA OBRA')))
+  'Mándanos tu cálculo. Y en la próxima clase empieza el módulo avanzado: las cuatro posiciones de soldadura.',
+], html=reto('🧮 Calcula la soldadura de tu próximo trabajo:<br><b class="nar">metros · kilos · días · consumibles</b>', 'POSICIONES')))
 
 E.append(dict(antes=0.3, despues=3.0, frases=[
-  '¡Felicitaciones! Terminaste el curso de Soldadura Estructural. Desde la seguridad hasta el costo, ya sabes soldar una nave como un profesional.',
-  'Suelda bien, cobra bien, y llega entero a casa. ¡Éxitos en tu próxima obra!',
-], html=final('¡Curso <span class="nar">completado</span>!')))
+  '¡Felicitaciones! Terminaste el módulo principal de Soldadura Estructural. Desde la seguridad hasta el costo, ya sabes soldar una nave como un profesional.',
+  'Ahora viene el módulo avanzado: posiciones, tubos delgados, galvanizado e inoxidable, y la certificación. ¡Nos vemos en la clase nueve!',
+], html=final('¡Módulo principal <span class="nar">completado</span>!')))
 
 if __name__ == '__main__':
     render_clase(E, CURSO, 'sold_c8')

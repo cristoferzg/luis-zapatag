@@ -74,13 +74,13 @@ E.append(dict(frases=[
 
 E.append(dict(frases=[
   'Tu reto final: cotiza un trabajo real con las cinco partes: materiales, mano de obra, instalación, gastos del taller y tu utilidad.',
-  'Mándanos tu cotización, y te ayudamos a revisarla.',
-], html=reto('🧾 Cotiza un trabajo real con las 5 partes:<br><b class="nar">materiales · mano de obra · instalación · gastos · utilidad</b>', 'TU PRÓXIMO TRABAJO')))
+  'Mándanos tu cotización. Y en la próxima clase empieza el módulo avanzado: ventanas de fierro con vidrio.',
+], html=reto('🧾 Cotiza un trabajo real con las 5 partes:<br><b class="nar">materiales · mano de obra · instalación · gastos · utilidad</b>', 'VENTANAS CON VIDRIO')))
 
 E.append(dict(antes=0.3, despues=3.0, frases=[
-  '¡Felicitaciones! Terminaste el curso de Carpintería Metálica. Medir, despiezar, fabricar, instalar y cotizar: ya tienes el oficio completo.',
-  'Trabaja bien, cobra justo, y que cada cliente te recomiende. ¡Éxitos!',
-], html=final('¡Curso <span class="nar">completado</span>!')))
+  '¡Felicitaciones! Terminaste el módulo principal de Carpintería Metálica. Medir, despiezar, fabricar, instalar y cotizar: ya tienes el oficio completo.',
+  'Ahora viene el módulo avanzado: ventanas con vidrio, toldos, estanterías y cercos. ¡Nos vemos en la clase ocho!',
+], html=final('¡Módulo principal <span class="nar">completado</span>!')))
 
 if __name__ == '__main__':
     render_clase(E, CURSO, 'carp_c7')

@@ -80,13 +80,13 @@ E.append(dict(frases=[
 
 E.append(dict(frases=[
   'Tu reto final: para un trabajo tuyo, haz la lista de piezas con marca, cantidad, perfil, largo y peso, y un croquis de montaje con las marcas en su sitio.',
-  'Mándanoslo, y te ayudamos a revisarlo.',
-], html=reto('🗺️ Para un trabajo tuyo:<br><b class="nar">lista de piezas con marcas · croquis de montaje</b>', 'TU PRÓXIMO PLANO')))
+  'Mándanoslo. Y en la próxima clase empieza el módulo avanzado: el plano de cimentación y anclajes.',
+], html=reto('🗺️ Para un trabajo tuyo:<br><b class="nar">lista de piezas con marcas · croquis de montaje</b>', 'CIMENTACIÓN')))
 
 E.append(dict(antes=0.3, despues=3.0, frases=[
-  '¡Felicitaciones! Terminaste el curso de Lectura de Planos Metálicos. Rótulo, escalas, vistas, ejes, soldaduras, notas y montaje: ya puedes leer un plano de principio a fin.',
-  'Lee antes de cortar, pregunta lo que no esté claro, y cada pieza llegará a su sitio. ¡Éxitos!',
-], html=final('¡Curso <span class="nar">completado</span>!')))
+  '¡Felicitaciones! Terminaste el módulo principal de Lectura de Planos. Rótulo, escalas, vistas, ejes, soldaduras, notas y montaje: ya puedes leer un plano de principio a fin.',
+  'Ahora viene el módulo avanzado: cimentación, planos de arquitectura y tu propio croquis. ¡Nos vemos en la clase siete!',
+], html=final('¡Módulo principal <span class="nar">completado</span>!')))
 
 if __name__ == '__main__':
     render_clase(E, CURSO, 'plan_c6')

@@ -87,13 +87,13 @@ E.append(dict(frases=[
 
 E.append(dict(frases=[
   'Tu reto final: arma la lista de control de entrega para tu próxima estructura. Con medidas, plomo, nivel, pernos y fotos.',
-  'Mándanosla, y te ayudamos a mejorarla.',
-], html=reto('📋 Arma tu lista de control de entrega:<br><b class="nar">medidas · plomo · nivel · pernos · fotos</b>', 'TU PRÓXIMA ESTRUCTURA')))
+  'Mándanosla. Y en la próxima clase empieza el módulo avanzado: los tijerales planos.',
+], html=reto('📋 Arma tu lista de control de entrega:<br><b class="nar">medidas · plomo · nivel · pernos · fotos</b>', 'TIJERALES')))
 
 E.append(dict(antes=0.3, despues=3.0, frases=[
-  '¡Felicitaciones! Terminaste el curso de Estructuras Metálicas. Desde los perfiles hasta la entrega, ya sabes cómo se hace un trabajo profesional.',
-  'Calcula, fabrica con precisión, monta en orden, y entrega con orgullo. ¡Éxitos!',
-], html=final('¡Curso <span class="nar">completado</span>!')))
+  '¡Felicitaciones! Terminaste el módulo principal de Estructuras Metálicas. Desde los perfiles hasta la entrega, ya sabes cómo se hace un trabajo profesional.',
+  'Ahora viene el módulo avanzado: tijerales, arriostres y viento, refuerzos, y calidad. ¡Nos vemos en la clase ocho!',
+], html=final('¡Módulo principal <span class="nar">completado</span>!')))
 
 if __name__ == '__main__':
     render_clase(E, CURSO, 'est_c7')
