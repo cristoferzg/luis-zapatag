@@ -80,6 +80,7 @@ const AcabadosView = lazy(() => import('./components/AcabadosView'));
 const BibliotecaPremiumView = lazy(() => import('./components/BibliotecaPremiumView'));
 const UsabilidadVideosView = lazy(() => import('./components/UsabilidadVideosView'));
 const AcademiaView = lazy(() => import('./components/academia/AcademiaView'));
+const abrirPestanaAcademia = (p: 'tienda' | 'clases' | 'plantillas') => { try { localStorage.setItem('academia_pestana', p); } catch { /* sin almacenamiento */ } };
 
 export * from './types';
 import { ViewType, Project, Client, FinanceRecord, SystemUser, SystemConfig, GlobalNotification } from './types';
@@ -1737,6 +1738,11 @@ export default function App() {
   const conMembresia = !!user && (isAdmin || iaUsuarios);
   const { saldo: saldoIA } = useSaldoIA(conMembresia);
   // Botón de créditos: abre Membresía y baja a los planes (también si ya se está ahí).
+  // "Recursos Técnicos" ahora es la pestaña "Mis plantillas" de la Academia: cualquier enlace o aviso que abra
+  // 'biblioteca' lleva ahí.
+  useEffect(() => {
+    if (currentView === 'biblioteca') { abrirPestanaAcademia('plantillas'); setCurrentView('usabilidad' as ViewType); }
+  }, [currentView]);
   const irAPlanes = () => { setCurrentView('membresia'); setTimeout(() => document.getElementById('planes-ia')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350); };
   // Vuelta desde Mercado Pago (?pago=ok|pendiente|error): se abre Membresía con el aviso.
   useEffect(() => {
@@ -1882,7 +1888,7 @@ export default function App() {
   useEffect(() => {
     if (!activeUid) return;
     if (currentView === 'usabilidad' && tutoriales.length) marcarVistos('v_', tutoriales as any);
-    if (currentView === 'biblioteca' && biblioteca.length) marcarVistos('b_', biblioteca as any);
+    if ((currentView === 'biblioteca' || currentView === 'usabilidad') && biblioteca.length) marcarVistos('b_', biblioteca as any);
   }, [currentView, tutoriales.length, biblioteca.length]); // eslint-disable-line react-hooks/exhaustive-deps
   // Desde la primera carga completa, lo existente de Recursos cuenta como ya conocido.
   useEffect(() => {
@@ -2452,22 +2458,11 @@ export default function App() {
             gestionarAlEntrar={currentView === 'asesorias' || currentView === 'tickets'}
           />
         );
-      case 'biblioteca': 
-        return (
-          <BibliotecaPremiumView 
-            items={biblioteca} 
-            setItems={setBiblioteca} 
-            currentUser={user} 
-            isAdmin={isAdmin} 
-            userEmail={user?.email || ''}
-            usuariosList={usuarios}
-          />
-        );
       case 'usabilidad':
         return (
           <AcademiaView
             cursos={cursos} tutoriales={tutoriales} biblioteca={biblioteca} isAdmin={isAdmin} currentUser={user}
-            onIrRecursos={() => setCurrentView('biblioteca' as ViewType)}
+            conPlantillas={!vistaBloqueada('biblioteca')}
             renderClases={(cursoInicial) => (
               <UsabilidadVideosView
                 videos={tutoriales}
@@ -2476,6 +2471,17 @@ export default function App() {
                 currentSettings={currentSettings}
                 currentUser={user}
                 cursoInicial={cursoInicial}
+              />
+            )}
+            renderPlantillas={() => (
+              <BibliotecaPremiumView
+                items={biblioteca}
+                setItems={setBiblioteca}
+                currentUser={user}
+                isAdmin={isAdmin}
+                userEmail={user?.email || ''}
+                usuariosList={usuarios}
+                sinTitulo
               />
             )}
           />
@@ -2557,7 +2563,7 @@ export default function App() {
     { id: 'inversion', label: 'Inversiones', icon: TrendingUp },
     { id: 'deuda', label: 'Deudas', icon: CreditCard, badge: pendingDebtsCount },
     { id: 'precios', label: 'Precios', icon: DollarSign },
-    { id: 'usabilidad', label: 'Academia Técnica', icon: Video, badge: clasesNuevas.length || undefined },
+    { id: 'usabilidad', label: 'Academia Técnica', icon: Video, badge: (clasesNuevas.length + recursosNuevos.length) || undefined },
     { id: 'admin_purchases', label: 'Validar Compras', icon: ShieldCheck, adminOnly: true },
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, adminOnly: true },
     { id: 'supervision', label: 'Supervisión', icon: Eye, adminOnly: true },
@@ -2600,7 +2606,7 @@ export default function App() {
     { seccion: 'Diseño y presupuesto', id: 'madera', label: 'Carpintería de madera', corto: 'Madera', icon: Hammer, apartado: 'madera', miembros: [{ id: 'madera', label: 'Madera' }] },
     { seccion: 'Diseño y presupuesto', id: 'vidrios', label: 'Vidrios y aluminio', corto: 'Vidrios', icon: AppWindow, apartado: 'vidrios', miembros: [{ id: 'vidrios', label: 'Vidrios' }] },
     { seccion: 'Diseño y presupuesto', id: 'acabados', label: 'Acabados', corto: 'Acabados', icon: PaintRoller, apartado: 'acabados', miembros: [{ id: 'acabados', label: 'Acabados' }] },
-    { seccion: 'Aprender', id: 'usabilidad', label: 'Academia y Recursos', corto: 'Academia', icon: Video, miembros: [{ id: 'usabilidad', label: 'Academia' }, { id: 'biblioteca', label: 'Recursos' }] },
+    { seccion: 'Aprender', id: 'usabilidad', label: 'Academia técnica', corto: 'Academia', icon: Video, miembros: [{ id: 'usabilidad', label: 'Academia' }] },
     { seccion: 'Opcional', id: 'familia', label: 'Finanzas personales', corto: 'Finanzas', icon: Wallet, apartado: 'finanzas', miembros: [{ id: 'familia', label: 'Familia' }, { id: 'inversion', label: 'Inversiones' }, { id: 'deuda', label: 'Deudas' }] },
     { seccion: 'Cuenta', id: 'soporte', label: 'Ayuda y soporte', icon: Headset, miembros: [{ id: 'soporte', label: 'Ayuda' }] },
     { seccion: 'Cuenta', id: 'settings', label: 'Configuración', icon: Settings, miembros: [{ id: 'settings', label: 'Configuración' }, { id: 'precios', label: 'Precios' }] },

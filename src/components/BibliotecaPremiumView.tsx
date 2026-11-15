@@ -82,6 +82,7 @@ interface BibliotecaPremiumViewProps {
   isAdmin: boolean;
   userEmail?: string;
   usuariosList?: SystemUser[];
+  sinTitulo?: boolean;   // dentro de la Academia (pestaña "Mis plantillas") el título ya va en la banda de arriba
 }
 
 export default function BibliotecaPremiumView({
@@ -90,7 +91,8 @@ export default function BibliotecaPremiumView({
   currentUser,
   isAdmin,
   userEmail = '',
-  usuariosList: propUsuariosList
+  usuariosList: propUsuariosList,
+  sinTitulo = false,
 }: BibliotecaPremiumViewProps) {
   const activeUid = currentUser ? ('user_' + currentUser.id) : (isAdmin ? 'admin' : 'shared');
   const [internalItems, setInternalItems] = useFirestoreArraySync<BibliotecaItem>('biblioteca', activeUid, true);
@@ -474,13 +476,13 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
       {/* HEADER SECTION - RECURSOS TÉCNICOS */}
       <header className="mb-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="titulo-pagina">
+          {!sinTitulo && <div className="titulo-pagina">
             <h1 className="text-3xl font-bold text-slate-800 flex items-center">
               <BookOpen className="w-8 h-8 mr-3 text-indigo-600" />
               Recursos Técnicos
             </h1>
             <p className="text-slate-500 mt-1">Planos de ingeniería, manuales de taller, fichas técnicas y catálogos en PDF para descarga.</p>
-          </div>
+          </div>}
 
           {isAdmin && (
             <div className="flex items-center gap-2 shrink-0">

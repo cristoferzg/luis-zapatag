@@ -474,10 +474,10 @@ function ContratosSubView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
       {/* Celular: alternar entre llenar datos y ver el documento */}
-      <div className="lg:hidden sticky top-0 z-20 grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="lg:hidden sticky top-0 z-20 grid grid-cols-2 border-b border-slate-200 bg-slate-50">
         {([['datos', '1. Llenar datos'], ['documento', '2. Ver contrato']] as const).map(([id, txt]) => (
           <button key={id} type="button" onClick={() => { setVistaMovil(id); window.scrollTo({ top: 0 }); }}
-            className={`py-2.5 rounded-xl text-xs font-black cursor-pointer ${vistaMovil === id ? 'bg-slate-900 text-white shadow' : 'text-slate-600'}`}>{txt}</button>
+            className={`py-2.5 -mb-px border-b-[3px] text-[13px] font-black cursor-pointer ${vistaMovil === id ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500'}`}>{txt}</button>
         ))}
       </div>
       {/* LEFT INPUT FORM SIDEBAR */}
@@ -1236,28 +1236,28 @@ export default function ContratosYEPPView({
         </div>
 
         {/* UNIFIED TABS SWITCHER (SOBER ELEGANT STYLING) */}
-        <div className="flex w-full xl:w-auto bg-white xl:bg-slate-100 p-1 xl:p-1.5 rounded-xl xl:rounded-2xl border border-slate-200 shrink-0 self-start md:self-auto">
+        <div className="flex w-full xl:w-auto border-b border-slate-200 xl:border xl:bg-slate-100 xl:p-1.5 xl:rounded-2xl shrink-0 self-start md:self-auto">
           <button
             onClick={() => setActiveTab('contratos')}
-            className={`flex-1 xl:flex-none min-h-[40px] px-3 xl:px-4 py-2 xl:py-2.5 rounded-lg xl:rounded-xl font-bold text-xs flex flex-row items-center justify-center gap-2 [white-space:nowrap] transition-all cursor-pointer ${
+            className={`flex-1 xl:flex-none min-h-[42px] px-3 xl:px-4 py-2 xl:py-2.5 -mb-px xl:mb-0 border-b-[3px] xl:border-b-0 rounded-none xl:rounded-xl font-bold text-xs flex flex-row items-center justify-center gap-2 [white-space:nowrap] transition-all cursor-pointer ${
               activeTab === 'contratos'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'border-indigo-600 text-indigo-700 xl:bg-slate-900 xl:text-white xl:shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
-            <FileSignature className={`w-4 h-4 ${activeTab === 'contratos' ? 'text-white' : 'text-slate-500'}`} />
+            <FileSignature className={`w-4 h-4 ${activeTab === 'contratos' ? 'text-indigo-600 xl:text-white' : 'text-slate-400'}`} />
             <span><span className="xl:hidden">Contratos</span><span className="hidden xl:inline">Generador de Contratos</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('epp')}
-            className={`flex-1 xl:flex-none min-h-[40px] px-3 xl:px-4 py-2 xl:py-2.5 rounded-lg xl:rounded-xl font-bold text-xs flex flex-row items-center justify-center gap-2 [white-space:nowrap] transition-all cursor-pointer ${
+            className={`flex-1 xl:flex-none min-h-[42px] px-3 xl:px-4 py-2 xl:py-2.5 -mb-px xl:mb-0 border-b-[3px] xl:border-b-0 rounded-none xl:rounded-xl font-bold text-xs flex flex-row items-center justify-center gap-2 [white-space:nowrap] transition-all cursor-pointer ${
               activeTab === 'epp'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'border-indigo-600 text-indigo-700 xl:bg-slate-900 xl:text-white xl:shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
-            <HardHat className={`w-4 h-4 ${activeTab === 'epp' ? 'text-white' : 'text-slate-500'}`} />
+            <HardHat className={`w-4 h-4 ${activeTab === 'epp' ? 'text-indigo-600 xl:text-white' : 'text-slate-400'}`} />
             <span>Documentos EPP</span>
           </button>
         </div>

@@ -43,7 +43,6 @@ const grad = (s: string) => GRADIENTES[[...s].reduce((a, ch) => a + ch.charCodeA
 const COLOR_PAQ: Record<string, string> = {
   ambar: 'from-amber-500 to-orange-600', indigo: 'from-indigo-600 to-violet-700', esmeralda: 'from-emerald-600 to-teal-700', rosa: 'from-rose-500 to-pink-600',
 };
-const DISENO_TIENDA: 'A' | 'B' | 'C' = 'A';
 const NOMBRE_PLANTILLA: Record<string, string> = { techos: 'Techos metálicos', carpimetal: 'Carpintería metálica', drywall: 'Drywall' };
 
 interface Props {
@@ -77,6 +76,15 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
 
   const tieneCurso = (c: CourseCategory) => isAdmin || c.isFree !== false || !(Number(c.priceSoles) > 0) || tiene(c.allowedUserIds, uid);
   const tieneRecurso = (r: BibliotecaItem) => isAdmin || r.isFree || (r.isFree !== false && !(Number(r.precioSoles) > 0)) || tiene(r.allowedUserIds, uid);
+  // Plantillas y recursos que van con un curso (por el módulo de la plantilla o por palabras del nombre del curso).
+  const MODULO_CURSO: Record<string, RegExp> = { techos: /nave|techo|tijeral|estructur|parab/i, carpimetal: /carpinter|puerta|port[oó]n|reja|baranda/i, drywall: /drywall/i };
+  const plantillasDe = (c: CourseCategory) => {
+    const palabras = c.name.toLowerCase().split(/[^a-záéíóúñ]+/).filter(w => w.length >= 6);
+    return biblioteca.filter(r => r.tipo !== 'video' && (vende || tieneRecurso(r)) && (
+      (r.plantilla && MODULO_CURSO[r.plantilla.modulo]?.test(c.name)) ||
+      palabras.some(w => `${r.titulo} ${r.categoria}`.toLowerCase().includes(w))
+    )).slice(0, 4);
+  };
   const clasesDe = (c: CourseCategory) => tutoriales.filter(v => v.category === c.name);
   const q = busca.trim().toLowerCase();
   const coincide = (...t: (string | undefined)[]) => !q || t.some(x => (x || '').toLowerCase().includes(q));
@@ -100,124 +108,25 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
     p.recursos.reduce((s, id) => s + (Number(biblioteca.find(r => r.id === id)?.precioSoles) || 0), 0);
   const nClases = tutoriales.length, nCursos = cursos.length, nPlantillas = biblioteca.filter(r => r.plantilla).length;
 
-  // Diseño de la tienda (A = premium oscuro, B = catálogo claro, C = vitrina tipo cine). En DEV se puede probar con window.__academiaDiseno.
-  const diseno: 'A' | 'B' | 'C' = (import.meta.env.DEV && (window as any).__academiaDiseno) || DISENO_TIENDA;
-  const oscuro = diseno === 'C';
-  const tx = oscuro ? 'text-white' : 'text-slate-900', sub = oscuro ? 'text-slate-400' : 'text-slate-500';
-  const estrella = [...cursosVis].filter(c => !tieneCurso(c)).sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured) || clasesDe(b).length - clasesDe(a).length)[0] || cursosVis[0];
+  const tx = 'text-slate-900', sub = 'text-slate-500';
 
   const Insignia = ({ children, tono }: { children: React.ReactNode; tono: string }) => (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black shadow-sm whitespace-nowrap shrink-0 ${tono}`}>{children}</span>
   );
-  const Precio = ({ precio, antes, d, claro }: { precio: number; antes: number; d: number; claro?: boolean }) => (
+  const Precio = ({ precio, antes, d }: { precio: number; antes: number; d: number }) => (
     <div className="flex items-baseline gap-1.5">
-      <span className={`text-lg font-black ${claro ? 'text-white' : 'text-slate-900'}`}>{precioPEN(precio)}</span>
-      {antes > precio && <span className={`text-xs line-through ${claro ? 'text-slate-400' : 'text-slate-400'}`}>{precioPEN(antes)}</span>}
+      <span className="text-lg font-black text-slate-900">{precioPEN(precio)}</span>
+      {antes > precio && <span className="text-xs line-through text-slate-400">{precioPEN(antes)}</span>}
       {d > 0 && <span className="text-[10px] font-black text-rose-500">-{d}%</span>}
     </div>
   );
-  const Portada = ({ c, className = '' }: { c: CourseCategory; className?: string }) => c.portadaUrl
-    ? <img src={c.portadaUrl} alt="" className={`w-full h-full object-cover ${className}`} />
-    : <div className={`w-full h-full bg-gradient-to-br ${grad(c.name)} flex items-center justify-center ${className}`}><GraduationCap className="w-10 h-10 text-white/80" /></div>;
-  const EstadoCurso = ({ c, claro }: { c: CourseCategory; claro?: boolean }) => {
-    const acceso = tieneCurso(c), gratis = c.isFree !== false || !(Number(c.priceSoles) > 0), enRevision = pendientes.has(c.id) || pendientes.has(c.name);
-    return acceso ? <span className={`text-xs font-black flex items-center gap-1 ${claro ? 'text-emerald-400' : 'text-emerald-700'}`}><CheckCircle2 className="w-4 h-4" />{gratis ? 'Acceso libre' : 'Tienes acceso'}</span>
-      : enRevision ? <span className={`text-xs font-black flex items-center gap-1 ${claro ? 'text-amber-300' : 'text-amber-700'}`}><Clock className="w-4 h-4" />Pago en revisión</span>
-      : <Precio {...precioCurso(c)} claro={claro} />;
-  };
-
-  // Diseño B: portada clara con el curso estrella a la derecha.
-  const PortadaClara = () => (
-    <section className="bg-gradient-to-br from-indigo-50 via-white to-amber-50 border-b border-slate-200">
-      {pestanas && <div className="relative max-w-6xl mx-auto px-4 sm:px-8 pt-4">{pestanas}</div>}
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-5 pb-7 sm:pt-8 sm:pb-10 grid lg:grid-cols-[1.2fr_1fr] gap-6 items-center">
-        <div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-600 text-white text-[11px] font-bold"><GraduationCap className="w-3.5 h-3.5" />Academia técnica InnovApp</span>
-          <h1 className="mt-3 text-2xl sm:text-4xl font-black leading-tight text-slate-900">Aprende el oficio con <span className="text-indigo-600">casos reales de obra</span></h1>
-          <p className="mt-2 text-sm sm:text-base text-slate-600 max-w-xl">Cursos en video, planos, plantillas y material descargable. Pagas una vez y es tuyo para siempre.</p>
-          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-700">
-            <span><b className="text-xl text-slate-900">{nCursos}</b> cursos</span><span><b className="text-xl text-slate-900">{nClases}</b> clases</span><span><b className="text-xl text-slate-900">{nPlantillas || recursosVis.length}</b> {nPlantillas ? 'plantillas' : 'recursos'}</span>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {vende && paquetesVis.length > 0 && <a href="#paquetes" className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black">Ver paquetes con descuento</a>}
-            <a href="#cursos" className="px-4 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 text-sm font-bold">Explorar cursos</a>
-          </div>
-        </div>
-        {estrella && (
-          <button onClick={() => setDetalle(estrella)} className="hidden sm:block text-left bg-white rounded-3xl shadow-xl overflow-hidden ring-1 ring-slate-200 cursor-pointer hover:-translate-y-0.5 transition-transform">
-            <div className="relative aspect-video"><Portada c={estrella} /><span className="absolute top-3 left-3"><Insignia tono="bg-amber-400 text-slate-950"><Star className="w-3 h-3" />Curso estrella</Insignia></span></div>
-            <div className="p-4 flex items-center justify-between gap-3"><span className="font-black text-slate-900 leading-snug line-clamp-2">{estrella.name}</span><EstadoCurso c={estrella} /></div>
-          </button>
-        )}
-      </div>
-    </section>
-  );
-
-  // Diseño C: el curso estrella ocupa toda la portada, como una vitrina de cine.
-  const PortadaCine = () => {
-    const c = estrella!, cl = clasesDe(c);
-    return (
-      <section className="relative min-h-[340px] sm:min-h-[420px] flex items-end overflow-hidden">
-        <div className="absolute inset-0"><Portada c={c} /></div>
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(2,6,23,.95) 0%, rgba(2,6,23,.75) 45%, rgba(2,6,23,.2) 100%), linear-gradient(0deg, #020617 0%, transparent 45%)' }} />
-        {pestanas && <div className="absolute top-0 inset-x-0 z-10"><div className="max-w-6xl mx-auto px-4 sm:px-8 pt-4">{pestanas}</div></div>}
-        <div className="relative max-w-6xl w-full mx-auto px-4 sm:px-8 pb-8 pt-20 text-white">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-black tracking-widest text-amber-300 uppercase"><GraduationCap className="w-4 h-4" />Academia técnica · Curso estrella</span>
-          <h1 className="mt-2 text-2xl sm:text-5xl font-black leading-tight max-w-2xl" style={{ color: '#fff' }}>{c.name}</h1>
-          <p className="mt-2 text-sm text-slate-300 max-w-xl line-clamp-2">{c.description}</p>
-          <p className="mt-2 text-xs font-bold text-slate-300">{cl.length} clases{c.adjuntos?.length ? ` · ${c.adjuntos.length} materiales` : ''} · Acceso permanente</p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <button onClick={() => setDetalle(c)} className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-sm font-black flex items-center gap-1.5 cursor-pointer"><PlayCircle className="w-4 h-4" />{tieneCurso(c) ? 'Ver el curso' : 'Ver temario y precio'}</button>
-            {vende && paquetesVis.length > 0 && <a href="#paquetes" className="px-5 py-2.5 rounded-xl text-white text-sm font-black ring-1 ring-white/30" style={{ background: 'rgba(255,255,255,.1)' }}>Paquetes con descuento</a>}
-            <EstadoCurso c={c} claro />
-          </div>
-        </div>
-      </section>
-    );
-  };
-
-  // Diseño B: tarjeta horizontal (foto a la izquierda, datos a la derecha).
-  const TarjetaLista = ({ c }: { c: CourseCategory }) => {
-    const cl = clasesDe(c), pr = precioCurso(c), gratis = c.isFree !== false || !(Number(c.priceSoles) > 0);
-    return (
-      <article onClick={() => setDetalle(c)} className="group min-w-0 bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-shadow overflow-hidden cursor-pointer flex">
-        <div className="relative w-36 sm:w-52 shrink-0"><Portada c={c} />
-          <span className="absolute top-2 left-2">{gratis ? <Insignia tono="bg-emerald-500 text-white">Gratis</Insignia> : pr.d > 0 ? <Insignia tono="bg-rose-600 text-white">-{pr.d}%</Insignia> : c.isFeatured ? <Insignia tono="bg-amber-400 text-slate-950">Destacado</Insignia> : null}</span></div>
-        <div className="p-3 sm:p-4 flex flex-col min-w-0 flex-1">
-          <h3 className="font-black text-slate-900 leading-snug line-clamp-2 text-sm sm:text-base">{c.name}</h3>
-          <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-2"><span className="flex items-center gap-1"><PlayCircle className="w-3.5 h-3.5" />{cl.length} clases</span>{!!c.adjuntos?.length && <span className="flex items-center gap-1"><Download className="w-3.5 h-3.5" />{c.adjuntos.length} materiales</span>}</p>
-          <p className="hidden sm:block text-xs text-slate-500 mt-1 line-clamp-2 flex-1">{c.description}</p>
-          <div className="mt-2 flex items-center justify-between gap-2"><EstadoCurso c={c} /><span className="text-xs font-black text-indigo-600 group-hover:underline shrink-0">Ver →</span></div>
-        </div>
-      </article>
-    );
-  };
-
-  // Diseño C: póster vertical en fila deslizable.
-  const TarjetaPoster = ({ c }: { c: CourseCategory }) => {
-    const cl = clasesDe(c), pr = precioCurso(c), gratis = c.isFree !== false || !(Number(c.priceSoles) > 0);
-    return (
-      <article onClick={() => setDetalle(c)} className="group snap-start shrink-0 w-[250px] sm:w-[280px] cursor-pointer">
-        <div className="relative aspect-video rounded-xl overflow-hidden ring-1 ring-white/10 group-hover:ring-amber-400 transition">
-          <Portada c={c} className="group-hover:scale-105 transition-transform duration-500" />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(0deg, rgba(0,0,0,.7), transparent 55%)' }} />
-          <span className="absolute top-2 left-2 flex gap-1">{gratis ? <Insignia tono="bg-emerald-500 text-white">Gratis</Insignia> : pr.d > 0 ? <Insignia tono="bg-rose-600 text-white">-{pr.d}%</Insignia> : null}{c.isFeatured && <Insignia tono="bg-amber-400 text-slate-950">Destacado</Insignia>}</span>
-          <span className="absolute bottom-2 left-2 text-[11px] font-bold text-white flex items-center gap-1"><PlayCircle className="w-3.5 h-3.5" />{cl.length} clases</span>
-        </div>
-        <h3 className="mt-2 text-sm font-black leading-snug line-clamp-2" style={{ color: '#fff' }}>{c.name}</h3>
-        <div className="mt-1"><EstadoCurso c={c} claro /></div>
-      </article>
-    );
-  };
 
   return (
-    <div className={`w-full min-h-full pb-6 ${oscuro ? 'bg-slate-950' : 'bg-slate-50'}`}>
+    <div className="w-full min-h-full pb-6 bg-slate-50">
       {/* PORTADA */}
-      {diseno === 'B' && <PortadaClara />}
-      {diseno === 'C' && estrella && <PortadaCine />}
-      {diseno === 'A' && <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white">
+      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white">
         {pestanas && <div className="relative max-w-6xl mx-auto px-4 sm:px-8 pt-4">{pestanas}</div>}
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #6366f1 0, transparent 40%), radial-gradient(circle at 85% 70%, #f59e0b 0, transparent 35%)' }} />
+        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #6366f1 0, transparent 40%), radial-gradient(circle at 85% 70%, #f59e0b 0, transparent 35%)' }} />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-8 pt-5 pb-10 sm:pt-8 sm:pb-12 grid lg:grid-cols-[1.4fr_1fr] gap-6 items-center">
           <div>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-[11px] font-bold"><GraduationCap className="w-3.5 h-3.5 text-amber-300" />Academia técnica InnovApp</span>
@@ -236,14 +145,14 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
             ))}
           </div>
         </div>
-      </section>}
+      </section>
 
       {/* BENEFICIOS */}
-      <div className={`max-w-6xl mx-auto px-4 sm:px-8 relative ${diseno === 'A' ? '-mt-5' : 'mt-4'}`}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 relative -mt-5">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
           {[[InfinityIcon, 'Acceso permanente', 'Pagas una vez'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [ShieldCheck, 'Pago seguro', 'Yape o Plin']].map(([Ic, t, d]: any) => (
-            <div key={t} className={`rounded-xl p-3 flex items-center gap-2.5 ${oscuro ? 'ring-1 ring-white/10' : 'bg-white border border-slate-200 shadow-sm'}`} style={oscuro ? { background: 'rgba(255,255,255,0.04)' } : undefined}>
-              <span className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${oscuro ? 'text-amber-300' : 'bg-indigo-50 text-indigo-600'}`} style={oscuro ? { background: 'rgba(251,191,36,0.12)' } : undefined}><Ic className="w-4.5 h-4.5" /></span>
+            <div key={t} className="rounded-xl p-3 flex items-center gap-2.5 bg-white border border-slate-200 shadow-sm">
+              <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-600"><Ic className="w-4.5 h-4.5" /></span>
               <span className="min-w-0"><span className={`block text-xs font-black ${tx}`}>{t}</span><span className={`block text-[10px] ${sub}`}>{d}</span></span>
             </div>
           ))}
@@ -256,7 +165,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
           <div className="relative flex-1 min-w-[220px]">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar cursos, paquetes o plantillas…"
-              className={`w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm focus:border-indigo-400 focus:outline-none ${oscuro ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500' : 'border-slate-200 bg-white'}`} />
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl border text-sm focus:border-indigo-400 focus:outline-none border-slate-200 bg-white" />
           </div>
           {isAdmin && <button onClick={() => setEditor(true)} className="px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer"><Package className="w-4 h-4" />Gestionar paquetes</button>}
         </div>
@@ -317,8 +226,6 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
           <div><h2 className={`text-lg sm:text-xl font-black ${tx} flex items-center gap-2`}><PlayCircle className="w-5 h-5 text-indigo-600" />Cursos</h2>
             <p className={`text-xs ${sub}`}>Toca un curso para ver sus clases y su material.</p></div>
           {cursosVis.length === 0 ? <p className="text-sm text-slate-500 bg-white rounded-xl border border-slate-200 p-6 text-center">No hay cursos que coincidan.</p> : (
-            diseno === 'B' ? <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">{cursosVis.map(c => <TarjetaLista key={c.id} c={c} />)}</div>
-            : diseno === 'C' ? <div className="-mx-4 sm:mx-0 px-4 sm:px-0 scroll-px-4 sm:scroll-px-0 flex gap-3 overflow-x-auto pb-3 snap-x">{cursosVis.map(c => <TarjetaPoster key={c.id} c={c} />)}</div> :
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {cursosVis.map(c => {
                 const cl = clasesDe(c), acceso = tieneCurso(c), pr = precioCurso(c), gratis = c.isFree !== false || !(Number(c.priceSoles) > 0);
@@ -362,7 +269,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div><h2 className={`text-lg sm:text-xl font-black ${tx} flex items-center gap-2`}><Layers className="w-5 h-5 text-emerald-600" />Plantillas y recursos</h2>
                 <p className={`text-xs ${sub}`}>Diseños listos para cargar en el programa, planos y libros técnicos.</p></div>
-              <button onClick={onIrRecursos} className="text-xs font-black text-emerald-700 hover:underline cursor-pointer">Ver todos los recursos →</button>
+              <button onClick={onIrRecursos} className="text-xs font-black text-emerald-700 hover:underline cursor-pointer">Ver mis plantillas →</button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {recursosVis.slice(0, 12).map(r => {
@@ -427,6 +334,21 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                     }) : <li className="px-3 py-3 text-xs text-slate-500">Pronto se publicarán sus clases.</li>}
                   </ol>
                 </div>
+                {plantillasDe(c).length > 0 && (
+                  <div><p className="text-xs font-black text-slate-800 mb-2 flex items-center gap-1.5"><Layers className="w-4 h-4 text-emerald-600" />Practica con estas plantillas</p>
+                    <div className="grid sm:grid-cols-2 gap-2">{plantillasDe(c).map(r => {
+                      const acc = tieneRecurso(r), prr = precioRecurso(r), rev = pendientes.has(r.id);
+                      return (
+                        <div key={r.id} className="flex items-center gap-2 p-2 rounded-xl border border-emerald-200 bg-emerald-50/50">
+                          <span className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shrink-0">{r.plantilla ? <Layers className="w-4 h-4" /> : <FileText className="w-4 h-4" />}</span>
+                          <span className="flex-1 min-w-0"><span className="block text-xs font-black text-slate-800 truncate">{r.titulo}</span>
+                            <span className="block text-[10px] text-slate-500">{acc ? 'Ya la tienes' : rev ? 'Pago en revisión' : precioPEN(prr.precio)}</span></span>
+                          {acc ? <button onClick={() => { setDetalle(null); onIrRecursos(); }} className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-black cursor-pointer">Abrir</button>
+                            : !rev && vende ? <button onClick={() => { setDetalle(null); comprar(r.id, r.titulo, prr.precio); }} className="p-1.5 rounded-lg bg-emerald-600 text-white cursor-pointer" title="Comprar"><ShoppingCart className="w-3.5 h-3.5" /></button> : null}
+                        </div>
+                      );
+                    })}</div></div>
+                )}
                 {!!c.adjuntos?.length && (
                   <div><p className="text-xs font-black text-slate-800 mb-2">Material incluido</p>
                     <div className="flex flex-wrap gap-1.5">{c.adjuntos.map(a => <span key={a.url} className="px-2 py-1 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-700 flex items-center gap-1">{acceso ? <Download className="w-3 h-3" /> : <Lock className="w-3 h-3" />}{a.nombre}</span>)}</div></div>

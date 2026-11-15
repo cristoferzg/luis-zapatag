@@ -23,7 +23,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Academia técnica rediseñada: Tienda con paquetes, cursos, plantillas y compra con Yape/Plin (+ las 11 mejoras de Techos y la lámina E-03) |
+| Última mejora sin compilar | Academia técnica rediseñada (diseño A; Tienda · Mis cursos · Mis plantillas; paquetes y compra con Yape/Plin) + pestañas integradas en el celular (+ las 11 mejoras de Techos y la lámina E-03) |
 | Última versión compilada | Web **2026.11.11.1031** · Android **código 26110418** |
 | Play Console | Lanzada en **Prueba interna** el 11/11/2026 (falta marcar listas de testers y pasar a Producción) |
 | Próximo código Android | **26110419** (el contador sigue +1 desde aquí; nunca bajar de 26110418) |
@@ -34,6 +34,29 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
 ---
+
+## 2026-11-15 · Academia: Recursos integrado (Mis plantillas), diseño A y pestañas sin cuadro en otros apartados
+- Pedido del dueño: no le gustó la franja de pestañas "como un cuadrado"; quiere el contenido integrado. Eligió el diseño A
+  y pidió juntar "Recursos / plantillas" dentro de la Academia y revisar que los otros apartados se integren igual.
+- Qué se hizo:
+  - Academia técnica = un solo apartado (menú "Academia técnica", sin la fila "Academia | Recursos") con 3 pestañas dentro
+    de la portada oscura: **Tienda**, **Mis cursos** y **Mis plantillas** (antes "Recursos Técnicos": mismas funciones,
+    "Abrir en Techos/Carpintería/Drywall" y gestión del admin). Todo de borde a borde.
+  - Cualquier enlace o aviso a 'biblioteca' abre la pestaña Mis plantillas; el contador de novedades suma clases y recursos.
+    Si el admin apaga "Recursos", la pestaña no aparece.
+  - Ficha del curso: "Practica con estas plantillas" (plantillas que van con el curso, con su precio o "Abrir").
+  - Diseño A fijo (se quitaron las opciones B y C).
+  - Arreglo: el fondo decorativo de la portada tapaba los botones de las pestañas (no se podían tocar).
+  - Otros apartados en el celular: las pestañas ya no van en un cuadro blanco, sino integradas con raya de color
+    (Proyectos/Clientes, Personal, Materiales/Gastos con `PestanasMovil`; Contratos/Documentos EPP y "1. Llenar datos /
+    2. Ver contrato"). En PC siguen igual.
+- Archivos principales: `src/components/academia/AcademiaView.tsx`, `AcademiaTienda.tsx`, `src/App.tsx`,
+  `src/components/BibliotecaPremiumView.tsx` (`sinTitulo`), `src/components/common/PestanasMovil.tsx`, `src/components/ContratosYEPPView.tsx`.
+- Cómo se probó: tsc 0 errores; capturas antes/después en celular y PC (Academia: Tienda, Mis cursos, Mis plantillas, ficha;
+  Proyectos, Personal, Gastos, Contratos).
+- Versión: sin compilar aún.
+- Commit(s): ver rama.
+- Pendiente / a vigilar: el Manual de usuario menciona "Recursos Técnicos" como apartado aparte: actualizarlo al compilar.
 
 ## 2026-11-14 · Academia técnica rediseñada: Tienda con paquetes, cursos y plantillas
 - Pedido del dueño: vender en la Academia por paquetes (p. ej. 5 cursos por un único precio), que los cursos se vean más

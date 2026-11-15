@@ -151,6 +151,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   (herramienta con esquema; el servidor limita los valores). UI: `src/components/melamina/DisenoIA.tsx`.
 - Diseño de frentes por mueble: `estiloPuerta` (lisa/ranurada/vidrio), `tirador` (barra/boton/gola/push), `colorFrente`
   (bicolor: las piezas llevan `color` y se optimizan con ese tablero). 3D: puertas y cajones se abren (tocar o "Abrir puertas").
+- Pestañas en el celular: integradas (raya de color, sin cuadro blanco; `common/PestanasMovil`). El dueño no quiere
+  franjas de pestañas "como un cuadrado".
 - Diseñador: en Android el arrastre bloquea el scroll solo si el toque empieza sobre un mueble (`data-mueble`).
 
 ## 3D (WebGL)
@@ -247,6 +249,7 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Escribe `cursos` / `tutoriales` con los MISMOS campos que `UsabilidadVideosView` (clase ↔ curso por nombre). Reglas sin cambios.
 - Contenido listo en `contenido/academia/` (catalogo.json, portadas, recursos PDF; generadores en `fuentes/`). Carga: `cargar.mjs`.
 - Prueba: `cd seguridad && npm run test:mcp` (base y Storage simulados).
-- Tienda de la Academia (`academia/AcademiaView` → pestañas Tienda / Mis clases): paquetes en `config_academia/paquetes {lista}`
+- Academia (`academia/AcademiaView`, diseño A elegido por el dueño): pestañas Tienda / Mis cursos / Mis plantillas (= Recursos
+  Técnicos, `BibliotecaPremiumView sinTitulo`; la vista 'biblioteca' redirige ahí). Tienda: paquetes en `config_academia/paquetes {lista}`
   (`lib/paquetesAcademia.ts`), compra `paq_<id>` / id de curso / id de biblioteca con Yape/Plin; `AdminPurchasesView` habilita todo.
   Android no vende. DEV: `__paquetesSimulados`, `__comprasAcademiaSimuladas` (incluir en el grep del dist).
