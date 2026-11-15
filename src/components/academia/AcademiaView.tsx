@@ -41,8 +41,8 @@ export default function AcademiaView({ renderClases, renderPlantillas, conPlanti
     <div className="inline-flex max-w-full overflow-x-auto p-1 rounded-full shadow-lg" style={{ background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(8px)' }}>
       {opciones.map(([id, t, Ic]) => (
         <button key={id} onClick={() => ir(id)}
-          className={`px-3 sm:px-4 py-1.5 rounded-full text-[13px] sm:text-sm font-black flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${pestana === id ? 'bg-indigo-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'}`}>
-          <Ic className="w-4 h-4" />{t}
+          className={`px-2.5 min-[400px]:px-3 sm:px-4 py-1.5 rounded-full text-[12px] min-[400px]:text-[13px] sm:text-sm font-black flex items-center gap-1 min-[400px]:gap-1.5 [white-space:nowrap] shrink-0 cursor-pointer transition-colors ${pestana === id ? 'bg-indigo-600 text-white shadow' : 'text-slate-600 hover:text-slate-900'}`}>
+          <Ic className={`w-4 h-4 shrink-0 ${pestana === id ? '' : 'max-[379px]:hidden'}`} />{t}
         </button>
       ))}
     </div>
