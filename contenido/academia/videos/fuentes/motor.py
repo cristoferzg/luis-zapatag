@@ -70,19 +70,22 @@ h2.t{font-size:58px;font-weight:900;letter-spacing:-1px;line-height:1.08}
 
 JS = """
 window.__fijar = (t, inicios, subs, zooms) => {
+  let mov = false;
   // aparición por frase
   document.querySelectorAll('[data-en]').forEach(el => {
     const base = inicios[parseInt(el.dataset.en)] ?? 0;
     const extra = parseFloat(el.dataset.mas || '0'); // data-mas = segundos después del inicio de la frase
-    el.getAnimations().forEach(a => { a.pause(); a.currentTime = Math.max(0, (t - base - extra) * 1000); });
+    el.getAnimations().forEach(a => { a.pause(); a.currentTime = Math.max(0, (t - base - extra) * 1000);
+      const p = a.effect && a.effect.getComputedTiming().progress; if (p !== null && p > 0 && p < 1) mov = true; });
   });
   document.querySelectorAll('.brillo').forEach(el => el.getAnimations().forEach(a => { a.pause(); a.currentTime = t * 1000; }));
   // subtítulos
   const s = document.querySelector('.sub'); let txt = '';
   for (const x of subs) if (t >= x[0] && t < x[1]) txt = x[2];
   s.textContent = txt; s.classList.toggle('on', !!txt);
+  const res = () => ({ mov, sub: txt });
   // cámara: interpolación suave entre puntos [t, escala, x, y]
-  const cam = document.querySelector('.camara'); if (!cam || !zooms.length) return;
+  const cam = document.querySelector('.camara'); if (!cam || !zooms.length) return res();
   let a = zooms[0], b = zooms[0];
   for (let i = 0; i < zooms.length; i++) { if (zooms[i][0] <= t) { a = zooms[i]; b = zooms[i + 1] || zooms[i]; } }
   const u = b[0] > a[0] ? Math.min(1, (t - a[0]) / Math.min(1.6, b[0] - a[0])) : 1;
@@ -90,6 +93,8 @@ window.__fijar = (t, inicios, subs, zooms) => {
   const L = (p, q) => p + (q - p) * e;
   cam.style.transformOrigin = `${L(a[2], b[2])}% ${L(a[3], b[3])}%`;
   cam.style.transform = `scale(${L(a[1], b[1])})`;
+  if (u > 0 && u < 1 && (a[1] !== b[1] || a[2] !== b[2] || a[3] !== b[3])) mov = true;
+  return res();
 };
 """
 
@@ -166,13 +171,19 @@ def render(escenas, curso, salida, solo=None, cuadros=None):
             ff = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', str(FPS), '-c:v', 'mjpeg', '-i', '-',
                                    '-i', str(wav), '-vf', 'format=yuv420p' + fade, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
                                    '-r', str(FPS), '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-ac', '2', '-shortest', str(tmp)], stdin=subprocess.PIPE)
+            previo, quieto, sub_prev, reusados = None, False, None, 0
             for k in range(n):
-                pg.evaluate('([t,a,b,c]) => window.__fijar(t,a,b,c)', [k / FPS, inicios, subs, zooms])
-                ff.stdin.write(pg.screenshot(type='jpeg', quality=90))
+                est = pg.evaluate('([t,a,b,c]) => window.__fijar(t,a,b,c)', [k / FPS, inicios, subs, zooms]) or {'mov': True, 'sub': None}
+                # Cuadro quieto (sin animación, sin zoom en curso, mismo subtítulo): se repite el anterior.
+                if previo is not None and quieto and not est['mov'] and est['sub'] == sub_prev:
+                    ff.stdin.write(previo); reusados += 1; continue
+                previo = pg.screenshot(type='jpeg', quality=90)
+                ff.stdin.write(previo)
+                quieto, sub_prev = not est['mov'], est['sub']
             ff.stdin.close()
             if ff.wait() != 0: sys.exit(f'falló la escena {i}')
             final = carpeta / f'e{i:02d}.mp4'; tmp.rename(final); archivos.append(final)
-            print(f'escena {i}: {dur:.1f} s', flush=True)
+            print(f'escena {i}: {dur:.1f} s ({reusados}/{n} cuadros repetidos)', flush=True)
         b.close()
     if cuadros is not None: return
     lista = carpeta / 'lista.txt'
