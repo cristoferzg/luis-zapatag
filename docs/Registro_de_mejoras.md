@@ -50,8 +50,14 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
   - Otros apartados en el celular: las pestañas ya no van en un cuadro blanco, sino integradas con raya de color
     (Proyectos/Clientes, Personal, Materiales/Gastos con `PestanasMovil`; Contratos/Documentos EPP y "1. Llenar datos /
     2. Ver contrato"). En PC siguen igual.
+  - 2.ª vuelta (revisión de TODOS los apartados): también integradas las barras de pestañas de Acabados, Drywall,
+    Electricidad, Gasfitería, Madera, Melamina, Vidrios, Presupuesto de obra (`carpinteria/comun/ui` y cada vista),
+    Obra Civil ("Por partidas | Dibujar plano"), Precios ("Mis precios | Referencia de mercado"), Techos y Carpintería
+    metálica (secciones del celular). Sin cambios: Inicio, Membresía, Finanzas, Configuración, Ayuda, Administración,
+    Reporte, Carpeta, WhatsApp, Supervisión (ya estaban bien).
 - Archivos principales: `src/components/academia/AcademiaView.tsx`, `AcademiaTienda.tsx`, `src/App.tsx`,
-  `src/components/BibliotecaPremiumView.tsx` (`sinTitulo`), `src/components/common/PestanasMovil.tsx`, `src/components/ContratosYEPPView.tsx`.
+  `src/components/BibliotecaPremiumView.tsx` (`sinTitulo`), `src/components/common/PestanasMovil.tsx`, `src/components/ContratosYEPPView.tsx`,
+  vistas de módulos (Acabados, Drywall, Electricidad, Gasfitería, Melamina, ObraIntegral, ConcretoMetrados, CatalogoPrecios, techos/TechosModuleView, herreria/HerreriaModuleView, carpinteria/comun/ui).
 - Cómo se probó: tsc 0 errores; capturas antes/después en celular y PC (Academia: Tienda, Mis cursos, Mis plantillas, ficha;
   Proyectos, Personal, Gastos, Contratos).
 - Versión: sin compilar aún.

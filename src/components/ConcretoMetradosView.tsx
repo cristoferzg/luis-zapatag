@@ -217,13 +217,13 @@ export default function ConcretoMetradosView({ onIrATechos }: { onIrATechos?: ()
   };
 
   const ModoToggle = (
-    <div className="flex w-full lg:w-auto lg:inline-flex p-0.5 bg-slate-100 rounded-xl border border-slate-200">
+    <div className="flex w-full lg:w-auto lg:inline-flex border-b border-slate-200 lg:border lg:p-0.5 lg:bg-slate-100 lg:rounded-xl">
       <button onClick={() => setModo('lista')}
-        className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'lista' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+        className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 -mb-px lg:mb-0 rounded-none lg:rounded-lg border-b-[3px] lg:border-b-0 text-[13px] lg:text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'lista' ? 'border-indigo-600 text-indigo-700 lg:text-slate-900 lg:bg-white lg:shadow-xs' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
         <List className="w-3.5 h-3.5" /> Por partidas
       </button>
       <button onClick={() => setModo('cad')}
-        className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 rounded-lg text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'cad' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}>
+        className={`flex-1 lg:flex-none inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] lg:min-h-0 py-1.5 -mb-px lg:mb-0 rounded-none lg:rounded-lg border-b-[3px] lg:border-b-0 text-[13px] lg:text-xs font-bold cursor-pointer whitespace-nowrap transition-all ${modo === 'cad' ? 'border-indigo-600 text-indigo-700 lg:text-slate-900 lg:bg-white lg:shadow-xs' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
         <PenTool className="w-3.5 h-3.5 text-stone-500" /> Dibujar plano
       </button>
     </div>

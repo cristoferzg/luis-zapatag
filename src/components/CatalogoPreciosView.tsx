@@ -91,9 +91,9 @@ export default function CatalogoPreciosView({ projects = [] }: { projects?: any[
             <p className="text-xs text-slate-500">Un solo precio por producto para Techos, Carpintería Metálica, Obra Civil, Drywall, Melamina, Gasfitería, Electricidad, Acabados, Madera y Vidrios.</p>
           </div>
         </div>
-        <div className="flex w-full xl:w-auto xl:inline-flex p-1 gap-1 xl:gap-0 bg-white xl:bg-slate-100 border border-slate-200 xl:border-0 rounded-xl self-start">
-          <button onClick={() => setPestana('mios')} className={`flex-1 xl:flex-none min-h-[40px] xl:min-h-0 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer [white-space:nowrap] ${pestana === 'mios' ? 'bg-slate-900 text-white xl:bg-white xl:text-slate-900 shadow-xs' : 'text-slate-500'}`}>Mis precios</button>
-          <button onClick={() => setPestana('mercado')} className={`flex-1 xl:flex-none min-h-[40px] xl:min-h-0 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer [white-space:nowrap] ${pestana === 'mercado' ? 'bg-slate-900 text-white xl:bg-white xl:text-slate-900 shadow-xs' : 'text-slate-500'}`}>Referencia de mercado</button>
+        <div className="flex w-full xl:w-auto xl:inline-flex xl:p-1 gap-1 xl:gap-0 xl:bg-slate-100 border-b border-slate-200 xl:border-0 xl:rounded-xl self-start">
+          <button onClick={() => setPestana('mios')} className={`flex-1 xl:flex-none min-h-[40px] xl:min-h-0 px-3 py-1.5 -mb-px xl:mb-0 rounded-none xl:rounded-lg border-b-[3px] xl:border-b-0 text-[13px] xl:text-xs font-bold cursor-pointer [white-space:nowrap] ${pestana === 'mios' ? 'border-indigo-600 text-indigo-700 xl:bg-white xl:text-slate-900 xl:shadow-xs' : 'border-transparent text-slate-500'}`}>Mis precios</button>
+          <button onClick={() => setPestana('mercado')} className={`flex-1 xl:flex-none min-h-[40px] xl:min-h-0 px-3 py-1.5 -mb-px xl:mb-0 rounded-none xl:rounded-lg border-b-[3px] xl:border-b-0 text-[13px] xl:text-xs font-bold cursor-pointer [white-space:nowrap] ${pestana === 'mercado' ? 'border-indigo-600 text-indigo-700 xl:bg-white xl:text-slate-900 xl:shadow-xs' : 'border-transparent text-slate-500'}`}>Referencia de mercado</button>
         </div>
       </div>
 

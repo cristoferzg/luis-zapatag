@@ -80,12 +80,12 @@ export default function ObraIntegralView() {
             <p className="text-[11px] text-slate-500">Junta lo cotizado en cada apartado en un solo presupuesto, con cronograma y forma de pago.</p>
           </div>
         </div>
-        <div className="flex flex-nowrap w-full lg:w-auto lg:inline-flex p-0.5 lg:p-1 bg-slate-100 rounded-xl gap-0.5 lg:shrink-0">
+        <div className="flex flex-nowrap w-full lg:w-auto lg:inline-flex lg:p-1 lg:bg-slate-100 lg:rounded-xl gap-0.5 lg:shrink-0">
           {tabs.map(t => {
             const Ic = t.icon;
             return (
               <button key={t.id} onClick={() => setPestana(t.id)} title={t.label}
-                className={`flex-1 lg:flex-none min-w-0 min-h-[40px] flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1.5 px-1 lg:px-3 py-1 rounded-lg text-[11px] sm:text-xs font-bold cursor-pointer ${pestana === t.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
+                className={`flex-1 lg:flex-none min-w-0 min-h-[40px] flex flex-col lg:flex-row items-center justify-center gap-0.5 lg:gap-1.5 px-1 lg:px-3 py-1 rounded-none lg:rounded-lg border-b-[3px] lg:border-b-0 text-[11px] sm:text-xs font-bold cursor-pointer ${pestana === t.id ? 'border-indigo-600 text-slate-900 lg:bg-white lg:shadow-xs' : 'border-transparent text-slate-500'}`}>
                 <Ic className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-indigo-600 shrink-0" /><span className="hidden lg:inline">{t.label}</span><span className="lg:hidden truncate max-w-full">{t.corto}</span>
               </button>
             );
