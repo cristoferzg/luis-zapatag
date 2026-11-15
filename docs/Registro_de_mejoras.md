@@ -23,10 +23,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Academia en Android: cursos de pago con clase de muestra visibles |
-| Última versión compilada | Web **2026.11.14.2336** · Android **código 26110421** (15/11/2026: arreglos de Techos 3D; incluye pantallas anchas, Academia, Membresía y pagos) |
+| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última versión compilada | Web **2026.11.15.0021** · Android **código 26110422** (15/11/2026: cursos visibles en la app de Android; incluye todo lo anterior) |
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
-| Próximo código Android | **26110422** (el contador sigue +1 desde aquí; nunca bajar de 26110421) |
+| Próximo código Android | **26110423** (el contador sigue +1 desde aquí; nunca bajar de 26110422) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026), conector "Academia Innova". 5 cursos con portada + 2 PDF. **Naves Parabólicas: 9 clases subidas** (la 1 gratis). Soldadura: clase 1 (gratis, estilo nuevo) subida. 3 plantillas de naves subidas a Recursos Técnicos (S/ 9.90; el MCP acepta `plantilla.datosUrl`, desplegado 15/11/2026). Videos en la rama `academia-videos` |
@@ -45,7 +45,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
   "Pagas una vez"). Los cursos sin clases (Estructuras, Carpintería, Lectura de Planos) aparecen al subir sus videos.
 - Archivos: `academia/AcademiaTienda.tsx`, `src/lib/plataforma.ts` (DEV: `window.__androidSimulado`).
 - Cómo se probó: tsc 0 errores; Android simulado: 1 → 4 cursos; web: 7 cursos; capturas antes/después.
-- Versión: sin compilar aún (próximo Android 26110422).
+- Versión: web 2026.11.15.0021 · Android código 26110422 (llave 01:D3…74:33). Manual sin cambios.
 
 ## 2026-11-15 · Techos 3D: botón «Aplicar cambios recomendados», arriostres, rueda del mouse, barra y cinta LED
 - Pedido del dueño: el botón del sismo no funcionaba; los arriostres salían como correas; no podía mover la vista con la
