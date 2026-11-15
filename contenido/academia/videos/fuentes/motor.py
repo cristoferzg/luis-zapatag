@@ -64,6 +64,8 @@ h2.t{font-size:58px;font-weight:900;letter-spacing:-1px;line-height:1.08}
 @keyframes clic{0%{opacity:1;transform:scale(.2)}100%{opacity:0;transform:scale(1.6)}}
 .resalta{position:absolute;border:5px solid #f97316;border-radius:12px;box-shadow:0 0 0 9999px rgba(3,12,22,.35),0 0 24px rgba(249,115,22,.9);z-index:6;opacity:0;animation:aparece .5s ease both paused}
 .globo{position:absolute;z-index:9;background:#f97316;color:#fff;font-weight:800;font-size:30px;padding:12px 22px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.vivo{animation-play-state:paused !important}
+.palabra{display:inline-block;margin-right:.26em;opacity:0;animation:pop .45s cubic-bezier(.3,1.6,.5,1) both paused}
 .brillo{animation:brillo 1.6s ease-in-out infinite paused}
 @keyframes brillo{0%,100%{filter:drop-shadow(0 0 0 rgba(249,115,22,0))}50%{filter:drop-shadow(0 0 18px rgba(249,115,22,.9))}}
 """
@@ -79,6 +81,13 @@ window.__fijar = (t, inicios, subs, zooms) => {
       const p = a.effect && a.effect.getComputedTiming().progress; if (p !== null && p > 0 && p < 1) mov = true; });
   });
   document.querySelectorAll('.brillo').forEach(el => el.getAnimations().forEach(a => { a.pause(); a.currentTime = t * 1000; }));
+  document.querySelectorAll('.vivo').forEach(el => {
+    const desde = el.dataset.vivoEn !== undefined ? (inicios[parseInt(el.dataset.vivoEn)] ?? 0) : 0;
+    const hasta = el.dataset.vivoHasta !== undefined ? (inicios[parseInt(el.dataset.vivoHasta)] ?? 1e9) : 1e9;
+    const on = t >= desde && t < hasta; el.style.visibility = on ? 'visible' : 'hidden';
+    el.getAnimations().forEach(a => { a.pause(); a.currentTime = (t - desde) * 1000 + parseFloat(el.dataset.fase || '0') * 1000; });
+    if (on) mov = true;
+  });
   // subtítulos
   const s = document.querySelector('.sub'); let txt = '';
   for (const x of subs) if (t >= x[0] && t < x[1]) txt = x[2];
