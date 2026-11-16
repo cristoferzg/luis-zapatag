@@ -169,7 +169,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 |---|---|
 | Última mejora sin compilar | Memoria/recomendados coherentes, sin «Mis apartados», Mis cursos/plantillas solo lo propio, Gasfitería/Electricidad rediseñadas (16/11/2026) |
 | Última versión compilada | Web **2026.11.16.1026** · Android **código 26110424** (16/11/2026: canje de créditos por cursos, plantillas y paquetes, también en Android; desplegar también `functions`) |
-| Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
+| Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110425** (el contador sigue +1 desde aquí; nunca bajar de 26110424) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | **Apagado en el servidor** (16/11/2026, exports comentados para que el deploy no pida los secretos). Programado y probado; para activarlo **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
