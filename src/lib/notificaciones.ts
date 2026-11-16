@@ -42,13 +42,27 @@ let visibleDesde = Date.now();
 try { document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') visibleDesde = Date.now(); }); } catch { /* sin documento */ }
 const repetiriaPush = () => esNativo() && pushActivo() && (document.visibilityState !== 'visible' || Date.now() - visibleDesde < 15000);
 
-/** Muestra una notificación del sistema (si hay permiso). No hace nada si no lo hay. */
-export async function notificar(titulo: string, cuerpo: string): Promise<void> {
+// Canal de Android con prioridad ALTA: suena y aparece arriba (el canal por defecto podía llegar en silencio).
+let canalListo = false;
+export async function asegurarCanal(): Promise<void> {
+  if (canalListo || !esNativo()) return;
+  try {
+    await LocalNotifications.createChannel({ id: 'avisos', name: 'Avisos de Innova', description: 'Comunicados, compras, chat de soporte y contenido nuevo', importance: 4, visibility: 1, vibration: true });
+    canalListo = true;
+  } catch { /* versión sin canales: se usa el de siempre */ }
+}
+
+/**
+ * Muestra una notificación del sistema (si hay permiso). No hace nada si no lo hay.
+ * `forzar`: se muestra aunque la app acabe de abrirse (pruebas y avisos que llegaron con la app abierta).
+ */
+export async function notificar(titulo: string, cuerpo: string, forzar = false): Promise<void> {
   try {
     if (!(await notificacionesPermitidas())) return;
-    if (repetiriaPush()) return;
+    if (!forzar && repetiriaPush()) return;
     if (esNativo()) {
-      await LocalNotifications.schedule({ notifications: [{ id: ++siguienteId, title: titulo, body: cuerpo, smallIcon: 'ic_stat_innova', largeIcon: 'ic_innova_grande', iconColor: '#f97316' }] });
+      await asegurarCanal();
+      await LocalNotifications.schedule({ notifications: [{ id: ++siguienteId, title: titulo, body: cuerpo, channelId: 'avisos', smallIcon: 'ic_stat_innova', largeIcon: 'ic_innova_grande', iconColor: '#f97316' }] });
       return;
     }
     const n = new Notification(titulo, { body: cuerpo, icon: '/pwa-192x192.png', badge: '/favicon-64.png', tag: `innova_${siguienteId++}` });

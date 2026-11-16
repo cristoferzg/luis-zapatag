@@ -21,13 +21,23 @@ function guardar(uid: string, lista: AvisoBandeja[]) {
   try { window.dispatchEvent(new CustomEvent(EVENTO, { detail: uid })); } catch { /* sin ventana */ }
 }
 
-/** Agrega avisos nuevos (si ya existe uno con el mismo id, lo vuelve a poner arriba sin leer). */
-export function agregarABandeja(uid: string | undefined, nuevos: Omit<AvisoBandeja, 'fecha' | 'leido'>[]) {
-  if (!uid || !nuevos.length) return;
+/**
+ * Agrega avisos nuevos (si ya existe uno con el mismo id, lo vuelve a poner arriba sin leer).
+ * Un aviso con el mismo título y texto que otro de los últimos 3 minutos no se repite (el mismo
+ * aviso puede llegar por push del servidor y por la propia app). Devuelve los que sí entraron.
+ */
+export function agregarABandeja(uid: string | undefined, nuevos: Omit<AvisoBandeja, 'fecha' | 'leido'>[]): Omit<AvisoBandeja, 'fecha' | 'leido'>[] {
+  if (!uid || !nuevos.length) return [];
   const ahora = Date.now();
-  const ids = new Set(nuevos.map(n => n.id));
-  const resto = leerBandeja(uid).filter(a => !ids.has(a.id));
-  guardar(uid, [...nuevos.map((n, i) => ({ ...n, fecha: ahora - i, leido: false })), ...resto]);
+  const previos = leerBandeja(uid);
+  const firma = (a: { titulo: string; cuerpo: string }) => `${a.titulo}|${a.cuerpo}`;
+  const recientes = new Set(previos.filter(a => ahora - a.fecha < 180000).map(firma));
+  const entran = nuevos.filter(n => !recientes.has(firma(n)) || previos.some(a => a.id === n.id));
+  if (!entran.length) return [];
+  const ids = new Set(entran.map(n => n.id));
+  const resto = previos.filter(a => !ids.has(a.id));
+  guardar(uid, [...entran.map((n, i) => ({ ...n, fecha: ahora - i, leido: false })), ...resto]);
+  return entran;
 }
 export const marcarLeido = (uid: string, id: string) => guardar(uid, leerBandeja(uid).map(a => a.id === id ? { ...a, leido: true } : a));
 export const marcarTodoLeido = (uid: string) => guardar(uid, leerBandeja(uid).map(a => ({ ...a, leido: true })));

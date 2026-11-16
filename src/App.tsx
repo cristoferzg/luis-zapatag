@@ -46,7 +46,7 @@ import MantenimientoView from './components/MantenimientoView';
 import { safeStorage } from './lib/storageManager';
 import { forzarActualizacion } from './lib/versionNueva';
 import { notificar, debeInvitar, marcarInvitado, activarNotificaciones } from './lib/notificaciones';
-import { registrarPush, quitarPush } from './lib/pushNativo';
+import { registrarPush, quitarPush, alRecibirPush } from './lib/pushNativo';
 import defaultAdminLogo from './assets/images/logo_innova_2026.png';
 
 import { formatCurrencyWithSymbol, useCompanyCurrency, getCompanyCurrency, saveCompanyCurrency, WORLD_CURRENCIES } from './lib/currency';
@@ -1908,6 +1908,17 @@ export default function App() {
     return () => { clearTimeout(t); window.removeEventListener('innova_notif_activadas', reg); };
   }, [user?.id, isAdmin]);
 
+  // Push que llega con la app ABIERTA (Android no lo muestra solo): a la campana y como notificación
+  // con sonido. Así llegan también los que la app no vigila (pagos por validar, chat de soporte).
+  useEffect(() => {
+    if (!activeUid) return;
+    alRecibirPush((titulo, cuerpo, vista) => {
+      const entro = agregarABandeja(activeUid, [{ id: 'push_' + Date.now(), titulo, cuerpo, vista }]);
+      if (entro.length) notificar(titulo, cuerpo, true);
+    });
+    return () => alRecibirPush(null);
+  }, [activeUid]);
+
   // NOTIFICACIONES DEL SISTEMA (Android, Windows, navegador): avisa de comunicados
   // nuevos, tickets y asesorías. La primera vez solo memoriza lo que ya existe (no
   // avisa de lo viejo); después avisa lo nuevo o lo que cambió de estado.
@@ -1944,8 +1955,8 @@ export default function App() {
     (biblioteca as any[]).forEach(b => { const k = 'b_' + b.id; if (!recursoVisible(b)) return; ahora[k] = '1'; if (vistos && !vistos[k] && !isAdmin) avisos.push(['📘 Nuevo en Recursos Técnicos', b.titulo || '', k, 'biblioteca']); });
     safeStorage.setItem(clave, { ...(vistos || {}), ...ahora });
     // Todo queda en la bandeja (la campana), aunque se borre la notificación del celular.
-    agregarABandeja(activeUid, avisos.map(([titulo, cuerpo, id, vista]) => ({ id, titulo, cuerpo, vista })));
-    avisos.slice(0, 3).forEach(([t, c]) => { notificar(t, c); });
+    const entraron = agregarABandeja(activeUid, avisos.map(([titulo, cuerpo, id, vista]) => ({ id, titulo, cuerpo, vista })));
+    entraron.slice(0, 3).forEach(a => { notificar(a.titulo, a.cuerpo); });
   }, [activeUid, globalNotifs, tickets, asesorias, tutoriales, biblioteca, cursos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compras validadas o rechazadas: aviso SOLO para el comprador (campana + notificación).

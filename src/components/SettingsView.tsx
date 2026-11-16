@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { activarNotificaciones, notificacionesDisponibles, notificacionesPermitidas, notificar } from '../lib/notificaciones';
+import { estadoPush } from '../lib/pushNativo';
 import { versionApp } from '../lib/version';
 import { 
   Building2, CreditCard, Save, Download, 
@@ -24,7 +25,8 @@ import ComunicadosProgramadosPanel from './ComunicadosProgramadosPanel';
 import { publicarComunicado, quitarComunicado } from '../lib/comunicados';
 import { CostsCatalogView } from './CostsCatalogView';
 import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, app } from '../lib/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { UploadProgressBar } from './common/UploadProgressBar';
 
 export interface CurrencyOption {
@@ -1723,25 +1725,49 @@ const AdminAnnouncementPanel = ({ notifications, authorName }: { notifications: 
 };
 
 
-/** Activar los avisos del sistema (barra del teléfono / esquina de Windows). */
+/** Activar los avisos del sistema (barra del teléfono / esquina de Windows) y probarlos de punta a punta. */
 function TarjetaNotificaciones() {
   const [estado, setEstado] = React.useState<'si' | 'no' | 'sin'>('no');
+  const [prueba, setPrueba] = React.useState<string>('');
+  const [probando, setProbando] = React.useState(false);
   React.useEffect(() => {
     if (!notificacionesDisponibles()) { setEstado('sin'); return; }
     notificacionesPermitidas().then(ok => setEstado(ok ? 'si' : 'no'));
   }, []);
   if (estado === 'sin') return null;
+  const ep = estadoPush();
+  // Prueba desde el servidor: manda un aviso a los celulares de esta cuenta y dice qué respondió Google.
+  const probarServidor = async () => {
+    setProbando(true); setPrueba('');
+    try {
+      const fn = httpsCallable<object, { celulares: number; enviados: number; errores: string[] }>(getFunctions(app, 'us-central1'), 'probarAviso');
+      const r = (await fn({})).data;
+      setPrueba(!r.celulares ? '✗ El servidor no tiene registrado este celular. Cierra la app, vuelve a abrirla con tu PIN y prueba otra vez.'
+        : r.enviados ? `✓ El servidor envió el aviso a ${r.enviados} celular(es). Debe llegar en unos segundos (con la app abierta sale como notificación y en la campana).`
+        : `✗ Google rechazó el aviso (${r.errores.join(', ')}). Cierra sesión, vuelve a entrar y prueba de nuevo.`);
+    } catch (e: any) {
+      setPrueba(`✗ No se pudo llamar al servidor (${String(e?.message || e)}). ¿Ya desplegaste las funciones?`);
+    } finally { setProbando(false); }
+  };
   return (
     <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-2">
       <h2 className="text-base font-bold text-slate-800">🔔 Notificaciones</h2>
-      <p className="text-xs text-slate-500">Avisos en el celular y en Windows cuando llega un comunicado, un ticket o una asesoría.</p>
+      <p className="text-xs text-slate-500">Avisos en el celular y en Windows: comunicados, compras, chat de soporte, tickets, asesorías y contenido nuevo.</p>
       {estado === 'si' ? (
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">✓ Activadas en este equipo</span>
-          <button type="button" onClick={() => notificar('Innova Contratistas', 'Así se verán tus avisos.')} className="text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-2.5 py-1.5 cursor-pointer">Probar</button>
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5">✓ Permiso dado en este equipo</span>
+            {ep.nativo && <span className={`text-xs font-bold rounded-lg px-2.5 py-1.5 border ${ep.token ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-amber-800 bg-amber-50 border-amber-200'}`}>{ep.token ? '✓ Celular registrado para avisos' : `Celular sin registrar${ep.error ? ` (${ep.error})` : ''}`}</span>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => notificar('Innova Contratistas', 'Así se verán tus avisos.', true)} className="text-xs font-bold text-slate-700 bg-slate-100 rounded-lg px-3 py-2 cursor-pointer">Probar en este equipo</button>
+            {ep.nativo && <button type="button" disabled={probando} onClick={probarServidor} className="text-xs font-bold text-white bg-orange-500 rounded-lg px-3 py-2 cursor-pointer disabled:opacity-60">{probando ? 'Probando…' : 'Probar desde el servidor'}</button>}
+          </div>
+          {prueba && <p className={`text-xs font-bold rounded-lg px-3 py-2 ${prueba.startsWith('✓') ? 'text-emerald-800 bg-emerald-50' : 'text-rose-800 bg-rose-50'}`}>{prueba}</p>}
+          {ep.nativo && <p className="text-[11px] text-slate-500">Si no suena: en el celular abre Ajustes → Aplicaciones → InnovApp → Notificaciones → «Avisos de Innova» y activa sonido y «Mostrar en pantalla».</p>}
         </div>
       ) : (
-        <button type="button" onClick={async () => { const ok = await activarNotificaciones(); setEstado(ok ? 'si' : 'no'); if (ok) notificar('Notificaciones activadas', 'Te avisaremos aquí de comunicados, tickets y asesorías.'); else alert('No se dio el permiso. Actívalo en los ajustes del teléfono o del navegador (Notificaciones → Innova).'); }}
+        <button type="button" onClick={async () => { const ok = await activarNotificaciones(); setEstado(ok ? 'si' : 'no'); if (ok) { window.dispatchEvent(new CustomEvent('innova_notif_activadas')); notificar('Notificaciones activadas', 'Te avisaremos aquí de comunicados, compras, chat y contenido nuevo.', true); } else alert('No se dio el permiso. Actívalo en los ajustes del teléfono o del navegador (Notificaciones → Innova).'); }}
           className="w-full px-3 py-2.5 rounded-xl bg-orange-500 text-white text-sm font-bold cursor-pointer">Activar notificaciones</button>
       )}
     </div>

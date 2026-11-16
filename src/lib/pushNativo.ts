@@ -17,6 +17,15 @@ let oyentes = false;
 
 /** ¿Este celular ya recibe avisos push? (la app evita repetirlos con avisos locales) */
 export const pushActivo = () => !!tokenActual;
+/** Estado para el botón de prueba de Configuración. */
+export const estadoPush = () => (import.meta.env.DEV && (window as any).__pushSimulado) ? { nativo: true, token: true, error: '' } : ({ nativo: esNativo(), token: !!tokenActual, error: errorRegistro });
+let errorRegistro = '';
+
+// Con la app ABIERTA Android no muestra el push del servidor: App lo pasa a la campana y a una
+// notificación local (antes se perdían, por ejemplo los pagos por validar y el chat de soporte).
+type AlRecibir = (titulo: string, cuerpo: string, vista?: string) => void;
+let alRecibir: AlRecibir | null = null;
+export function alRecibirPush(fn: AlRecibir | null) { alRecibir = fn; }
 
 function guardarToken() {
   if (!tokenActual || !wsActual) return;
@@ -38,7 +47,10 @@ export async function registrarPush(ws: string, role: string): Promise<void> {
       // Si la sesión con PIN se confirma después, volver a guardar el token con permisos.
       try { onIdTokenChanged(auth, u => { if (u) guardarToken(); }); } catch { /* nada */ }
       await PushNotifications.addListener('registration', t => { tokenActual = t.value; guardarToken(); });
-      await PushNotifications.addListener('registrationError', () => { tokenActual = null; });
+      await PushNotifications.addListener('registrationError', e => { tokenActual = null; errorRegistro = String((e as any)?.error || 'no se pudo registrar'); });
+      await PushNotifications.addListener('pushNotificationReceived', n => {
+        try { alRecibir?.(n.title || 'Innova', n.body || '', (n.data as any)?.vista); } catch { /* nada */ }
+      });
       // Al tocar el aviso: abrir la pantalla que corresponde.
       await PushNotifications.addListener('pushNotificationActionPerformed', a => {
         const vista = (a.notification?.data as any)?.vista;
@@ -46,7 +58,7 @@ export async function registrarPush(ws: string, role: string): Promise<void> {
       });
     }
     if (tokenActual) guardarToken(); else await PushNotifications.register();
-  } catch { /* sin servicios de Google: quedan solo los avisos con la app abierta */ }
+  } catch (e) { errorRegistro = String((e as any)?.message || e || 'sin servicios de Google'); /* quedan solo los avisos con la app abierta */ }
 }
 
 /** Al cerrar sesión: este celular deja de recibir los avisos de esa cuenta. */

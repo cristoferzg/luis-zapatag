@@ -41,6 +41,21 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): este.
 - Pendiente / a vigilar: el canje de paquetes con créditos ya se programó en otra conversación (entrada de abajo); falta desplegar `functions`.
 
+## 2026-11-16 · Notificaciones: llegan con la app abierta, suenan y se pueden probar de punta a punta
+- Pedido del dueño: "Las notificaciones no funcionan" (app de Android y campana; no suenan; comunicados, compras, chat, clases).
+- Qué se hizo: (1) Push con la app ABIERTA: Android no lo muestra solo; ahora `pushNotificationReceived` lo pasa a la campana y a una notificación
+  con sonido (`alRecibirPush` en pushNativo.ts + App). Antes con la app abierta se perdían los que la app no vigila (pagos por validar, chat de soporte).
+  (2) Notificaciones locales en el canal «Avisos de Innova» de prioridad ALTA (`asegurarCanal`, channelId 'avisos'): suenan y aparecen arriba; el
+  servidor manda `sound: 'default'`. (3) La campana no repite el mismo aviso que llega por push y por la app (mismo título y texto en 3 min) y
+  solo se notifica lo que entró. (4) «Probar» ya no se queda callado si la app recién se abrió. (5) Configuración → Notificaciones muestra si hay
+  permiso y si el celular quedó registrado, y «Probar desde el servidor» (Cloud Function `probarAviso`) envía un aviso a los celulares de la
+  cuenta y dice qué respondió Google.
+- Archivos principales: `src/lib/pushNativo.ts`, `src/lib/notificaciones.ts`, `src/lib/bandejaAvisos.ts`, `src/App.tsx`, `SettingsView.tsx`, `functions/index.js`.
+- Cómo se probó: tsc 0 errores; `node --check` de functions; capturas antes/después de la tarjeta (celular simulado con `__pushSimulado`).
+- Versión: sin compilar aún (va en la web: no hace falta otro AAB; requiere desplegar hosting y functions).
+- Commit(s): este.
+- Pendiente / a vigilar: si «Probar desde el servidor» da error, revisar en Play que la app tenga permiso de notificaciones y en Firebase que FCM esté activo.
+
 ## 2026-11-16 · Compilación 26110425 (web 2026.11.16.1331)
 - Pedido del dueño: "Compila".
 - Qué lleva: memoria y «Aplicar recomendados» con una sola regla (columnas con sismo, sin cruces si no hacen falta); sin «Mis apartados»; Mis cursos /
@@ -179,7 +194,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado el 16/11/2026) |
+| Última mejora sin compilar | Notificaciones (push con la app abierta, sonido, prueba desde el servidor) — 16/11/2026; desplegar hosting + functions |
 | Última versión compilada | Web **2026.11.16.1331** · Android **código 26110425** (16/11/2026: memoria coherente, sin Mis apartados, Mis cursos propios, Gasfitería/Electricidad rediseñadas, vincular y enviar al proyecto) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110426** (el contador sigue +1 desde aquí; nunca bajar de 26110425) |

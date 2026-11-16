@@ -58,6 +58,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   comunicados/clases/recursos → usuarios; ticket/asesoría nueva → admin; cambio de estado → autor.
 - Con la app abierta el sistema no muestra el push; la app avisa con notificaciones locales
   (`notificar` evita repetir lo que ya llegó por push al volver a abrirla).
+- Push con la app ABIERTA: `pushNotificationReceived` → `alRecibirPush` (App) → campana + `notificar(..., true)`. Locales en canal 'avisos'
+  (importancia alta, `asegurarCanal`). Campana deduplica mismo título+texto en 3 min. Prueba: Configuración → Notificaciones → «Probar desde el
+  servidor» (callable `probarAviso`). DEV: `__pushSimulado` (incluir en el grep del dist).
 
 ## Comunicados programados y automáticos
 - Panel admin `ComunicadosProgramadosPanel` (Configuración, debajo de "Publicar comunicado"). Datos en

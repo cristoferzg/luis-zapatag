@@ -1133,7 +1133,7 @@ async function enviarPush({ aAdmin = false, aUsuarios = false, aWs = [] }, titul
   const mensaje = {
     notification: { title: recortar(titulo, 80), body: recortar(cuerpo) },
     data: { vista: vista || 'dashboard' },
-    android: { priority: 'high', notification: { channelId: 'avisos', icon: 'ic_stat_innova', color: '#f97316' } },
+    android: { priority: 'high', notification: { channelId: 'avisos', icon: 'ic_stat_innova', color: '#f97316', sound: 'default' } },
   };
   for (let i = 0; i < tokens.length; i += 500) {
     const lote = tokens.slice(i, i + 500);
@@ -1146,6 +1146,25 @@ async function enviarPush({ aAdmin = false, aUsuarios = false, aWs = [] }, titul
     }));
   }
 }
+
+// Prueba de punta a punta (Configuración → Notificaciones → «Probar desde el servidor»): manda un aviso a los
+// celulares registrados de ESTA cuenta y devuelve lo que respondió Google (para saber dónde se corta).
+export const probarAviso = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
+  const token = request.auth?.token || {};
+  const esAdmin = token.role === 'admin';
+  const ws = sinPrefijo(String(token.workspace || ''));
+  if (!ws && !esAdmin) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
+  const snap = await db.collection('push_tokens').get();
+  const tokens = snap.docs.filter((d) => { const t = d.data() || {}; return esAdmin ? t.role === 'admin' : sinPrefijo(t.ws) === ws; }).map((d) => d.id);
+  if (!tokens.length) return { celulares: 0, enviados: 0, errores: [] };
+  const r = await getMessaging().sendEachForMulticast({
+    tokens,
+    notification: { title: '🔔 Prueba de Innova', body: 'Si ves este aviso, las notificaciones funcionan en este celular.' },
+    data: { vista: 'dashboard' },
+    android: { priority: 'high', notification: { channelId: 'avisos', icon: 'ic_stat_innova', color: '#f97316', sound: 'default' } },
+  });
+  return { celulares: tokens.length, enviados: r.successCount, errores: r.responses.filter((x) => !x.success).map((x) => x.error?.code || 'error') };
+});
 
 const opcionesAviso = { region: 'us-central1', retry: false };
 
