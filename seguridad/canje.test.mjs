@@ -29,6 +29,8 @@ const caso = (nombre, cond, extra = '') => { if (cond) { ok++; console.log('  �
 const mes = new Date().toISOString().slice(0, 7);
 // el servidor calcula el mes en Lima; se ponen ambos datos para no depender de la hora
 await db.doc('ai_access/A').set({ userId: 'A', planId: 'gratis', creditosRestantes: 0, creditosExtra: 300, mes: 'x' });
+// La mejor recarga da 10 créditos por sol (100 por S/ 10); la otra rinde menos y no cuenta.
+await db.doc('config_ia/planes').set({ packs: [{ id: 'a', creditos: 20, precioSoles: 4 }, { id: 'b', creditos: 100, precioSoles: 10 }] }, { merge: true });
 await db.doc('cursos/c1').set({ name: 'Curso 1', isFree: false, priceSoles: 10, allowedUserIds: [] });
 await db.doc('cursos/c2').set({ name: 'Curso 2', isFree: false, priceSoles: 20, allowedUserIds: [] });
 await db.doc('biblioteca/r1').set({ titulo: 'Plantilla', isFree: false, precioSoles: 5, allowedUserIds: [] });
@@ -55,6 +57,14 @@ caso('volver a canjear no cobra (ya lo tiene)', r.ok && r.yaTenia && r.creditos 
 await db.doc('cursos/c3').set({ name: 'Curso 3', isFree: false, priceSoles: 3, allowedUserIds: [] });
 r = await canjear(tA, { cursoId: 'c3' });
 caso('canje de un curso suelto sigue igual (30 créditos)', r.ok && r.creditos === 30 && (await tiene('cursos', 'c3')), JSON.stringify(r));
+await db.doc('ai_access/A').set({ creditosExtra: 1000 }, { merge: true });
+await db.doc('cursos/c4').set({ name: 'Curso 4', isFree: false, priceSoles: 10, discountPercentage: 50, discountExpiryDate: new Date(Date.now() + 864e5).toISOString(), allowedUserIds: [] });
+r = await canjear(tA, { cursoId: 'c4' });
+caso('curso con 50% de descuento vigente → 50 créditos', r.ok && r.creditos === 50, JSON.stringify(r));
+await db.doc('config_ia/planes').set({ packs: [] }, { merge: true });
+await db.doc('cursos/c5').set({ name: 'Curso 5', isFree: false, priceSoles: 54.9, allowedUserIds: [] });
+r = await canjear(tA, { cursoId: 'c5' });
+caso('sin recargas configuradas: S/ 54.90 = 500 créditos (la recarga grande por defecto)', r.ok && r.creditos === 500, JSON.stringify(r));
 const tAdm = await idToken('adm', { role: 'admin', workspace: 'admin' });
 r = await canjear(tAdm, { tipo: 'paquete', paqueteId: 'p1' });
 caso('el admin no canjea', r.error === 'FAILED_PRECONDITION', JSON.stringify(r));

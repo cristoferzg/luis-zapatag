@@ -416,8 +416,18 @@ export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, inv
  */
 const RECEIPT_MODEL = 'claude-haiku-5-5';
 
+// Créditos por sol para canjear contenido = los de la recarga más conveniente (igual que el cliente,
+// src/lib/cursosCreditos.ts): así canjear cuesta lo mismo que pagar en soles.
+async function creditosPorSol() {
+  const s = await db.collection('config_ia').doc('planes').get();
+  const packs = Array.isArray(s.data()?.packs) ? s.data().packs : [];
+  const r = packs.map((k) => Number(k?.creditos) / Number(k?.precioSoles)).filter((x) => Number.isFinite(x) && x > 0);
+  return r.length ? Math.max(...r) : 500 / 54.9;
+}
+const vigenteHasta = (iso) => !iso || new Date(iso).getTime() > Date.now();
+
 // Canjear un PAQUETE de la Academia (config_academia/paquetes {lista}) con créditos: precioCreditos
-// del paquete o 10 créditos por sol. Habilita todos sus cursos y recursos de una vez (lo que ya
+// del paquete o su precio en soles × créditos por sol de la mejor recarga. Habilita todos sus cursos y recursos de una vez (lo que ya
 // tenía no se cobra aparte: el precio del paquete es fijo, igual que al pagarlo con Yape).
 async function canjearPaquete(request, ws) {
   const id = String(request.data?.paqueteId || '').replace(/^paq_/, '');
@@ -437,7 +447,7 @@ async function canjearPaquete(request, ws) {
     return !ids.includes(ws) && !ids.includes('user_' + ws);
   });
   if (!faltan.length) return { ok: true, yaTenia: true, creditos: 0 };
-  const creditos = Number(p.precioCreditos) > 0 ? Math.round(Number(p.precioCreditos)) : Math.max(1, Math.round((Number(p.precioSoles) || 0) * 10));
+  const creditos = Number(p.precioCreditos) > 0 ? Math.round(Number(p.precioCreditos)) : Math.max(1, Math.round((Number(p.precioSoles) || 0) * await creditosPorSol()));
   const devolver = await cobrarUsoIA(request, 'paquete', creditos);
   try {
     const lote = db.batch();
@@ -470,8 +480,8 @@ export const canjearCurso = onCall({ region: 'us-central1', cors: true, invoker:
   const soles = Number(esRecurso ? c.precioSoles : c.priceSoles) || 0;
   const gratis = esRecurso ? (c.isFree === true || (c.isFree !== false && soles <= 0)) : c.isFree !== false;
   if (gratis || ids.includes(ws) || ids.includes('user_' + ws)) return { ok: true, yaTenia: true, creditos: 0 };
-  const descuento = esRecurso ? Math.min(100, Math.max(0, Number(c.discountPercentage) || 0)) : 0;
-  const creditos = Number(c.precioCreditos) > 0 ? Math.round(Number(c.precioCreditos)) : Math.max(1, Math.round(soles * (1 - descuento / 100) * 10));
+  const descuento = esRecurso || vigenteHasta(c.discountExpiryDate) ? Math.min(100, Math.max(0, Number(c.discountPercentage) || 0)) : 0;
+  const creditos = Number(c.precioCreditos) > 0 ? Math.round(Number(c.precioCreditos)) : Math.max(1, Math.round(soles * (1 - descuento / 100) * await creditosPorSol()));
   const devolver = await cobrarUsoIA(request, esRecurso ? 'recurso' : 'curso', creditos);
   try {
     await ref.set({ allowedUserIds: FieldValue.arrayUnion(ws) }, { merge: true });

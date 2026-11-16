@@ -22,7 +22,7 @@ import { leerPagoDirecto, pagoDirectoListo, nombreMediosPago, type ConfigPagoDir
 import { escucharPaquetes, guardarPaquetes, ID_COMPRA_PAQUETE, type PaqueteAcademia } from '../../lib/paquetesAcademia';
 import VentanaPagoDirecto from '../VentanaPagoDirecto';
 import ConfirmarCanjeCreditos from '../ConfirmarCanjeCreditos';
-import { creditosDeCurso, creditosDeRecurso, creditosDePaquete, canjearCursoConCreditos, canjearRecursoConCreditos, canjearPaqueteConCreditos } from '../../lib/cursosCreditos';
+import { useFactorCreditos, creditosDeCurso, creditosDeRecurso, creditosDePaquete, canjearCursoConCreditos, canjearRecursoConCreditos, canjearPaqueteConCreditos } from '../../lib/cursosCreditos';
 
 const TEL_DUENO = '51966000500';
 const tiene = (lista: string[] | undefined, uid?: string) => {
@@ -58,6 +58,7 @@ interface Props {
 export default function AcademiaTienda({ cursos, tutoriales, biblioteca, currentUser, isAdmin = false, onVerCurso, onIrRecursos, pestanas }: Props) {
   const uid: string | undefined = currentUser?.id;
   const vende = comprasPermitidas();
+  useFactorCreditos();   // precio en créditos según la recarga más conveniente
   // Canje con créditos: para todo usuario (no el admin, que ya tiene todo), también en Android.
   const canjea = !isAdmin && !!uid;
   const [canje, setCanje] = useState<{ tipo: 'curso' | 'recurso' | 'paquete'; id: string; nombre: string; creditos: number } | null>(null);

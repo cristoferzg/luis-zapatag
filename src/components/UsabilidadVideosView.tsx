@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import EstadisticasContenido from './EstadisticasContenido';
-import { creditosDeCurso, canjearCursoConCreditos } from '../lib/cursosCreditos';
+import { useFactorCreditos, creditosDeCurso, canjearCursoConCreditos } from '../lib/cursosCreditos';
 import ConfirmarCanjeCreditos from './ConfirmarCanjeCreditos';
 import { registrarContenido } from '../lib/estadisticas';
 import { 
@@ -101,6 +101,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   currentUser,
   cursoInicial = null,
 }) => {
+  useFactorCreditos();   // precio en créditos según la recarga más conveniente
   const [usuariosList] = useFirestoreArraySync<SystemUser>('usuarios', 'global', true);
   const [dbVideos, setDbVideos] = useFirestoreArraySync<TutorialVideo>('tutoriales', 'global', true);
   const [cursosList, setCursosList] = useFirestoreArraySync<CourseCategory>('cursos', 'global', true);

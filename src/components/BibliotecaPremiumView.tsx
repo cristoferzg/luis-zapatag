@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import EstadisticasContenido from './EstadisticasContenido';
 import ConfirmarCanjeCreditos from './ConfirmarCanjeCreditos';
-import { creditosDeRecurso, canjearRecursoConCreditos } from '../lib/cursosCreditos';
+import { useFactorCreditos, creditosDeRecurso, canjearRecursoConCreditos } from '../lib/cursosCreditos';
 import { registrarContenido } from '../lib/estadisticas';
 import { 
   BookOpen, 
@@ -93,6 +93,7 @@ export default function BibliotecaPremiumView({
   usuariosList: propUsuariosList,
   sinTitulo = false,
 }: BibliotecaPremiumViewProps) {
+  useFactorCreditos();   // precio en créditos según la recarga más conveniente
   const activeUid = currentUser ? ('user_' + currentUser.id) : (isAdmin ? 'admin' : 'shared');
   const [internalItems, setInternalItems] = useFirestoreArraySync<BibliotecaItem>('biblioteca', activeUid, true);
   const [internalUsuariosList] = useFirestoreArraySync<SystemUser>('usuarios', activeUid, true);
