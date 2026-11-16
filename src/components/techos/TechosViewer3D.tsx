@@ -1458,8 +1458,8 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     const partes: string[] = [];
     if (r.reparados) partes.push(`${r.reparados} arriostre${r.reparados === 1 ? '' : 's'} recuperado${r.reparados === 1 ? '' : 's'} (estaban marcados como correa)`);
     if (r.piezas) partes.push(`${r.piezas} pieza${r.piezas === 1 ? '' : 's'} con su perfil recomendado`);
-    if (r.columna) partes.push(`columnas → ${r.columna} (cumplen la deriva del sismo X)`);
-    if (r.cruces) partes.push('cruces de arriostre en las paredes (sismo Y)');
+    if (r.columna) partes.push(`columnas → ${r.columna} (cumplen el sismo sin arriostres ni tensores)`);
+    if (r.cruces) partes.push('cruces de arriostre en las paredes (ninguna columna sola alcanza el sismo Y)');
     if (r.sinColumna) partes.push('⚠ ningún tubo del catálogo alcanza la deriva X: usa columnas de concreto o arriostra los pórticos');
     setAvisoRecom(partes.length
       ? { ok: !r.sinColumna, t: `✓ Aplicado: ${partes.join(' · ')}.` }

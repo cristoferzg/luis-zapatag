@@ -65,11 +65,13 @@ export const TechosEstructuralAnalysisView: React.FC<TechosEstructuralAnalysisVi
   const textoSinOpcion = (n: number) => n ? ` ${n} tramo(s) son muy largos para cualquier perfil del catálogo: agrega un apoyo o arriostre intermedio.` : '';
 
   // Aplica los perfiles que recomienda la memoria (refuerzos y ahorros).
+  // Es EL MISMO botón que «Aplicar cambios recomendados» del 3D (aplicarCambiosRecomendados): antes
+  // este solo cambiaba perfiles y el del 3D además subía columnas por sismo, y se contradecían.
   const aplicarRecomendados = () => {
     const c = cambiosMemoria();
-    if (!Object.keys(c.nuevos).length) { setAvisoAplicar((c.sinOpcion ? 'No hay perfiles para cambiar.' : 'Todos los grupos ya tienen el perfil más económico que cumple: no hay nada que cambiar.') + textoSinOpcion(c.sinOpcion)); return; }
-    engineState.updateSegmentsProfiles(c.nuevos);
-    setAvisoAplicar(`✓ Cambiado: ${c.cambios.map(x => `${x.n} ${x.rol.toLowerCase()} → ${x.a}`).join(' · ')}.` + textoSinOpcion(c.sinOpcion));
+    const r = engineState.aplicarCambiosRecomendados();
+    if (!r.piezas && !r.cruces && !r.reparados) { setAvisoAplicar((r.sinColumna ? '⚠ Ningún tubo del catálogo alcanza el sismo: usa columnas de concreto o arriostra los pórticos.' : 'Todos los grupos ya tienen el perfil más económico que cumple: no hay nada que cambiar.') + textoSinOpcion(c.sinOpcion)); return; }
+    setAvisoAplicar(`✓ Cambiado: ${c.cambios.map(x => `${x.n} ${x.rol.toLowerCase()} → ${x.a}`).join(' · ')}` + (r.cruces ? ' · cruces de arriostre en las paredes (ninguna columna sola alcanza el sismo Y)' : '') + '.' + textoSinOpcion(c.sinOpcion));
     setAhorro(null);
     setTimeout(() => setAvisoAplicar(null), 12000);
   };
