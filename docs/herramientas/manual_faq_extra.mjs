@@ -10,7 +10,7 @@ const PAG_REEMPLAZO = 84; // última página de FAQ en el manual de entrada
 
 const FAQS = [
   // Las que ya estaban en la página 84
-  ['No encuentro un apartado en el menú', 'Revisa las pestañas de arriba (Personal y Carpeta están en Proyectos; Precios, en Configuración; Cotización rápida, en Techos). Si apagaste un apartado, enciéndelo otra vez en “Mis apartados”, al final del menú.'],
+  ['No encuentro un apartado en el menú', 'Revisa las pestañas de arriba (Personal y Carpeta están en Proyectos; Precios, en Configuración; Cotización rápida, en Techos). Todos los apartados se ven siempre en el menú, ordenados por grupos.'],
   ['¿Puedo cambiar la moneda?', 'Sí. En Configuración eliges la moneda y se aplica en todo el sistema: presupuestos, propuestas, gastos y precios.'],
   ['Algo no funciona', 'Entra a Ayuda y soporte y escríbelo en el chat, o toca “Reportar un problema”. Puedes adjuntar una foto de la pantalla.'],
   // Nuevas

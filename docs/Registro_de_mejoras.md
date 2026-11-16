@@ -41,6 +41,18 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): este.
 - Pendiente / a vigilar: el canje de paquetes con créditos ya se programó en otra conversación (entrada de abajo); falta desplegar `functions`.
 
+## 2026-11-16 · Compilación 26110425 (web 2026.11.16.1331)
+- Pedido del dueño: "Compila".
+- Qué lleva: memoria y «Aplicar recomendados» con una sola regla (columnas con sismo, sin cruces si no hacen falta); sin «Mis apartados»; Mis cursos /
+  Mis plantillas solo con lo del usuario; Gasfitería y Electricidad rediseñadas (lienzo limpio, fondo arriba con el techo elegido, aparatos en una
+  franja, sin tarjeta flotante); selector «Proyecto» y «Enviar al proyecto» en los apartados de diseño.
+- Manual: págs. 3, 4, 6, 70 y 84 sin «Mis apartados»; Paso 4 del capítulo 1 ahora es «Vincular a un proyecto» con su captura
+  (`docs/herramientas/manual_sin_mis_apartados.py`).
+- Cómo se probó: tsc 0 errores; grep del dist sin simulaciones ni proveedor; AAB/APK versionCode 26110425, firma SHA-256 01:D3…74:33.
+- Versión: web **2026.11.16.1331** · Android código **26110425**. Despliegue: solo hosting (functions y reglas sin cambios desde la entrega anterior).
+- Commit(s): este.
+- Pendiente / a vigilar: Obra Civil (captura del dueño). Tras aprobar Play: «App de Android» 26110425 + «Avisar a todos que actualicen».
+
 ## 2026-11-16 · «Enviar al proyecto» desde los apartados de diseño
 - Pedido del dueño: "sí, agrega enviar al proyecto".
 - Qué se hizo: botón «Enviar al proyecto» junto a Guardar en Gasfitería, Electricidad, Drywall, Melamina, Madera, Vidrios, Acabados y Presupuesto de obra
@@ -167,10 +179,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Memoria/recomendados coherentes, sin «Mis apartados», Mis cursos/plantillas solo lo propio, Gasfitería/Electricidad rediseñadas (16/11/2026) |
-| Última versión compilada | Web **2026.11.16.1026** · Android **código 26110424** (16/11/2026: canje de créditos por cursos, plantillas y paquetes, también en Android; desplegar también `functions`) |
+| Última mejora sin compilar | — (todo compilado el 16/11/2026) |
+| Última versión compilada | Web **2026.11.16.1331** · Android **código 26110425** (16/11/2026: memoria coherente, sin Mis apartados, Mis cursos propios, Gasfitería/Electricidad rediseñadas, vincular y enviar al proyecto) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
-| Próximo código Android | **26110425** (el contador sigue +1 desde aquí; nunca bajar de 26110424) |
+| Próximo código Android | **26110426** (el contador sigue +1 desde aquí; nunca bajar de 26110425) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | **Apagado en el servidor** (16/11/2026, exports comentados para que el deploy no pida los secretos). Programado y probado; para activarlo **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026). **9 cursos completos** (104 clases): Seguridad en Obra y Trabajos en Altura 12 (S/ 29, ≈35 min), Naves Parabólicas 13 (S/ 79, ≈1 h 35 min, clases ampliadas), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |
