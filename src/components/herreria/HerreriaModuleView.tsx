@@ -36,6 +36,8 @@ import { HerreriaPresupuestoView } from './HerreriaPresupuestoView';
 import { HerreriaPlanoCadView } from './HerreriaPlanoCadView';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { dxfModelToHerreriaPiezas, generateHerreriaDxf } from '../../lib/dxfParser';
+import { dxf3D, ifc, descargarTexto, nombreArchivo } from '../../lib/solidosCad';
+import { solidosDeHerreria } from './exportarCad';
 
 interface ProjectOption {
   id: string;
@@ -246,16 +248,17 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
     return () => { clearTimeout(t); window.removeEventListener('innova_archivo_pendiente', abrir); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Exportar archivo AutoCAD DXF
+  // Exportar a AutoCAD (.DXF en 3D: cada tubo y plancha con su sección real, por capas)
+  // y a Revit (.IFC: columnas, vigas, miembros y placas con su perfil).
   const handleExportDxf = () => {
-    const dxfString = generateHerreriaDxf(design);
-    const dataStr = "data:application/dxf;charset=utf-8," + encodeURIComponent(dxfString);
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `${design.nombre.toLowerCase().replace(/\s+/g, '_')}.dxf`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    const solidos = solidosDeHerreria(design);
+    if (!solidos.length) { descargarTexto(generateHerreriaDxf(design), `${nombreArchivo(design.nombre)}.dxf`, 'application/dxf'); return; }
+    descargarTexto(dxf3D(solidos, design.nombre), `${nombreArchivo(design.nombre)}_3d.dxf`, 'application/dxf');
+  };
+  const handleExportIfc = () => {
+    const solidos = solidosDeHerreria(design);
+    if (!solidos.length) { alert('Primero arma el diseño (no hay piezas para exportar).'); return; }
+    descargarTexto(ifc(solidos, design.nombre || 'Carpinteria metalica'), `${nombreArchivo(design.nombre)}.ifc`, 'application/x-step');
   };
 
   // Botón [ EXPORTAR ]
@@ -391,10 +394,20 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
           <button
             onClick={handleExportDxf}
             className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
-            title="Descargar el plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
+            title="Descargar el modelo 3D para AutoCAD (.DXF con cada tubo y plancha por capas; AutoCAD lo abre y lo guarda como .DWG)"
           >
             <Download className="w-3.5 h-3.5 text-blue-600" />
             <span className="hidden md:inline">DXF</span>
+          </button>
+
+          {/* [ REVIT IFC ] */}
+          <button
+            onClick={handleExportIfc}
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-xs active:scale-95 transition-all"
+            title="Descargar el modelo para Revit (.IFC; en Revit: Insertar → Vincular IFC o Archivo → Abrir → IFC)"
+          >
+            <Download className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden md:inline">REVIT</span>
           </button>
 
           {/* Celular: lo demás en un panel con nombres (igual que Techos y Obra Civil) */}
@@ -417,6 +430,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
                   <button onClick={() => { setHojaHerr(false); setShowUploadModal(true); }}><UploadCloud className="w-4 h-4 text-blue-600 shrink-0" /> Subir CAD / JSON</button>
                   <button onClick={() => { setHojaHerr(false); handleExportar(); }}><Download className="w-4 h-4 text-emerald-600 shrink-0" /> Exportar</button>
                   <button onClick={() => { setHojaHerr(false); handleExportDxf(); }}><Download className="w-4 h-4 text-blue-600 shrink-0" /> DXF AutoCAD</button>
+                  <button onClick={() => { setHojaHerr(false); handleExportIfc(); }}><Download className="w-4 h-4 text-indigo-600 shrink-0" /> Revit (IFC)</button>
                   <button onClick={() => { setHojaHerr(false); setShowHelpModal(true); }}><HelpCircle className="w-4 h-4 text-purple-600 shrink-0" /> Ayuda y atajos</button>
                 </div>
               </div>

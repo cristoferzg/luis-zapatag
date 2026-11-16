@@ -19,6 +19,29 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Grabador de Carpintería Metálica arreglado · exportar a AutoCAD 3D y a Revit (IFC)
+- Pedido del dueño: "el grabador de carpintería metálica no funciona… verifica que al exportar se pueda exportar en AutoCAD y si es
+  posible que todo el sistema pueda exportar a Revit".
+- Causa del grabador: en `HerreriaViewer3D` la función `resetCamera` era nueva en cada render y estaba en las dependencias del efecto
+  del 3D → con cualquier cambio de pantalla se volvía a crear todo el visor (lienzo WebGL, luces, modelo). Al grabar, el contador de
+  segundos lo reconstruía cada segundo: 7 lienzos nuevos en 6 s, la cámara volvía al inicio (el video no giraba, con cuadros en
+  blanco) y en el celular se agotaban los contextos WebGL. Arreglo: `resetCamera` con `useCallback([design])` → 0 lienzos nuevos.
+- Exportar: base común `src/lib/solidosCad.ts` (cada pieza = sólido extruido con su sección real; superficies con contorno libre):
+  `dxf3D` (DXF R12 con volúmenes 3DFACE por capas + ejes en capa EJES, Z arriba) e `ifc` (IFC 2x3: IfcColumn/Beam/Member/Plate/
+  Slab/Wall/Footing/Railing con perfil tubo rectangular/redondo/macizo, material y nivel; Revit: Insertar → Vincular IFC).
+  · Carpintería Metálica: el botón DXF ahora baja el modelo 3D con cada tubo y plancha (antes: solo ejes y el archivo salía
+    llamado «download» sin .dxf) + botón nuevo REVIT (también en «Herramientas» del celular). `herreria/exportarCad.ts`.
+  · Techos: botón «AutoCAD / Revit»; el «Modelo 3D» del DXF lleva cada tubo en su medida y la cobertura; opción nueva
+    «Modelo para Revit (.IFC)». `techos/exportarCadTechos.ts`.
+  · Obra Civil / Drywall: botón Revit (columnas, zapatas, cimientos, vigas, losas, muros, placas, escaleras y el techo vinculado).
+    `concreto/exportarCadObra.ts`. Las puertas/ventanas aún no se recortan en los muros del IFC.
+- Cómo se probó: tsc 0 errores; grabación en Chromium (antes 7 lienzos nuevos / video quieto; después 0 / vuelta completa);
+  descargas reales desde la app (escalera DXF+IFC, techo IFC, obra IFC); validación con ifcopenshell (0 errores de esquema) y ezdxf,
+  y vista 3D de la geometría IFC; capturas antes/después de Carpintería Metálica, Techos y Obra Civil.
+- Versión: sin compilar aún (solo web: basta desplegar hosting).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: aberturas en muros del IFC; Melamina/Drywall 3D/Gasfitería/Electricidad aún sin IFC propio.
+
 ## 2026-11-16 · Academia: video «Instalar InnovApp en tu iPhone o iPad»
 - Pedido del dueño: "No tenemos video de instalación desde iPhone" → hacerlo y subirlo, cuidando el léxico y la pronunciación de la voz.
 - Qué se hizo: tutorial de 2 min 32 s con un iPhone dibujado y círculo de toque: Safari → Compartir → «Agregar a pantalla de inicio»
@@ -227,7 +250,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Notificaciones + Escalera a medida con IA (16/11/2026); desplegar hosting + functions |
+| Última mejora sin compilar | Notificaciones + Escalera a medida con IA + grabador de CarpiMetal y exportar AutoCAD 3D/Revit (16/11/2026); desplegar hosting + functions |
 | Última versión compilada | Web **2026.11.16.1331** · Android **código 26110425** (16/11/2026: memoria coherente, sin Mis apartados, Mis cursos propios, Gasfitería/Electricidad rediseñadas, vincular y enviar al proyecto) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110426** (el contador sigue +1 desde aquí; nunca bajar de 26110425) |

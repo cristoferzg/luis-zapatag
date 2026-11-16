@@ -176,6 +176,13 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   (botón «ESCALERA A MEDIDA»; funciona sin IA; avisos RNE A.010). «Leer con IA»: `disenarCarpimetal` (functions/carpimetalIA.js, 8 créditos) devuelve
   SOLO medidas; el cliente arma. Prueba: `cd seguridad && npm run test:carpimetal`. DEV: `__iaSimulada.disenarCarpimetal`.
 
+## Exportar a AutoCAD y Revit
+- `src/lib/solidosCad.ts`: sólidos extruidos (`SolidoCad`) y superficies (`SuperficieCad`) → `dxf3D` (DXF R12, 3DFACE por capas, Z arriba)
+  e `ifc` (IFC 2x3 para Revit). Adaptadores: `herreria/exportarCad.ts`, `techos/exportarCadTechos.ts`, `concreto/exportarCadObra.ts`.
+  Descarga con `descargarTexto` (blob + download; en Android lo guarda el plugin Archivos). Validar con ifcopenshell/ezdxf.
+- Visores 3D: las funciones en dependencias del efecto que crea el renderer deben ser estables (useCallback); si no, el visor se
+  recrea en cada render (así fallaba el grabador de Carpintería Metálica).
+
 ## Impresión en la app Android
 - El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo
   `Imprimir` (android/.../ImprimirPlugin.java → PrintManager: impresoras o "Guardar como PDF").

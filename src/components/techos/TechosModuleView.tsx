@@ -54,6 +54,8 @@ import { VistaTechoCAD } from './TechosCanvas2D';
 import { CadFileUploadModal, CadImportResult } from '../common/CadFileUploadModal';
 import { INVENTARIO_PERFILES_TUBULARES } from './techosCadCatalog';
 import { dxfLamina, dxfModelo3D, pdfLaminas } from '../../lib/dxfLamina';
+import { dxf3D, ifc, descargarTexto, nombreArchivo } from '../../lib/solidosCad';
+import { solidosDeTecho } from './exportarCadTechos';
 import { metradoColumnasCA } from './columnaConcreto';
 import { metradoZapatas } from './zapata';
 import { calcularMemoria } from './memoriaCalculo';
@@ -625,12 +627,22 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           nombre: nombreProyecto, empresa: currentSettings?.companyName || currentSettings?.empresa?.nombre, escala: escalaDxf,
           memoria: (() => { try { return calcularMemoria(engineState.nodes, engineState.segments, engineState.coverageZones || {}, engineState.structuralInputs || {}) as any; } catch { return null; } })(),
         })
-      : dxfModelo3D(engineState.nodes, engineState.segments, nombreProyecto);
+      : (() => {
+          const { solidos, superficies } = solidosDeTecho(engineState.nodes, engineState.segments, engineState.coverageZones || {});
+          return solidos.length ? dxf3D(solidos, nombreProyecto || 'Techo', superficies) : dxfModelo3D(engineState.nodes, engineState.segments, nombreProyecto);
+        })();
     const url = URL.createObjectURL(new Blob([texto], { type: 'application/dxf' }));
     const a = document.createElement('a');
     a.href = url; a.download = `${base}_${tipo === 'lamina' ? 'lamina' : '3d'}.dxf`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+    setShowDxf(false);
+  };
+  // Revit: .IFC con columnas, vigas, correas y la cobertura (Insertar → Vincular IFC).
+  const descargarIfc = () => {
+    const { solidos, superficies } = solidosDeTecho(engineState.nodes, engineState.segments, engineState.coverageZones || {});
+    if (!solidos.length) { alert('Primero dibuja el techo (no hay piezas para exportar).'); return; }
+    descargarTexto(ifc(solidos, nombreProyecto || 'Techo metalico', currentSettings?.companyName || 'InnovApp', superficies), `${nombreArchivo(nombreProyecto || 'techo')}.ifc`, 'application/x-step');
     setShowDxf(false);
   };
 
@@ -1087,10 +1099,10 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           <button
             onClick={handleExportDxf}
             className="hidden sm:flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
-            title="Descargar el plano para AutoCAD (.DXF; AutoCAD lo abre y lo guarda como .DWG)"
+            title="Descargar para AutoCAD (.DXF: láminas o modelo 3D) o para Revit (.IFC)"
           >
             <Download className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-            <span className="text-[11px] font-bold hidden md:inline">DXF AutoCAD</span>
+            <span className="text-[11px] font-bold hidden md:inline">AutoCAD / Revit</span>
           </button>
           )}
 
@@ -1150,11 +1162,11 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
                     { l: '+ Nuevo', I: Plus, on: handleNuevo },
                     { l: 'Cargar', I: FolderOpen, on: () => { loadSavedList(); setShowLoadModal(true); } },
                     { l: 'Exportar', I: Download, on: handleExportar },
-                    { l: 'DXF AutoCAD', I: Download, on: handleExportDxf },
+                    { l: 'AutoCAD / Revit', I: Download, on: handleExportDxf },
                     { l: '→ Obra Civil', I: Box, on: handleEnviarAConcreto },
                     { l: '→ Obra por pisos', I: Layers, on: handleEnviarAObraPisos },
                     { l: 'Ayuda', I: HelpCircle, on: () => setShowTutorialModal(true) },
-                  ].filter(a => !sencillo || !['Subir CAD', 'Exportar', 'DXF AutoCAD', '→ Obra Civil', '→ Obra por pisos'].includes(a.l)).map(a => {
+                  ].filter(a => !sencillo || !['Subir CAD', 'Exportar', 'AutoCAD / Revit', '→ Obra Civil', '→ Obra por pisos'].includes(a.l)).map(a => {
                     const Icon = a.I;
                     return (
                       <button key={a.l} onClick={() => { a.on(); setShowMobileActions(false); }}
@@ -1177,8 +1189,8 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-3" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-black text-slate-900">Exportar a AutoCAD</h3>
-                <p className="text-xs text-slate-500">Archivo .DXF (AutoCAD lo abre y lo guarda como .DWG). ¿Qué quieres llevar?</p>
+                <h3 className="text-base font-black text-slate-900">Exportar a AutoCAD o Revit</h3>
+                <p className="text-xs text-slate-500">.DXF para AutoCAD (lo abre y lo guarda como .DWG) o .IFC para Revit. ¿Qué quieres llevar?</p>
               </div>
               <button onClick={() => setShowDxf(false)} aria-label="Cerrar" className="p-1 rounded-lg hover:bg-slate-100 cursor-pointer"><X className="w-4 h-4 text-slate-500" /></button>
             </div>
@@ -1206,7 +1218,11 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
             </div>
             <button onClick={() => descargarDxf('modelo3d')} className="w-full text-left p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer">
               <span className="flex items-center gap-2 font-black text-sm text-slate-900"><Box className="w-4 h-4 text-blue-600" />Modelo 3D</span>
-              <span className="block text-[11px] text-slate-600 mt-1">La estructura en 3D con la altura hacia arriba, para girarla en AutoCAD (Órbita 3D). Capas por tipo de pieza.</span>
+              <span className="block text-[11px] text-slate-600 mt-1">La estructura en 3D con cada tubo en su medida real y la cobertura, para girarla en AutoCAD (Órbita 3D). Capas por tipo de pieza.</span>
+            </button>
+            <button onClick={descargarIfc} className="w-full text-left p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 cursor-pointer">
+              <span className="flex items-center gap-2 font-black text-sm text-slate-900"><Box className="w-4 h-4 text-indigo-600" />Modelo para Revit (.IFC)</span>
+              <span className="block text-[11px] text-slate-600 mt-1">Columnas, vigas, correas, tijerales y la cobertura como elementos BIM con su perfil. En Revit: Insertar → Vincular IFC (o Archivo → Abrir → IFC).</span>
             </button>
           </div>
         </div>,

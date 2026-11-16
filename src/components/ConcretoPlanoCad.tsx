@@ -27,6 +27,8 @@ import { escalera, datosAligerada, PuntoInstalacion, TipoInstalacion, INSTALACIO
 import { precio as precioCat } from '../lib/catalogoPrecios';
 import { DRYWALL_DEFAULTS, DrywallItem } from '../catalogo/drywall';
 import { generateDxfContent } from '../lib/dxfParser';
+import { ifc, descargarTexto } from '../lib/solidosCad';
+import { solidosDeObra } from './concreto/exportarCadObra';
 import { LADRILLO_DEFAULTS, LadrilloItem } from '../catalogo/ladrillo';
 import { OsbItem } from '../catalogo/osb';
 import { KEY_CAT_DRYWALL, KEY_CAT_LADRILLO, KEY_OBRA_TECHOS_ID, MaterialMuro, EstructuraTechos, calcMuro, muroDesdePlano, entrepisosDesdeTechos, leerCatalogoOsb, contextosObra, yTechoObra, drywallConCatalogo, ladrilloConCatalogo, osbConCatalogo, preciosConcretoCatalogo, sinOcultos, cotaLosa } from './concreto/obraPisos';
@@ -989,6 +991,14 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     document.body.appendChild(a); a.click(); a.remove();
   };
 
+  // Modelo para Revit (.IFC): columnas, zapatas, vigas, losas, muros y el techo vinculado, en 3D.
+  const exportarIfc = () => {
+    const { solidos, superficies } = solidosDeObra(elems, niveles, estructura);
+    if (!solidos.length && !superficies.length) return;
+    const nombre = esDrywall ? 'Drywall' : 'Obra civil';
+    descargarTexto(ifc(solidos, nombre, 'InnovApp', superficies), `${esDrywall ? 'drywall' : 'obra_civil'}_${new Date().toISOString().slice(0, 10)}.ifc`, 'application/x-step');
+  };
+
   const exportar = () => {
     let txt = `INNOVA CONTRATISTAS — OBRA CIVIL (PLANO CAD)\nFecha: ${new Date().toLocaleDateString('es-PE')}\n`;
     txt += `============================================================\n`;
@@ -1391,6 +1401,10 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
           className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-blue-600 text-white cursor-pointer hover:bg-blue-700 disabled:opacity-40">
           <Download className="w-3.5 h-3.5" /> DXF AutoCAD
         </button>}
+        {!sencillo && <button onClick={exportarIfc} disabled={elems.length === 0 && !estructura} title="Modelo 3D para Revit (.IFC; en Revit: Insertar → Vincular IFC o Archivo → Abrir → IFC)"
+          className="max-sm:hidden inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-black bg-indigo-600 text-white cursor-pointer hover:bg-indigo-700 disabled:opacity-40">
+          <Download className="w-3.5 h-3.5" /> Revit
+        </button>}
         {!vista3d && !sencillo && (
           <span className="max-sm:hidden inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded-lg">
             <Grid3x3 className="w-3.5 h-3.5" /> {cursor.x.toFixed(2)}, {cursor.y.toFixed(2)} m
@@ -1508,6 +1522,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
               <button onClick={() => { setHojaHerr(false); encuadrar(); }} disabled={elems.length === 0 && !plantaTechos.lineas.length}><Maximize className="w-4 h-4 text-slate-600 shrink-0" /> Ver todo</button>
               <button onClick={() => { setHojaHerr(false); exportar(); }} disabled={elems.length === 0}><Download className="w-4 h-4 text-stone-700 shrink-0" /> Exportar</button>
               <button onClick={() => { setHojaHerr(false); exportarDxf(); }} disabled={elems.length === 0}><Download className="w-4 h-4 text-blue-600 shrink-0" /> DXF AutoCAD</button>
+              <button onClick={() => { setHojaHerr(false); exportarIfc(); }} disabled={elems.length === 0 && !estructura}><Download className="w-4 h-4 text-indigo-600 shrink-0" /> Revit (IFC)</button>
               <button onClick={() => { setHojaHerr(false); if (confirm(esDrywall ? '¿Borrar todos los tabiques de drywall? (Lo de Obra Civil no se toca)' : '¿Borrar todo el plano?')) { commit(prev => esDrywall ? prev.filter(bloqueado) : []); setSelUid(null); setSelNode(null); } }}><Trash2 className="w-4 h-4 text-rose-600 shrink-0" /> Borrar todo</button>
             </div>
           </div>

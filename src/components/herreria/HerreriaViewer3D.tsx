@@ -419,7 +419,10 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
     updateCameraPos();
   };
 
-  const resetCamera = () => {
+  // Estable (useCallback): antes era una función nueva en cada render y el visor completo se
+  // volvía a crear (lienzo, luces y modelo) con cualquier cambio de pantalla; al grabar, el
+  // contador de segundos lo reconstruía cada segundo y el video salía cortado o negro.
+  const resetCamera = useCallback(() => {
     cameraAngleThetaRef.current = 0.45;
     cameraAnglePhiRef.current = 1.15;
     const piezas = design.piezas || [];
@@ -445,7 +448,7 @@ export const HerreriaViewer3D: React.FC<HerreriaViewer3DProps> = ({
       cameraRadiusRef.current = 4.5;
     }
     updateCameraPos();
-  };
+  }, [design, updateCameraPos]);
 
 
 
