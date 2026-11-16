@@ -171,6 +171,11 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   Columnas: UNA regla `columnaQueCumple` (estático + mínimo 3"×3"×3 mm + sismo X + sismo Y sin cruces; cruces solo si ninguna columna sola alcanza:
   el dueño indica que muchas obras no llevan arriostres/tensores). La usan memoria, 3D, Asistente y ambos botones «Aplicar recomendados» (mismo método). memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
 
+## Carpintería Metálica: escaleras a medida
+- `herreria/escaleraAMedida.ts` (`generarEscalera`/`normalizarEscalera`): recta, L o U con descanso y medidas reales. Ventana `EscaleraAMedida.tsx`
+  (botón «ESCALERA A MEDIDA»; funciona sin IA; avisos RNE A.010). «Leer con IA»: `disenarCarpimetal` (functions/carpimetalIA.js, 8 créditos) devuelve
+  SOLO medidas; el cliente arma. Prueba: `cd seguridad && npm run test:carpimetal`. DEV: `__iaSimulada.disenarCarpimetal`.
+
 ## Impresión en la app Android
 - El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo
   `Imprimir` (android/.../ImprimirPlugin.java → PrintManager: impresoras o "Guardar como PDF").

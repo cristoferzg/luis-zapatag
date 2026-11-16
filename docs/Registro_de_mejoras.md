@@ -56,6 +56,24 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): este.
 - Pendiente / a vigilar: el canje de paquetes con créditos ya se programó en otra conversación (entrada de abajo); falta desplegar `functions`.
 
+## 2026-11-16 · Carpintería Metálica: «Escalera a medida» y «Leer con IA» (escaleras)
+- Pedido del dueño: "¿La IA del sistema puede leer el plano y montarlo?" → "sí, empieza por escaleras".
+- Qué se hizo: (1) Generador `escaleraAMedida.ts` (`generarEscalera`, `normalizarEscalera`): escalera RECTA, en L (voltea a izquierda o derecha) o en U
+  con descanso, con medidas reales: altura total, ancho, altura y largo del descanso, separación entre tramos, peldaños y largo de cada tramo, fondo
+  del peldaño, llegada, peldaños de madera o plancha estriada, baranda opcional, columnas bajo el descanso y perfiles (zanco, columna, soporte).
+  Arma zancos, soportes, peldaños, bastidor del descanso con vigueta, tablero, columnas, llegada y baranda. (2) Ventana «Escalera a medida»
+  (`EscaleraAMedida.tsx`, botón en Carpintería Metálica y en Herramientas del celular) con resumen por tramo (cuánto sube cada escalón y el paso) y
+  avisos de comodidad (RNE A.010: 15–18 cm, paso ≥ 25 cm, 2C+P 60–64 cm). Funciona SIN IA. (3) «Leer con IA» dentro de la ventana: Cloud Function
+  `disenarCarpimetal` (functions/carpimetalIA.js, 8 créditos `COSTO_CREDITOS.carpimetal`, lee PDF, foto o texto) devuelve SOLO las medidas (herramienta
+  forzada, el servidor las limita); llena el formulario y el usuario revisa y toca «Armar escalera». Tabla de costos de Membresía: «Escalera desde un plano · 8».
+- Archivos principales: `src/components/herreria/escaleraAMedida.ts`, `EscaleraAMedida.tsx`, `HerreriaModuleView.tsx`, `functions/carpimetalIA.js`,
+  `functions/index.js`, `src/lib/aiAccess.ts`, `PlanesIAModal.tsx`, `seguridad/carpimetalIA.test.mjs` (`npm run test:carpimetal`).
+- Cómo se probó: tsc 0 errores; test:carpimetal 12/12 (IA simulada: lectura del plano 2345, PDF como documento, cobro y devolución, límites); en el navegador
+  el flujo completo con la IA simulada (`__iaSimulada.disenarCarpimetal`) arma la U del plano (47 piezas, 54.77 m), la recta con baranda y la L; capturas.
+- Versión: sin compilar aún (requiere hosting + functions; la IA debe estar activa para usuarios y con saldo).
+- Commit(s): este.
+- Pendiente / a vigilar: probar «Leer con IA» con saldo real y el PDF 2345. Siguientes: puertas, portones, rejas y barandas.
+
 ## 2026-11-16 · Notificaciones: llegan con la app abierta, suenan y se pueden probar de punta a punta
 - Pedido del dueño: "Las notificaciones no funcionan" (app de Android y campana; no suenan; comunicados, compras, chat, clases).
 - Qué se hizo: (1) Push con la app ABIERTA: Android no lo muestra solo; ahora `pushNotificationReceived` lo pasa a la campana y a una notificación
@@ -209,7 +227,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Notificaciones (push con la app abierta, sonido, prueba desde el servidor) — 16/11/2026; desplegar hosting + functions |
+| Última mejora sin compilar | Notificaciones + Escalera a medida con IA (16/11/2026); desplegar hosting + functions |
 | Última versión compilada | Web **2026.11.16.1331** · Android **código 26110425** (16/11/2026: memoria coherente, sin Mis apartados, Mis cursos propios, Gasfitería/Electricidad rediseñadas, vincular y enviar al proyecto) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110426** (el contador sigue +1 desde aquí; nunca bajar de 26110425) |

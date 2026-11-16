@@ -39,6 +39,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleAuth } from 'google-auth-library';
+import { crearDisenarCarpimetal } from './carpimetalIA.js';
 import { crearDisenarDrywall } from './drywallIA.js';
 import { crearPagosEnLinea } from './pagoEnLinea.js';
 import { crearDisenarGasfiteria } from './gasfiteriaIA.js';
@@ -162,7 +163,7 @@ export const loginWithPin = onCall({ secrets: ['ADMIN_PIN'], region: 'us-central
 // Las reglas de Firestore impiden que el cliente escriba ai_access, por eso el
 // descuento se hace AQUÍ, dentro de una transacción.
 // =============================================================================
-const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2, melamina: 5, obra: 8, drywall: 5, gasfiteria: 6, electricidad: 6 };
+const COSTO_CREDITOS = { boleta: 1, croquis: 10, redaccion: 2, melamina: 5, obra: 8, drywall: 5, gasfiteria: 6, electricidad: 6, carpimetal: 8 };
 
 // Traduce un error de la API de IA a un mensaje claro y lo deja en el registro
 // (firebase functions:log) para poder diagnosticarlo.
@@ -1103,6 +1104,8 @@ export const disenarObra = onCall({ secrets: ['ANTHROPIC_API_KEY'], region: 'us-
 
 // Drywall → "Diseñar con IA" (functions/drywallIA.js): partidas desde texto o foto. 5 créditos.
 export const disenarDrywall = crearDisenarDrywall({ onCall, HttpsError, Anthropic, cobrarUsoIA, errorDeIA, modelo: RECEIPT_MODEL });
+// Carpintería Metálica: lee el plano o el pedido y devuelve las medidas de la escalera (functions/carpimetalIA.js).
+export const disenarCarpimetal = crearDisenarCarpimetal({ onCall, HttpsError, Anthropic, cobrarUsoIA, errorDeIA, modelo: RECEIPT_MODEL });
 
 // Gasfitería → "Diseñar con IA" (functions/gasfiteriaIA.js): ambientes y aparatos sanitarios. 6 créditos.
 export const disenarGasfiteria = crearDisenarGasfiteria({ onCall, HttpsError, Anthropic, cobrarUsoIA, errorDeIA, modelo: RECEIPT_MODEL });

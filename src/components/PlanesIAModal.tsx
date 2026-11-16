@@ -33,7 +33,7 @@ const abrirWhatsApp = (msg: string) => {
 const COSTOS: [string, number | 'gratis'][] = [
   ['Boleta con QR', 'gratis'], ['Boleta o voucher sin QR', COSTO_CREDITOS.boleta], ['Redactar propuesta o contrato', COSTO_CREDITOS.redaccion],
   ['Diseño de melamina', COSTO_CREDITOS.melamina], ['Diseño de drywall', COSTO_CREDITOS.drywall], ['Gasfitería o electricidad', COSTO_CREDITOS.gasfiteria],
-  ['Planta de obra civil', COSTO_CREDITOS.obra], ['Plano a mano de techo', COSTO_CREDITOS.croquis],
+  ['Planta de obra civil', COSTO_CREDITOS.obra], ['Escalera desde un plano', COSTO_CREDITOS.carpimetal], ['Plano a mano de techo', COSTO_CREDITOS.croquis],
 ];
 function TablaCostos({ titulo = true }: { titulo?: boolean }) {
   return (

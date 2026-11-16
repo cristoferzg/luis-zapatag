@@ -3,6 +3,7 @@ import { tomarArchivoCompartido } from '../../lib/archivosCompartidos';
 // Módulo Principal e Independiente de HERRERÍA para Innova Contratistas Manager
 // Cumple estrictamente todos los lineamientos solicitados para el módulo de Herrería
 import { importarDisenoJson } from './importarDisenoJson';
+import EscaleraAMedida from './EscaleraAMedida';
 import { useCatalogo } from '../../lib/catalogoPrecios';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
@@ -20,7 +21,8 @@ import {
   Check,
   UploadCloud,
   Undo2,
-  Redo2
+  Redo2,
+  Footprints
 } from 'lucide-react';
 import { HerreriaDesign } from './herreriaTypes';
 import { DISENOS_PREDETERMINADOS, crearDisenoVacio, asegurarCad } from './herreriaCatalog';
@@ -220,6 +222,12 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
 
   // Importar archivo JSON (diseño de CarpiMetal o formato inspector_cad).
   const [avisoImport, setAvisoImport] = useState<{ ok: boolean; texto: string } | null>(null);
+  // «Escalera a medida» (con «Leer con IA»): arma la escalera con las medidas reales.
+  const [verEscalera, setVerEscalera] = useState(false);
+  const aplicarEscalera = (d: HerreriaDesign) => {
+    setDesign(d); setSelectedElementId(null); setSelectedType(null); setActiveTab('cad'); setVerEscalera(false);
+    setAvisoImport({ ok: true, texto: `✓ "${d.nombre}" armada con ${d.piezas.length} piezas. Revísala en 3D, el despiece y el presupuesto.` });
+  };
   const handleImportJson = (jsonData: any, fileName: string) => {
     const r = importarDisenoJson(jsonData, fileName);
     if (!r.ok) { setAvisoImport({ ok: false, texto: r.error }); return; }
@@ -319,6 +327,13 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
             </button>
           </div>
 
+          {/* [ ESCALERA A MEDIDA ] */}
+          <button onClick={() => setVerEscalera(true)} title="Escalera recta, en L o en U con las medidas reales (o leídas por la IA de un plano)"
+            className="max-sm:hidden flex items-center gap-1 px-2 sm:px-2.5 py-2 sm:py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 text-xs font-semibold border border-violet-200 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0">
+            <Footprints className="w-3.5 h-3.5 text-violet-600" />
+            <span className="hidden sm:inline font-bold">ESCALERA A MEDIDA</span>
+          </button>
+
           {/* [ SUBIR CAD / AUTOCAD ] */}
           <button
             onClick={() => setShowUploadModal(true)}
@@ -398,6 +413,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
                 <div className="grid grid-cols-2 gap-1.5 [&>button]:min-h-[52px] [&>button]:rounded-2xl [&>button]:bg-slate-50 [&>button]:px-3 [&>button]:text-left [&>button]:text-[13px] [&>button]:font-semibold [&>button]:text-slate-700 [&>button]:flex [&>button]:items-center [&>button]:gap-2 [&>button]:cursor-pointer">
                   <button onClick={() => { setHojaHerr(false); handleNuevo(); }}><Plus className="w-4 h-4 text-blue-600 shrink-0" /> Nuevo diseño</button>
                   <button onClick={() => { setHojaHerr(false); loadSavedList(); setShowLoadModal(true); }}><FolderOpen className="w-4 h-4 text-amber-500 shrink-0" /> Abrir guardado</button>
+                  <button onClick={() => { setHojaHerr(false); setVerEscalera(true); }}><Footprints className="w-4 h-4 text-violet-600 shrink-0" /> Escalera a medida</button>
                   <button onClick={() => { setHojaHerr(false); setShowUploadModal(true); }}><UploadCloud className="w-4 h-4 text-blue-600 shrink-0" /> Subir CAD / JSON</button>
                   <button onClick={() => { setHojaHerr(false); handleExportar(); }}><Download className="w-4 h-4 text-emerald-600 shrink-0" /> Exportar</button>
                   <button onClick={() => { setHojaHerr(false); handleExportDxf(); }}><Download className="w-4 h-4 text-blue-600 shrink-0" /> DXF AutoCAD</button>
@@ -796,6 +812,7 @@ export const HerreriaModuleView: React.FC<HerreriaModuleViewProps> = ({
         </div>
       )}
 
+      {verEscalera && <EscaleraAMedida onAplicar={aplicarEscalera} onCerrar={() => setVerEscalera(false)} />}
       <CadFileUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
