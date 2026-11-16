@@ -19,6 +19,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Academia: curso nuevo "Techos a Dos y Cuatro Aguas"
+- Pedido del dueño: "Sigamos con el contenido" → eligió el curso nuevo de techos a 2 y 4 aguas.
+- Qué se hizo: 12 clases publicadas con el MCP (módulo principal 1-8: tipos, pendiente, tijeral, trazo y gálibo, apoyos, aleros, cuatro aguas, metrado; avanzado 9-12: coberturas, cortes y remates, limahoyas, aislamiento). Obras: taller 10 × 16 m a dos aguas y casa 8 × 12 m a cuatro aguas. S/ 45 (antes 89), clase 1 gratis. Portada y 2 PDFs (tabla de pendientes y fórmulas, hoja de metrado). Sin repetir lo de Estructuras (tijerales planos) ni Naves (canaletas, presupuesto).
+- Archivos principales: `contenido/academia/videos/fuentes/techo_comun.py`, `techo_c1..c12.py`, `hoja.sh`, `montaje.py`; `contenido/academia/fuentes/portadas.py` y `recursos.py` (aceptan nombres para generar solo esos); `portadas/techos.png`, `recursos/techos-*.pdf`; `catalogo.json`.
+- Cómo se probó: hoja de cuadros de prueba de cada clase revisada antes de grabar; `listar_cursos` confirma las 12 clases con video.
+- Versión: sin compilar (solo contenido).
+- Commit(s): este.
+- Pendiente / a vigilar: nada nuevo.
+
 ## 2026-11-15 · Academia: módulo avanzado de Naves Parabólicas
 - Pedido del dueño: seguir con lo propuesto ("Empieza") → ampliar Naves igual que los otros cursos.
 - Qué se hizo: 4 clases nuevas publicadas con el MCP (10 luces grandes 25-40 m, 11 luz y ventilación, 12 cerramientos y frontis, 13 mantenimiento y contrato anual); clase 9 vuelta a grabar con cierre "¡Módulo principal completado!"; descripción del curso actualizada (sin "clases animadas", igual que los otros 4).
@@ -47,7 +56,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110424** (el contador sigue +1 desde aquí; nunca bajar de 26110423) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
-| MCP de Academia | **Publicado y conectado** (15/11/2026). **5 cursos completos** (56 clases): Naves Parabólicas 13 (S/ 79, ≈1 h), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz: la mexicana automática (el dueño no quiso usar la suya). Videos en la rama `academia-videos` |
+| MCP de Academia | **Publicado y conectado** (15/11/2026). **6 cursos completos** (68 clases): Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz: la mexicana automática (el dueño no quiso usar la suya). Videos en la rama `academia-videos` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 

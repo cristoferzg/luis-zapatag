@@ -273,6 +273,66 @@
           "descripcion": "Ejercicio completo: un tijeral del plano al despiece."
         }
       ]
+    },
+    {
+      "clave": "techos",
+      "nombre": "Techos a Dos y Cuatro Aguas",
+      "descripcion": "Diseña, fabrica y presupuesta techos metálicos: taller de 10 × 16 m a dos aguas y casa de 8 × 12 m a cuatro aguas. Módulo principal (8 clases) y módulo avanzado (4).",
+      "gratis": false,
+      "precioSoles": 45,
+      "precioAntesSoles": 89,
+      "destacado": true,
+      "enSlider": true,
+      "portada": "portadas/techos.png",
+      "recursos": [
+        {
+          "nombre": "Tabla de pendientes, factores y alturas.pdf",
+          "archivo": "recursos/techos-tabla-pendientes.pdf"
+        },
+        {
+          "nombre": "Hoja de metrado de techo.pdf",
+          "archivo": "recursos/techos-hoja-metrado.pdf"
+        }
+      ],
+      "clases": [
+        {
+          "titulo": "1. Tipos de techo y sus partes",
+          "gratis": true
+        },
+        {
+          "titulo": "2. La pendiente: altura de cumbrera y largo del faldón"
+        },
+        {
+          "titulo": "3. El tijeral a dos aguas"
+        },
+        {
+          "titulo": "4. Trazo y armado del tijeral"
+        },
+        {
+          "titulo": "5. Los apoyos: sobre columna o sobre muro"
+        },
+        {
+          "titulo": "6. Los aleros"
+        },
+        {
+          "titulo": "7. El techo a cuatro aguas"
+        },
+        {
+          "titulo": "8. Metrado y presupuesto del techo"
+        },
+        {
+          "titulo": "9. Coberturas: elige y lee la ficha técnica"
+        },
+        {
+          "titulo": "10. Cortes de plancha y remates en cuatro aguas"
+        },
+        {
+          "titulo": "11. Limahoyas y techos en L"
+        },
+        {
+          "titulo": "12. Aislamiento térmico y acústico"
+        }
+      ]
     }
   ],
   "recursos_tecnicos": [

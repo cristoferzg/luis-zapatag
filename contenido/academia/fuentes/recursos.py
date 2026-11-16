@@ -374,12 +374,50 @@ PL_GLOS = doc('Glosario de planos estructurales', 'Lectura de Planos de Estructu
    ['Revisión (Rev. 0, Rev. 1…)', 'Versión del plano. Trabaja siempre con la última revisión aprobada.'],
  ]))
 
+
+# ---------------------------------------------------------------- TECHOS A DOS Y CUATRO AGUAS
+def _fac(p): return math.sqrt(1 + (p / 100) ** 2)
+TECHO_TABLA = doc('Tabla de pendientes, factores y alturas', 'Techos Metálicos a Dos y Cuatro Aguas',
+ 'Para pasar de la pendiente a la altura de la cumbrera, el largo real del faldón y el área real del techo. La pendiente mínima de cada cobertura la da su ficha técnica.',
+ '<h2>Pendiente, grados y factor de inclinación</h2>' + tabla(['Pendiente', 'Grados', 'Sube por metro', 'Factor (largo real ÷ horizontal)'],
+   [[f'{p} %', f'{math.degrees(math.atan(p/100)):.1f}°', f'{p} cm', f'{_fac(p):.3f}'] for p in (5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 100)]) +
+ '<h2>Altura de la cumbrera sobre el apoyo (techo a dos aguas)</h2>' + tabla(['Luz'] + [f'{p} %' for p in (15, 20, 25, 30, 35)],
+   [[f'{L} m'] + [f'{L/2*p/100:.2f} m' for p in (15, 20, 25, 30, 35)] for L in (6, 8, 10, 12, 14, 16)]) +
+ '<h2>Fórmulas del curso</h2>' + tabla(['Para', 'Fórmula', 'Ejemplo (taller 10 m, 25 %)'], [
+   ['Altura de cumbrera', '<span class="f">h = (luz ÷ 2) × pendiente</span>', '5 × 0.25 = 1.25 m'],
+   ['Largo del faldón', '<span class="f">horizontal × factor</span>', '5.60 × 1.031 = 5.77 m (con alero 0.60)'],
+   ['Ángulo de corte (sierra)', '= ángulo de la pendiente', '14°'],
+   ['Área real del techo', '<span class="f">área en planta × factor</span>', '185.9 × 1.031 = 191.7 m²'],
+   ['Cumbrera en cuatro aguas', '<span class="f">largo − ancho</span>', 'casa 13 × 9 m → 4 m'],
+   ['Limatesa / limahoya (real)', '<span class="f">√[(ancho/2 × √2)² + h²]</span>', 'casa 9 m, 30 % → 6.51 m'],
+   ['Pendiente de limatesa', '<span class="f">h ÷ (ancho/2 × √2)</span>', '1.35 ÷ 6.36 ≈ 21 %'],
+   ['Plancha junto a la limatesa', '<span class="f">distancia a la esquina × factor</span>', '2 m × 1.044 = 2.09 m'],
+   ['Dilatación del acero', '<span class="f">0.012 mm × metros × °C</span>', '10 m × 30 °C = 3.6 mm']]) +
+ '<div class="caja">Reglas de predimensionamiento para empezar (el diseño final lo verifica el cálculo): altura del tijeral ≈ luz ÷ 15 a luz ÷ 10; separación de tijerales 3 a 5 m; correas sobre los nudos; misma pendiente en los cuatro faldones.</div>')
+
+TECHO_HOJA = doc('Hoja de metrado de techo', 'Techos Metálicos a Dos y Cuatro Aguas',
+ 'Llénala para cada techo. A la derecha, el ejemplo del taller de 10 × 16 m a dos aguas (25 %, aleros de 0.60 m a los lados y 0.30 m en los frontis).',
+ DATOS_OBRA + '<h2>Datos del techo</h2>' + tabla(['Dato', 'Tu obra', 'Ejemplo'], [
+   ['Tipo (una / dos / cuatro aguas)', '', 'Dos aguas'], ['Luz × largo (muros o ejes)', '', '10 × 16 m'], ['Pendiente y factor', '', '25 % · 1.031'],
+   ['Aleros (lados / frontis)', '', '0.60 / 0.30 m'], ['Planta del techo con aleros', '', '11.20 × 16.60 m'], ['Separación de tijerales', '', '4 m → 5 tijerales']]) +
+ '<h2>Cobertura y accesorios</h2>' + tabla(['Partida', 'Cálculo', 'Tu obra', 'Ejemplo'], [
+   ['Área real', 'planta × factor', '', '191.7 m²'], ['Largo de plancha', 'faldón con alero', '', '5.80 m'],
+   ['N.º de planchas', 'largo ÷ ancho útil × faldones', '', '17 × 2 = 34'], ['Desperdicio (cuatro aguas: 10–15 %)', '% del área', '', '—'],
+   ['Cumbrera / caballetes', 'cumbrera + limatesas', '', '16.6 m'], ['Cenefa', 'perímetro de aleros', '', '33.2 m'], ['Canaletas', 'bordes que reciben agua', '', '33.2 m'],
+   ['Pernos', 'planchas × filas × por cruce + 10 %', '', '≈ 675'], ['Manta / aislante', 'área real + 10 %', '', '—']]) +
+ '<h2>Estructura</h2>' + tabla(['Partida', 'Cálculo', 'Metros', 'kg/m (catálogo)', 'kg'], [
+   ['Tijerales', 'n.º × metros por tijeral', '5 × 35 = 175', '', ''], ['Correas', 'filas × largo', '12 × 16.6 = 199', '', ''],
+   ['Limatesas / limahoyas', 'n.º × largo real', '', '', ''], ['Columnas / apoyos', '', '', '', ''], ['<b>Total acero</b>', '', '', '', '']]) +
+ '<h2>Presupuesto</h2>' + tabla(['Concepto', 'S/'], [['Materiales (acero, cobertura, accesorios, pernos, pintura)', ''], ['Mano de obra (fabricación + montaje)', ''],
+   ['Equipos (andamios, izaje, transporte)', ''], ['Gastos generales', ''], ['Utilidad', ''], ['<b>Total</b>', '']]) + FIRMAS)
+
 RECURSOS = {
   'soldadura-tabla-electrodos': SOLD_TABLA, 'soldadura-checklist-inspeccion': SOLD_CHECK,
   'naves-tabla-trazo-arco': NAVES_TRAZO, 'naves-checklist-montaje': NAVES_CHECK,
   'estructuras-tabla-perfiles': EST_PERF, 'estructuras-checklist-calidad': EST_CHECK,
   'carpinteria-guia-medidas': CARP_GUIA, 'carpinteria-hoja-despiece': CARP_HOJA,
   'planos-simbologia-soldadura': PL_SIMB, 'planos-glosario': PL_GLOS,
+  'techos-tabla-pendientes': TECHO_TABLA, 'techos-hoja-metrado': TECHO_HOJA,
 }
 
 if __name__ == '__main__':
@@ -388,7 +426,10 @@ if __name__ == '__main__':
     with sync_playwright() as p:
         b = p.chromium.launch(executable_path='/usr/bin/google-chrome')
         pg = b.new_page()
+        import sys
+        solo = sys.argv[1:]
         for nombre, h in RECURSOS.items():
+            if solo and nombre not in solo: continue
             pg.set_content(h); pg.wait_for_timeout(100)
             # Si apenas se pasa a una segunda hoja, se achica un poco para que entre en una sola.
             for escala in (1, 0.93, 0.87, 0.82, 1):
