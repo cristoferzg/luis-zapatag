@@ -10,7 +10,7 @@
       "precioAntesSoles": 79,
       "destacado": true,
       "enSlider": true,
-      "portada": "portadas/soldadura.png",
+      "portada": "portadas/soldadura-v2.png",
       "recursos": [
         {
           "nombre": "Tabla de electrodos, amperajes y MIG.pdf",
@@ -62,7 +62,7 @@
       "precioAntesSoles": 119,
       "destacado": true,
       "enSlider": true,
-      "portada": "portadas/naves.png",
+      "portada": "portadas/naves-v2.png",
       "recursos": [
         {
           "nombre": "Tabla de trazo de arcos parabólicos.pdf",
@@ -131,7 +131,7 @@
       "precioAntesSoles": 89,
       "destacado": false,
       "enSlider": true,
-      "portada": "portadas/estructuras.png",
+      "portada": "portadas/estructuras-v2.png",
       "recursos": [
         {
           "nombre": "Tabla de perfiles y pesos (catálogo InnovApp).pdf",
@@ -183,7 +183,7 @@
       "precioAntesSoles": 59,
       "destacado": true,
       "enSlider": false,
-      "portada": "portadas/carpinteria.png",
+      "portada": "portadas/carpinteria-v2.png",
       "recursos": [
         {
           "nombre": "Guía de medidas y holguras.pdf",
@@ -235,7 +235,7 @@
       "precioAntesSoles": 49,
       "destacado": false,
       "enSlider": false,
-      "portada": "portadas/planos.png",
+      "portada": "portadas/planos-v2.png",
       "recursos": [
         {
           "nombre": "Guía de simbología de soldadura AWS A2.4.pdf",
@@ -283,7 +283,7 @@
       "precioAntesSoles": 89,
       "destacado": true,
       "enSlider": true,
-      "portada": "portadas/techos.png",
+      "portada": "portadas/techos-v2.png",
       "recursos": [
         {
           "nombre": "Tabla de pendientes, factores y alturas.pdf",
@@ -331,6 +331,66 @@
         },
         {
           "titulo": "12. Aislamiento térmico y acústico"
+        }
+      ]
+    },
+    {
+      "clave": "negocio",
+      "nombre": "El Negocio del Metalero",
+      "descripcion": "Maneja tu taller como una empresa: costo de tu hora, cotización, precio y margen, acuerdo y adelanto, cobranza, garantía, clientes, formalización, equipo y crecimiento.",
+      "gratis": false,
+      "precioSoles": 39,
+      "precioAntesSoles": 79,
+      "destacado": true,
+      "enSlider": true,
+      "portada": "portadas/negocio-v2.png",
+      "recursos": [
+        {
+          "nombre": "Costo de tu hora, precio y flujo de caja.pdf",
+          "archivo": "recursos/negocio-costo-hora.pdf"
+        },
+        {
+          "nombre": "Cotización y acuerdo simple.pdf",
+          "archivo": "recursos/negocio-cotizacion-acuerdo.pdf"
+        }
+      ],
+      "clases": [
+        {
+          "titulo": "1. De maestro a empresario",
+          "gratis": true
+        },
+        {
+          "titulo": "2. Cuánto cuesta tu hora de taller"
+        },
+        {
+          "titulo": "3. La visita técnica que vende"
+        },
+        {
+          "titulo": "4. La cotización profesional"
+        },
+        {
+          "titulo": "5. Precio y negociación"
+        },
+        {
+          "titulo": "6. El acuerdo y el adelanto"
+        },
+        {
+          "titulo": "7. Cobranza y flujo de caja"
+        },
+        {
+          "titulo": "8. Entrega, garantía y postventa"
+        },
+        {
+          "titulo": "9. Consigue clientes"
+        },
+        {
+          "titulo": "10. Formaliza tu taller"
+        },
+        {
+          "titulo": "11. Tu equipo de trabajo"
+        },
+        {
+          "titulo": "12. Crecer: de taller a empresa"
         }
       ]
     }

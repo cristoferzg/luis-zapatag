@@ -19,6 +19,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Academia: curso "El Negocio del Metalero" y portadas nuevas
+- Pedido del dueño: "Dale" (curso del negocio) y "mejorar las imágenes de los cursos, que llamen la atención".
+- Qué se hizo: 12 clases publicadas con el MCP siguiendo el caso de una cochera (costo de la hora, visita, cotización, precio y margen, acuerdo y adelanto, cobranza y caja, entrega y garantía; avanzado: clientes, formalización —orientación general, remite a contador—, equipo, crecer). S/ 39 (antes 79), clase 1 gratis, 2 PDFs. Portadas v2 para los 7 cursos (título grande, gancho, etiquetas, ilustración con brillo; zonas libres para las insignias y el contador de clases de la tarjeta) ya puestas en la Academia; se mostraron antes y después.
+- Archivos principales: `contenido/academia/videos/fuentes/neg_comun.py`, `neg_c1..c12.py`; `contenido/academia/fuentes/portadas2.py`, `recursos.py`; `portadas/*-v2.png`, `recursos/negocio-*.pdf`; `catalogo.json`.
+- Cómo se probó: hoja de cuadros de prueba de cada clase; regímenes SUNAT verificados en la web (4 regímenes; el Nuevo RUS no emite factura).
+- Versión: sin compilar (solo contenido).
+- Commit(s): este.
+- Pendiente / a vigilar: si el dueño quiere otro estilo de portada, se cambia en `portadas2.py` y se vuelven a subir.
+
 ## 2026-11-16 · Academia: curso nuevo "Techos a Dos y Cuatro Aguas"
 - Pedido del dueño: "Sigamos con el contenido" → eligió el curso nuevo de techos a 2 y 4 aguas.
 - Qué se hizo: 12 clases publicadas con el MCP (módulo principal 1-8: tipos, pendiente, tijeral, trazo y gálibo, apoyos, aleros, cuatro aguas, metrado; avanzado 9-12: coberturas, cortes y remates, limahoyas, aislamiento). Obras: taller 10 × 16 m a dos aguas y casa 8 × 12 m a cuatro aguas. S/ 45 (antes 89), clase 1 gratis. Portada y 2 PDFs (tabla de pendientes y fórmulas, hoja de metrado). Sin repetir lo de Estructuras (tijerales planos) ni Naves (canaletas, presupuesto).
@@ -56,7 +65,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110424** (el contador sigue +1 desde aquí; nunca bajar de 26110423) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
-| MCP de Academia | **Publicado y conectado** (15/11/2026). **6 cursos completos** (68 clases): Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz: la mexicana automática (el dueño no quiso usar la suya). Videos en la rama `academia-videos` |
+| MCP de Academia | **Publicado y conectado** (15/11/2026). **7 cursos completos** (80 clases): Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz: la mexicana automática (el dueño no quiso usar la suya). Videos en la rama `academia-videos` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 

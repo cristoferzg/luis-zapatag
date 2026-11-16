@@ -411,6 +411,36 @@ TECHO_HOJA = doc('Hoja de metrado de techo', 'Techos Metálicos a Dos y Cuatro A
  '<h2>Presupuesto</h2>' + tabla(['Concepto', 'S/'], [['Materiales (acero, cobertura, accesorios, pernos, pintura)', ''], ['Mano de obra (fabricación + montaje)', ''],
    ['Equipos (andamios, izaje, transporte)', ''], ['Gastos generales', ''], ['Utilidad', ''], ['<b>Total</b>', '']]) + FIRMAS)
 
+# ---------------------------------------------------------------- EL NEGOCIO DEL METALERO
+NEG_HORA = doc('Costo de tu hora, precio y flujo de caja', 'El Negocio del Metalero',
+ 'Llena la columna "Tu taller" con tus números. A la derecha, el ejemplo del curso. Revisa esta hoja cada 6 meses.',
+ '<h2>1. Costos fijos del mes</h2>' + tabla(['Concepto', 'Tu taller (S/)', 'Ejemplo (S/)'], [
+   ['Alquiler del taller', '', '800'], ['Luz', '', '250'], ['Agua, internet, celular', '', '120'], ['Transporte', '', '300'],
+   ['Desgaste de equipos (valor ÷ meses de vida)', '', '250'], ['Mantenimiento y otros', '', '180'], ['<b>Total costos fijos</b>', '', '<b>1 900</b>']]) +
+ '<h2>2. Costo de tu hora</h2>' + tabla(['Paso', 'Tu taller', 'Ejemplo'], [
+   ['Tu sueldo como maestro (S/ al mes)', '', '3 000'], ['Fijos + sueldo', '', '4 900'], ['Horas al mes (días × horas)', '', '26 × 8 = 208'],
+   ['Horas productivas (≈ 70 %)', '', '146'], ['<b>Costo por hora = (fijos + sueldo) ÷ horas productivas</b>', '', '<b>≈ S/ 34</b>']]) +
+ '<h2>3. Precio con margen real</h2>' + tabla(['Paso', 'Tu obra', 'Ejemplo'], [
+   ['Costo total (materiales + consumibles + transporte + tus horas + ayudante)', '', '5 360'], ['Margen deseado', '', '20 %'],
+   ['<b>Precio = costo ÷ (1 − margen)</b>', '', '<b>5 360 ÷ 0.80 = 6 700</b>'], ['Ojo: sumar 20 % al costo da solo', '', '16.7 % de margen']]) +
+ '<div class="caja">Un descuento sale de tu ganancia: en el ejemplo, 10 % de descuento sobre S/ 6 500 se lleva el 57 % de la ganancia.</div>' +
+ '<h2>4. Flujo de caja de la obra</h2>' + tabla(['Semana', 'Entra (S/)', 'Sale (S/)', 'Caja acumulada (S/)'], [[f'{i}', '', '', ''] for i in range(1, 6)]) +
+ '<p class="nota">Regla: sin adelanto no se compra material ni se empieza. Separa la caja del taller de la de tu casa.</p>')
+
+NEG_ACUERDO = doc('Cotización y acuerdo simple', 'El Negocio del Metalero',
+ 'Modelo para tus cotizaciones y acuerdos. Es una guía práctica: para montos importantes o casos especiales, consulta con un abogado; para impuestos y comprobantes, con un contador.',
+ '<h2>Cotización: las 7 partes</h2>' + checklist([
+   '<b>Tus datos y logo</b> (nombre del taller, RUC si tienes, teléfono, número de cotización)',
+   '<b>Cliente y obra</b> (nombre, dirección, fecha de la visita)',
+   '<b>Alcance</b>: qué se hace, medidas, materiales, acabado e instalación (ofrece 3 opciones: básica, estándar, superior)',
+   '<b>Lo que NO incluye</b>: obra civil, electricidad, permisos, desmonte…',
+   '<b>Plazo</b>, contado desde el pago del adelanto', '<b>Forma de pago</b> (ej.: 50 % adelanto · 50 % a la entrega)', '<b>Validez</b> (ej.: 15 días) y <b>garantía</b>']) +
+ '<h2>Acuerdo simple (llenar y firmar, o aceptar por escrito)</h2>' + tabla(['Punto', 'Detalle'], [
+   ['Partes (nombre y documento)', '&nbsp;'], ['Cotización aceptada (N.º y opción)', '&nbsp;'], ['Precio total', '&nbsp;'], ['Pagos y fechas', '&nbsp;'],
+   ['Plazo de entrega', '&nbsp;'], ['Cambios y adicionales', 'Se cotizan y aceptan por escrito antes de hacerlos'], ['Garantía', 'Cubre: … · No cubre: golpes, mal uso, falta de mantenimiento, cambios de terceros · Plazo: …']]) +
+ '<h2>Control de pagos</h2>' + tabla(['Fecha', 'Concepto', 'Monto (S/)', 'Constancia'], [['', 'Adelanto', '', ''], ['', 'Adicional N.º', '', ''], ['', 'Saldo a la entrega', '', '']]) +
+ '<h2>Entrega y postventa</h2>' + checklist(['Revisión propia antes de entregar', 'Recorrido con el cliente y conformidad por escrito', 'Fotos, reseña y recomendación', 'Mensaje a los 30 días · recordatorio a los 6 meses']) + FIRMAS)
+
 RECURSOS = {
   'soldadura-tabla-electrodos': SOLD_TABLA, 'soldadura-checklist-inspeccion': SOLD_CHECK,
   'naves-tabla-trazo-arco': NAVES_TRAZO, 'naves-checklist-montaje': NAVES_CHECK,
@@ -418,6 +448,7 @@ RECURSOS = {
   'carpinteria-guia-medidas': CARP_GUIA, 'carpinteria-hoja-despiece': CARP_HOJA,
   'planos-simbologia-soldadura': PL_SIMB, 'planos-glosario': PL_GLOS,
   'techos-tabla-pendientes': TECHO_TABLA, 'techos-hoja-metrado': TECHO_HOJA,
+  'negocio-costo-hora': NEG_HORA, 'negocio-cotizacion-acuerdo': NEG_ACUERDO,
 }
 
 if __name__ == '__main__':
