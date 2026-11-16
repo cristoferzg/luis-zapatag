@@ -191,6 +191,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Electricidad (`ElectricidadView`, `src/components/electricidad/*`, catálogo `ele:*`): puntos, circuitos, trazado, cuadro de cargas
   y unifilar, avisos CNE, 3D, materiales y presupuesto. Fondo desde Obra Civil/Gasfitería/Melamina/Techos; botón
   `BotonElectricidad` en esos apartados (guarda `electricidad_origen`). Clave `electricidad_`.
+- Ambos: lienzo limpio por defecto (fondo `ninguno`); barra «Fondo» ARRIBA (junto a Obra/Cliente) con selector del techo guardado
+  (`src/lib/planoTecho.ts`: planta real con vigas/correas/columnas); aparatos/puntos en UNA franja arriba del plano; sin tarjeta flotante (el dueño no la quiere).
 
 ## Presupuesto de obra, Acabados, Madera, Vidrios, Avance e IA de instalaciones
 - Presupuesto de obra (`ObraIntegralView`, `obraIntegral/fuentes.ts`: un lector por apartado; cronograma Gantt). Clave `obra_integral_`.

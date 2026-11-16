@@ -7,6 +7,7 @@
 // =============================================================================
 import { safeStorage } from '../../lib/storageManager';
 import type { TipoCable, TipoTubo } from '../../catalogo/electricidad';
+import { plantaTecho, type LineaPlanta } from '../../lib/planoTecho';
 import { murosDeObra, pisosObra, murosAmbiente, rotar, defAparato, type MuroRef, type Pt, type TipoAparato, type AmbientePlano } from '../gasfiteria/modeloGasfiteria';
 
 export type { MuroRef, Pt };
@@ -99,8 +100,9 @@ export const USOS: Record<UsoCircuito, { nombre: string; corto: string; seccion:
 export const PALETA_CIRCUITOS = ['#f59e0b', '#2563eb', '#dc2626', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#db2777', '#65a30d', '#4f46e5', '#b45309', '#0d9488'];
 
 export interface RefFondo { tipo: 'aparato' | 'mueble' | 'columna' | 'area'; x: number; y: number; w: number; d: number; rot: number; etiqueta?: string; gas?: TipoAparato; alto?: boolean }
-export type TipoFondo = 'blanco' | 'obra' | 'gasfiteria' | 'melamina' | 'techos';
-export interface FondoEle { tipo: TipoFondo; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; refs: RefFondo[]; ambientes?: AmbientePlano[] }
+// 'ninguno' = lienzo limpio; 'blanco' = ambiente propio con ancho y largo (o los muros del ejemplo / la IA).
+export type TipoFondo = 'ninguno' | 'blanco' | 'obra' | 'gasfiteria' | 'melamina' | 'techos';
+export interface FondoEle { tipo: TipoFondo; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; refs: RefFondo[]; ambientes?: AmbientePlano[]; lineas?: LineaPlanta[]; techoId?: string }
 
 export interface CotizacionEle {
   id: string; nombre: string; cliente: string;
@@ -118,7 +120,7 @@ export const KEY_ORIGEN = 'electricidad_origen';
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const cotizacionVacia = (): CotizacionEle => ({
   id: uid(), nombre: '', cliente: '', puntos: [], circuitos: [], rutas: [],
-  fondo: { tipo: 'blanco', ancho: 6, largo: 5, muros: murosAmbiente(6, 5), refs: [] },
+  fondo: { tipo: 'ninguno', ancho: 6, largo: 5, muros: [], refs: [] },   // lienzo limpio: el fondo se elige arriba
   gg: 10, util: 20, merma: 10, cable: 'thw', tubo: 'sap', incluirLuminarias: false, pruebas: true, modoMO: 'puntos',
 });
 export const normalizar = (c: Partial<CotizacionEle>): CotizacionEle => {
@@ -189,7 +191,7 @@ export const renumerar = (cs: Circuito[]) => { let k = 0; return cs.map(c => (c.
 
 // ── Fondos desde los otros apartados ────────────────────────────────────────
 export interface Sugerencia { tipo: TipoPunto; x: number; y: number; rot?: number; nombre?: string; w?: number }
-export interface FondoImportado { muros: MuroRef[]; refs: RefFondo[]; sugerencias: Sugerencia[]; texto: string; vacio: boolean }
+export interface FondoImportado { muros: MuroRef[]; refs: RefFondo[]; sugerencias: Sugerencia[]; texto: string; vacio: boolean; lineas?: LineaPlanta[] }
 const r3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /** Obra Civil / Drywall: muros del piso elegido y sus puntos de luz, tomas e interruptores. */
@@ -268,27 +270,12 @@ export function desdeMelamina(): FondoImportado {
 }
 
 /** Techos: el área cubierta y sus columnas; se sugieren luminarias y reflectores debajo. */
-export function desdeTechos(): FondoImportado {
-  const e = safeStorage.getItem<{ nodes?: Record<string, { x: number; y: number; z: number }>; segments?: Record<string, { nodeAId: string; nodeBId: string; rolEstructural?: string }> } | null>('innova_techos_escena_actual', null);
-  const N = e?.nodes || {};
-  const ns = Object.values(N).filter(n => isFinite(n.x) && isFinite(n.z));
-  if (ns.length < 2) return { muros: [], refs: [], sugerencias: [], vacio: true, texto: 'Techos no tiene un diseño abierto.' };
-  const xs = ns.map(n => n.x), zs = ns.map(n => n.z);
-  const x0 = Math.min(...xs), z0 = Math.min(...zs), W = Math.max(...xs) - x0, L = Math.max(...zs) - z0;
-  if (W < 0.5 || L < 0.5) return { muros: [], refs: [], sugerencias: [], vacio: true, texto: 'El techo abierto no tiene área en planta.' };
-  const refs: RefFondo[] = [{ tipo: 'area', x: r3(W / 2), y: r3(L / 2), w: r3(W), d: r3(L), rot: 0, etiqueta: 'Área techada' }];
-  const vistos = new Set<string>();
-  // Columnas: las piezas marcadas como columna (los montantes del tijeral también son verticales
-  // y antes se contaban como columnas). Diseños sin roles: cualquier pieza vertical.
-  const segs = Object.values(e?.segments || {});
-  const conRol = segs.some(s => s.rolEstructural);
-  segs.forEach(s => {
-    if (conRol && s.rolEstructural !== 'columna') return;
-    const a = N[s.nodeAId], b = N[s.nodeBId]; if (!a || !b) return;
-    if (Math.hypot(a.x - b.x, a.z - b.z) > 0.01 || Math.abs(a.y - b.y) < 0.3) return;
-    const k = `${a.x.toFixed(2)}_${a.z.toFixed(2)}`; if (vistos.has(k)) return; vistos.add(k);
-    refs.push({ tipo: 'columna', x: r3(a.x - x0), y: r3(a.z - z0), w: 0.15, d: 0.15, rot: 0 });
-  });
+export function desdeTechos(techoId?: string): FondoImportado {
+  const p = plantaTecho(techoId);
+  if (!p) return { muros: [], refs: [], sugerencias: [], vacio: true, texto: 'Techos no tiene un techo armado todavía.' };
+  const W = p.ancho, L = p.largo;
+  const refs: RefFondo[] = [{ tipo: 'area', x: r3(W / 2), y: r3(L / 2), w: r3(W), d: r3(L), rot: 0, etiqueta: 'Área techada' },
+    ...p.columnas.map(c => ({ tipo: 'columna' as const, x: c.x, y: c.y, w: 0.15, d: 0.15, rot: 0 }))];
   const nx = Math.max(1, Math.round(W / 3.5)), nz = Math.max(1, Math.round(L / 3.5));
   const sug: Sugerencia[] = [];
   for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) sug.push({ tipo: 'luz_techo', x: r3((i + 0.5) * W / nx), y: r3((j + 0.5) * L / nz), nombre: 'Bajo techo' });
@@ -296,14 +283,14 @@ export function desdeTechos(): FondoImportado {
   const esquinas = [[0, 0], [W, 0], [0, L], [W, L]].map(([x, y]) => cols.reduce<RefFondo | null>((b, c) => (!b || Math.hypot(c.x - x, c.y - y) < Math.hypot(b.x - x, b.y - y) ? c : b), null)).filter((c, i, a): c is RefFondo => !!c && a.indexOf(c) === i);
   esquinas.slice(0, 4).forEach(c => sug.push({ tipo: 'reflector', x: c.x, y: c.y, nombre: 'Reflector' }));
   sug.push({ tipo: 'int_doble', x: r3(Math.min(W, 0.3)), y: r3(L / 2), nombre: 'Luces techo' });
-  return { muros: [], refs, sugerencias: sug, vacio: false, texto: `Área techada de ${W.toFixed(2)} × ${L.toFixed(2)} m${cols.length ? ` con ${cols.length} columnas` : ''}.` };
+  return { muros: [], refs, sugerencias: sug, vacio: false, lineas: p.lineas, texto: `Área techada de ${W.toFixed(2)} × ${L.toFixed(2)} m${cols.length ? ` con ${cols.length} columnas` : ''}.` };
 }
 
-export function importarFondo(tipo: TipoFondo, nivel?: string): FondoImportado {
+export function importarFondo(tipo: TipoFondo, nivel?: string, techoId?: string): FondoImportado {
   if (tipo === 'obra') return desdeObra(nivel);
   if (tipo === 'gasfiteria') return desdeGasfiteria();
   if (tipo === 'melamina') return desdeMelamina();
-  if (tipo === 'techos') return desdeTechos();
+  if (tipo === 'techos') return desdeTechos(techoId);
   return { muros: [], refs: [], sugerencias: [], vacio: false, texto: '' };
 }
 

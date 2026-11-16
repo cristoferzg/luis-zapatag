@@ -16,6 +16,7 @@ import {
   defAparato, esAgua, leerCotizaciones, limites, murosAmbiente, murosDeObra, nombreAparato, pendienteDefecto, pisosObra, pulg, redesDe, uid, MuroRef, FondoGas, fondoDesdeTechos, KEY_ORIGEN_GAS,
 } from './modeloGasfiteria';
 import { fondoGasDesdeMelamina } from '../instalaciones/fondoMelamina';
+import { techosDisponibles, colorLineaTecho } from '../../lib/planoTecho';
 import { MetradoGas, NOMBRE_EMPALME, avisosGas, largoTramo, proyectar, totalCon, trazarAutomatico, Empalme, verificarInstalacion, desaguesInvertidos, grafoRed, Aviso } from './calculoGasfiteria';
 import VerificacionGas from './VerificacionGas';
 import { IconoAparato, SimboloAparato } from './SimboloAparato';
@@ -367,7 +368,6 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   const selTr = sel?.tipo === 'tramo' ? cot.tramos.find(t => t.id === sel.id) : undefined;
   const total = totalCon(r, cot);
   const vacio = !cot.aparatos.length && !cot.tramos.length;
-  const obraMuros = useMemo(() => murosDeObra().length, []);
 
   // ── Dibujo ──
   const fs = Math.max(0.07, Math.min(0.2, px * 11));
@@ -395,7 +395,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
       <g key={`m${i}`} pointerEvents="none">
         {cortes.map((c, k) => {
           const x1 = m.x1 + ux * c.a, y1 = m.y1 + uy * c.a, x2 = m.x1 + ux * c.b, y2 = m.y1 + uy * c.b;
-          if (c.tipo === 'muro') return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#a8a29e" strokeWidth={m.a} strokeLinecap="square" opacity={0.55} />;
+          if (c.tipo === 'muro') return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#78716c" strokeWidth={m.a} strokeLinecap="square" opacity={0.8} />;
           if (c.tipo === 'ventana') return <g key={k}><line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#a8a29e" strokeWidth={m.a} opacity={0.22} /><line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#38bdf8" strokeWidth={px * 1.5} /></g>;
           return null;
         })}
@@ -568,51 +568,60 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   );
 
   const pisos = useMemo(() => pisosObra(), []);
+  // Fondo del plano: barra compacta arriba (antes estaba al final de la página). Por defecto el lienzo
+  // está limpio ("En blanco"); se elige el proyecto de fondo: un ambiente con medidas, el plano de
+  // Obra Civil (por piso) o un techo de Techos Metálicos (el abierto o cualquiera de los guardados).
+  const techos = useMemo(() => techosDisponibles(), [cot.fondo.tipo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const ponerTecho = (id?: string) => { const f = fondoDesdeTechos(id); if (!f) { avisar('Techos no tiene un techo armado todavía.'); return; } commit(c => ({ ...c, fondo: f })); avisar(`✓ Techo de fondo: ${f.ancho.toFixed(2)} × ${f.largo.toFixed(2)} m${f.columnas?.length ? ` con ${f.columnas.length} columnas` : ''}`); const nc = { ...cot, fondo: f }; window.setTimeout(() => encuadrar(nc), 0); };
+  const elegirFondo = (v: FondoGas['tipo']) => {
+    if (v === 'techos') { ponerTecho(cot.fondo.techoId || techos[0]?.id); return; }
+    commit(c => ({ ...c, fondo: v === 'ambiente' ? { ...c.fondo, tipo: v, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), ambientes: undefined, lineas: undefined, columnas: undefined }
+      : v === 'obra' ? { ...c.fondo, tipo: v, nivel: c.fondo.nivel || pisos[0], muros: murosDeObra(c.fondo.nivel || pisos[0]), ambientes: undefined, lineas: undefined, columnas: undefined }
+      : { ...c.fondo, tipo: v, muros: [], ambientes: undefined, lineas: undefined, columnas: undefined, muebles: undefined } }));
+    if (v === 'obra' && !murosDeObra(cot.fondo.nivel || pisos[0]).length) avisar('No hay muros dibujados en Obra Civil para este piso.');
+    const muros = v === 'ambiente' ? murosAmbiente(cot.fondo.ancho, cot.fondo.largo) : v === 'obra' ? murosDeObra(cot.fondo.nivel || pisos[0]) : [];
+    const nc = { ...cot, fondo: { ...cot.fondo, tipo: v, muros, lineas: undefined, columnas: undefined } };
+    window.setTimeout(() => encuadrar(nc), 0);
+  };
+  const opcionesFondo: [FondoGas['tipo'], string][] = [['ninguno', 'En blanco'], ['ambiente', 'Ambiente'], ['obra', 'Obra Civil'], ['techos', 'Techos'], ...(cot.fondo.tipo === 'melamina' ? [['melamina', 'Melamina'] as [FondoGas['tipo'], string]] : [])];
   const panelFondo = (
-    <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
-      <p className="text-xs font-black text-slate-800 flex items-center gap-1.5"><Layers className="w-4 h-4 text-slate-400" /> Fondo del plano</p>
-      <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-xl">
-        {([['ambiente', 'Ambiente'], ['obra', 'Obra Civil'], ['techos', 'Techos'], ['ninguno', 'Sin fondo']] as const).map(([v, l]) => (
-          <button key={v} onClick={() => { if (v === 'techos') { const f = fondoDesdeTechos(); if (!f) { avisar('Techos no tiene un techo armado todavía.'); return; } commit(c => ({ ...c, fondo: f })); avisar('✓ Techo de fondo (área y columnas)'); return; } commit(c => ({ ...c, fondo: v === 'ambiente' ? { ...c.fondo, tipo: v, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), ambientes: undefined } : v === 'obra' ? { ...c.fondo, tipo: v, nivel: c.fondo.nivel || pisos[0], muros: murosDeObra(c.fondo.nivel || pisos[0]), ambientes: undefined } : { ...c.fondo, tipo: v, muros: [], ambientes: undefined } })); }}
-            className={`min-h-[36px] min-w-0 rounded-lg text-[11px] font-bold cursor-pointer truncate px-1 ${cot.fondo.tipo === v ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>{l}</button>
-        ))}
-      </div>
-      {cot.fondo.tipo === 'ambiente' && (
-        <div className="grid grid-cols-2 gap-2">
-          {(['ancho', 'largo'] as const).map(k => (
-            <label key={k} className="block text-[10px] font-bold text-slate-500 uppercase">{k === 'ancho' ? 'Ancho' : 'Largo'}
-              <div className="mt-0.5 flex items-center min-h-[40px] rounded-lg bg-slate-100">
-                <InputNumero type="number" min={1} max={40} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(40, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo), ambientes: undefined } }; }); }}
-                  className="w-full min-w-0 bg-transparent px-2 py-2 text-sm font-mono font-bold text-slate-800 focus:outline-none" />
-                <span className="pr-2 text-[11px] font-bold text-slate-400">m</span>
-              </div>
-            </label>
+    <div className="flex flex-col lg:flex-row lg:items-center gap-2 pt-2 border-t border-slate-100">
+      <div className="flex items-center gap-2 min-w-0">
+        <p className="text-[10px] font-black uppercase text-slate-500 shrink-0 flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> Fondo</p>
+        <div className={`flex-1 lg:flex-none grid ${opcionesFondo.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} gap-0.5 p-0.5 bg-slate-100 rounded-xl min-w-0`}>
+          {opcionesFondo.map(([v, l]) => (
+            <button key={v} onClick={() => elegirFondo(v)} className={`min-h-[34px] min-w-0 px-1 lg:px-2.5 rounded-lg text-[11px] font-bold cursor-pointer truncate ${cot.fondo.tipo === v ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>{l}</button>
           ))}
         </div>
-      )}
-      {cot.fondo.tipo === 'melamina' && (
-        <div className="space-y-1.5">
-          <p className="text-[11px] text-slate-500">Paredes y {(cot.fondo.muebles || []).length} muebles de Melamina como referencia.</p>
-          <button onClick={() => { const m = fondoGasDesdeMelamina(); if (!m) { avisar('Melamina no tiene muebles.'); return; } commit(c => ({ ...c, fondo: m.fondo })); avisar('✓ Muebles actualizados'); }} className={`${btn} w-full bg-slate-100 text-slate-700 hover:bg-slate-200`}>Actualizar desde Melamina</button>
-        </div>
-      )}
-      {cot.fondo.tipo === 'techos' && (
-        <div className="space-y-1.5">
-          <p className="text-[11px] text-slate-500">Área techada de {cot.fondo.ancho.toFixed(2)} × {cot.fondo.largo.toFixed(2)} m{cot.fondo.columnas?.length ? ` con ${cot.fondo.columnas.length} columnas` : ''} (de Techos Metálicos).</p>
-          <button onClick={() => { const f = fondoDesdeTechos(); if (!f) { avisar('Techos no tiene un techo armado.'); return; } commit(c => ({ ...c, fondo: f })); avisar('✓ Techo actualizado'); }} className={`${btn} w-full bg-slate-100 text-slate-700 hover:bg-slate-200`}>Actualizar desde Techos</button>
-        </div>
-      )}
-      {cot.fondo.tipo === 'obra' && (
-        <div className="space-y-1.5">
-          {pisos.length > 1 && (
-            <select value={cot.fondo.nivel || pisos[0]} onChange={e => { const n = e.target.value; commit(c => ({ ...c, fondo: { ...c.fondo, nivel: n, muros: murosDeObra(n) } })); }} className={`${inputTxt} cursor-pointer`}>
-              {pisos.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-          )}
-          <p className="text-[11px] text-slate-500">{cot.fondo.muros.length ? `${cot.fondo.muros.length} muros de Obra Civil como referencia (solo lectura).` : 'No hay muros dibujados en Obra Civil para este piso.'}</p>
-          <button onClick={() => { commit(c => ({ ...c, fondo: { ...c.fondo, muros: murosDeObra(c.fondo.nivel) } })); avisar('✓ Muros actualizados desde Obra Civil'); }} className={`${btn} w-full bg-slate-100 text-slate-700 hover:bg-slate-200`}>Actualizar desde Obra Civil</button>
-        </div>
-      )}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+        {cot.fondo.tipo === 'ambiente' && (['ancho', 'largo'] as const).map(k => (
+          <label key={k} className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">{k === 'ancho' ? 'Ancho' : 'Largo'}
+            <InputNumero type="number" min={1} max={40} step={0.05} value={cot.fondo[k]} onChange={e => { const v = Math.max(0.5, Math.min(40, parseFloat(e.target.value) || 0)); setCot(c => { const f = { ...c.fondo, [k]: v }; return { ...c, fondo: { ...f, muros: murosAmbiente(f.ancho, f.largo), ambientes: undefined } }; }); }}
+              className="w-16 min-h-[34px] px-2 rounded-lg bg-slate-100 font-mono text-xs text-right" /> m
+          </label>
+        ))}
+        {cot.fondo.tipo === 'obra' && pisos.length > 1 && (
+          <select value={cot.fondo.nivel || pisos[0]} onChange={e => { const n = e.target.value; commit(c => ({ ...c, fondo: { ...c.fondo, nivel: n, muros: murosDeObra(n) } })); }} className="min-h-[34px] px-2 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer">
+            {pisos.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
+        {cot.fondo.tipo === 'techos' && techos.length > 0 && (
+          <select value={cot.fondo.techoId || 'actual'} onChange={e => ponerTecho(e.target.value)} className="min-h-[34px] max-w-[260px] px-2 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer truncate">
+            {techos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+          </select>
+        )}
+        <p className="text-[11px] text-slate-500 min-w-0 truncate flex-1">
+          {cot.fondo.tipo === 'ninguno' ? 'Lienzo limpio: pon los aparatos donde quieras.'
+            : cot.fondo.tipo === 'obra' ? (cot.fondo.muros.length ? `${cot.fondo.muros.length} muros de Obra Civil (solo lectura).` : 'No hay muros en Obra Civil para este piso.')
+            : cot.fondo.tipo === 'techos' ? `Área techada ${cot.fondo.ancho.toFixed(2)} × ${cot.fondo.largo.toFixed(2)} m${cot.fondo.columnas?.length ? ` · ${cot.fondo.columnas.length} columnas` : ''}.`
+            : cot.fondo.tipo === 'melamina' ? `Paredes y ${(cot.fondo.muebles || []).length} muebles de Melamina.` : ''}
+        </p>
+        {(cot.fondo.tipo === 'obra' || cot.fondo.tipo === 'techos' || cot.fondo.tipo === 'melamina') && (
+          <button onClick={() => { if (cot.fondo.tipo === 'techos') ponerTecho(cot.fondo.techoId); else if (cot.fondo.tipo === 'melamina') { const m = fondoGasDesdeMelamina(); if (!m) { avisar('Melamina no tiene muebles.'); return; } commit(c => ({ ...c, fondo: m.fondo })); } else { commit(c => ({ ...c, fondo: { ...c.fondo, muros: murosDeObra(c.fondo.nivel) } })); avisar('✓ Muros actualizados desde Obra Civil'); } }}
+            title="Volver a leer" className="min-h-[34px] px-2 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600 cursor-pointer hover:bg-slate-200 inline-flex items-center gap-1"><RotateCw className="w-3.5 h-3.5" /> Actualizar</button>
+        )}
+      </div>
     </div>
   );
 
@@ -642,7 +651,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   return (
     <div className="p-2 sm:p-4 max-w-[1700px] mx-auto pb-6 xl:grid xl:grid-cols-[minmax(0,1fr)_350px] xl:gap-4 xl:items-start">
       <div className="space-y-3 min-w-0">
-        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); encuadrar(c); }} onEjemplo={cargarEjemplo} />
+        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); encuadrar(c); }} onEjemplo={cargarEjemplo} fondo={panelFondo} />
 
         {/* Plano */}
         <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
@@ -690,8 +699,16 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
               </>}
             </div>
           )}
-          {herr === 'aparato' && <div className="xl:hidden p-2 border-b border-slate-100 bg-slate-50/70 overflow-x-auto"><div className="w-max">{paleta('grid-flow-col auto-cols-[64px]')}</div></div>}
+          {/* Aparatos: UNA sola franja, siempre a la vista (antes también salían abajo y en la columna derecha). */}
+          <div className="p-2 border-b border-slate-100 bg-slate-50/70 overflow-x-auto"><div className="w-max">{paleta('grid-flow-col auto-cols-[64px]')}</div></div>
 
+          {vacio && (
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-100 bg-sky-50/60">
+              <Droplets className="w-4 h-4 text-sky-600 shrink-0" />
+              <p className="text-xs text-slate-600 flex-1 min-w-[200px]">Elige un aparato de la franja y toca el plano para ponerlo. Al final toca <b>Trazar automáticamente</b>.</p>
+              <button onClick={cargarEjemplo} className={`${btn} bg-teal-600 text-white hover:bg-teal-700`}><Sparkles className="w-4 h-4" /> Cargar ejemplo</button>
+            </div>
+          )}
           <div ref={host} className="relative xl:!h-[calc(100vh-250px)] xl:min-h-[480px] bg-slate-50" style={{ height: altoMovil }}>
             <svg ref={svgRef} viewBox={`${V.x} ${V.y} ${V.w} ${VH}`} className="absolute inset-0 w-full h-full select-none" style={{ fontFamily: 'system-ui', cursor: herr === 'mano' ? 'grab' : herr === 'mover' ? 'default' : 'crosshair' }}
               onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { arr.current = null; inicioTap.current = null; }} onPointerLeave={() => setHover(null)} onContextMenu={e => e.preventDefault()}>
@@ -710,8 +727,9 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
               )}
               {cot.fondo.tipo === 'techos' && (
                 <g pointerEvents="none">
-                  <rect x={0} y={0} width={cot.fondo.ancho} height={cot.fondo.largo} fill="#fef3c7" fillOpacity={0.45} stroke="#d97706" strokeWidth={fs * 0.12} strokeDasharray={`${fs * 0.6} ${fs * 0.4}`} />
-                  {(cot.fondo.columnas || []).map((k, i) => <rect key={i} x={k.x - 0.08} y={k.y - 0.08} width={0.16} height={0.16} fill="#94a3b8" />)}
+                  <rect x={0} y={0} width={cot.fondo.ancho} height={cot.fondo.largo} fill="#fef3c7" fillOpacity={0.35} stroke="#d97706" strokeWidth={fs * 0.12} strokeDasharray={`${fs * 0.6} ${fs * 0.4}`} />
+                  {(cot.fondo.lineas || []).map((l, i) => <line key={`l${i}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={colorLineaTecho(l.r)} strokeWidth={Math.max(0.015, px * 1.2)} opacity={0.75} />)}
+                  {(cot.fondo.columnas || []).map((k, i) => <rect key={i} x={k.x - 0.1} y={k.y - 0.1} width={0.2} height={0.2} fill="#475569" />)}
                   <text x={fs * 0.3} y={fs * 1.1} fontSize={fs * 0.8} fontWeight={800} fill="#b45309">Área techada</text>
                 </g>
               )}
@@ -786,22 +804,6 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
             </div>
             {aviso && <div className="absolute top-2 left-2 right-14 sm:right-auto max-w-md px-3 py-2 rounded-xl bg-slate-900/90 text-white text-xs font-bold shadow-lg">{aviso}</div>}
 
-            {vacio && (
-              <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-                <div className="pointer-events-auto max-w-md w-full bg-white/95 backdrop-blur rounded-2xl shadow-xl border border-slate-100 p-5 text-center space-y-3">
-                  <div className="mx-auto w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center"><Droplets className="w-6 h-6" /></div>
-                  <div>
-                    <p className="text-base font-black text-slate-900">Instalaciones sanitarias</p>
-                    <p className="text-xs text-slate-500 mt-1">Pon los aparatos (inodoro, lavatorio, ducha, terma…), el medidor y la caja de registro. Luego toca <b>Trazar automáticamente</b>: salen las tuberías, los empalmes, los materiales y el presupuesto.</p>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button onClick={cargarEjemplo} className={`${btn} bg-teal-600 text-white hover:bg-teal-700`}><Sparkles className="w-4 h-4" /> Cargar ejemplo</button>
-                    {obraMuros > 0 && <button onClick={() => commit(c => ({ ...c, fondo: { ...c.fondo, tipo: 'obra', nivel: pisos[0], muros: murosDeObra(pisos[0]), ambientes: undefined } }))} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><Layers className="w-4 h-4" /> Usar plano de Obra Civil</button>}
-                    <button onClick={() => { setHerr('aparato'); setTipoAp('inodoro'); }} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><Plus className="w-4 h-4" /> Empezar en blanco</button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -818,12 +820,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
         <div className="xl:hidden space-y-3">
           {panelSel}
           {panelAvisos}
-          <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
-            <p className="text-xs font-black text-slate-800">Aparatos <span className="font-semibold text-slate-400">toca uno y luego el plano</span></p>
-            {paleta('grid-cols-4 sm:grid-cols-6 lg:grid-cols-8')}
-          </div>
           {panelEmp}
-          {panelFondo}
         </div>
       </div>
 
@@ -831,20 +828,15 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
       <aside className="hidden xl:block sticky top-4 space-y-3 max-h-[calc(100vh-110px)] overflow-y-auto pr-0.5">
         {resumen}
         {panelSel}
-        <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
-          <p className="text-xs font-black text-slate-800">Aparatos <span className="font-semibold text-slate-400">toca uno y luego el plano</span></p>
-          {paleta('grid-cols-5')}
-        </div>
         {panelAvisos}
         {panelEmp}
-        {panelFondo}
       </aside>
     </div>
   );
 }
 
 // ── Datos de la obra y Mis cotizaciones ─────────────────────────────────────
-function DatosObra({ cot, setCot, onCargar, onEjemplo }: { cot: CotizacionGas; setCot: SetCot; onCargar: (c: CotizacionGas) => void; onEjemplo: () => void }) {
+function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo }: { cot: CotizacionGas; setCot: SetCot; onCargar: (c: CotizacionGas) => void; onEjemplo: () => void; fondo: React.ReactNode }) {
   const [lista, setLista] = useState<CotizacionGas[]>(leerCotizaciones);
   const [verLista, setVerLista] = useState(false);
   const [aviso, setAviso] = useState('');
@@ -872,6 +864,7 @@ function DatosObra({ cot, setCot, onCargar, onEjemplo }: { cot: CotizacionGas; s
           {cot.aparatos.length > 0 && <button onClick={() => { setCot(c => ({ ...c, id: uid(), nombre: `${c.nombre || 'Cotización'} (copia)`, actualizado: undefined })); avisar('✓ Copia creada: guárdala para tenerla en la lista'); }} title="Duplicar" className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5`}><Copy className="w-4 h-4" /></button>}
         </div>
       </div>
+      {fondo}
       {aviso && <p className="text-xs font-bold text-emerald-700">{aviso}</p>}
       {verLista && (
         <div className="rounded-xl bg-slate-50 divide-y divide-slate-100">

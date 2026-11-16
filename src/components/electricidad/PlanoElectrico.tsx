@@ -11,6 +11,7 @@ import {
   AlertTriangle, CircleCheck, Layers, Save, FolderOpen, FilePlus2, ClipboardList, Zap, Ruler, Sparkles, ListTree, ChevronDown, ChevronUp, Download,
 } from 'lucide-react';
 import { safeStorage } from '../../lib/storageManager';
+import { techosDisponibles, colorLineaTecho } from '../../lib/planoTecho';
 import { simb } from '../../lib/currency';
 import {
   CATS, PUNTOS, ALIM, PT, COLOR_ALIM, COLOR_PT, CotizacionEle, Circuito, KEY_COT_LISTA, KEY_ORIGEN, Pt, Punto, Ruta, TipoFondo, TipoPunto, UsoCircuito, USOS, MuroRef, RefFondo, FondoEle,
@@ -56,7 +57,7 @@ const btn = 'inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 r
 const inputTxt = 'mt-0.5 w-full min-h-[40px] px-3 py-2 rounded-lg bg-slate-100 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-300';
 const sel1 = 'min-h-[36px] px-2 rounded-lg bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-300';
 export const FONDOS: { id: TipoFondo; label: string; corto: string }[] = [
-  { id: 'blanco', label: 'En blanco', corto: 'Blanco' }, { id: 'obra', label: 'Obra Civil', corto: 'Obra' }, { id: 'gasfiteria', label: 'Gasfitería', corto: 'Gasfit.' },
+  { id: 'ninguno', label: 'En blanco', corto: 'Blanco' }, { id: 'blanco', label: 'Ambiente', corto: 'Ambiente' }, { id: 'obra', label: 'Obra Civil', corto: 'Obra' }, { id: 'gasfiteria', label: 'Gasfitería', corto: 'Gasfit.' },
   { id: 'melamina', label: 'Melamina', corto: 'Melam.' }, { id: 'techos', label: 'Techos', corto: 'Techos' },
 ];
 
@@ -130,12 +131,17 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
 
   // ── Fondo desde otros apartados ──
   const pisos = useMemo(() => pisosObra(), []);
-  const [imp, setImp] = useState(() => importarFondo(cot.fondo.tipo, cot.fondo.nivel));
-  const elegirFondo = (tipo: TipoFondo, nivel?: string, silencioso = false) => {
-    const f = importarFondo(tipo, nivel);
+  const [imp, setImp] = useState(() => importarFondo(cot.fondo.tipo, cot.fondo.nivel, cot.fondo.techoId));
+  // Techos que se pueden elegir de fondo (el abierto en Techos o cualquiera de los guardados).
+  const techos = useMemo(() => techosDisponibles(), [cot.fondo.tipo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const elegirFondo = (tipo: TipoFondo, nivel?: string, silencioso = false, techoId?: string) => {
+    const idT = tipo === 'techos' ? (techoId || cot.fondo.techoId || techos[0]?.id) : undefined;
+    const f = importarFondo(tipo, nivel, idT);
     setImp(f);
-    commit(c => ({ ...c, fondo: tipo === 'blanco' ? { ...c.fondo, tipo, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), refs: [], ambientes: undefined } : { ...c.fondo, tipo, nivel: tipo === 'obra' ? (nivel || c.fondo.nivel || pisos[0]) : undefined, muros: f.muros, refs: f.refs, ambientes: undefined } }));
-    if (!silencioso && tipo !== 'blanco') avisar(f.vacio ? f.texto : `✓ ${f.texto}${f.sugerencias.length ? ` Toca "Agregar puntos sugeridos".` : ''}`);
+    commit(c => ({ ...c, fondo: tipo === 'ninguno' ? { ...c.fondo, tipo, muros: [], refs: [], ambientes: undefined, lineas: undefined, techoId: undefined }
+      : tipo === 'blanco' ? { ...c.fondo, tipo, muros: murosAmbiente(c.fondo.ancho, c.fondo.largo), refs: [], ambientes: undefined, lineas: undefined, techoId: undefined }
+      : { ...c.fondo, tipo, nivel: tipo === 'obra' ? (nivel || c.fondo.nivel || pisos[0]) : undefined, muros: f.muros, refs: f.refs, ambientes: undefined, lineas: f.lineas, techoId: idT } }));
+    if (!silencioso && tipo !== 'blanco' && tipo !== 'ninguno') avisar(f.vacio ? f.texto : `✓ ${f.texto}${f.sugerencias.length ? ` Toca "Agregar puntos sugeridos".` : ''}`);
     window.setTimeout(() => setVb(null), 0);
   };
   useEffect(() => { if (!vb) encuadrar(); }); // eslint-disable-line react-hooks/exhaustive-deps
@@ -413,7 +419,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
       <g key={`m${i}`} pointerEvents="none">
         {cortes.map((c, k) => {
           const x1 = m.x1 + ux * c.a, y1 = m.y1 + uy * c.a, x2 = m.x1 + ux * c.b, y2 = m.y1 + uy * c.b;
-          if (c.tipo === 'muro') return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#a8a29e" strokeWidth={m.a} strokeLinecap="square" opacity={0.5} />;
+          if (c.tipo === 'muro') return <line key={k} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#78716c" strokeWidth={m.a} strokeLinecap="square" opacity={0.8} />;
           if (c.tipo === 'ventana') return <g key={k}><line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#a8a29e" strokeWidth={m.a} opacity={0.2} /><line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#38bdf8" strokeWidth={px * 1.5} /></g>;
           // Puerta: arco de giro tenue.
           const w = c.b - c.a, nx = -uy, ny = ux;
@@ -691,7 +697,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
     <div className="flex flex-col lg:flex-row lg:items-center gap-2 pt-2 border-t border-slate-100">
       <div className="flex items-center gap-2 min-w-0">
         <p className="text-[10px] font-black uppercase text-slate-500 shrink-0 flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> Fondo</p>
-        <div className="flex-1 lg:flex-none grid grid-cols-5 gap-0.5 p-0.5 bg-slate-100 rounded-xl min-w-0">
+        <div className="flex-1 lg:flex-none grid grid-cols-3 sm:grid-cols-6 gap-0.5 p-0.5 bg-slate-100 rounded-xl min-w-0">
           {FONDOS.map(f => (
             <button key={f.id} onClick={() => elegirFondo(f.id, cot.fondo.nivel)} className={`min-h-[34px] min-w-0 px-1 lg:px-2.5 rounded-lg text-[11px] font-bold cursor-pointer truncate ${cot.fondo.tipo === f.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500'}`}>
               <span className="hidden sm:inline">{f.label}</span><span className="sm:hidden">{f.corto}</span>
@@ -709,8 +715,12 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
         {cot.fondo.tipo === 'obra' && pisos.length > 1 && (
           <select value={cot.fondo.nivel || pisos[0]} onChange={e => elegirFondo('obra', e.target.value)} className={sel1}>{pisos.map(p => <option key={p} value={p}>{p}</option>)}</select>
         )}
-        {cot.fondo.tipo !== 'blanco' && <p className="text-[11px] text-slate-500 min-w-0 truncate flex-1">{imp.texto}</p>}
-        {cot.fondo.tipo !== 'blanco' && <button onClick={() => elegirFondo(cot.fondo.tipo, cot.fondo.nivel)} title="Volver a leer" className="min-h-[34px] px-2 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600 cursor-pointer hover:bg-slate-200 inline-flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Actualizar</button>}
+        {cot.fondo.tipo === 'techos' && techos.length > 0 && (
+          <select value={cot.fondo.techoId || techos[0].id} onChange={e => elegirFondo('techos', undefined, false, e.target.value)} className={`${sel1} max-w-[260px] truncate`}>{techos.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select>
+        )}
+        {cot.fondo.tipo === 'ninguno' && <p className="text-[11px] text-slate-500 min-w-0 truncate flex-1">Lienzo limpio: pon los puntos donde quieras.</p>}
+        {cot.fondo.tipo !== 'blanco' && cot.fondo.tipo !== 'ninguno' && <p className="text-[11px] text-slate-500 min-w-0 truncate flex-1">{imp.texto}</p>}
+        {cot.fondo.tipo !== 'blanco' && cot.fondo.tipo !== 'ninguno' && <button onClick={() => elegirFondo(cot.fondo.tipo, cot.fondo.nivel, false, cot.fondo.techoId)} title="Volver a leer" className="min-h-[34px] px-2 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600 cursor-pointer hover:bg-slate-200 inline-flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Actualizar</button>}
         {sugeridos.length > 0 && <button onClick={agregarSugeridos} className="min-h-[34px] px-2.5 rounded-lg bg-amber-400 text-slate-950 text-[11px] font-black cursor-pointer hover:bg-amber-300 inline-flex items-center gap-1"><Plus className="w-3.5 h-3.5" /> {cot.fondo.tipo === 'obra' ? `Importar ${sugeridos.length} puntos de Obra Civil` : `Agregar ${sugeridos.length} puntos sugeridos`}</button>}
       </div>
     </div>
@@ -721,7 +731,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
   return (
     <div className="p-2 sm:p-4 max-w-[1700px] mx-auto pb-6 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-4 xl:items-start">
       <div className="space-y-3 min-w-0">
-        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); setImp(importarFondo(c.fondo.tipo, c.fondo.nivel)); encuadrar(c); }} onEjemplo={cargarEjemplo} fondo={panelFondo} />
+        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); setImp(importarFondo(c.fondo.tipo, c.fondo.nivel, c.fondo.techoId)); encuadrar(c); }} onEjemplo={cargarEjemplo} fondo={panelFondo} />
 
         <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
           <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 p-1.5 sm:p-2 border-b border-slate-100">
@@ -778,7 +788,15 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
               )}
             </div>
           )}
-          {herr === 'punto' && <div className="xl:hidden p-2 border-b border-slate-100 bg-slate-50/70 overflow-x-auto">{paleta('fila')}</div>}
+          {/* Puntos: UNA sola franja, siempre a la vista (antes también salían abajo y en la columna derecha). */}
+          <div className="p-2 border-b border-slate-100 bg-slate-50/70 overflow-x-auto">{paleta('fila')}</div>
+          {vacio && (
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-100 bg-amber-50/60">
+              <Zap className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-xs text-slate-600 flex-1 min-w-[200px]">Elige un punto de la franja (luz, tomacorriente, tablero…) y toca el plano. Al final toca <b>Trazar automáticamente</b>.</p>
+              <button onClick={cargarEjemplo} className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300`}><Sparkles className="w-4 h-4" /> Cargar ejemplo</button>
+            </div>
+          )}
 
           <div ref={host} className="relative xl:!h-[calc(100vh-318px)] xl:min-h-[440px] bg-slate-50" style={{ height: altoMovil }}>
             <svg ref={svgRef} viewBox={`${V.x} ${V.y} ${V.w} ${VH}`} className="absolute inset-0 w-full h-full select-none" style={{ fontFamily: 'system-ui', cursor: herr === 'mano' ? 'grab' : herr === 'mover' ? 'default' : 'crosshair' }}
@@ -786,6 +804,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
               {herr === 'mano' && <rect data-arrastre="1" x={V.x} y={V.y} width={V.w} height={VH} fill="transparent" />}
               {grid}
               {cot.fondo.refs.filter(x => x.tipo === 'area').map(refFondo)}
+              {cot.fondo.tipo === 'techos' && (cot.fondo.lineas || []).map((l, i) => <line key={`tl${i}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={colorLineaTecho(l.r)} strokeWidth={Math.max(0.015, px * 1.2)} opacity={0.75} pointerEvents="none" />)}
               {cot.fondo.muros.map(muro)}
               <EtiquetasAmbientes ambientes={cot.fondo.ambientes} fs={fs} />
               {cot.fondo.refs.filter(x => x.tipo !== 'area').map(refFondo)}
@@ -849,22 +868,6 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
             )}
             {aviso && <div className="absolute top-2 left-2 right-14 sm:right-auto max-w-lg px-3 py-2 rounded-xl bg-slate-900/90 text-white text-xs font-bold shadow-lg">{aviso}</div>}
 
-            {vacio && cot.fondo.tipo === 'blanco' && (
-              <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-                <div className="pointer-events-auto max-w-md w-full bg-white/95 backdrop-blur rounded-2xl shadow-xl border border-slate-100 p-5 text-center space-y-3">
-                  <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center"><Zap className="w-6 h-6" /></div>
-                  <div>
-                    <p className="text-base font-black text-slate-900">Instalaciones eléctricas</p>
-                    <p className="text-xs text-slate-500 mt-1">Pon las luces, interruptores, tomacorrientes, el tablero (TD), el medidor y el pozo a tierra. Luego toca <b>Trazar automáticamente</b>: salen los circuitos, las tuberías, el cuadro de cargas, los materiales y el presupuesto.</p>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button onClick={cargarEjemplo} className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300`}><Sparkles className="w-4 h-4" /> Cargar ejemplo</button>
-                    <button onClick={() => { setHerr('punto'); setTipoP('tablero'); }} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><Plus className="w-4 h-4" /> Empezar en blanco</button>
-                  </div>
-                  <p className="text-[11px] text-slate-400">¿Ya tienes el plano en Obra Civil, Gasfitería, Melamina o Techos? Elígelo arriba en <b>Fondo</b>.</p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -883,10 +886,6 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
           {panelVerif}
           {panelAvisos}
           {panelCircuitos}
-          <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
-            <p className="text-xs font-black text-slate-800">Puntos <span className="font-semibold text-slate-400">toca uno y luego el plano</span></p>
-            <div className="overflow-x-auto -mx-1 px-1 pb-1">{paleta('fila')}</div>
-          </div>
           {panelConteo}
         </div>
       </div>
@@ -894,10 +893,6 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
       <aside className="hidden xl:block sticky top-4 space-y-3 max-h-[calc(100vh-110px)] overflow-y-auto pr-0.5">
         {resumen}
         {panelSel}
-        <div className="bg-white rounded-2xl p-3 shadow-xs space-y-2">
-          <p className="text-xs font-black text-slate-800">Puntos <span className="font-semibold text-slate-400">toca uno y luego el plano</span></p>
-          {paleta('grilla')}
-        </div>
         {panelVerif}
         {panelCircuitos}
         {panelAvisos}

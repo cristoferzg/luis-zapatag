@@ -7,6 +7,7 @@
 // =============================================================================
 import { safeStorage } from '../../lib/storageManager';
 import type { SistemaTubo } from '../../catalogo/gasfiteria';
+import { plantaTecho, type LineaPlanta } from '../../lib/planoTecho';
 
 export type Red = 'fria' | 'caliente' | 'desague' | 'ventilacion';
 export interface Pt { x: number; y: number }
@@ -71,7 +72,7 @@ export interface MuroRef { x1: number; y1: number; x2: number; y2: number; a: nu
 export interface AmbientePlano { nombre: string; x: number; y: number; ancho: number; largo: number }
 /** Mueble de Melamina tendido en planta (solo referencia en el plano y el 3D). */
 export interface MuebleRef { x: number; y: number; w: number; d: number; rot: number; etiqueta?: string; alto?: boolean }
-export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra' | 'techos' | 'melamina'; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; ambientes?: AmbientePlano[]; columnas?: Pt[]; muebles?: MuebleRef[] }
+export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra' | 'techos' | 'melamina'; ancho: number; largo: number; nivel?: string; muros: MuroRef[]; ambientes?: AmbientePlano[]; columnas?: Pt[]; muebles?: MuebleRef[]; lineas?: LineaPlanta[]; techoId?: string }
 
 export interface CotizacionGas {
   id: string; nombre: string; cliente: string;
@@ -91,25 +92,11 @@ export const KEY_ORIGEN_GAS = 'gasfiteria_origen';
 
 /** Fondo desde Techos: el área techada (0..ancho × 0..largo) y sus columnas, con el mismo origen
  *  que usa Electricidad, para que luz y agua calcen debajo del mismo techo. */
-export function fondoDesdeTechos(): FondoGas | null {
-  const e = safeStorage.getItem<{ nodes?: Record<string, { x: number; y: number; z: number }>; segments?: Record<string, { nodeAId: string; nodeBId: string; rolEstructural?: string }> } | null>('innova_techos_escena_actual', null);
-  const N = e?.nodes || {};
-  const ns = Object.values(N).filter(n => isFinite(n.x) && isFinite(n.z));
-  if (ns.length < 2) return null;
-  const x0 = Math.min(...ns.map(n => n.x)), z0 = Math.min(...ns.map(n => n.z));
-  const W = Math.max(...ns.map(n => n.x)) - x0, L = Math.max(...ns.map(n => n.z)) - z0;
-  if (W < 0.5 || L < 0.5) return null;
-  const segs = Object.values(e?.segments || {});
-  const conRol = segs.some(s => s.rolEstructural);
-  const vistos = new Set<string>(); const columnas: Pt[] = [];
-  segs.forEach(s => {
-    if (conRol && s.rolEstructural !== 'columna') return;
-    const a = N[s.nodeAId], b = N[s.nodeBId]; if (!a || !b) return;
-    if (Math.hypot(a.x - b.x, a.z - b.z) > 0.01 || Math.abs(a.y - b.y) < 0.3) return;
-    const k = `${a.x.toFixed(2)}_${a.z.toFixed(2)}`; if (vistos.has(k)) return; vistos.add(k);
-    columnas.push({ x: Math.round((a.x - x0) * 1000) / 1000, y: Math.round((a.z - z0) * 1000) / 1000 });
-  });
-  return { tipo: 'techos', ancho: Math.round(W * 1000) / 1000, largo: Math.round(L * 1000) / 1000, muros: [], columnas };
+/** Techo de fondo (el abierto en Techos o uno guardado): contorno, columnas y vigas/correas en planta. */
+export function fondoDesdeTechos(techoId?: string): FondoGas | null {
+  const p = plantaTecho(techoId);
+  if (!p) return null;
+  return { tipo: 'techos', ancho: p.ancho, largo: p.largo, muros: [], columnas: p.columnas, lineas: p.lineas, techoId: techoId || 'actual' };
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -119,7 +106,7 @@ export const murosAmbiente = (w: number, l: number): MuroRef[] => [
 ];
 export const cotizacionVacia = (): CotizacionGas => ({
   id: uid(), nombre: '', cliente: '', aparatos: [], tramos: [],
-  fondo: { tipo: 'ambiente', ancho: 4, largo: 3, muros: murosAmbiente(4, 3) },
+  fondo: { tipo: 'ninguno', ancho: 4, largo: 3, muros: [] },   // lienzo limpio: el fondo se elige arriba
   gg: 10, util: 20, merma: 10, incluirAparatos: false, instalarAparatos: true, pruebaHidraulica: true, modoMO: 'puntos',
 });
 export const leerCotizacionActual = (): CotizacionGas => {

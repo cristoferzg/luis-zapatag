@@ -28,6 +28,23 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): este.
 - Pendiente / a vigilar: el canje de paquetes con créditos ya se programó en otra conversación (entrada de abajo); falta desplegar `functions`.
 
+## 2026-11-16 · Gasfitería y Electricidad: lienzo limpio, fondo con proyecto elegido y sin tarjeta flotante
+- Pedido del dueño: "no hay una opción para elegir el proyecto y aparece superpuesto el otro proyecto (se debe limpiar el lienzo)"; "los aparatos aparecen
+  arriba y abajo"; "mejorar el diseño de los botones y la distribución" (también Electricidad); "ese botón flotante quítalo… todo ese cuadrado";
+  "el área de Techos u Obra Civil no se visualiza bien".
+- Qué se hizo: (1) Lienzo limpio por defecto ("En blanco", sin muros) en las cotizaciones nuevas de los dos apartados. (2) Barra "Fondo" arriba, junto a Obra y
+  Cliente (en Gasfitería estaba al final de la página): En blanco · Ambiente (ancho y largo) · Obra Civil (por piso) · Techos (con selector del techo: el
+  abierto en Techos o cualquiera de los guardados) · Gasfitería/Melamina en Electricidad. (3) Techos de fondo dibujado de verdad en planta: contorno,
+  columnas y vigas/correas (`src/lib/planoTecho.ts`: `plantaTecho`, `techosDisponibles`), y la vista se encuadra al elegirlo; muros de Obra Civil más
+  visibles. (4) Aparatos / puntos en UNA sola franja arriba del plano, siempre visible (se quitaron las tarjetas repetidas de abajo y de la columna
+  derecha). (5) Se quitó la tarjeta flotante que tapaba el plano; queda una franja delgada con "Cargar ejemplo".
+- Archivos principales: `src/lib/planoTecho.ts` (nuevo), `gasfiteria/PlanoGas.tsx`, `gasfiteria/modeloGasfiteria.ts`, `electricidad/PlanoElectrico.tsx`,
+  `electricidad/modeloElectricidad.ts` (tipo de fondo `ninguno`).
+- Cómo se probó: tsc 0 errores; capturas antes/después a 1040 px y en celular (390 px), con y sin techo de fondo.
+- Versión: sin compilar aún.
+- Commit(s): este.
+- Pendiente / a vigilar: las cotizaciones ya guardadas conservan su fondo (el usuario elige "En blanco" si quiere limpiar).
+
 ## 2026-11-16 · Techos: memoria y «Aplicar recomendados» coherentes · sin «Mis apartados» · Mis cursos/plantillas solo lo propio
 - Pedido del dueño: (1) la memoria dice que no cumple y el botón de recomendados no lo arregla ("esos errores no pueden ocurrir");
   no siempre se ponen arriostres o tensores (presupuesto del cliente). (2) Los usuarios no deben desactivar sus apartados.
@@ -109,7 +126,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Memoria/recomendados coherentes, sin «Mis apartados», Mis cursos/plantillas solo lo propio (16/11/2026) |
+| Última mejora sin compilar | Memoria/recomendados coherentes, sin «Mis apartados», Mis cursos/plantillas solo lo propio, Gasfitería/Electricidad rediseñadas (16/11/2026) |
 | Última versión compilada | Web **2026.11.16.1026** · Android **código 26110424** (16/11/2026: canje de créditos por cursos, plantillas y paquetes, también en Android; desplegar también `functions`) |
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
 | Próximo código Android | **26110425** (el contador sigue +1 desde aquí; nunca bajar de 26110424) |
