@@ -19,6 +19,21 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Academia: video «Instalar InnovApp en tu iPhone o iPad»
+- Pedido del dueño: "No tenemos video de instalación desde iPhone" → hacerlo y subirlo, cuidando el léxico y la pronunciación de la voz.
+- Qué se hizo: tutorial de 2 min 32 s con un iPhone dibujado y círculo de toque: Safari → Compartir → «Agregar a pantalla de inicio»
+  → «Abrir como app web» activado → Agregar → ícono en inicio → entrar con la clave PIN; preguntas frecuentes y resumen.
+  Pronunciación revisada transcribiendo cada frase con whisper (`revisar_voz.py` / `probar.py`): el texto hablado va aparte del
+  subtítulo (tupla) para iOS ("ai o ese"), iPad ("ái pad"), InnovApp ("Innova Ap"), PIN ("clave PIN"), "app" → "aplicación",
+  y la dirección web se muestra en pantalla en vez de deletrearla. Subido como clase gratis al curso «Usabilidad de la plataforma»
+  (id tut-1794854309419-0d01d0).
+- Archivos principales: `contenido/academia/videos/fuentes/ios_tuto.py`, `revisar_voz.py`, `probar.py`.
+- Cómo se probó: hoja de cuadros (se movió el teléfono para que el subtítulo no tape la barra de Safari y se corrigieron los toques);
+  transcripción de la voz; tamaño del video en el enlace comparado con el local antes de subirlo.
+- Versión: sin compilar (solo contenido de la Academia).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: usar `revisar_voz.py` antes de grabar los próximos videos.
+
 ## 2026-11-16 · Academia: clases de Naves Parabólicas más largas (≈7–8.5 min)
 - Pedido del dueño: "Que más sigue" → eligió "Alargar clases" (la regla pide clases de 8–10 min; las nuevas duraban 3–4).
 - Qué se hizo: las 13 clases de Naves se volvieron a grabar con escenas nuevas antes de los errores: segundo ejemplo con números,
