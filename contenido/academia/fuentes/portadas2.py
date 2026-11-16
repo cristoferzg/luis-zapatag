@@ -60,6 +60,36 @@ def portones():
 
 ILUS['portones'] = portones()
 
+def seguridad():
+    s = ''
+    # columnas y viga
+    s += '<rect x="70" y="250" width="40" height="400" fill="#94a3b8"/><rect x="600" y="250" width="40" height="400" fill="#94a3b8"/>'
+    s += '<rect x="40" y="230" width="640" height="34" fill="#64748b"/>'
+    # línea de vida
+    s += '<path d="M90 180 Q355 215 620 180" fill="none" stroke="#facc15" stroke-width="8"/>'
+    s += '<rect x="78" y="150" width="24" height="90" fill="#94a3b8"/><rect x="608" y="150" width="24" height="90" fill="#94a3b8"/>'
+    # trabajador sobre la viga
+    x, y, k = 330, 230, 1.15
+    s += f'<path d="M{x+14*k} {y-118*k} Q{x+70} {y-60} {x+90} 202" fill="none" stroke="#facc15" stroke-width="6"/>'
+    s += f'<circle cx="{x}" cy="{y-150*k}" r="{20*k}" fill="#f2c9a0"/>'
+    s += f'<path d="M{x-26*k} {y-160*k} Q{x} {y-200*k} {x+26*k} {y-160*k} Z" fill="#ffd166"/><rect x="{x-30*k}" y="{y-162*k}" width="{60*k}" height="{7*k}" rx="3" fill="#ffd166"/>'
+    s += f'<rect x="{x-22*k}" y="{y-128*k}" width="{44*k}" height="{70*k}" rx="{10*k}" fill="#f97316"/>'
+    s += f'<path d="M{x-16*k} {y-126*k} L{x+14*k} {y-62*k} M{x+16*k} {y-126*k} L{x-14*k} {y-62*k}" stroke="#facc15" stroke-width="7" fill="none"/>'
+    s += f'<line x1="{x-12*k}" y1="{y-58*k}" x2="{x-18*k}" y2="{y}" stroke="#334155" stroke-width="{16*k}" stroke-linecap="round"/>'
+    s += f'<line x1="{x+12*k}" y1="{y-58*k}" x2="{x+18*k}" y2="{y}" stroke="#334155" stroke-width="{16*k}" stroke-linecap="round"/>'
+    s += f'<line x1="{x-22*k}" y1="{y-120*k}" x2="{x-44*k}" y2="{y-70*k}" stroke="#f97316" stroke-width="{12*k}" stroke-linecap="round"/>'
+    s += f'<line x1="{x+22*k}" y1="{y-120*k}" x2="{x+40*k}" y2="{y-150*k}" stroke="#f97316" stroke-width="{12*k}" stroke-linecap="round"/>'
+    # cota 1.80 m
+    s += '<line x1="700" y1="264" x2="700" y2="610" stroke="#7dd3fc" stroke-width="5" stroke-dasharray="14 10"/>'
+    s += '<text x="690" y="450" fill="#7dd3fc" font-size="40" font-weight="900" text-anchor="end">&gt;1.80 m</text>'
+    s += '<rect x="20" y="640" width="700" height="24" fill="#334155"/>'
+    # escudo
+    s += '<path d="M340 360 L430 390 L430 470 Q430 540 340 580 Q250 540 250 470 L250 390 Z" fill="#22c55e" stroke="#0b2a45" stroke-width="6"/>'
+    s += '<path d="M295 470 L330 505 L390 435" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>'
+    return s
+
+ILUS['seguridad'] = seguridad()
+
 # clave: (línea 1, línea 2 en color, gancho, chips, color de acento, color del brillo)
 CURSOS = {
   'soldadura':   ('SOLDADURA', 'ESTRUCTURAL', 'Suelda como profesional: SMAW y MIG', ['Módulo avanzado', 'AWS D1.1', 'Prueba de soldador'], '#f97316', '#ffb347'),
@@ -69,6 +99,7 @@ CURSOS = {
   'planos':      ('LECTURA DE', 'PLANOS', 'Entiende cualquier plano metálico', ['Módulo avanzado', 'Simbología AWS', 'Tu croquis'], '#22d3ee', '#67e8f9'),
   'techos':      ('TECHOS A', '2 Y 4 AGUAS', 'Tijerales, pendientes y cuatro aguas', ['NUEVO', 'Limatesas', 'Metrado'], '#f97316', '#ffd166'),
   'negocio':     ('EL NEGOCIO', 'DEL METALERO', 'Cotiza, cobra y haz crecer tu taller', ['NUEVO', 'Precio y margen', 'Clientes'], '#22c55e', '#86efac'),
+  'seguridad':   ('SEGURIDAD', 'EN OBRA Y ALTURA', 'Trabaja arriba y vuelve a casa', ['NUEVO', 'Arnés y anclaje', 'Norma G.050'], '#facc15', '#fde68a'),
   'portones':    ('PORTONES', 'AUTOMÁTICOS', 'Automatiza portones que no fallan', ['NUEVO', 'Motor y seguridad', 'Mantenimiento'], '#38bdf8', '#7dd3fc'),
 }
 

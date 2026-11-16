@@ -471,6 +471,33 @@ PORT_SEG = doc('Checklist de seguridad, entrega y mantenimiento', 'Portones Auto
  '<h2>4. Mantenimiento (cada 6 meses)</h2>' + checklist(['Cortar la energía antes de trabajar', 'Limpiar riel y fotoceldas (sin grasa en el riel)', 'Revisar ruedas, guías, topes y pernos de la base',
    'Ajustar cremallera', 'Probar fuerza, fotoceldas, obstáculo y desbloqueo', 'Anotar observaciones y próxima visita']) + FIRMAS)
 
+SEG_ALTURA = doc('Checklist de trabajo en altura', 'Seguridad en Obra y Trabajos en Altura',
+ 'Úsalo antes de cada trabajo en altura. Valores según la Norma G.050 (Seguridad durante la Construcción). Es una guía general: para tu caso, consulta con un especialista en seguridad y salud en el trabajo.',
+ DATOS_OBRA +
+ '<h2>1. Antes de subir</h2>' + checklist(['ATS del día leído y firmado por todos', 'PETAR de trabajo en altura firmado (si lo pide el cliente)', 'SCTR vigente de cada trabajador',
+   'Plan de rescate definido: quién, con qué, cómo · 116 Bomberos · 106 SAMU', 'Zona de abajo marcada (caída de objetos)']) +
+ '<h2>2. Arnés, línea y anclaje</h2>' + checklist(['Arnés de cuerpo entero: correas, costuras, hebillas y etiqueta en buen estado', 'Arnés ajustado: piernas (entra la mano plana) y argolla entre los omóplatos',
+   'Línea de máximo 1.80 m con amortiguador y 2 mosquetones de doble seguro', 'Anclaje que resista ≥ 2 265 kg (5 000 lb) por trabajador', 'Línea de vida: cable de ½" o soga de nylon de ⅝", sin nudos ni empates',
+   'Se descarta todo arnés o línea que ya detuvo una caída']) +
+ '<h2>3. Espacio libre de caída</h2>' + tabla(['Tramo', 'Valor típico', 'Tu caso'], [['Línea', '1.80 m', ''], ['Amortiguador abierto', '1.06 m', ''], ['Cuerpo (argolla a pies)', '1.50 m', ''],
+   ['Margen', '1.00 m', ''], ['<b>TOTAL bajo el anclaje</b>', '<b>≈ 5.40 m</b>', '']]) +
+ '<p>Si hay menos espacio: anclaje más alto, línea retráctil o protección colectiva (barandas).</p>' +
+ '<h2>4. Andamios y escaleras</h2>' + checklist(['Base firme y nivelada (nunca ladrillos) · garruchas frenadas', 'Arriostrado si la altura supera 3 veces la base menor',
+   'Plataforma completa: tablones de 25–30 cm × 5 cm, que pasen su apoyo 15–30 cm', 'Pasamanos 1.05 m · intermedia 0.54 m · rodapié ≥ 10 cm', 'Tarjeta del día: verde / amarilla / roja',
+   'Escalera 4 a 1, sobresale ≈ 1 m y amarrada · 3 puntos de apoyo']) + FIRMAS)
+
+SEG_EMERG = doc('Plan de emergencia, ATS y partida de seguridad', 'Seguridad en Obra y Trabajos en Altura',
+ 'Pega la primera parte a la vista en la obra. Los precios de la partida son de referencia: cotiza con tus proveedores.',
+ DATOS_OBRA +
+ '<h2>1. Hoja de emergencia</h2>' + tabla(['Servicio', 'Número / dato'], [['Policía', '105'], ['SAMU (emergencias médicas)', '106'], ['Bomberos', '116'],
+   ['Central única (Lima y Callao, en implementación)', '911'], ['Clínica u hospital más cercano', ''], ['Clínica del SCTR', ''], ['Responsable en obra', ''], ['Ubicación del botiquín y extintores', '']]) +
+ '<p><b>Ante un accidente:</b> proteger (corta energía, para la máquina) · avisar (dónde y qué pasó) · socorrer (solo lo que sabes). Si alguien cayó, no lo muevas salvo peligro inmediato. Ante una descarga, corta la energía antes de tocarlo. Persona colgada del arnés: rescate en los primeros 10 minutos.</p>' +
+ '<h2>2. Modelo de ATS (análisis de trabajo seguro)</h2>' + tabla(['Paso del trabajo', 'Qué puede pasar', 'Cómo lo evitamos'], [['', '', ''], ['', '', ''], ['', '', ''], ['', '', '']]) +
+ '<p>Nombres y firmas del equipo: ________________________________________________</p>' +
+ '<h2>3. Partida de seguridad (ejemplo)</h2>' + tabla(['Concepto', 'Ejemplo nave 15 × 30 m (S/)', 'Tu obra (S/)'], [['EPP de reposición', '800', ''], ['Línea de vida y anclajes', '1 200', ''],
+   ['Andamios (alquiler)', '600', ''], ['SCTR', '900', ''], ['Charlas y permisos', '500', ''], ['<b>TOTAL</b>', '<b>4 000</b>', '']]) +
+ '<h2>4. Carpeta de seguridad</h2>' + checklist(['SCTR vigente del equipo', 'Certificados de arneses y líneas', 'Modelos de IPERC, ATS y PETAR', 'Constancias de entrega de EPP', 'Constancias de capacitación']) + FIRMAS)
+
 RECURSOS = {
   'soldadura-tabla-electrodos': SOLD_TABLA, 'soldadura-checklist-inspeccion': SOLD_CHECK,
   'naves-tabla-trazo-arco': NAVES_TRAZO, 'naves-checklist-montaje': NAVES_CHECK,
@@ -480,6 +507,7 @@ RECURSOS = {
   'techos-tabla-pendientes': TECHO_TABLA, 'techos-hoja-metrado': TECHO_HOJA,
   'negocio-costo-hora': NEG_HORA, 'negocio-cotizacion-acuerdo': NEG_ACUERDO,
   'portones-motor-instalacion': PORT_MOTOR, 'portones-seguridad-mantenimiento': PORT_SEG,
+  'seguridad-checklist-altura': SEG_ALTURA, 'seguridad-plan-emergencia': SEG_EMERG,
 }
 
 if __name__ == '__main__':

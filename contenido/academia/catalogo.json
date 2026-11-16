@@ -453,6 +453,66 @@
           "titulo": "12. Fallas y mantenimiento"
         }
       ]
+    },
+    {
+      "clave": "seguridad",
+      "nombre": "Seguridad en Obra y Trabajos en Altura",
+      "descripcion": "Trabajo en altura y obra segura según la Norma G.050: EPP, arnés y anclaje, espacio libre, andamios, caliente e izaje, techos, herramientas, emergencias y cómo cotizar la seguridad.",
+      "gratis": false,
+      "precioSoles": 29,
+      "precioAntesSoles": 59,
+      "destacado": true,
+      "enSlider": true,
+      "portada": "portadas/seguridad-v2.png",
+      "recursos": [
+        {
+          "nombre": "Checklist de trabajo en altura.pdf",
+          "archivo": "recursos/seguridad-checklist-altura.pdf"
+        },
+        {
+          "nombre": "Plan de emergencia, ATS y partida de seguridad.pdf",
+          "archivo": "recursos/seguridad-plan-emergencia.pdf"
+        }
+      ],
+      "clases": [
+        {
+          "titulo": "1. Por qué te cuidas: el orden de los controles",
+          "gratis": true
+        },
+        {
+          "titulo": "2. La ley en simple"
+        },
+        {
+          "titulo": "3. Planifica: IPERC, ATS y PETAR"
+        },
+        {
+          "titulo": "4. El EPP correcto"
+        },
+        {
+          "titulo": "5. Arnés, línea y anclaje"
+        },
+        {
+          "titulo": "6. Espacio libre de caída y rescate"
+        },
+        {
+          "titulo": "7. Andamios y escaleras"
+        },
+        {
+          "titulo": "8. Trabajos en caliente e izaje"
+        },
+        {
+          "titulo": "9. Techos y coberturas"
+        },
+        {
+          "titulo": "10. Herramientas y electricidad en obra"
+        },
+        {
+          "titulo": "11. Emergencias y primeros auxilios"
+        },
+        {
+          "titulo": "12. Seguridad que vende"
+        }
+      ]
     }
   ],
   "recursos_tecnicos": [
