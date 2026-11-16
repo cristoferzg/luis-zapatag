@@ -1447,10 +1447,13 @@ export const comunicadosAutomaticos = onSchedule({ schedule: 'every 15 minutes',
 // o carga los créditos y se lo envía al cliente. Antes de desplegar, guardar los secretos:
 //   firebase functions:secrets:set WA_TOKEN · WA_APP_SECRET · WA_VERIFY_TOKEN
 // Interruptor sin recompilar: wa_config/ajustes.activo (Administración → WhatsApp → Ajustes).
+// APAGADO EN EL SERVIDOR (16/11/2026): sin los secretos WA_* el despliegue de functions falla. Para
+// activarlo: guardar los 3 secretos, descomentar las 3 líneas de abajo y desplegar functions.
 // =============================================================================
-const whatsapp = crearWhatsappBot({ onRequest, onCall, HttpsError, db, Anthropic, enviarPush, modelo: RECEIPT_MODEL, guia: GUIA_INNOVAPP, CREDITOS_BIENVENIDA });
-export const whatsappWebhook = whatsapp.whatsappWebhook;
-export const aprobarPedidoWA = whatsapp.aprobarPedidoWA;
+// const whatsapp = crearWhatsappBot({ onRequest, onCall, HttpsError, db, Anthropic, enviarPush, modelo: RECEIPT_MODEL, guia: GUIA_INNOVAPP, CREDITOS_BIENVENIDA });
+// export const whatsappWebhook = whatsapp.whatsappWebhook;
+// export const aprobarPedidoWA = whatsapp.aprobarPedidoWA;
+void crearWhatsappBot;
 
 // MCP DE ACADEMIA (functions/mcpCursos.js): conector para que un asistente de IA cargue cursos,
 // clases, portadas y materiales en `cursos` / `tutoriales` / Storage `academia/mcp/`. Clave: secreto MCP_CLAVE.

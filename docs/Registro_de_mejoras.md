@@ -36,6 +36,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Versión: web **2026.11.16.1026** · Android código **26110424** (firmado 01:D3…74:33). Manual: capítulo 16 (pasos 3, 4 y 6) dice cómo canjear créditos y que en Android se canjea.
 - Commit(s): este.
 - Segunda vuelta ("pon el precio según el precio"): el precio en créditos = precio en soles (con descuento vigente) × los créditos por sol de la recarga más conveniente de `config_ia/planes.packs` (hoy 500 por S/ 54.90 ≈ 9.1). Naves S/ 79 = 719 créditos, plantilla S/ 9.90 = 90. Igual en cliente (`useFactorCreditos`) y servidor (`creditosPorSol`); si el admin cambia las recargas, los precios se ajustan solos. Prueba 12/12.
+- Tercera vuelta: el deploy fallaba por los secretos WA_* (WhatsApp aún sin conectar) → WhatsApp apagado en el servidor (exports comentados, como Mercado Pago); `functions_ACTUALIZADO.zip` nuevo. test:canje 12/12 y test:whatsapp 27/27.
 - Pendiente / a vigilar: `precioCreditos` por curso/paquete sigue mandando si el admin lo pone.
 
 ## 2026-11-16 · Academia: plantillas verificadas, Naves 1-8 corregidas, paquetes y curso "Portones Automáticos"
@@ -92,7 +93,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
 | Próximo código Android | **26110425** (el contador sigue +1 desde aquí; nunca bajar de 26110424) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
-| Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
+| Asistente WhatsApp | **Apagado en el servidor** (16/11/2026, exports comentados para que el deploy no pida los secretos). Programado y probado; para activarlo **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026). **9 cursos completos** (104 clases): Seguridad en Obra y Trabajos en Altura 12 (S/ 29, ≈35 min), Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |

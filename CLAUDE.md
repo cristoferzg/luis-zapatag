@@ -229,6 +229,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - `functions/whatsappBot.js` (fábrica `crearWhatsappBot`, exportada en index.js): `whatsappWebhook` (onRequest, firma
   X-Hub-Signature-256 con `WA_APP_SECRET`; GET de verificación con `WA_VERIFY_TOKEN`) y `aprobarPedidoWA` (callable admin).
   Secretos: `WA_TOKEN`, `WA_APP_SECRET`, `WA_VERIFY_TOKEN` (+ `ANTHROPIC_API_KEY`, `ADMIN_PIN`). Guía: `docs/Guia_WhatsApp_asistente.md`.
+- APAGADO EN EL SERVIDOR (16/11/2026): exports comentados en index.js (sin los secretos WA_* el deploy de functions fallaba).
+  Para activarlo: guardar los 3 secretos, descomentar las 3 líneas y desplegar functions.
 - Mismo número del dueño (coexistencia con la app WhatsApp Business). Campo `smb_message_echoes`: si el dueño escribe, el
   asistente calla 1 h en ese chat. Se presenta como "Asistente de InnovApp"; si preguntan, dice que es automático (nunca humano,
   nunca el proveedor/modelo). Herramienta forzada `responder` (mensaje + acción).
