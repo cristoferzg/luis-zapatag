@@ -3,7 +3,7 @@
 // Obra Civil) y el editor del ambiente elegido: medidas, puertas y ventanas,
 // paredes (pintura y enchape), piso, contrazócalo y techo.
 // =============================================================================
-import ElegirProyecto from '../common/ElegirProyecto';
+import ElegirProyecto, { BotonEnviarProyecto } from '../common/ElegirProyecto';
 import { useMemo, useState, type ReactNode } from 'react';
 import {
   Plus, Trash2, Copy, Save, FolderOpen, FilePlus2, Sparkles, Import, DoorOpen, AppWindow, Ruler, PaintRoller, LayoutGrid, Home as Techo, ClipboardList, ListChecks, Box, Sofa, BedDouble, CookingPot, Bath, WashingMachine, Footprints, Square, X,
@@ -403,6 +403,7 @@ function DatosObra({ cot, setCot, onEjemplo, total }: { cot: CotizacionAcabados;
       </div>
       <div className="flex flex-nowrap items-center gap-1.5">
         <button onClick={guardar} className={`${btn} flex-1 px-2 bg-rose-600 text-white hover:bg-rose-700`}><Save className="w-4 h-4" /> Guardar</button>
+        <BotonEnviarProyecto proyectoId={cot.proyectoId} apartado="Acabados" cotId={cot.id} nombre={`Acabados: ${cot.nombre || 'cotización'}`} total={total} />
         <button onClick={() => setVerLista(v => !v)} title="Mis cotizaciones" className={`${btn} flex-1 px-2 bg-slate-100 text-slate-700 hover:bg-slate-200`}><FolderOpen className="w-4 h-4" /> <span className="whitespace-nowrap">Mías ({lista.length})</span></button>
         <button onClick={() => { if (!cot.ambientes.length || confirm('¿Empezar una cotización nueva? La actual sigue en Mis cotizaciones si la guardaste.')) setCot(() => cotizacionVacia()); }} title="Nueva" className={`${btn} px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200`}><FilePlus2 className="w-4 h-4" /></button>
         {cot.ambientes.length > 0 && <button onClick={() => { setCot(c => ({ ...c, id: uid(), nombre: `${c.nombre || 'Cotización'} (copia)`, actualizado: undefined })); avisar('✓ Copia creada: guárdala para tenerla en la lista'); }} title="Duplicar" className={`${btn} px-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 lg:hidden`}><Copy className="w-4 h-4" /></button>}

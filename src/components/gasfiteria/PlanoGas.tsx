@@ -22,7 +22,7 @@ import VerificacionGas from './VerificacionGas';
 import { IconoAparato, SimboloAparato } from './SimboloAparato';
 import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from './DisenoIAInstalacion';
 import InputNumero from '../common/InputNumero';
-import ElegirProyecto from '../common/ElegirProyecto';
+import ElegirProyecto, { BotonEnviarProyecto } from '../common/ElegirProyecto';
 
 /** Respuesta de disenarGasfiteria (ya revisada en el servidor). */
 export interface PropuestaGasIA extends PlantaIABase { aparatos: { tipo: TipoAparato; x: number; y: number; rot: number; nombre?: string }[] }
@@ -652,7 +652,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
   return (
     <div className="p-2 sm:p-4 max-w-[1700px] mx-auto pb-6 xl:grid xl:grid-cols-[minmax(0,1fr)_350px] xl:gap-4 xl:items-start">
       <div className="space-y-3 min-w-0">
-        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); encuadrar(c); }} onEjemplo={cargarEjemplo} fondo={panelFondo} />
+        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); encuadrar(c); }} onEjemplo={cargarEjemplo} fondo={panelFondo} total={total} />
 
         {/* Plano */}
         <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
@@ -837,7 +837,7 @@ export default function PlanoGas({ cot, setCot, r, onPresupuesto, onMateriales }
 }
 
 // ── Datos de la obra y Mis cotizaciones ─────────────────────────────────────
-function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo }: { cot: CotizacionGas; setCot: SetCot; onCargar: (c: CotizacionGas) => void; onEjemplo: () => void; fondo: React.ReactNode }) {
+function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo, total }: { cot: CotizacionGas; setCot: SetCot; onCargar: (c: CotizacionGas) => void; onEjemplo: () => void; fondo: React.ReactNode; total: number }) {
   const [lista, setLista] = useState<CotizacionGas[]>(leerCotizaciones);
   const [verLista, setVerLista] = useState(false);
   const [aviso, setAviso] = useState('');
@@ -864,6 +864,7 @@ function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo }: { cot: Cotizacio
         </label>
         <div className="col-span-2 md:col-span-3 flex flex-wrap items-center gap-1.5">
           <button onClick={guardar} className={`${btn} bg-teal-600 text-white hover:bg-teal-700`}><Save className="w-4 h-4" /> Guardar</button>
+          <BotonEnviarProyecto proyectoId={cot.proyectoId} apartado="Gasfitería" cotId={cot.id} nombre={`Gasfitería: ${cot.nombre || 'cotización'}`} total={total} />
           <button onClick={() => setVerLista(v => !v)} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FolderOpen className="w-4 h-4" /> <span className="hidden sm:inline">Mis cotizaciones</span><span className="sm:hidden">Mías</span> ({lista.length})</button>
           <button onClick={() => { if (!cot.aparatos.length || confirm('¿Empezar una cotización nueva? La actual sigue en Mis cotizaciones si la guardaste.')) { const n = cotizacionVacia(); setCot(() => n); onCargar(n); } }} title="Nueva" className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FilePlus2 className="w-4 h-4" /> Nueva</button>
           {cot.aparatos.length > 0 && <button onClick={() => { setCot(c => ({ ...c, id: uid(), nombre: `${c.nombre || 'Cotización'} (copia)`, actualizado: undefined })); avisar('✓ Copia creada: guárdala para tenerla en la lista'); }} title="Duplicar" className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5`}><Copy className="w-4 h-4" /></button>}

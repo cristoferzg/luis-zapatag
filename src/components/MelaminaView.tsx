@@ -6,7 +6,7 @@
 //   4. Despiece: lista de cortes en mm y plano de cortes por tablero (para el local).
 //   5. Presupuesto: formal, para imprimir o enviar por WhatsApp.
 // =============================================================================
-import ElegirProyecto from './common/ElegirProyecto';
+import ElegirProyecto, { BotonEnviarProyecto } from './common/ElegirProyecto';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Armchair, LayoutTemplate, Box, Scissors, ClipboardList, Tag, Plus, Trash2, Copy, ChevronDown, ChevronUp, FilePlus2, FolderOpen, Save, Send, AlignHorizontalJustifyStart, X, AlertTriangle } from 'lucide-react';
 import { useCatalogo } from '../lib/catalogoPrecios';
@@ -176,6 +176,7 @@ function Muebles({ cot, setCot, r, sel, setSel, onPresupuesto, onDisenar }: {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={guardar} className={`${btn} bg-teal-600 text-white hover:bg-teal-700`}><Save className="w-4 h-4" /> Guardar</button>
+            <BotonEnviarProyecto proyectoId={cot.proyectoId} apartado="Melamina" cotId={cot.id} nombre={`Melamina: ${cot.nombre || 'cotización'}`} total={total} />
             <button onClick={() => setVerLista(v => !v)} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FolderOpen className="w-4 h-4" /> Mis cotizaciones ({lista.length})</button>
             <button onClick={() => { if (!cot.muebles.length || confirm('¿Empezar una cotización nueva? La actual sigue en Mis cotizaciones si la guardaste.')) { setCot(() => cotizacionVacia()); setSel(null); } }}
               className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FilePlus2 className="w-4 h-4" /> Nueva</button>

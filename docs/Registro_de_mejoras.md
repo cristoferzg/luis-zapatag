@@ -41,6 +41,21 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): este.
 - Pendiente / a vigilar: el canje de paquetes con créditos ya se programó en otra conversación (entrada de abajo); falta desplegar `functions`.
 
+## 2026-11-16 · «Enviar al proyecto» desde los apartados de diseño
+- Pedido del dueño: "sí, agrega enviar al proyecto".
+- Qué se hizo: botón «Enviar al proyecto» junto a Guardar en Gasfitería, Electricidad, Drywall, Melamina, Madera, Vidrios, Acabados y Presupuesto de obra
+  (`BotonEnviarProyecto` en common/ElegirProyecto.tsx). Guarda la cotización como PARTIDA del proyecto vinculado (`project.partidas`, clave =
+  apartado + id de cotización) y suma su total al presupuesto; volver a enviarla ACTUALIZA el monto (suma solo la diferencia, respeta lo puesto a mano).
+  El botón muestra "Enviado al proyecto ✓" / "Actualizar en el proyecto" si cambió el total. Sin proyecto vinculado explica que primero se vincule.
+  En Proyectos & Clientes cada tarjeta muestra "Cotizaciones del proyecto" con cada partida. App registra el manejador (`fijarManejadorEnvio`, `conPartida`).
+- Archivos principales: `src/lib/proyectosActivos.ts`, `src/components/common/ElegirProyecto.tsx`, `src/types/index.ts` (Project.partidas), `src/App.tsx`,
+  `ProyectosYClientesView.tsx` y los 8 apartados.
+- Cómo se probó: tsc 0 errores; flujo completo en el navegador: ejemplo de Gasfitería → vincular "Casa 2 pisos" → Enviar → presupuesto 45 000 → 48 624.27
+  y la partida aparece en la tarjeta del proyecto; capturas antes/después.
+- Versión: sin compilar aún.
+- Commit(s): este.
+- Pendiente / a vigilar: quitar una partida desde el proyecto (hoy se corrige editando el presupuesto).
+
 ## 2026-11-16 · Vincular cada cotización a un proyecto de Proyectos & Clientes
 - Pedido del dueño: "no veo que me permita elegir un proyecto o enlazar un proyecto a partir de un cliente ya creado… sería conveniente".
 - Qué se hizo: selector "Proyecto" (`common/ElegirProyecto.tsx`, con buscador) junto a Obra y Cliente en Gasfitería, Electricidad, Drywall, Melamina,

@@ -61,6 +61,8 @@ export interface Project {
   /** "No se dio": el trabajo no se concretó; sus números no cuentan en liquidez ni balance. */
   excluidoBalance?: boolean;
   avance?: AvanceObra;          // avance de obra con partes diarios y fotos (src/lib/avanceObra.ts)
+  /** Cotizaciones enviadas desde los apartados (Gasfitería, Drywall…) con «Enviar al proyecto» (src/lib/proyectosActivos.ts). */
+  partidas?: { clave: string; apartado: string; nombre: string; total: number; fecha: string }[];
 }
 
 /** Avance de obra: partidas con % y partes diarios con fotos (guardado dentro del proyecto). */

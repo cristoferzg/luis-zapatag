@@ -24,7 +24,7 @@ import VerificacionInstalacion from './VerificacionInstalacion';
 import { SimboloAparato } from '../gasfiteria/SimboloAparato';
 import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from '../gasfiteria/DisenoIAInstalacion';
 import InputNumero from '../common/InputNumero';
-import ElegirProyecto from '../common/ElegirProyecto';
+import ElegirProyecto, { BotonEnviarProyecto } from '../common/ElegirProyecto';
 
 /** Respuesta de disenarElectricidad (ya revisada en el servidor). */
 export interface PropuestaEleIA extends PlantaIABase { puntos: { tipo: TipoPunto; x: number; y: number; rot: number; nombre?: string; w?: number }[] }
@@ -732,7 +732,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
   return (
     <div className="p-2 sm:p-4 max-w-[1700px] mx-auto pb-6 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-4 xl:items-start">
       <div className="space-y-3 min-w-0">
-        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); setImp(importarFondo(c.fondo.tipo, c.fondo.nivel, c.fondo.techoId)); encuadrar(c); }} onEjemplo={cargarEjemplo} fondo={panelFondo} />
+        <DatosObra cot={cot} setCot={setCot} onCargar={c => { pasado.current = []; futuro.current = []; setVer(v => v + 1); setSel(null); setImp(importarFondo(c.fondo.tipo, c.fondo.nivel, c.fondo.techoId)); encuadrar(c); }} onEjemplo={cargarEjemplo} fondo={panelFondo} total={total} />
 
         <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
           <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 p-1.5 sm:p-2 border-b border-slate-100">
@@ -904,7 +904,7 @@ export default function PlanoElectrico({ cot, setCot, r, duchas, onPresupuesto, 
 }
 
 // ── Datos de la obra, Mis cotizaciones y fondo ──────────────────────────────
-function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo }: { cot: CotizacionEle; setCot: SetCot; onCargar: (c: CotizacionEle) => void; onEjemplo: () => void; fondo: React.ReactNode }) {
+function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo, total }: { cot: CotizacionEle; setCot: SetCot; onCargar: (c: CotizacionEle) => void; onEjemplo: () => void; fondo: React.ReactNode; total: number }) {
   const [lista, setLista] = useState<CotizacionEle[]>(leerCotizaciones);
   const [verLista, setVerLista] = useState(false);
   const [aviso, setAviso] = useState('');
@@ -931,6 +931,7 @@ function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo }: { cot: Cotizacio
         </label>
         <div className="col-span-2 md:col-span-3 flex flex-wrap items-center gap-1.5">
           <button onClick={guardar} className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300`}><Save className="w-4 h-4" /> Guardar</button>
+          <BotonEnviarProyecto proyectoId={cot.proyectoId} apartado="Electricidad" cotId={cot.id} nombre={`Electricidad: ${cot.nombre || 'cotización'}`} total={total} />
           <button onClick={() => setVerLista(v => !v)} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FolderOpen className="w-4 h-4" /> <span className="hidden sm:inline">Mis cotizaciones</span><span className="sm:hidden">Mías</span> ({lista.length})</button>
           <button onClick={() => { if (!cot.puntos.length || confirm('¿Empezar una cotización nueva? La actual sigue en Mis cotizaciones si la guardaste.')) { const n = cotizacionVacia(); setCot(() => n); onCargar(n); } }} title="Nueva" className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FilePlus2 className="w-4 h-4" /> Nueva</button>
           {cot.puntos.length > 0 && <button onClick={() => { setCot(c => ({ ...c, id: uid(), nombre: `${c.nombre || 'Cotización'} (copia)`, actualizado: undefined })); avisar('✓ Copia creada: guárdala para tenerla en la lista'); }} title="Duplicar" className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200 px-2.5`}><Copy className="w-4 h-4" /></button>}

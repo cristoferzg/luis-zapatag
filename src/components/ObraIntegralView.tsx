@@ -7,7 +7,7 @@
 //   3. Presupuesto: documento formal para imprimir o enviar por WhatsApp.
 // Solo LEE lo de cada apartado (ver obraIntegral/fuentes.ts); guarda aparte en "obra_integral_*".
 // =============================================================================
-import ElegirProyecto from './common/ElegirProyecto';
+import ElegirProyecto, { BotonEnviarProyecto } from './common/ElegirProyecto';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ClipboardList, LayoutGrid, CalendarRange, FileText, Save, FolderOpen, FilePlus2, Copy, Trash2, Send, ExternalLink, ChevronDown, ChevronUp,
@@ -111,7 +111,7 @@ type Calc = ReturnType<typeof calcular>;
 type Crono = ReturnType<typeof cronograma>;
 
 // ── Mis presupuestos (guardar, abrir, nueva, duplicar) ─────────────────────
-function BarraGuardar({ p, setP, vivo }: { p: PresupuestoObra; setP: SetP; vivo: Record<string, Lectura> | null }) {
+function BarraGuardar({ p, setP, vivo, total }: { p: PresupuestoObra; setP: SetP; vivo: Record<string, Lectura> | null; total: number }) {
   const { datos } = useEmpresa();
   const [lista, setLista] = useState<PresupuestoObra[]>(leerLista);
   const [verLista, setVerLista] = useState(false);
@@ -130,6 +130,7 @@ function BarraGuardar({ p, setP, vivo }: { p: PresupuestoObra; setP: SetP; vivo:
     <>
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={guardar} className={`${btn} bg-indigo-600 text-white hover:bg-indigo-700`}><Save className="w-4 h-4" /> Guardar</button>
+        <BotonEnviarProyecto proyectoId={p.proyectoId} apartado="Presupuesto de obra" cotId={p.id} nombre={`Presupuesto de obra: ${p.nombre || 'cotización'}`} total={total} />
         <button onClick={() => setVerLista(v => !v)} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FolderOpen className="w-4 h-4" /> <span className="hidden sm:inline">Mis presupuestos</span><span className="sm:hidden">Mis presup.</span> ({lista.length})</button>
         <button onClick={nueva} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FilePlus2 className="w-4 h-4" /> Nueva</button>
         <button onClick={duplicar} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><Copy className="w-4 h-4" /> Duplicar</button>
@@ -185,7 +186,7 @@ function Resumen({ p, setP, calc, crono, cargando, leyendo, onReleer, vivo, onCr
             <button onClick={() => setP(x => ({ ...x, nombre: x.nombre || sugerido.trabajo || '', cliente: x.cliente || sugerido.cliente || '' }))}
               className="text-[11px] font-bold text-indigo-700 bg-indigo-50 rounded-lg px-2.5 py-1.5 cursor-pointer">Usar “{[sugerido.trabajo, sugerido.cliente].filter(Boolean).join(' · ')}”</button>
           )}
-          <BarraGuardar p={p} setP={setP} vivo={vivo} />
+          <BarraGuardar p={p} setP={setP} vivo={vivo} total={calc.total} />
         </div>
 
         <div className="flex items-center gap-2 px-1">

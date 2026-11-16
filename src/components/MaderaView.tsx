@@ -110,7 +110,7 @@ function Trabajos({ cot, setCot, r, total, sel, setSel, onEjemplo, onPresupuesto
   return (
     <div className="p-3 sm:p-5 max-w-[1600px] mx-auto pb-6 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-5 xl:items-start">
       <div className="space-y-4 min-w-0">
-        <DatosCotizacion cot={cot} setCot={setCot} keyLista={KEY_COT_LISTA} vacia={cotizacionVacia} tema={T} onEjemplo={onEjemplo} placeholder="Ej. Puertas y closet – Sra. Rosa" />
+        <DatosCotizacion apartado="Carpintería de madera" total={total} cot={cot} setCot={setCot} keyLista={KEY_COT_LISTA} vacia={cotizacionVacia} tema={T} onEjemplo={onEjemplo} placeholder="Ej. Puertas y closet – Sra. Rosa" />
         <SelectorTipos titulo="¿Qué vas a hacer en madera?" tipos={TIPOS_MADERA} onElegir={agregar} tema={T} />
         {cot.items.length === 0 && <p className="text-center text-sm text-slate-400 py-6">Agrega tu primer trabajo con los botones de arriba o toca “Cargar ejemplo”.</p>}
         <div className="space-y-2.5">

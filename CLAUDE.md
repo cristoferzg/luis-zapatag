@@ -197,6 +197,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 ## Vincular a un proyecto
 - Selector «Proyecto» (`common/ElegirProyecto.tsx`) junto a Obra/Cliente en Gasfitería, Electricidad, Drywall, Melamina, Madera, Vidrios, Acabados y
   Presupuesto de obra: llena obra y cliente y guarda `proyectoId`. Lista de `lib/proyectosActivos.ts` (App → `fijarProyectos(projects)`).
+- «Enviar al proyecto» (`BotonEnviarProyecto`): partida en `project.partidas` (clave apartado:idCot; reenviar actualiza y suma solo la diferencia
+  al presupuesto). App → `fijarManejadorEnvio` + `conPartida`. Se listan en la tarjeta del proyecto («Cotizaciones del proyecto»).
 
 ## Presupuesto de obra, Acabados, Madera, Vidrios, Avance e IA de instalaciones
 - Presupuesto de obra (`ObraIntegralView`, `obraIntegral/fuentes.ts`: un lector por apartado; cronograma Gantt). Clave `obra_integral_`.

@@ -2,8 +2,9 @@
 // con un proyecto ya creado en Proyectos & Clientes. Al elegirlo se llenan solos la obra y el
 // cliente, y queda guardado el id del proyecto. "Sin proyecto" quita el vínculo (no borra nada).
 import { useEffect, useRef, useState } from 'react';
-import { Briefcase, Check, ChevronDown, Search, X } from 'lucide-react';
-import { useProyectos } from '../../lib/proyectosActivos';
+import { Briefcase, Check, ChevronDown, Search, X, Send } from 'lucide-react';
+import { useProyectos, enviarAlProyecto } from '../../lib/proyectosActivos';
+import { simb } from '../../lib/currency';
 import type { Project } from '../../types';
 
 interface Props {
@@ -64,5 +65,37 @@ export default function ElegirProyecto({ proyectoId, onElegir, className = '' }:
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * «Enviar al proyecto»: guarda el total de la cotización como una partida del proyecto vinculado y lo
+ * suma a su presupuesto. Volver a enviarla actualiza el monto (no se duplica). Sin proyecto vinculado
+ * el botón explica qué hacer.
+ */
+export function BotonEnviarProyecto({ proyectoId, apartado, cotId, nombre, total, className = '' }: {
+  proyectoId?: string; apartado: string; cotId: string; nombre: string; total: number; className?: string;
+}) {
+  const proyectos = useProyectos();
+  const [msg, setMsg] = useState('');
+  const pr = proyectos.find(p => p.id === proyectoId);
+  const clave = `${apartado}:${cotId}`;
+  const ya = pr?.partidas?.find(x => x.clave === clave);
+  const enviar = () => {
+    if (!pr) { setMsg('Primero vincula un proyecto (arriba, en «Proyecto»).'); window.setTimeout(() => setMsg(''), 4000); return; }
+    if (!(total > 0)) { setMsg('La cotización todavía no tiene monto.'); window.setTimeout(() => setMsg(''), 4000); return; }
+    enviarAlProyecto(pr.id, { clave, apartado, nombre: nombre || apartado, total });
+    setMsg(`✓ ${ya ? 'Actualizado' : 'Enviado'} a «${pr.name}»: ${simb()} ${total.toFixed(2)}`);
+    window.setTimeout(() => setMsg(''), 5000);
+  };
+  const cambio = ya && Math.abs(ya.total - total) >= 0.01;
+  return (
+    <span className="relative inline-flex">
+      <button type="button" onClick={enviar} title={pr ? `Suma el total de esta cotización al proyecto «${pr.name}»` : 'Vincula un proyecto para enviar la cotización'}
+        className={`min-h-[40px] inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold cursor-pointer ${pr ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${className}`}>
+        <Send className="w-4 h-4" /> {ya ? (cambio ? 'Actualizar en el proyecto' : 'Enviado al proyecto ✓') : 'Enviar al proyecto'}
+      </button>
+      {msg && <span className="absolute left-0 top-full mt-1 z-30 max-w-[280px] w-max px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-[11px] font-bold shadow-lg">{msg}</span>}
+    </span>
   );
 }

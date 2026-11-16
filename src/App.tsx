@@ -23,7 +23,7 @@ import { quitarComunicado } from './lib/comunicados';
 import { useFirestoreArraySync, updateRecord } from './lib/db';
 import { plataforma as plataformaApp, CODIGO_ANDROID, fijarAppEnCuenta } from './lib/appDescargas';
 import { comprasIAPermitidas } from './lib/plataforma';
-import { fijarProyectos } from './lib/proyectosActivos';
+import { fijarProyectos, fijarManejadorEnvio, conPartida } from './lib/proyectosActivos';
 import { setAICtx, cargarEstadoIA, getConfigIA, COSTO_CREDITOS } from './lib/aiAccess';
 import { usaGooglePlay, iniciarPagosPlay } from './lib/pagosPlay';
 import { useSaldoIA } from './lib/saldoIA';
@@ -1634,6 +1634,7 @@ export default function App() {
 
   // Private collections scoped to workspace (each workspace is strictly isolated by userId):
   const [projects, setProjects] = useFirestoreArraySync<Project>('projects', activeUid, false, isAdmin);
+  const setProyectosRef = useRef(setProjects); setProyectosRef.current = setProjects;
   const [clients, setClients] = useFirestoreArraySync<Client>('clients', activeUid, false, isAdmin);
   const [finances, setFinances] = useFirestoreArraySync<FinanceRecord>('finances', activeUid, false, isAdmin);
   // User-specific settings (logo, business name, and bank details per workspace):
@@ -1676,6 +1677,8 @@ export default function App() {
   useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
   // Proyectos a mano para el selector «Vincular a un proyecto» de los apartados de diseño.
   useEffect(() => { fijarProyectos(projects); }, [projects]);
+  // «Enviar al proyecto» desde los apartados: guarda la cotización como partida y suma al presupuesto.
+  useEffect(() => { fijarManejadorEnvio((id, pt) => setProyectosRef.current(prev => prev.map(p => p.id === id ? conPartida(p, pt) : p))); }, []);
   // Sesiones antiguas (anónimas, de antes del ingreso seguro por PIN) no tienen
   // permisos para leer/guardar configuraciones globales (p. ej. los apartados
   // desactivados por el admin). Se pide el PIN una sola vez para renovarla.

@@ -11,7 +11,7 @@
 //   4. Presupuesto: todo junto, para imprimir o enviar por WhatsApp.
 // Las partidas con piso asignado y lo dibujado en el plano se suman a Obra Civil.
 // =============================================================================
-import ElegirProyecto from './common/ElegirProyecto';
+import ElegirProyecto, { BotonEnviarProyecto } from './common/ElegirProyecto';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelsTopLeft, PenTool, ClipboardList, Tag, Calculator, Ruler, Plus, Trash2, Copy, ChevronDown, ChevronUp, FilePlus2, FolderOpen, Save, Send, DoorOpen, AppWindow, Box, Paintbrush } from 'lucide-react';
 import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
@@ -285,6 +285,7 @@ function Cotizar({ cot, setCot, total, onVerMuro, onVer3D, onPresupuesto, plano,
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={guardar} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600 text-white text-xs font-bold cursor-pointer hover:bg-violet-700"><Save className="w-4 h-4" /> Guardar</button>
+          <BotonEnviarProyecto proyectoId={cot.proyectoId} apartado="Drywall" cotId={cot.id} nombre={`Drywall: ${cot.nombre || 'cotización'}`} total={total} />
           <button onClick={() => setVerLista(v => !v)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><FolderOpen className="w-4 h-4" /> Mis cotizaciones ({lista.length})</button>
           <button onClick={() => { if (!cot.partidas.length || confirm('¿Empezar una cotización nueva? La actual sigue en Mis cotizaciones si la guardaste.')) { setCot(() => cotizacionVacia()); setAbierta(null); } }}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer hover:bg-slate-200"><FilePlus2 className="w-4 h-4" /> Nueva</button>

@@ -3,7 +3,7 @@
 // encabezado con pestañas, Mis cotizaciones, tarjetas de ítem, barra de total,
 // Materiales (con despiece) y Presupuesto formal (imprimir / PDF / WhatsApp).
 // =============================================================================
-import ElegirProyecto from '../../common/ElegirProyecto';
+import ElegirProyecto, { BotonEnviarProyecto } from '../../common/ElegirProyecto';
 import { ReactNode, useRef, useState } from 'react';
 import { ClipboardList, Tag, Send, Save, FolderOpen, FilePlus2, Copy, Trash2, ChevronDown, ChevronUp, Sparkles, AlertTriangle } from 'lucide-react';
 import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from '../../../lib/empresa';
@@ -123,8 +123,8 @@ export function Vacio({ tema, Icono, texto, onIr, etiquetaIr, onEjemplo }: { tem
 }
 
 // ── Datos de la cotización + Mis cotizaciones ────────────────────────────────
-export function DatosCotizacion<T extends CotBase & { items: { id: string }[] }>({ cot, setCot, keyLista, vacia, tema, onEjemplo, placeholder }: {
-  cot: T; setCot: (f: (c: T) => T) => void; keyLista: string; vacia: () => T; tema: Tema; onEjemplo: () => void; placeholder: string;
+export function DatosCotizacion<T extends CotBase & { items: { id: string }[] }>({ cot, setCot, keyLista, vacia, tema, onEjemplo, placeholder, apartado = 'Cotización', total = 0 }: {
+  cot: T; setCot: (f: (c: T) => T) => void; keyLista: string; vacia: () => T; tema: Tema; onEjemplo: () => void; placeholder: string; apartado?: string; total?: number;
 }) {
   const [lista, setLista] = useState<T[]>(() => leerLista<T>(keyLista));
   const [verLista, setVerLista] = useState(false);
@@ -155,6 +155,7 @@ export function DatosCotizacion<T extends CotBase & { items: { id: string }[] }>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button onClick={guardar} className={`${btn} ${tema.primario}`}><Save className="w-4 h-4" /> Guardar</button>
+        <BotonEnviarProyecto proyectoId={cot.proyectoId} apartado={apartado} cotId={cot.id} nombre={`${apartado}: ${cot.nombre || 'cotización'}`} total={total} />
         <button onClick={() => setVerLista(v => !v)} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FolderOpen className="w-4 h-4" /> Mis cotizaciones ({lista.length})</button>
         <button onClick={() => { if (!cot.items.length || confirm('¿Empezar una cotización nueva? La actual sigue en Mis cotizaciones si la guardaste.')) setCot(() => vacia()); }}
           className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FilePlus2 className="w-4 h-4" /> Nueva</button>

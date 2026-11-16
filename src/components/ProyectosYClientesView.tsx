@@ -578,6 +578,19 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
                     </button>
                   )}
 
+                  {/* Cotizaciones enviadas desde los apartados («Enviar al proyecto»): ya están sumadas al presupuesto. */}
+                  {!!p.partidas?.length && (
+                    <div className="mx-5 mt-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-2.5 space-y-1">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-indigo-700">Cotizaciones del proyecto</p>
+                      {p.partidas.map(pt => (
+                        <div key={pt.clave} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="min-w-0 truncate text-slate-700">{pt.nombre}</span>
+                          <span className="font-bold text-slate-900 shrink-0">{formatCurrency(pt.total)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Card Body - Stats Grid */}
                   <div className="p-5 grid grid-cols-2 gap-4 flex-1">
                     <div>
