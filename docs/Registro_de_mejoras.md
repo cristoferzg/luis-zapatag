@@ -19,6 +19,19 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Academia: clases de Naves Parabólicas más largas (≈7–8.5 min)
+- Pedido del dueño: "Que más sigue" → eligió "Alargar clases" (la regla pide clases de 8–10 min; las nuevas duraban 3–4).
+- Qué se hizo: las 13 clases de Naves se volvieron a grabar con escenas nuevas antes de los errores: segundo ejemplo con números,
+  caso de obra, ejercicio para pausar con su solución, preguntas frecuentes y repaso rápido (empuje = wL²/8f, arco ≈ luz + 5 %,
+  diagonal, perno J y tolerancias, carga por eslinga W/(2·sen α), radio en la cumbre, IGV y pagos por avance, condensación, etc.).
+  Las respuestas de los retos van al inicio de la clase siguiente. Duración: de ≈68 min a ≈1 h 35 min (6.7 a 8.5 min por clase).
+  Se reemplazaron los videos en las mismas clases (ids sin cambios) y se actualizó la descripción del curso.
+- Archivos principales: `contenido/academia/videos/fuentes/naves_ext.py` (escenas nuevas + `insertar`), `naves_x1..x13.py`, `naves_y3..y10.py`.
+- Cómo se probó: hojas de cuadros revisadas (se quitó una escena repetida de tolerancias); tamaño de cada video comparado antes de subir.
+- Versión: sin compilar (solo contenido).
+- Commit(s): este.
+- Pendiente / a vigilar: hacer lo mismo con los otros 8 cursos (3–4 min por clase), empezando por Techos y Soldadura.
+
 ## 2026-11-16 · Academia: curso "Seguridad en Obra y Trabajos en Altura"
 - Pedido del dueño: "Dale" (curso de seguridad en obra y trabajos en altura).
 - Qué se hizo: 12 clases (≈35 min) publicadas con el MCP sobre el montaje de la nave 15 × 30 m: controles, la ley en simple (Ley 29783, DS 011-2019-TR, G.050, SCTR), IPERC/ATS/PETAR, EPP, arnés-línea-anclaje (2 265 kg), espacio libre ≈ 5.40 m y rescate (10 min), andamios y escaleras (baranda 1.05/0.54 m, rodapié 10 cm, 4 a 1), caliente e izaje; avanzado: techos, herramientas y electricidad, emergencias (105/106/116, 911 Lima-Callao), seguridad que vende. Valores verificados en la web contra la G.050. S/ 29 (antes 59), clase 1 gratis, portada v2 y 2 PDFs. También: plantilla "Nave a dos aguas 12 × 24 m" recreada (el dueño la borró por error) y aclarado que los paquetes no se ven en Android por la regla de Play.
@@ -145,7 +158,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110425** (el contador sigue +1 desde aquí; nunca bajar de 26110424) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | **Apagado en el servidor** (16/11/2026, exports comentados para que el deploy no pida los secretos). Programado y probado; para activarlo **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
-| MCP de Academia | **Publicado y conectado** (15/11/2026). **9 cursos completos** (104 clases): Seguridad en Obra y Trabajos en Altura 12 (S/ 29, ≈35 min), Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |
+| MCP de Academia | **Publicado y conectado** (15/11/2026). **9 cursos completos** (104 clases): Seguridad en Obra y Trabajos en Altura 12 (S/ 29, ≈35 min), Naves Parabólicas 13 (S/ 79, ≈1 h 35 min, clases ampliadas), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
