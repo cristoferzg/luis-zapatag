@@ -194,6 +194,10 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Ambos: lienzo limpio por defecto (fondo `ninguno`); barra «Fondo» ARRIBA (junto a Obra/Cliente) con selector del techo guardado
   (`src/lib/planoTecho.ts`: planta real con vigas/correas/columnas); aparatos/puntos en UNA franja arriba del plano; sin tarjeta flotante (el dueño no la quiere).
 
+## Vincular a un proyecto
+- Selector «Proyecto» (`common/ElegirProyecto.tsx`) junto a Obra/Cliente en Gasfitería, Electricidad, Drywall, Melamina, Madera, Vidrios, Acabados y
+  Presupuesto de obra: llena obra y cliente y guarda `proyectoId`. Lista de `lib/proyectosActivos.ts` (App → `fijarProyectos(projects)`).
+
 ## Presupuesto de obra, Acabados, Madera, Vidrios, Avance e IA de instalaciones
 - Presupuesto de obra (`ObraIntegralView`, `obraIntegral/fuentes.ts`: un lector por apartado; cronograma Gantt). Clave `obra_integral_`.
 - Acabados (`AcabadosView`, `acabados/*`, `acab:*`), Carpintería de madera (`MaderaView`, `madera/*`, `mad:*`),

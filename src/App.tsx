@@ -23,6 +23,7 @@ import { quitarComunicado } from './lib/comunicados';
 import { useFirestoreArraySync, updateRecord } from './lib/db';
 import { plataforma as plataformaApp, CODIGO_ANDROID, fijarAppEnCuenta } from './lib/appDescargas';
 import { comprasIAPermitidas } from './lib/plataforma';
+import { fijarProyectos } from './lib/proyectosActivos';
 import { setAICtx, cargarEstadoIA, getConfigIA, COSTO_CREDITOS } from './lib/aiAccess';
 import { usaGooglePlay, iniciarPagosPlay } from './lib/pagosPlay';
 import { useSaldoIA } from './lib/saldoIA';
@@ -1673,6 +1674,8 @@ export default function App() {
   // todos se ven siempre. Lo que alguien apagó con la versión anterior vuelve a aparecer.
   // Contexto para el control de acceso a la IA (admin ilimitado; usuarios por plan).
   useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
+  // Proyectos a mano para el selector «Vincular a un proyecto» de los apartados de diseño.
+  useEffect(() => { fijarProyectos(projects); }, [projects]);
   // Sesiones antiguas (anónimas, de antes del ingreso seguro por PIN) no tienen
   // permisos para leer/guardar configuraciones globales (p. ej. los apartados
   // desactivados por el admin). Se pide el PIN una sola vez para renovarla.

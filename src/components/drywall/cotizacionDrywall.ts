@@ -8,6 +8,7 @@ export interface CotizacionDrywall {
   id: string;
   nombre: string;
   cliente: string;
+  proyectoId?: string;   // proyecto de Proyectos & Clientes al que está vinculada
   partidas: Partida[];
   gg: number;             // % gastos generales
   util: number;           // % utilidad

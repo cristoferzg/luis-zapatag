@@ -106,6 +106,7 @@ export interface FondoEle { tipo: TipoFondo; ancho: number; largo: number; nivel
 
 export interface CotizacionEle {
   id: string; nombre: string; cliente: string;
+  proyectoId?: string;   // proyecto de Proyectos & Clientes al que está vinculada
   puntos: Punto[]; circuitos: Circuito[]; rutas: Ruta[]; fondo: FondoEle;
   gg: number; util: number; merma: number;
   cable: TipoCable; tubo: TipoTubo;

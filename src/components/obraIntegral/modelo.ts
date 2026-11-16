@@ -15,6 +15,7 @@ export interface PresupuestoObra {
   id: string;
   nombre: string;
   cliente: string;
+  proyectoId?: string;   // proyecto de Proyectos & Clientes al que está vinculada
   direccion: string;
   incluir: Record<string, boolean>;  // apartado → incluido (sin dato = incluido si tiene datos)
   base: 'directo' | 'venta';         // costo directo + GG/utilidad de aquí, o el precio de cada apartado

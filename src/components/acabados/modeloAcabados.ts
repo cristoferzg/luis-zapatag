@@ -39,7 +39,7 @@ export interface Ambiente {
   contrazocalo: { activo: boolean; alto: number };
 }
 export interface CotizacionAcabados {
-  id: string; nombre: string; cliente: string;
+  id: string; nombre: string; cliente: string; proyectoId?: string;
   ambientes: Ambiente[];
   gg: number; util: number;
   rendPintura: number;              // m² por galón y por mano

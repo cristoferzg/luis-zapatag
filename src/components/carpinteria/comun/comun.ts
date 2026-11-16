@@ -68,7 +68,7 @@ export function empacarBarras(cortes: Corte[], op: { largo?: number; sierra?: nu
 }
 
 // ── Cotización base ─────────────────────────────────────────────────────────
-export interface CotBase { id: string; nombre: string; cliente: string; gg: number; util: number; merma: number; modoMO: 'unidad' | 'jornal'; actualizado?: string; total?: number }
+export interface CotBase { id: string; nombre: string; cliente: string; proyectoId?: string; gg: number; util: number; merma: number; modoMO: 'unidad' | 'jornal'; actualizado?: string; total?: number }
 export function leerLista<T>(key: string): T[] { const l = safeStorage.getItem<T[]>(key, []); return Array.isArray(l) ? l : []; }
 export function guardarLista<T>(key: string, l: T[]) { safeStorage.setItem(key, l); }
 export const totalConGG = (directo: number, c: { gg: number; util: number }) => r2(directo * (1 + (c.gg + c.util) / 100));

@@ -28,6 +28,19 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): este.
 - Pendiente / a vigilar: el canje de paquetes con créditos ya se programó en otra conversación (entrada de abajo); falta desplegar `functions`.
 
+## 2026-11-16 · Vincular cada cotización a un proyecto de Proyectos & Clientes
+- Pedido del dueño: "no veo que me permita elegir un proyecto o enlazar un proyecto a partir de un cliente ya creado… sería conveniente".
+- Qué se hizo: selector "Proyecto" (`common/ElegirProyecto.tsx`, con buscador) junto a Obra y Cliente en Gasfitería, Electricidad, Drywall, Melamina,
+  Carpintería de madera y Vidrios (comun/ui.tsx), Acabados y Presupuesto de obra. Al elegir un proyecto se llenan solos la obra y el cliente y queda
+  guardado `proyectoId` en la cotización; "Quitar el vínculo" lo deja sin proyecto (no borra nada). La lista sale de Proyectos & Clientes
+  (`lib/proyectosActivos.ts`: App la fija con `fijarProyectos(projects)`; cada usuario ve solo los suyos). En Gasfitería/Electricidad los botones
+  Guardar/Mis cotizaciones/Nueva pasan a su propia fila para que los campos no se aprieten.
+- Archivos principales: `src/components/common/ElegirProyecto.tsx`, `src/lib/proyectosActivos.ts`, `src/App.tsx`, los 7 apartados y sus tipos de cotización.
+- Cómo se probó: tsc 0 errores; capturas antes/después (Gasfitería, Drywall, Melamina) con 2 proyectos de prueba: lista, búsqueda y elección.
+- Versión: sin compilar aún.
+- Commit(s): este.
+- Pendiente / a vigilar: siguiente paso posible: "Enviar a proyectos" que sume el total de la cotización al proyecto vinculado.
+
 ## 2026-11-16 · Gasfitería y Electricidad: lienzo limpio, fondo con proyecto elegido y sin tarjeta flotante
 - Pedido del dueño: "no hay una opción para elegir el proyecto y aparece superpuesto el otro proyecto (se debe limpiar el lienzo)"; "los aparatos aparecen
   arriba y abajo"; "mejorar el diseño de los botones y la distribución" (también Electricidad); "ese botón flotante quítalo… todo ese cuadrado";

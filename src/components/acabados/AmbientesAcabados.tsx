@@ -3,6 +3,7 @@
 // Obra Civil) y el editor del ambiente elegido: medidas, puertas y ventanas,
 // paredes (pintura y enchape), piso, contrazócalo y techo.
 // =============================================================================
+import ElegirProyecto from '../common/ElegirProyecto';
 import { useMemo, useState, type ReactNode } from 'react';
 import {
   Plus, Trash2, Copy, Save, FolderOpen, FilePlus2, Sparkles, Import, DoorOpen, AppWindow, Ruler, PaintRoller, LayoutGrid, Home as Techo, ClipboardList, ListChecks, Box, Sofa, BedDouble, CookingPot, Bath, WashingMachine, Footprints, Square, X,
@@ -396,6 +397,7 @@ function DatosObra({ cot, setCot, onEjemplo, total }: { cot: CotizacionAcabados;
   return (
     <div className="bg-white rounded-2xl p-2.5 shadow-xs space-y-2">
       <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
+        <label className={`${lbl} col-span-2 lg:col-span-1`}>Proyecto<div className="mt-0.5"><ElegirProyecto proyectoId={cot.proyectoId} onElegir={pr => setCot(c => pr ? { ...c, proyectoId: pr.id, nombre: pr.name, cliente: pr.client || c.cliente } : { ...c, proyectoId: undefined })} /></div></label>
         <label className={lbl}>Obra<input value={cot.nombre} onChange={e => setCot(c => ({ ...c, nombre: e.target.value }))} placeholder="Ej. Depa – Sr. Luis" className={inputTxt} /></label>
         <label className={lbl}>Cliente<input value={cot.cliente} onChange={e => setCot(c => ({ ...c, cliente: e.target.value }))} placeholder="Nombre del cliente" className={inputTxt} /></label>
       </div>

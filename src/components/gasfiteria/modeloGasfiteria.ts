@@ -76,6 +76,7 @@ export interface FondoGas { tipo: 'ninguno' | 'ambiente' | 'obra' | 'techos' | '
 
 export interface CotizacionGas {
   id: string; nombre: string; cliente: string;
+  proyectoId?: string;   // proyecto de Proyectos & Clientes al que está vinculada
   aparatos: Aparato[]; tramos: Tramo[]; fondo: FondoGas;
   gg: number; util: number; merma: number;       // %
   incluirAparatos: boolean;                       // suma los aparatos sanitarios al presupuesto

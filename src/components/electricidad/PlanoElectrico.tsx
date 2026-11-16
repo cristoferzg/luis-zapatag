@@ -24,6 +24,7 @@ import VerificacionInstalacion from './VerificacionInstalacion';
 import { SimboloAparato } from '../gasfiteria/SimboloAparato';
 import DisenoIAInstalacion, { EtiquetasAmbientes, type PlantaIABase, type OpcionesIA } from '../gasfiteria/DisenoIAInstalacion';
 import InputNumero from '../common/InputNumero';
+import ElegirProyecto from '../common/ElegirProyecto';
 
 /** Respuesta de disenarElectricidad (ya revisada en el servidor). */
 export interface PropuestaEleIA extends PlantaIABase { puntos: { tipo: TipoPunto; x: number; y: number; rot: number; nombre?: string; w?: number }[] }
@@ -917,14 +918,18 @@ function DatosObra({ cot, setCot, onCargar, onEjemplo, fondo }: { cot: Cotizacio
   const abrir = (c: CotizacionEle) => { const n = normalizar(c); setCot(() => n); setVerLista(false); onCargar(n); };
   return (
     <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs space-y-2">
-      <div className="grid grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 items-end">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 items-end">
+        <label className="block min-w-0 col-span-2 md:col-span-1 text-[10px] font-bold text-slate-500 uppercase">Proyecto
+          <ElegirProyecto className="mt-0.5" proyectoId={cot.proyectoId}
+            onElegir={p => setCot(c => p ? { ...c, proyectoId: p.id, nombre: p.name, cliente: p.client || c.cliente } : { ...c, proyectoId: undefined })} />
+        </label>
         <label className="block min-w-0 text-[10px] font-bold text-slate-500 uppercase">Obra
           <input value={cot.nombre} onChange={e => setCot(c => ({ ...c, nombre: e.target.value }))} placeholder="Ej. Casa 2 pisos – Sr. Luis" className={inputTxt} />
         </label>
         <label className="block min-w-0 text-[10px] font-bold text-slate-500 uppercase">Cliente
           <input value={cot.cliente} onChange={e => setCot(c => ({ ...c, cliente: e.target.value }))} placeholder="Nombre del cliente" className={inputTxt} />
         </label>
-        <div className="col-span-2 lg:col-span-1 flex flex-wrap items-center gap-1.5">
+        <div className="col-span-2 md:col-span-3 flex flex-wrap items-center gap-1.5">
           <button onClick={guardar} className={`${btn} bg-amber-400 text-slate-950 hover:bg-amber-300`}><Save className="w-4 h-4" /> Guardar</button>
           <button onClick={() => setVerLista(v => !v)} className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FolderOpen className="w-4 h-4" /> <span className="hidden sm:inline">Mis cotizaciones</span><span className="sm:hidden">Mías</span> ({lista.length})</button>
           <button onClick={() => { if (!cot.puntos.length || confirm('¿Empezar una cotización nueva? La actual sigue en Mis cotizaciones si la guardaste.')) { const n = cotizacionVacia(); setCot(() => n); onCargar(n); } }} title="Nueva" className={`${btn} bg-slate-100 text-slate-700 hover:bg-slate-200`}><FilePlus2 className="w-4 h-4" /> Nueva</button>

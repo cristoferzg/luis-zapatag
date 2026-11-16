@@ -3,6 +3,7 @@
 // encabezado con pestañas, Mis cotizaciones, tarjetas de ítem, barra de total,
 // Materiales (con despiece) y Presupuesto formal (imprimir / PDF / WhatsApp).
 // =============================================================================
+import ElegirProyecto from '../../common/ElegirProyecto';
 import { ReactNode, useRef, useState } from 'react';
 import { ClipboardList, Tag, Send, Save, FolderOpen, FilePlus2, Copy, Trash2, ChevronDown, ChevronUp, Sparkles, AlertTriangle } from 'lucide-react';
 import { CabeceraEmpresa, useEmpresa, BandaMarca, CondicionesComerciales } from '../../../lib/empresa';
@@ -141,7 +142,10 @@ export function DatosCotizacion<T extends CotBase & { items: { id: string }[] }>
   };
   return (
     <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 items-end">
+        <label className="block text-[10px] font-bold text-slate-500 uppercase min-w-0">Proyecto
+          <div className="mt-0.5"><ElegirProyecto proyectoId={cot.proyectoId} onElegir={pr => setCot(c => pr ? { ...c, proyectoId: pr.id, nombre: pr.name, cliente: pr.client || c.cliente } : { ...c, proyectoId: undefined })} /></div>
+        </label>
         <label className="block text-[10px] font-bold text-slate-500 uppercase">Nombre de la obra
           <input value={cot.nombre} onChange={e => setCot(c => ({ ...c, nombre: e.target.value }))} placeholder={placeholder} className={inputTxt} />
         </label>

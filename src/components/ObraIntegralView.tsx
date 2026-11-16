@@ -7,6 +7,7 @@
 //   3. Presupuesto: documento formal para imprimir o enviar por WhatsApp.
 // Solo LEE lo de cada apartado (ver obraIntegral/fuentes.ts); guarda aparte en "obra_integral_*".
 // =============================================================================
+import ElegirProyecto from './common/ElegirProyecto';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ClipboardList, LayoutGrid, CalendarRange, FileText, Save, FolderOpen, FilePlus2, Copy, Trash2, Send, ExternalLink, ChevronDown, ChevronUp,
@@ -172,7 +173,10 @@ function Resumen({ p, setP, calc, crono, cargando, leyendo, onReleer, vivo, onCr
     <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:gap-5 xl:items-start space-y-4 xl:space-y-0">
       <div className="space-y-4 min-w-0">
         <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-end">
+            <label className="block text-[10px] font-bold text-slate-500 uppercase min-w-0">Proyecto
+              <div className="mt-0.5"><ElegirProyecto proyectoId={p.proyectoId} onElegir={pr => setP(c => pr ? { ...c, proyectoId: pr.id, nombre: pr.name, cliente: pr.client || c.cliente } : { ...c, proyectoId: undefined })} /></div>
+            </label>
             {campo('nombre', 'Nombre de la obra', 'Ej. Casa de 2 pisos – Los Olivos')}
             {campo('cliente', 'Cliente', 'Nombre del cliente')}
             {campo('direccion', 'Dirección de la obra', 'Av. / Calle, distrito')}

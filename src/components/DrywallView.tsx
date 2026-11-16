@@ -11,6 +11,7 @@
 //   4. Presupuesto: todo junto, para imprimir o enviar por WhatsApp.
 // Las partidas con piso asignado y lo dibujado en el plano se suman a Obra Civil.
 // =============================================================================
+import ElegirProyecto from './common/ElegirProyecto';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelsTopLeft, PenTool, ClipboardList, Tag, Calculator, Ruler, Plus, Trash2, Copy, ChevronDown, ChevronUp, FilePlus2, FolderOpen, Save, Send, DoorOpen, AppWindow, Box, Paintbrush } from 'lucide-react';
 import ConcretoPlanoCad, { PlanoElem } from './ConcretoPlanoCad';
@@ -269,7 +270,10 @@ function Cotizar({ cot, setCot, total, onVerMuro, onVer3D, onPresupuesto, plano,
       )}
       {/* Datos de la cotización */}
       <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 items-end">
+          <label className="block text-[10px] font-bold text-slate-500 uppercase min-w-0">Proyecto
+            <div className="mt-0.5"><ElegirProyecto proyectoId={cot.proyectoId} onElegir={pr => setCot(c => pr ? { ...c, proyectoId: pr.id, nombre: pr.name, cliente: pr.client || c.cliente } : { ...c, proyectoId: undefined })} /></div>
+          </label>
           <label className="block text-[10px] font-bold text-slate-500 uppercase">Nombre de la obra
             <input value={cot.nombre} onChange={e => setCot(c => ({ ...c, nombre: e.target.value }))} placeholder="Ej. Dormitorio y baño 2.º piso"
               className="mt-0.5 w-full px-3 py-2 rounded-lg bg-slate-100 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-300" />

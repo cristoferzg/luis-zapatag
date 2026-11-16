@@ -7,6 +7,7 @@ export interface CotizacionMelamina {
   id: string;
   nombre: string;
   cliente: string;
+  proyectoId?: string;   // proyecto de Proyectos & Clientes al que está vinculada
   muebles: Mueble[];
   gg: number;               // % gastos generales
   util: number;             // % utilidad
