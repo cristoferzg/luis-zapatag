@@ -164,7 +164,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   opciones livianas y `forceContextLoss` al desmontar (antes se acumulaban contextos → "Error creating WebGL context").
   Nunca usar `new THREE.WebGLRenderer` directo. Techos 3D RÁPIDO: materiales compartidos (`materialTuboRef`), contornos en un
   objeto (`bordes_tubos`), nudos instanciados, fusión de tubos > 400 piezas (`tubos_fusionados`; piezas sueltas en sismo/exigencia/
-  selección) y ciclo de imagen que solo repinta al cambiar algo. memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
+  selección) y ciclo de imagen que solo repinta al cambiar algo.
+  Columnas: UNA regla `columnaQueCumple` (estático + mínimo 3"×3"×3 mm + sismo X + sismo Y sin cruces; cruces solo si ninguna columna sola alcanza:
+  el dueño indica que muchas obras no llevan arriostres/tensores). La usan memoria, 3D, Asistente y ambos botones «Aplicar recomendados» (mismo método). memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
 
 ## Impresión en la app Android
 - El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo
@@ -261,6 +263,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Academia (`academia/AcademiaView`, diseño A elegido por el dueño): pestañas Tienda / Mis cursos / Mis plantillas (= Recursos
   Técnicos, `BibliotecaPremiumView sinTitulo`; la vista 'biblioteca' redirige ahí). Tienda: paquetes en `config_academia/paquetes {lista}`
   (`lib/paquetesAcademia.ts`), compra `paq_<id>` / id de curso / id de biblioteca con Yape/Plin; `AdminPurchasesView` habilita todo.
+  «Mis cursos» / «Mis plantillas» (`soloMios`): solo lo que el usuario tiene; destacados, ofertas y carrusel SOLO en la Tienda.
+  «Mis apartados» se quitó (16/11/2026): los usuarios no apagan apartados.
   Android no vende: muestra gratis + comprados + cursos de pago con clase de muestra (sin precio) y NINGÚN texto que invite a pagar
   fuera de Play. Canje con créditos (también Android): cursos, recursos y paquetes (`canjearCurso` tipo 'paquete'; precio en soles × créditos/sol de la
   recarga más conveniente, `useFactorCreditos`/`creditosPorSol`, o `precioCreditos`); no depende de la IA activada. Prueba: `cd seguridad && npm run test:canje`. DEV: `__paquetesSimulados`, `__comprasAcademiaSimuladas`, `__androidSimulado` (incluir en el grep del dist).

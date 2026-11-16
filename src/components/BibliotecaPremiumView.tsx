@@ -82,6 +82,7 @@ interface BibliotecaPremiumViewProps {
   userEmail?: string;
   usuariosList?: SystemUser[];
   sinTitulo?: boolean;   // dentro de la Academia (pestaña "Mis plantillas") el título ya va en la banda de arriba
+  soloMios?: boolean;    // Academia → «Mis plantillas»: solo lo que el usuario tiene; sin destacados ni carrusel (eso va en la Tienda)
 }
 
 export default function BibliotecaPremiumView({
@@ -92,6 +93,7 @@ export default function BibliotecaPremiumView({
   userEmail = '',
   usuariosList: propUsuariosList,
   sinTitulo = false,
+  soloMios = false,
 }: BibliotecaPremiumViewProps) {
   useFactorCreditos();   // precio en créditos según la recarga más conveniente
   const activeUid = currentUser ? ('user_' + currentUser.id) : (isAdmin ? 'admin' : 'shared');
@@ -301,6 +303,8 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
   const filteredItems = items.filter(item => {
     // App Android: solo lo que el usuario ya tiene (sin ventas dentro de la app).
     if (!comprasPermitidas() && !hasAccess(item)) return false;
+    // «Mis plantillas»: solo lo que tiene (el admin ve todo para gestionarlo).
+    if (soloMios && !isAdmin && !hasAccess(item)) return false;
     let matchesTab = true;
     if (activeTab === 'documentos') {
       matchesTab = item.tipo !== 'video';
@@ -514,10 +518,10 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span><span className="hidden sm:inline">Todos los </span>Recursos ({items.length})</span>
+            <span><span className="hidden sm:inline">{soloMios && !isAdmin ? 'Mis ' : 'Todos los '}</span>Recursos ({soloMios && !isAdmin ? items.filter(i => hasAccess(i)).length : items.length})</span>
           </button>
 
-          <button
+          {!soloMios && <button
             onClick={() => { setActiveTab('ofertas'); setSelectedCategory('all'); }}
             className={`flex items-center gap-1 sm:gap-2 py-3 px-1.5 sm:px-4 font-bold text-xs sm:text-sm transition-all border-b-2 -mb-px whitespace-nowrap cursor-pointer ${
               activeTab === 'ofertas'
@@ -527,7 +531,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
           >
             <Sparkles className="w-4 h-4 text-amber-500" />
             <span className="sm:hidden">Destac.</span><span className="hidden sm:inline">Destacados</span>
-          </button>
+          </button>}
 
           <button
             onClick={() => { setActiveTab('plantillas'); setSelectedCategory('all'); }}
@@ -538,7 +542,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
             }`}
           >
             <LayoutTemplate className="w-4 h-4 text-emerald-600" />
-            <span><span className="hidden sm:inline">Plantillas </span><span className="sm:hidden">Plant. </span>({items.filter(i => i.plantilla).length})</span>
+            <span><span className="hidden sm:inline">Plantillas </span><span className="sm:hidden">Plant. </span>({items.filter(i => i.plantilla && (!soloMios || isAdmin || hasAccess(i))).length})</span>
           </button>
 
           {isAdmin && (
@@ -561,7 +565,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
         <div className="space-y-4">
           {/* CARRUSEL DE DESTACADOS */}
           {(() => {
-            const enCarrusel = items.filter(i => i.enSlider && (comprasPermitidas() || hasAccess(i)));
+            const enCarrusel = soloMios ? [] : items.filter(i => i.enSlider && (comprasPermitidas() || hasAccess(i)));
             return enCarrusel.length > 0 && (
               <SliderDestacados laminas={enCarrusel.map(item => ({
                 id: item.id,

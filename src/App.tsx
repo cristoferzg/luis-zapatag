@@ -2461,6 +2461,7 @@ export default function App() {
                 isAdmin={isAdmin}
                 currentSettings={currentSettings}
                 currentUser={user}
+                soloMios
                 cursoInicial={cursoInicial}
               />
             )}
@@ -2470,6 +2471,7 @@ export default function App() {
                 setItems={setBiblioteca}
                 currentUser={user}
                 isAdmin={isAdmin}
+                soloMios
                 userEmail={user?.email || ''}
                 usuariosList={usuarios}
                 sinTitulo

@@ -81,6 +81,7 @@ interface UsabilidadVideosViewProps {
   currentSettings?: any;
   currentUser?: any; // The logged-in worker / employeeUser
   cursoInicial?: string | null; // abrir directo este curso (desde la Tienda de la Academia)
+  soloMios?: boolean; // Academia → «Mis cursos»: solo los cursos que el usuario tiene; sin destacados/ofertas ni carrusel (eso va en la Tienda)
 }
 
 function getYoutubeEmbedUrl(url: string) {
@@ -100,6 +101,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
   currentSettings: _currentSettings,
   currentUser,
   cursoInicial = null,
+  soloMios = false,
 }) => {
   useFactorCreditos();   // precio en créditos según la recarga más conveniente
   const [usuariosList] = useFirestoreArraySync<SystemUser>('usuarios', 'global', true);
@@ -713,7 +715,18 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
     };
   });
 
-  const filteredCourseItems = allCourseItems.filter(course => {
+  // «Mis cursos» (Academia): solo los que tiene (gratis o habilitados para él). El admin ve todos para gestionarlos.
+  const esMio = (course: { isFree?: boolean; rawCourse?: CourseCategory }) => {
+    if (isAdmin || !soloMios) return true;
+    if (course.isFree !== false && course.rawCourse?.isFree !== false) return true;
+    const ids = (course.rawCourse?.allowedUserIds || []).map(String), u = String(currentUser?.id || '').replace(/^user_/, '');
+    return !!u && (ids.includes(u) || ids.includes('user_' + u));
+  };
+  const misCursos = allCourseItems.filter(esMio);
+  // Progreso general: solo las clases de sus cursos.
+  const nombresMios = new Set(misCursos.map(c => c.name.trim().toLowerCase()));
+  const videosMios = soloMios && !isAdmin ? activeVideos.filter(v => nombresMios.has((v.category || '').trim().toLowerCase())) : activeVideos;
+  const filteredCourseItems = misCursos.filter(course => {
     // App Android: solo cursos con alguna clase habilitada para el usuario.
     if (!comprasPermitidas() && !course.videos.some(hasAccessToVideo)) return false;
     if (!searchTerm.trim()) return true;
@@ -1011,11 +1024,11 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
               <div
                 className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100)}%` }}
+                style={{ width: `${videosMios.length ? Math.round((videosMios.filter(v => watchedVideoIds.includes(v.id)).length / videosMios.length) * 100) : 0}%` }}
               />
             </div>
             <span className="text-[11px] font-bold text-slate-500 shrink-0">
-              {activeVideos.filter(v => watchedVideoIds.includes(v.id)).length} de {activeVideos.length} ({Math.round((activeVideos.filter(v => watchedVideoIds.includes(v.id)).length / activeVideos.length) * 100)}%)
+              {videosMios.filter(v => watchedVideoIds.includes(v.id)).length} de {videosMios.length} ({videosMios.length ? Math.round((videosMios.filter(v => watchedVideoIds.includes(v.id)).length / videosMios.length) * 100) : 0}%)
             </span>
           </div>
         )}
@@ -1036,9 +1049,9 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
             }`}
           >
             <BookOpen className="w-4 h-4" />
-            <span><span className="hidden sm:inline">Todos los </span>Cursos ({allCourseItems.length})</span>
+            <span><span className="hidden sm:inline">{soloMios && !isAdmin ? 'Mis ' : 'Todos los '}</span>Cursos ({misCursos.length})</span>
           </button>
-          <button
+          {!soloMios && <button
             onClick={() => { setActiveTab('ofertas'); setSelectedCourseFolder(null); setSelectedCategoryFilter('all'); }}
             className={`pb-2.5 px-0.5 font-bold text-sm border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === 'ofertas' ? 'border-amber-500 text-amber-700' : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -1046,7 +1059,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
           >
             <Sparkles className="w-4 h-4" />
             <span className="sm:hidden">Ofertas</span><span className="hidden sm:inline">Destacadas / Ofertas</span>
-          </button>
+          </button>}
           {isAdmin && (
             <button
               onClick={() => { setActiveTab('admin'); setSelectedCourseFolder(null); }}
@@ -1062,7 +1075,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
       </header>
 
       {/* CARRUSEL DE DESTACADOS */}
-      {activeTab !== 'admin' && !selectedCourseFolder && (() => {
+      {activeTab !== 'admin' && !selectedCourseFolder && !soloMios && (() => {
         const tieneCurso = (c: CourseCategory) => isAdmin || c.isFree !== false || (!!currentUser?.id && !!c.allowedUserIds?.includes(currentUser.id));
         const laminas = [
           ...cursosList.filter(c => c.enSlider && (comprasPermitidas() || tieneCurso(c))).map(c => {
@@ -1529,7 +1542,7 @@ export const UsabilidadVideosView: React.FC<UsabilidadVideosViewProps> = ({
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {course.isFeatured && (
+                        {course.isFeatured && !soloMios && (
                           <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                             <span>Destacado</span>

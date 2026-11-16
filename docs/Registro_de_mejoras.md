@@ -28,6 +28,27 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): este.
 - Pendiente / a vigilar: el canje de paquetes con créditos ya se programó en otra conversación (entrada de abajo); falta desplegar `functions`.
 
+## 2026-11-16 · Techos: memoria y «Aplicar recomendados» coherentes · sin «Mis apartados» · Mis cursos/plantillas solo lo propio
+- Pedido del dueño: (1) la memoria dice que no cumple y el botón de recomendados no lo arregla ("esos errores no pueden ocurrir");
+  no siempre se ponen arriostres o tensores (presupuesto del cliente). (2) Los usuarios no deben desactivar sus apartados.
+  (3) En "Mis cursos" y "Mis plantillas" solo lo que el usuario tiene; destacados y ofertas solo en la Tienda. (4) Obra Civil: tubos y cobertura se descuadran.
+- Qué se hizo: (1) Una sola regla para las columnas metálicas (`columnaQueCumple` en memoriaCalculo.ts): el tubo más económico que cumple esbeltez,
+  carga, mínimo de obra 3"×3"×3 mm, sismo X y sismo Y SIN cruces; solo si ninguna columna sola alcanza el sismo Y se agregan cruces de pared. La usan
+  analizarPiezas → memoria, colores del 3D, Asistente y `cambiosRecomendados`. El botón de la memoria ahora es el mismo que el del 3D
+  (`aplicarCambiosRecomendados`). Antes: la memoria bajaba las columnas sin mirar el sismo (CUMPLE → NO CUMPLE al aplicar) y el 3D las subía sin mirar
+  el mínimo de obra (OBSERVACIÓN); se alternaban sin fin. Ahora un clic deja CUMPLE y otro clic no cambia nada. (2) Se quitó la ventana y el botón
+  «Mis apartados»; todos los apartados se ven siempre (lo que alguien apagó vuelve). (3) `soloMios` en UsabilidadVideosView y BibliotecaPremiumView
+  (solo dentro de la Academia): solo cursos gratis o habilitados para el usuario, progreso solo de esos, sin pestaña Destacadas/Ofertas, sin carrusel
+  ni insignia «Destacado»; el admin sigue viendo todo para gestionarlo. (4) Con un techo estándar enviado a Obra Civil no se reprodujo: se pidió captura.
+- Archivos principales: `src/components/techos/memoriaCalculo.ts`, `TechosEstructuralAnalysisView.tsx`, `TechosViewer3D.tsx`, `src/App.tsx`,
+  `src/components/UsabilidadVideosView.tsx`, `src/components/BibliotecaPremiumView.tsx`.
+- Cómo se probó: tsc 0 errores; punto fijo en 8 plantillas y el techo de 2 792 piezas (antes: columnas alternaban en cada clic; ahora 0 cambios
+  en la 2.ª vuelta, todo CUMPLE, el techo grande cumple sin cruces); UI: memoria CUMPLE→NO CUMPLE (antes) vs CUMPLE→CUMPLE (después) en 4 aguas y
+  una agua; capturas antes/después del menú y de Mis cursos / Mis plantillas. analizarPiezas +60 ms en el techo grande.
+- Versión: sin compilar aún.
+- Commit(s): este.
+- Pendiente / a vigilar: Obra Civil (esperar captura del dueño). Opcional: avisar cuánto se ahorraría con cruces de pared en vez de columnas más grandes.
+
 ## 2026-11-16 · Academia: canjear créditos por cursos, plantillas y paquetes (también en Android)
 - Pedido del dueño: "habilitar la compra de créditos para todos los cursos o el canje de créditos por contenido que existe ya en la plataforma" (app de Android).
 - Qué se hizo: en la Tienda de la Academia, en Android ahora se ven TODOS los cursos, plantillas y paquetes de pago con su precio en créditos y el botón "Canjear créditos" (antes solo lo gratis y la clase de muestra). En la web/PC sigue "Comprar" con Yape y se suma "o N créditos" / "Canjear con N créditos". Paquetes: canje nuevo en el servidor (`canjearCurso` con `tipo: 'paquete'` → `canjearPaquete`: lee `config_academia/paquetes`, cobra `precioCreditos` o su precio en soles en créditos, habilita todos sus cursos y recursos de una vez, devuelve los créditos si algo falla, registra `paquetesCanjeados`). El canje ya no depende del interruptor "IA para usuarios" (no usa la IA) en Mis cursos y Mis plantillas. Si no alcanza y no se puede recargar (Android sin Google Play activo) la ventana dice cuántos créditos faltan en vez de "Recargar". Sin textos de pago fuera de Play en Android.
@@ -88,7 +109,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado el 16/11/2026) |
+| Última mejora sin compilar | Memoria/recomendados coherentes, sin «Mis apartados», Mis cursos/plantillas solo lo propio (16/11/2026) |
 | Última versión compilada | Web **2026.11.16.1026** · Android **código 26110424** (16/11/2026: canje de créditos por cursos, plantillas y paquetes, también en Android; desplegar también `functions`) |
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
 | Próximo código Android | **26110425** (el contador sigue +1 desde aquí; nunca bajar de 26110424) |
