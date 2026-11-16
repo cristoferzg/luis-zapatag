@@ -33,7 +33,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Qué se hizo: en la Tienda de la Academia, en Android ahora se ven TODOS los cursos, plantillas y paquetes de pago con su precio en créditos y el botón "Canjear créditos" (antes solo lo gratis y la clase de muestra). En la web/PC sigue "Comprar" con Yape y se suma "o N créditos" / "Canjear con N créditos". Paquetes: canje nuevo en el servidor (`canjearCurso` con `tipo: 'paquete'` → `canjearPaquete`: lee `config_academia/paquetes`, cobra `precioCreditos` o su precio en soles en créditos, habilita todos sus cursos y recursos de una vez, devuelve los créditos si algo falla, registra `paquetesCanjeados`). El canje ya no depende del interruptor "IA para usuarios" (no usa la IA) en Mis cursos y Mis plantillas. Si no alcanza y no se puede recargar (Android sin Google Play activo) la ventana dice cuántos créditos faltan en vez de "Recargar". Sin textos de pago fuera de Play en Android.
 - Archivos principales: `functions/index.js` (`canjearPaquete`), `src/components/academia/AcademiaTienda.tsx`, `src/components/ConfirmarCanjeCreditos.tsx`, `src/lib/cursosCreditos.ts` (`creditosDePaquete`, `canjearPaqueteConCreditos`), `src/lib/paquetesAcademia.ts` (`precioCreditos?`), `UsabilidadVideosView.tsx`, `BibliotecaPremiumView.tsx`, `seguridad/canje.test.mjs` (`npm run test:canje`).
 - Cómo se probó: `npx tsc --noEmit` 0 errores; `npm run test:canje` 10/10 (paquete oculto, sin créditos, canje de paquete 250, saldo exacto, habilita todo, no cobra dos veces, curso suelto, admin); capturas antes/después en Android simulado y web.
-- Versión: sin compilar aún (requiere desplegar `functions` para el canje de paquetes).
+- Versión: web **2026.11.16.1026** · Android código **26110424** (firmado 01:D3…74:33). Manual: capítulo 16 (pasos 3, 4 y 6) dice cómo canjear créditos y que en Android se canjea.
 - Commit(s): este.
 - Segunda vuelta ("pon el precio según el precio"): el precio en créditos = precio en soles (con descuento vigente) × los créditos por sol de la recarga más conveniente de `config_ia/planes.packs` (hoy 500 por S/ 54.90 ≈ 9.1). Naves S/ 79 = 719 créditos, plantilla S/ 9.90 = 90. Igual en cliente (`useFactorCreditos`) y servidor (`creditosPorSol`); si el admin cambia las recargas, los precios se ajustan solos. Prueba 12/12.
 - Pendiente / a vigilar: `precioCreditos` por curso/paquete sigue mandando si el admin lo pone.
@@ -87,10 +87,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Canje de créditos por cursos/plantillas/paquetes en la Academia (16/11/2026; desplegar también `functions`) |
-| Última versión compilada | Web **2026.11.15.1250** · Android **código 26110423** (15/11/2026: 3D rápido en techos grandes + «Cargando cursos…»; incluye todo lo anterior) |
+| Última mejora sin compilar | — (todo compilado el 16/11/2026) |
+| Última versión compilada | Web **2026.11.16.1026** · Android **código 26110424** (16/11/2026: canje de créditos por cursos, plantillas y paquetes, también en Android; desplegar también `functions`) |
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
-| Próximo código Android | **26110424** (el contador sigue +1 desde aquí; nunca bajar de 26110423) |
+| Próximo código Android | **26110425** (el contador sigue +1 desde aquí; nunca bajar de 26110424) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026). **9 cursos completos** (104 clases): Seguridad en Obra y Trabajos en Altura 12 (S/ 29, ≈35 min), Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |

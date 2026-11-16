@@ -1,5 +1,5 @@
 // Rehace el capítulo 16 "Aprende y soporte" del Manual (páginas 75 a 78) para la Academia nueva:
-// pestañas Tienda / Mis cursos / Mis plantillas, paquetes, ficha del curso y pago con Yape o Plin.
+// pestañas Tienda / Mis cursos / Mis plantillas, paquetes, ficha del curso, pago con Yape y canje con créditos.
 // Mismo diseño que el resto del manual (A4, Inter, portada turquesa, "Paso N" y leyenda numerada).
 // Uso:
 //   node docs/herramientas/manual_academia.mjs <manual.pdf de entrada> <carpeta de capturas> <salida.pdf>
@@ -20,10 +20,10 @@ const CAPITULO = [
 const PASOS = [
   ['Academia: Tienda, Mis cursos y Mis plantillas', 'La Academia técnica junta en un solo lugar los cursos y las plantillas (lo que antes era “Recursos”). Arriba eliges la pestaña: <b>Tienda</b> para ver y comprar, <b>Mis cursos</b> para ver tus clases y <b>Mis plantillas</b> para abrir tus diseños listos.', '1_tienda', ['Cambiar de pestaña', 'Ver los paquetes', 'Buscar cursos o plantillas']],
   ['Paquetes con descuento', 'Un paquete trae varios cursos (y a veces plantillas) por un único precio. Verás cuánto costarían por separado y cuánto ahorras. Al validar tu pago se habilita todo lo que incluye.', '2_paquetes', ['Precio por separado', 'Lo que ahorras', 'Comprar el paquete']],
-  ['La ficha de un curso', 'Toca un curso para ver su temario (las clases con candado se abren al comprarlo), el material descargable y las plantillas para practicar. Si ya lo tienes, toca “Ir a las clases”.', '3_ficha', ['Temario del curso', 'Plantillas para practicar', 'Comprar el curso']],
-  ['Comprar con Yape o transferencia', 'Desde la web, el programa de PC o Chrome del celular. Yapea el monto exacto (o elige “Transferencia” para pagar a la cuenta bancaria, también desde otro país), toca “Elegir captura”, sube la foto del pago y “Enviar comprobante”. Mientras se revisa verás “Pago en revisión”; al validarse se habilita solo y te llega un aviso. En la app de Android no se vende: ahí ves lo gratis y lo que ya compraste.', '4_pago', ['Copiar el número', 'Subir la captura', 'Enviar comprobante']],
+  ['La ficha de un curso', 'Toca un curso para ver su temario (las clases con candado se abren al comprarlo), el material descargable y las plantillas para practicar. Para tenerlo: “Comprar curso” o “Canjear con créditos” (se abre al instante). Si ya lo tienes, toca “Ir a las clases”.', '3_ficha', ['Temario del curso', 'Plantillas para practicar', 'Comprar el curso']],
+  ['Comprar con Yape o transferencia', 'Desde la web, el programa de PC o Chrome del celular. Yapea el monto exacto (o elige “Transferencia” para pagar a la cuenta bancaria, también desde otro país), toca “Elegir captura”, sube la foto del pago y “Enviar comprobante”. Mientras se revisa verás “Pago en revisión”; al validarse se habilita solo y te llega un aviso. En la app de Android no se paga por fuera de Google Play: ahí cada curso, plantilla o paquete muestra su precio en créditos y se abre al instante con “Canjear créditos”.', '4_pago', ['Copiar el número', 'Subir la captura', 'Enviar comprobante']],
   ['Mis cursos', 'Tus cursos con su avance. Toca uno para ver sus clases; al ver una clase se marca como completada. Si el curso trae material (PDF, planos, fotos), lo descargas desde arriba.', '5_miscursos', ['Pestaña Mis cursos', 'Buscar un curso', 'Curso destacado']],
-  ['Mis plantillas', 'Plantillas listas (techos, puertas, drywall), planos y libros técnicos. Toca “Abrir en Techos / Carpintería / Drywall” y se abre una COPIA para que cambies medidas y precios; lo que tenías abierto se guarda como respaldo. Las de pago se solicitan y se habilitan al validar el pago.', '6_misplantillas', ['Solo plantillas', 'Buscar', 'Solicitar una de pago']],
+  ['Mis plantillas', 'Plantillas listas (techos, puertas, drywall), planos y libros técnicos. Toca “Abrir en Techos / Carpintería / Drywall” y se abre una COPIA para que cambies medidas y precios; lo que tenías abierto se guarda como respaldo. Las de pago se compran o se canjean con créditos en la Tienda.', '6_misplantillas', ['Solo plantillas', 'Buscar', 'Solicitar una de pago']],
 ];
 
 const css = `
