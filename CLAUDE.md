@@ -258,4 +258,5 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   Técnicos, `BibliotecaPremiumView sinTitulo`; la vista 'biblioteca' redirige ahí). Tienda: paquetes en `config_academia/paquetes {lista}`
   (`lib/paquetesAcademia.ts`), compra `paq_<id>` / id de curso / id de biblioteca con Yape/Plin; `AdminPurchasesView` habilita todo.
   Android no vende: muestra gratis + comprados + cursos de pago con clase de muestra (sin precio) y NINGÚN texto que invite a pagar
-  fuera de Play. DEV: `__paquetesSimulados`, `__comprasAcademiaSimuladas`, `__androidSimulado` (incluir en el grep del dist).
+  fuera de Play. Canje con créditos (también Android): cursos, recursos y paquetes (`canjearCurso` tipo 'paquete'; 10 créditos/sol o
+  `precioCreditos`); no depende de la IA activada. Prueba: `cd seguridad && npm run test:canje`. DEV: `__paquetesSimulados`, `__comprasAcademiaSimuladas`, `__androidSimulado` (incluir en el grep del dist).

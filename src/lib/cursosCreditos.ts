@@ -15,6 +15,12 @@ export function creditosDeRecurso(r: { precioCreditos?: number; precioSoles?: nu
   return Math.max(1, Math.round((r.precioSoles || 0) * (1 - d / 100) * 10));
 }
 
+/** Créditos de un paquete de la Academia: su precio en créditos o 10 por cada sol. */
+export function creditosDePaquete(p: { precioCreditos?: number; precioSoles?: number }): number {
+  if (p.precioCreditos && p.precioCreditos > 0) return Math.round(p.precioCreditos);
+  return Math.max(1, Math.round((p.precioSoles || 0) * 10));
+}
+
 async function canjear(data: Record<string, string>, que: string): Promise<{ ok: boolean; creditos: number; error?: string }> {
   try {
     const fn = httpsCallable<Record<string, string>, { ok: boolean; creditos: number }>(getFunctions(app, 'us-central1'), 'canjearCurso');
@@ -29,4 +35,5 @@ async function canjear(data: Record<string, string>, que: string): Promise<{ ok:
 }
 
 export const canjearCursoConCreditos = (cursoId: string) => canjear({ cursoId }, 'el curso');
+export const canjearPaqueteConCreditos = (paqueteId: string) => canjear({ tipo: 'paquete', paqueteId }, 'el paquete');
 export const canjearRecursoConCreditos = (itemId: string) => canjear({ tipo: 'recurso', itemId }, 'el recurso');

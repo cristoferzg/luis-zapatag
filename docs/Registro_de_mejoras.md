@@ -19,6 +19,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Academia: canjear créditos por cursos, plantillas y paquetes (también en Android)
+- Pedido del dueño: "habilitar la compra de créditos para todos los cursos o el canje de créditos por contenido que existe ya en la plataforma" (app de Android).
+- Qué se hizo: en la Tienda de la Academia, en Android ahora se ven TODOS los cursos, plantillas y paquetes de pago con su precio en créditos y el botón "Canjear créditos" (antes solo lo gratis y la clase de muestra). En la web/PC sigue "Comprar" con Yape y se suma "o N créditos" / "Canjear con N créditos". Paquetes: canje nuevo en el servidor (`canjearCurso` con `tipo: 'paquete'` → `canjearPaquete`: lee `config_academia/paquetes`, cobra `precioCreditos` o 10 por sol, habilita todos sus cursos y recursos de una vez, devuelve los créditos si algo falla, registra `paquetesCanjeados`). El canje ya no depende del interruptor "IA para usuarios" (no usa la IA) en Mis cursos y Mis plantillas. Si no alcanza y no se puede recargar (Android sin Google Play activo) la ventana dice cuántos créditos faltan en vez de "Recargar". Sin textos de pago fuera de Play en Android.
+- Archivos principales: `functions/index.js` (`canjearPaquete`), `src/components/academia/AcademiaTienda.tsx`, `src/components/ConfirmarCanjeCreditos.tsx`, `src/lib/cursosCreditos.ts` (`creditosDePaquete`, `canjearPaqueteConCreditos`), `src/lib/paquetesAcademia.ts` (`precioCreditos?`), `UsabilidadVideosView.tsx`, `BibliotecaPremiumView.tsx`, `seguridad/canje.test.mjs` (`npm run test:canje`).
+- Cómo se probó: `npx tsc --noEmit` 0 errores; `npm run test:canje` 10/10 (paquete oculto, sin créditos, canje de paquete 250, saldo exacto, habilita todo, no cobra dos veces, curso suelto, admin); capturas antes/después en Android simulado y web.
+- Versión: sin compilar aún (requiere desplegar `functions` para el canje de paquetes).
+- Commit(s): este.
+- Pendiente / a vigilar: precio en créditos = 10 por sol (Naves S/ 79 = 790 créditos). La recarga de Play rinde ~5 créditos por sol, así que canjear sale más caro que Yape; si el dueño quiere, se baja con `precioCreditos` por curso/paquete.
+
 ## 2026-11-16 · Academia: plantillas verificadas, Naves 1-8 corregidas, paquetes y curso "Portones Automáticos"
 - Pedido del dueño: "Que sigue" → "Todas" (paquetes, plantillas, rehacer Naves 1-8, curso nuevo).
 - Qué se hizo: (1) 5 plantillas nuevas en Recursos Técnicos (taller 2 aguas 10×16, nave 2 aguas 12×24, casa 4 aguas 8×12, parabólicas 10×20 y 18×36), generadas con el motor real de Techos Metálicos y memoria de cálculo CUMPLE, S/ 9.90 c/u. (2) Naves clases 1-8 vueltas a grabar ("CLASE n DE 13") y reemplazadas en sus mismas clases. (3) Propuesta de 4 paquetes con ids y precios en el doc del proyecto "Paquetes_Academia_propuesta" (los carga el admin en la Tienda). (4) Curso nuevo "Portones Automáticos": 12 clases (≈39 min), obra = portón corredizo 3.90 × 2.40 m de una cochera; S/ 39 (antes 79), clase 1 gratis, portada v2 y 2 PDFs.
@@ -68,7 +77,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado el 15/11/2026) |
+| Última mejora sin compilar | Canje de créditos por cursos/plantillas/paquetes en la Academia (16/11/2026; desplegar también `functions`) |
 | Última versión compilada | Web **2026.11.15.1250** · Android **código 26110423** (15/11/2026: 3D rápido en techos grandes + «Cargando cursos…»; incluye todo lo anterior) |
 | Play Console | Código **26110421** subido por el dueño el 15/11/2026 (Prueba interna). Falta pasar a Producción cuando lo decida |
 | Próximo código Android | **26110424** (el contador sigue +1 desde aquí; nunca bajar de 26110423) |

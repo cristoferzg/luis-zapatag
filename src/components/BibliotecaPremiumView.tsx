@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import EstadisticasContenido from './EstadisticasContenido';
 import ConfirmarCanjeCreditos from './ConfirmarCanjeCreditos';
 import { creditosDeRecurso, canjearRecursoConCreditos } from '../lib/cursosCreditos';
-import { iaHabilitadaUsuarios } from '../lib/aiAccess';
 import { registrarContenido } from '../lib/estadisticas';
 import { 
   BookOpen, 
@@ -761,7 +760,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                             </span>
                           </button>
                         )}
-                        {!isAdmin && !hasAccess(item) && iaHabilitadaUsuarios() && (
+                        {!isAdmin && !hasAccess(item) && (
                           <button onClick={() => setCanjeRecurso(item)}
                             className="w-full mt-1.5 py-2.5 px-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black flex items-center justify-center gap-1.5 cursor-pointer active:scale-95">
                             <Coins className="w-4 h-4 shrink-0" /> <span className="truncate">Desbloquear con {creditosDeRecurso(item)} créditos</span>

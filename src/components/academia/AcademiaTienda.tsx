@@ -3,14 +3,15 @@
 // cursos con tarjetas llamativas y plantillas / recursos de la biblioteca.
 // Comprar: en la web y la PC con Yape o Plin (captura → compra pendiente que el admin valida;
 // al validar se habilita todo lo comprado). En la app de Android no se vende por fuera de
-// Google Play: ahí solo se ve lo gratis y lo que ya se tiene.
+// Google Play: ahí todo se CANJEA con créditos (los mismos de las funciones inteligentes, que en
+// Android se recargan con Google Play). En la web y la PC el canje es otra opción junto a Yape.
 // Las clases se siguen viendo en "Mis clases" (UsabilidadVideosView).
 // =============================================================================
 import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
   GraduationCap, PlayCircle, Lock, CheckCircle2, Clock, Package, Sparkles, FileText, Search, X, ShieldCheck,
-  Smartphone, Download, Infinity as InfinityIcon, Layers, Plus, Pencil, Trash2, Star, ShoppingCart, BookOpen,
+  Smartphone, Download, Infinity as InfinityIcon, Layers, Plus, Pencil, Trash2, Star, ShoppingCart, BookOpen, Coins,
 } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import type { CourseCategory, TutorialVideo } from '../UsabilidadVideosView';
@@ -20,6 +21,8 @@ import { precioPEN } from '../../lib/currency';
 import { leerPagoDirecto, pagoDirectoListo, nombreMediosPago, type ConfigPagoDirecto, type PedidoDirecto } from '../../lib/pagoDirecto';
 import { escucharPaquetes, guardarPaquetes, ID_COMPRA_PAQUETE, type PaqueteAcademia } from '../../lib/paquetesAcademia';
 import VentanaPagoDirecto from '../VentanaPagoDirecto';
+import ConfirmarCanjeCreditos from '../ConfirmarCanjeCreditos';
+import { creditosDeCurso, creditosDeRecurso, creditosDePaquete, canjearCursoConCreditos, canjearRecursoConCreditos, canjearPaqueteConCreditos } from '../../lib/cursosCreditos';
 
 const TEL_DUENO = '51966000500';
 const tiene = (lista: string[] | undefined, uid?: string) => {
@@ -55,6 +58,10 @@ interface Props {
 export default function AcademiaTienda({ cursos, tutoriales, biblioteca, currentUser, isAdmin = false, onVerCurso, onIrRecursos, pestanas }: Props) {
   const uid: string | undefined = currentUser?.id;
   const vende = comprasPermitidas();
+  // Canje con créditos: para todo usuario (no el admin, que ya tiene todo), también en Android.
+  const canjea = !isAdmin && !!uid;
+  const [canje, setCanje] = useState<{ tipo: 'curso' | 'recurso' | 'paquete'; id: string; nombre: string; creditos: number } | null>(null);
+  const ofrece = vende || canjea;   // se muestra el contenido de pago (con precio o con créditos)
   const [paquetes, setPaquetes] = useState<PaqueteAcademia[]>([]);
   const [cfgPago, setCfgPago] = useState<ConfigPagoDirecto | null>(null);
   const [pedido, setPedido] = useState<PedidoDirecto | null>(null);
@@ -85,7 +92,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
   const MODULO_CURSO: Record<string, RegExp> = { techos: /nave|techo|tijeral|estructur|parab/i, carpimetal: /carpinter|puerta|port[oó]n|reja|baranda/i, drywall: /drywall/i };
   const plantillasDe = (c: CourseCategory) => {
     const palabras = c.name.toLowerCase().split(/[^a-záéíóúñ]+/).filter(w => w.length >= 6);
-    return biblioteca.filter(r => r.tipo !== 'video' && (vende || tieneRecurso(r)) && (
+    return biblioteca.filter(r => r.tipo !== 'video' && (ofrece || tieneRecurso(r)) && (
       (r.plantilla && MODULO_CURSO[r.plantilla.modulo]?.test(c.name)) ||
       palabras.some(w => `${r.titulo} ${r.categoria}`.toLowerCase().includes(w))
     )).slice(0, 4);
@@ -96,12 +103,12 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
   const q = busca.trim().toLowerCase();
   const coincide = (...t: (string | undefined)[]) => !q || t.some(x => (x || '').toLowerCase().includes(q));
 
-  // En Android solo se muestra lo gratis y lo que ya se tiene (Google Play no permite vender por fuera).
-  const cursosVis = cursos.filter(c => (vende || tieneCurso(c) || tieneMuestra(c)) && coincide(c.name, c.description))
+  // En Android no se vende por fuera de Google Play: el contenido de pago se canjea con créditos.
+  const cursosVis = cursos.filter(c => (ofrece || tieneCurso(c) || tieneMuestra(c)) && coincide(c.name, c.description))
     .sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured) || clasesDe(b).length - clasesDe(a).length);
-  const recursosVis = biblioteca.filter(r => r.tipo !== 'video' && (vende || tieneRecurso(r)) && coincide(r.titulo, r.descripcion, r.categoria))
+  const recursosVis = biblioteca.filter(r => r.tipo !== 'video' && (ofrece || tieneRecurso(r)) && coincide(r.titulo, r.descripcion, r.categoria))
     .sort((a, b) => Number(!!b.plantilla) - Number(!!a.plantilla) || Number(!!b.isMasComprado) - Number(!!a.isMasComprado));
-  const paquetesVis = vende ? paquetes.filter(p => (p.activo || isAdmin) && coincide(p.nombre, p.descripcion)) : [];
+  const paquetesVis = ofrece ? paquetes.filter(p => (p.activo || isAdmin) && coincide(p.nombre, p.descripcion)) : [];
 
   const comprar = (itemId: string, itemName: string, amount: number) => {
     if (!vende) return;
@@ -109,6 +116,12 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
     const msg = `Hola, quiero comprar en la Academia técnica: "${itemName}" (${precioPEN(amount)}).\nMi usuario: ${currentUser?.name || ''} (${uid || ''}).`;
     window.open(`https://wa.me/${TEL_DUENO}?text=${encodeURIComponent(msg)}`, '_blank');
   };
+
+  // Precio en créditos (en Android reemplaza al precio en soles) y botón "Canjear".
+  const Creditos = ({ n, grande }: { n: number; grande?: boolean }) => (
+    <span className={`inline-flex items-center gap-1 font-black text-orange-600 ${grande ? 'text-2xl' : 'text-lg'}`}><Coins className={grande ? 'w-6 h-6' : 'w-4 h-4'} />{n}<span className="text-[11px] font-bold text-orange-500">créditos</span></span>
+  );
+  const pedirCanje = (tipo: 'curso' | 'recurso' | 'paquete', id: string, nombre: string, creditos: number) => { setDetalle(null); setCanje({ tipo, id, nombre, creditos }); };
 
   const sumaPaquete = (p: PaqueteAcademia) =>
     p.cursos.reduce((s, id) => s + (Number(cursos.find(c => c.id === id)?.priceSoles) || 0), 0) +
@@ -140,7 +153,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
             <h1 className="mt-3 text-2xl sm:text-4xl font-black leading-tight">Aprende el oficio con <span className="text-amber-300">casos reales de obra</span></h1>
             <p className="mt-2 text-sm sm:text-base text-slate-300 max-w-xl">Cursos en video de estructuras metálicas, techos, carpintería y más, con planos, plantillas y material descargable. A tu ritmo, desde el celular o la PC.</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {vende && paquetesVis.length > 0 && <a href="#paquetes" className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-sm font-black">Ver paquetes con descuento</a>}
+              {paquetesVis.length > 0 && <a href="#paquetes" className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-sm font-black">Ver paquetes con descuento</a>}
               <a href="#cursos" className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-bold">Explorar cursos</a>
             </div>
           </div>
@@ -160,7 +173,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
           {(vende
             ? [[InfinityIcon, 'Acceso permanente', 'Pagas una vez'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [ShieldCheck, 'Pago seguro', nombreMediosPago(cfgPago)]]
             // App de Android: nada que mencione pagos fuera de Google Play.
-            : [[InfinityIcon, 'Acceso permanente', 'Para siempre'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [PlayCircle, 'Clases de muestra', 'Gratis']]).map(([Ic, t, d]: any) => (
+            : [[InfinityIcon, 'Acceso permanente', 'Para siempre'], [Smartphone, 'Celular, web y PC', 'Con el mismo PIN'], [Download, 'Material descargable', 'Planos y PDF'], [Coins, 'Canjea con créditos', 'Cursos y plantillas']]).map(([Ic, t, d]: any) => (
             <div key={t} className="rounded-xl p-3 flex items-center gap-2.5 bg-white border border-slate-200 shadow-sm">
               <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-600"><Ic className="w-4.5 h-4.5" /></span>
               <span className="min-w-0"><span className={`block text-xs font-black ${tx}`}>{t}</span><span className={`block text-[10px] ${sub}`}>{d}</span></span>
@@ -214,14 +227,20 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                       <div className="mt-3 pt-3 border-t border-slate-100">
                         <div className="flex items-end justify-between gap-2">
                           <div>
-                            {suma > p.precioSoles && <span className="block text-[11px] text-slate-400">Por separado <span className="line-through">{precioPEN(suma)}</span></span>}
-                            <span className="text-2xl font-black text-slate-900">{precioPEN(p.precioSoles)}</span>
+                            {vende ? (<>
+                              {suma > p.precioSoles && <span className="block text-[11px] text-slate-400">Por separado <span className="line-through">{precioPEN(suma)}</span></span>}
+                              <span className="text-2xl font-black text-slate-900">{precioPEN(p.precioSoles)}</span>
+                              {canjea && <span className="block text-[11px] font-bold text-orange-600">o {creditosDePaquete(p)} créditos</span>}
+                            </>) : <Creditos n={creditosDePaquete(p)} grande />}
                           </div>
                           {pct > 0 && <Insignia tono="bg-emerald-100 text-emerald-700">Ahorras {pct}%</Insignia>}
                         </div>
                         {todo ? <div className="mt-2 w-full py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-black text-center flex items-center justify-center gap-1"><CheckCircle2 className="w-4 h-4" />Ya tienes todo el paquete</div>
                           : enRevision ? <div className="mt-2 w-full py-2 rounded-xl bg-amber-50 text-amber-700 text-xs font-black text-center flex items-center justify-center gap-1"><Clock className="w-4 h-4" />Pago en revisión</div>
-                          : <button onClick={() => comprar(ID_COMPRA_PAQUETE(p.id), `Paquete: ${p.nombre}`, p.precioSoles)} className={`mt-2 w-full py-2.5 rounded-xl bg-gradient-to-r ${COLOR_PAQ[p.color || 'indigo'] || COLOR_PAQ.indigo} text-white text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer hover:brightness-110`}><ShoppingCart className="w-4 h-4" />Comprar paquete</button>}
+                          : <>
+                            {vende && <button onClick={() => comprar(ID_COMPRA_PAQUETE(p.id), `Paquete: ${p.nombre}`, p.precioSoles)} className={`mt-2 w-full py-2.5 rounded-xl bg-gradient-to-r ${COLOR_PAQ[p.color || 'indigo'] || COLOR_PAQ.indigo} text-white text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer hover:brightness-110`}><ShoppingCart className="w-4 h-4" />Comprar paquete</button>}
+                            {canjea && <button onClick={() => pedirCanje('paquete', p.id, p.nombre, creditosDePaquete(p))} className={`mt-2 w-full rounded-xl text-sm font-black flex items-center justify-center gap-1.5 cursor-pointer ${vende ? 'py-2 bg-orange-50 text-orange-700 hover:bg-orange-100' : `py-2.5 bg-gradient-to-r ${COLOR_PAQ[p.color || 'indigo'] || COLOR_PAQ.indigo} text-white hover:brightness-110`}`}><Coins className="w-4 h-4" />Canjear con {creditosDePaquete(p)} créditos</button>}
+                          </>}
                       </div>
                     </div>
                   </article>
@@ -274,7 +293,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                       <div className="mt-3 flex items-center justify-between gap-2">
                         {acceso ? <span className="text-xs font-black text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />{gratis ? 'Acceso libre' : 'Tienes acceso'}</span>
                           : enRevision ? <span className="text-xs font-black text-amber-700 flex items-center gap-1"><Clock className="w-4 h-4" />Pago en revisión</span>
-                          : !vende ? <span className="text-xs font-black text-indigo-700 flex items-center gap-1"><PlayCircle className="w-4 h-4" />Clase de muestra gratis</span>
+                          : !vende ? (canjea ? <Creditos n={creditosDeCurso(c)} /> : <span className="text-xs font-black text-indigo-700 flex items-center gap-1"><PlayCircle className="w-4 h-4" />Clase de muestra gratis</span>)
                           : <Precio {...pr} />}
                         <span className="text-xs font-black text-indigo-600 group-hover:underline">{acceso ? 'Entrar →' : 'Ver curso →'}</span>
                       </div>
@@ -288,7 +307,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
 
         {/* PLANTILLAS Y RECURSOS */}
         {recursosVis.length > 0 && (
-          <section className="space-y-3">
+          <section id="plantillas" className="space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div><h2 className={`text-lg sm:text-xl font-black ${tx} flex items-center gap-2`}><Layers className="w-5 h-5 text-emerald-600" />Plantillas y recursos</h2>
                 <p className={`text-xs ${sub}`}>Diseños listos para cargar en el programa, planos y libros técnicos.</p></div>
@@ -313,8 +332,11 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                       <div className="mt-2">
                         {acceso ? <button onClick={onIrRecursos} className="w-full py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-black cursor-pointer flex items-center justify-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Abrir</button>
                           : enRevision ? <div className="w-full py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-black text-center">En revisión</div>
-                          : <div className="flex items-center justify-between gap-1"><Precio {...pr} />
-                            <button onClick={() => comprar(r.id, r.titulo, pr.precio)} className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer" title="Comprar"><ShoppingCart className="w-4 h-4" /></button></div>}
+                          : <div className="flex items-center justify-between gap-1">{vende ? <Precio {...pr} /> : <Creditos n={creditosDeRecurso(r)} />}
+                            <span className="flex gap-1 shrink-0">
+                              {vende && <button onClick={() => comprar(r.id, r.titulo, pr.precio)} className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer" title="Comprar"><ShoppingCart className="w-4 h-4" /></button>}
+                              {canjea && <button onClick={() => pedirCanje('recurso', r.id, r.titulo, creditosDeRecurso(r))} className="p-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" title={`Canjear con ${creditosDeRecurso(r)} créditos`} aria-label="Canjear con créditos"><Coins className="w-4 h-4" /></button>}
+                            </span></div>}
                       </div>
                     </div>
                   </article>
@@ -365,9 +387,10 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                         <div key={r.id} className="flex items-center gap-2 p-2 rounded-xl border border-emerald-200 bg-emerald-50/50">
                           <span className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shrink-0">{r.plantilla ? <Layers className="w-4 h-4" /> : <FileText className="w-4 h-4" />}</span>
                           <span className="flex-1 min-w-0"><span className="block text-xs font-black text-slate-800 truncate">{r.titulo}</span>
-                            <span className="block text-[10px] text-slate-500">{acc ? 'Ya la tienes' : rev ? 'Pago en revisión' : precioPEN(prr.precio)}</span></span>
+                            <span className="block text-[10px] text-slate-500">{acc ? 'Ya la tienes' : rev ? 'Pago en revisión' : vende ? precioPEN(prr.precio) : `${creditosDeRecurso(r)} créditos`}</span></span>
                           {acc ? <button onClick={() => { setDetalle(null); onIrRecursos(); }} className="px-2 py-1 rounded-lg bg-emerald-600 text-white text-[11px] font-black cursor-pointer">Abrir</button>
-                            : !rev && vende ? <button onClick={() => { setDetalle(null); comprar(r.id, r.titulo, prr.precio); }} className="p-1.5 rounded-lg bg-emerald-600 text-white cursor-pointer" title="Comprar"><ShoppingCart className="w-3.5 h-3.5" /></button> : null}
+                            : !rev && vende ? <button onClick={() => { setDetalle(null); comprar(r.id, r.titulo, prr.precio); }} className="p-1.5 rounded-lg bg-emerald-600 text-white cursor-pointer" title="Comprar"><ShoppingCart className="w-3.5 h-3.5" /></button>
+                            : !rev && canjea ? <button onClick={() => pedirCanje('recurso', r.id, r.titulo, creditosDeRecurso(r))} className="p-1.5 rounded-lg bg-orange-500 text-white cursor-pointer" title="Canjear con créditos" aria-label="Canjear con créditos"><Coins className="w-3.5 h-3.5" /></button> : null}
                         </div>
                       );
                     })}</div></div>
@@ -377,12 +400,23 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                     <div className="flex flex-wrap gap-1.5">{c.adjuntos.map(a => <span key={a.url} className="px-2 py-1 rounded-lg bg-slate-100 text-[11px] font-bold text-slate-700 flex items-center gap-1">{acceso ? <Download className="w-3 h-3" /> : <Lock className="w-3 h-3" />}{a.nombre}</span>)}</div></div>
                 )}
               </div>
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
-                {acceso ? <span className="text-sm font-black text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-5 h-5" />Tienes acceso</span>
-                  : enRevision ? <span className="text-sm font-black text-amber-700 flex items-center gap-1"><Clock className="w-5 h-5" />Pago en revisión</span>
-                  : !vende ? <span className="text-sm font-black text-indigo-700 flex items-center gap-1"><PlayCircle className="w-5 h-5" />Clase de muestra gratis</span> : <Precio {...pr} />}
-                {acceso || (!vende && tieneMuestra(c)) ? <button onClick={() => { setDetalle(null); onVerCurso(c.name); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><PlayCircle className="w-4 h-4" />{acceso ? 'Ir a las clases' : 'Ver clase gratis'}</button>
-                  : vende && !enRevision ? <button onClick={() => { setDetalle(null); comprar(c.id, c.name, pr.precio); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><ShoppingCart className="w-4 h-4" />Comprar curso</button> : null}
+              <div className="p-4 border-t border-slate-100 shrink-0 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  {acceso ? <span className="text-sm font-black text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-5 h-5" />Tienes acceso</span>
+                    : enRevision ? <span className="text-sm font-black text-amber-700 flex items-center gap-1"><Clock className="w-5 h-5" />Pago en revisión</span>
+                    : !vende ? (canjea ? <Creditos n={creditosDeCurso(c)} /> : <span className="text-sm font-black text-indigo-700 flex items-center gap-1"><PlayCircle className="w-5 h-5" />Clase de muestra gratis</span>)
+                    : <div><Precio {...pr} />{canjea && <span className="block text-[11px] font-bold text-orange-600">o {creditosDeCurso(c)} créditos</span>}</div>}
+                  {acceso ? <button onClick={() => { setDetalle(null); onVerCurso(c.name); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><PlayCircle className="w-4 h-4" />Ir a las clases</button>
+                    : vende && !enRevision ? <button onClick={() => { setDetalle(null); comprar(c.id, c.name, pr.precio); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><ShoppingCart className="w-4 h-4" />Comprar curso</button>
+                    : !canjea && tieneMuestra(c) ? <button onClick={() => { setDetalle(null); onVerCurso(c.name); }} className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><PlayCircle className="w-4 h-4" />Ver clase gratis</button>
+                    : !vende && canjea && !enRevision ? <button onClick={() => pedirCanje('curso', c.id, c.name, creditosDeCurso(c))} className="px-5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-black cursor-pointer flex items-center gap-1.5"><Coins className="w-4 h-4" />Canjear créditos</button> : null}
+                </div>
+                {!acceso && !enRevision && (
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    {canjea && vende && <button onClick={() => pedirCanje('curso', c.id, c.name, creditosDeCurso(c))} className="px-3 py-2 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-black cursor-pointer flex items-center gap-1.5"><Coins className="w-4 h-4" />Canjear con {creditosDeCurso(c)} créditos</button>}
+                    {canjea && tieneMuestra(c) && <button onClick={() => { setDetalle(null); onVerCurso(c.name); }} className="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black cursor-pointer flex items-center gap-1.5"><PlayCircle className="w-4 h-4" />Ver clase gratis</button>}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -390,6 +424,8 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
       })()}
 
       {pedido && cfgPago && <VentanaPagoDirecto cfg={cfgPago} pedido={pedido} onClose={() => setPedido(null)} onEnviado={() => { setPendientes(s => new Set([...s, pedido.itemId])); setTimeout(cargarPendientes, 1500); }} />}
+      {canje && <ConfirmarCanjeCreditos tipo={canje.tipo} nombre={canje.nombre} creditos={canje.creditos} onCerrar={() => setCanje(null)}
+        onCanjear={() => canje.tipo === 'curso' ? canjearCursoConCreditos(canje.id) : canje.tipo === 'recurso' ? canjearRecursoConCreditos(canje.id) : canjearPaqueteConCreditos(canje.id)} />}
       {editor && <EditorPaquetes paquetes={paquetes} cursos={cursos} biblioteca={biblioteca} onClose={() => setEditor(false)} />}
     </div>
   );

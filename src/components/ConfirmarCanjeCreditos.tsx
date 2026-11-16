@@ -5,9 +5,10 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Coins } from 'lucide-react';
 import { useSaldoIA, avisarSaldoIA } from '../lib/saldoIA';
+import { comprasIAPermitidas } from '../lib/plataforma';
 
 interface Props {
-  tipo: 'curso' | 'recurso';
+  tipo: 'curso' | 'recurso' | 'paquete';
   nombre: string;
   creditos: number;
   onCanjear: () => Promise<{ ok: boolean; error?: string }>;
@@ -25,7 +26,7 @@ export default function ConfirmarCanjeCreditos({ tipo, nombre, creditos, onCanje
   const despues = total === null ? null : Math.max(0, total - creditos);
   const delMes = saldo ? Math.min(saldo.mes, creditos) : 0;
   const deRecarga = creditos - delMes;
-  const cosa = tipo === 'curso' ? 'el curso' : 'el recurso';
+  const cosa = tipo === 'curso' ? 'el curso' : tipo === 'paquete' ? 'el paquete' : 'el recurso';
 
   const canjear = async () => {
     setEstado('canjeando');
@@ -41,7 +42,7 @@ export default function ConfirmarCanjeCreditos({ tipo, nombre, creditos, onCanje
           <div className="text-center py-3">
             <div className="text-5xl mb-2">✅</div>
             <h3 className="text-lg font-black text-slate-900">¡Desbloqueado!</h3>
-            <p className="text-sm text-slate-600 mt-1">{tipo === 'curso' ? 'Ya puedes ver todas las clases de' : 'Ya puedes abrir y descargar'} <b>{nombre}</b>.</p>
+            <p className="text-sm text-slate-600 mt-1">{tipo === 'curso' ? 'Ya puedes ver todas las clases de' : tipo === 'paquete' ? 'Ya tienes todos los cursos y plantillas de' : 'Ya puedes abrir y descargar'} <b>{nombre}</b>.</p>
             {despues !== null && <p className="text-xs text-slate-500 mt-2">Te quedan <b>{despues}</b> créditos.</p>}
             <button type="button" onClick={onCerrar} className="mt-4 w-full py-3 rounded-2xl bg-orange-500 text-white font-black cursor-pointer">Listo</button>
           </div>
@@ -79,6 +80,8 @@ export default function ConfirmarCanjeCreditos({ tipo, nombre, creditos, onCanje
                   className="w-full py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black cursor-pointer disabled:opacity-60">
                   {estado === 'canjeando' ? 'Desbloqueando…' : `Sí, usar ${creditos} créditos`}
                 </button>
+              ) : !comprasIAPermitidas() ? (
+                <p className="text-sm text-slate-600 text-center">Te faltan <b>{creditos - (total || 0)}</b> créditos. Cada mes tu plan te recarga créditos.</p>
               ) : (
                 <button type="button" onClick={irARecargar} className="w-full py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-black cursor-pointer">
                   Recargar créditos

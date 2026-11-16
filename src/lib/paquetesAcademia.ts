@@ -14,6 +14,7 @@ export interface PaqueteAcademia {
   cursos: string[];          // ids de cursos
   recursos: string[];        // ids de la biblioteca (plantillas, planos, libros)
   precioSoles: number;
+  precioCreditos?: number;  // opcional: precio al canjear con créditos (si no, 10 por sol)
   destacado?: boolean;       // "Más vendido"
   activo: boolean;
   color?: 'ambar' | 'indigo' | 'esmeralda' | 'rosa';

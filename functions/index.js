@@ -416,6 +416,41 @@ export const validarCompraPlay = onCall({ region: 'us-central1', cors: true, inv
  */
 const RECEIPT_MODEL = 'claude-haiku-5-5';
 
+// Canjear un PAQUETE de la Academia (config_academia/paquetes {lista}) con créditos: precioCreditos
+// del paquete o 10 créditos por sol. Habilita todos sus cursos y recursos de una vez (lo que ya
+// tenía no se cobra aparte: el precio del paquete es fijo, igual que al pagarlo con Yape).
+async function canjearPaquete(request, ws) {
+  const id = String(request.data?.paqueteId || '').replace(/^paq_/, '');
+  if (!id) throw new HttpsError('invalid-argument', 'Falta el paquete.');
+  const cfg = await db.collection('config_academia').doc('paquetes').get();
+  const lista = Array.isArray(cfg.data()?.lista) ? cfg.data().lista : [];
+  const p = lista.find((x) => String(x?.id) === id);
+  if (!p || p.activo === false) throw new HttpsError('not-found', 'El paquete no existe.');
+  const refs = [
+    ...(Array.isArray(p.cursos) ? p.cursos : []).map((c) => db.collection('cursos').doc(String(c))),
+    ...(Array.isArray(p.recursos) ? p.recursos : []).map((r) => db.collection('biblioteca').doc(String(r))),
+  ];
+  const snaps = refs.length ? await db.getAll(...refs) : [];
+  const faltan = snaps.filter((s) => {
+    if (!s.exists) return false;
+    const ids = Array.isArray(s.data()?.allowedUserIds) ? s.data().allowedUserIds.map(String) : [];
+    return !ids.includes(ws) && !ids.includes('user_' + ws);
+  });
+  if (!faltan.length) return { ok: true, yaTenia: true, creditos: 0 };
+  const creditos = Number(p.precioCreditos) > 0 ? Math.round(Number(p.precioCreditos)) : Math.max(1, Math.round((Number(p.precioSoles) || 0) * 10));
+  const devolver = await cobrarUsoIA(request, 'paquete', creditos);
+  try {
+    const lote = db.batch();
+    faltan.forEach((s) => lote.set(s.ref, { allowedUserIds: FieldValue.arrayUnion(ws) }, { merge: true }));
+    await lote.commit();
+    await db.collection('ai_access').doc(ws).set({ paquetesCanjeados: FieldValue.arrayUnion({ paqueteId: id, creditos, fecha: new Date().toISOString() }) }, { merge: true });
+  } catch (e) {
+    await devolver();
+    throw new HttpsError('internal', 'No se pudo desbloquear; tus créditos se devolvieron.');
+  }
+  return { ok: true, creditos };
+}
+
 // Canjear con créditos (del plan mensual o de recarga) un curso de Academia o un
 // recurso técnico de pago. data: { cursoId } (curso) o { tipo: 'recurso', itemId }.
 export const canjearCurso = onCall({ region: 'us-central1', cors: true, invoker: 'public' }, async (request) => {
@@ -423,6 +458,7 @@ export const canjearCurso = onCall({ region: 'us-central1', cors: true, invoker:
   if (token.role === 'admin') throw new HttpsError('failed-precondition', 'El administrador ya tiene acceso a todo el contenido.');
   const ws = String(token.workspace || '').replace(/^user_/, '');
   if (!ws) throw new HttpsError('unauthenticated', 'CONFIRMA_PIN');
+  if (request.data?.tipo === 'paquete') return canjearPaquete(request, ws);
   const esRecurso = request.data?.tipo === 'recurso';
   const itemId = String((esRecurso ? request.data?.itemId : request.data?.cursoId) || '');
   if (!itemId) throw new HttpsError('invalid-argument', esRecurso ? 'Falta el recurso.' : 'Falta el curso.');
