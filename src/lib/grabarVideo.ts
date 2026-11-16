@@ -38,7 +38,7 @@ export function grabarCanvas(canvas: HTMLCanvasElement, nombre: string, opts: { 
   const fmt = formatoVideo();
   if (!fmt || typeof (canvas as any).captureStream !== 'function') return null;
   const stream = (canvas as any).captureStream(30) as MediaStream;
-  const recorder = new MediaRecorder(stream, { mimeType: fmt.mime, videoBitsPerSecond: 8_000_000 });
+  const recorder = new MediaRecorder(stream, { mimeType: fmt.mime, videoBitsPerSecond: 5_000_000 });
   const chunks: BlobPart[] = [];
   let timer = 0;
   recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };

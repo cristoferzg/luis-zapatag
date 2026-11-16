@@ -1,6 +1,13 @@
 package pe.innovacontratistas.app;
 
 import android.app.DownloadManager;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.FileProvider;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -36,6 +43,29 @@ public class ArchivosPlugin extends Plugin {
         getActivity().runOnUiThread(() -> Toast.makeText(getContext(), txt, Toast.LENGTH_LONG).show());
     }
 
+    /** Aviso en la barra de notificaciones: "Descarga lista" — al tocarlo se abre el archivo. */
+    private void notificarListo(String nombre, Uri uri, String mime) {
+        try {
+            Context c = getContext();
+            NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel("descargas") == null) {
+                nm.createNotificationChannel(new NotificationChannel("descargas", "Descargas", NotificationManager.IMPORTANCE_DEFAULT));
+            }
+            Intent ver = new Intent(Intent.ACTION_VIEW);
+            ver.setDataAndType(uri, mime);
+            ver.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            int id = (int) (System.currentTimeMillis() & 0x7fffffff);
+            PendingIntent pi = PendingIntent.getActivity(c, id, ver, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            NotificationCompat.Builder b = new NotificationCompat.Builder(c, "descargas")
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle("Descarga lista")
+                .setContentText(nombre + " · Descargas/InnovApp")
+                .setContentIntent(pi)
+                .setAutoCancel(true);
+            NotificationManagerCompat.from(c).notify(id, b.build());
+        } catch (Throwable e) { /* sin permiso de avisos: queda el mensaje en pantalla */ }
+    }
+
     private static String limpio(String nombre) {
         String n = nombre == null ? "" : nombre.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
         return n.isEmpty() ? "archivo" : n;
@@ -48,6 +78,7 @@ public class ArchivosPlugin extends Plugin {
         String m = call.getString("mime", "application/octet-stream");
         String b64 = call.getString("datos", "");
         try {
+            Uri destino;
             byte[] datos = Base64.decode(b64, Base64.DEFAULT);
             if (Build.VERSION.SDK_INT >= 29) {
                 ContentResolver r = getContext().getContentResolver();
@@ -58,15 +89,18 @@ public class ArchivosPlugin extends Plugin {
                 Uri uri = r.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
                 if (uri == null) throw new Exception("sin destino");
                 try (OutputStream os = r.openOutputStream(uri)) { os.write(datos); }
+                destino = uri;
             } else {
                 File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "InnovApp");
                 if (!dir.exists()) dir.mkdirs();
                 File f = new File(dir, n);
                 try (FileOutputStream os = new FileOutputStream(f)) { os.write(datos); }
                 MediaScannerConnection.scanFile(getContext(), new String[]{f.getAbsolutePath()}, new String[]{m}, null);
+                destino = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
             }
             aviso("Guardado en Descargas/InnovApp: " + n);
-            JSObject ret = new JSObject(); ret.put("ok", true); call.resolve(ret);
+            notificarListo(n, destino, m);
+            JSObject ret = new JSObject(); ret.put("ok", true); ret.put("uri", destino.toString()); ret.put("mime", m); call.resolve(ret);
         } catch (Throwable e) {
             aviso("No se pudo guardar el archivo");
             call.reject("No se pudo guardar el archivo", e instanceof Exception ? (Exception) e : null);
@@ -93,6 +127,21 @@ public class ArchivosPlugin extends Plugin {
         } catch (Throwable e) {
             aviso("No se pudo descargar el archivo");
             call.reject("No se pudo descargar", e instanceof Exception ? (Exception) e : null);
+        }
+    }
+
+    /** Abre un archivo ya guardado (botón «Abrir» del aviso de la app): { uri, mime }. */
+    @PluginMethod
+    public void abrir(PluginCall call) {
+        try {
+            Intent ver = new Intent(Intent.ACTION_VIEW);
+            ver.setDataAndType(Uri.parse(call.getString("uri", "")), call.getString("mime", "*/*"));
+            ver.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            getActivity().startActivity(Intent.createChooser(ver, "Abrir con").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            call.resolve();
+        } catch (Throwable e) {
+            aviso("No hay una aplicación para abrir este archivo. Búscalo en Archivos › Descargas › InnovApp");
+            call.reject("sin app");
         }
     }
 

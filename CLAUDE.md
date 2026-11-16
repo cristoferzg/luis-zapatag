@@ -182,6 +182,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   Descarga con `descargarTexto` (blob + download; en Android lo guarda el plugin Archivos). Validar con ifcopenshell/ezdxf.
 - Visores 3D: las funciones en dependencias del efecto que crea el renderer deben ser estables (useCallback); si no, el visor se
   recrea en cada render (así fallaba el grabador de Carpintería Metálica).
+- Descargas en Android (`lib/descargasNativas.ts` + `ArchivosPlugin.java`): cartel en la app «Guardando…» → «Guardado en Descargas ›
+  InnovApp» con «Abrir» (`Archivos.abrir`), y notificación nativa «Descarga lista» (canal «descargas»). DEV: `__descargaNativaSimulada`
+  (incluir en el grep del dist).
 
 ## Impresión en la app Android
 - El WebView no tiene `window.print()`: `imprimirElemento` (src/lib/imprimir.ts) manda el HTML autocontenido al plugin nativo

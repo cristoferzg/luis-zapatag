@@ -19,6 +19,23 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Descargas en la app de Android: aviso visible con «Abrir» (y grabador más liviano)
+- Pedido del dueño: "análisis no profundo de qué falla con el grabador… al descargar un archivo la aplicación no me muestra la
+  descarga ni las alertas".
+- Análisis: (1) el grabador de Carpintería Metálica reconstruía el visor cada segundo (arreglado en la entrada anterior).
+  (2) En Android el archivo SÍ se guardaba en Descargas/InnovApp, pero el único aviso era un Toast de ~3 s (sin notificación ni forma
+  de abrirlo) → parece que "no descarga". (3) El video iba a 8 Mbps y pasa en base64 por el puente nativo (≈20 MB de texto en 15 s):
+  lento o pesado en celulares modestos. Se descartó que revocar el blob al instante rompa la descarga (probado: no la rompe).
+- Qué se hizo: web (`lib/descargasNativas.ts`): cartel dentro de la app «Guardando…» → «✅ Guardado en Descargas › InnovApp» con
+  botón «Abrir» (12 s) o mensaje de error claro; descargas de internet avisan que se ven en la barra de notificaciones. Video a 5 Mbps.
+  Android (`ArchivosPlugin.java`, requiere AAB nuevo): notificación «Descarga lista» (canal «descargas») que abre el archivo al tocarla,
+  `guardar` devuelve la `uri` y método nuevo `abrir`. Con la app vieja el cartel sale igual (sin el botón «Abrir»).
+  DEV: `window.__descargaNativaSimulada` (incluir en el grep del dist).
+- Cómo se probó: tsc 0 errores; `gradle :app:compileDebugJavaWithJavac` OK; capturas antes/después en celular simulado (Pixel 7).
+- Versión: sin compilar (web: hosting; Android: necesita AAB nuevo, código 26110426).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: probar en un celular real la notificación y el botón «Abrir» con la AAB nueva.
+
 ## 2026-11-16 · Grabador de Carpintería Metálica arreglado · exportar a AutoCAD 3D y a Revit (IFC)
 - Pedido del dueño: "el grabador de carpintería metálica no funciona… verifica que al exportar se pueda exportar en AutoCAD y si es
   posible que todo el sistema pueda exportar a Revit".
@@ -250,7 +267,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Notificaciones + Escalera a medida con IA + grabador de CarpiMetal y exportar AutoCAD 3D/Revit (16/11/2026); desplegar hosting + functions |
+| Última mejora sin compilar | Notificaciones + Escalera a medida con IA + grabador de CarpiMetal, exportar AutoCAD 3D/Revit y avisos de descarga (16/11/2026); desplegar hosting + functions y AAB 26110426 (plugin Archivos) |
 | Última versión compilada | Web **2026.11.16.1331** · Android **código 26110425** (16/11/2026: memoria coherente, sin Mis apartados, Mis cursos propios, Gasfitería/Electricidad rediseñadas, vincular y enviar al proyecto) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110426** (el contador sigue +1 desde aquí; nunca bajar de 26110425) |
