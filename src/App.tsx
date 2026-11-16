@@ -29,7 +29,7 @@ import { useSaldoIA } from './lib/saldoIA';
 import { versionApp } from './lib/version';
 import type { Ticket } from './components/TicketsView';
 import type { Asesoria } from './components/AsesoriasView';
-import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, SlidersHorizontal, Armchair, Droplets, Zap, PaintRoller, Hammer, AppWindow } from 'lucide-react';
+import { BookOpen, Key, DoorClosed, Headset, ChevronLeft, ChevronRight, Box, Wrench, Crown, PanelsTopLeft, Eye, Coins, Wallet, Armchair, Droplets, Zap, PaintRoller, Hammer, AppWindow } from 'lucide-react';
 import { ClipboardList, MessageCircle } from 'lucide-react';
 import BandejaAvisos from './components/BandejaAvisos';
 import TarjetaGooglePlay from './components/TarjetaGooglePlay';
@@ -1669,17 +1669,8 @@ export default function App() {
     ]);
   };
   const [showDevPanel, setShowDevPanel] = useState<boolean>(false);
-  // "Mis apartados": cada usuario apaga del menú lo que no usa (no borra nada; se puede
-  // volver a encender). Finanzas personales viene apagado salvo que ya tenga registros.
-  const [misApartados, setMisApartadosEstado] = useState<Record<string, boolean> | null>(null);
-  const [verMisApartados, setVerMisApartados] = useState(false);
-  useEffect(() => {
-    setMisApartadosEstado(safeStorage.getItem<Record<string, boolean> | null>('innova_mis_apartados_' + (activeUid || 'guest'), null));
-  }, [activeUid]);
-  const setMisApartados = (v: Record<string, boolean>) => {
-    setMisApartadosEstado(v);
-    safeStorage.setItem('innova_mis_apartados_' + (activeUid || 'guest'), v);
-  };
+  // "Mis apartados" se QUITÓ (indicación del dueño, 16/11/2026): los usuarios no apagan apartados;
+  // todos se ven siempre. Lo que alguien apagó con la versión anterior vuelve a aparecer.
   // Contexto para el control de acceso a la IA (admin ilimitado; usuarios por plan).
   useEffect(() => { setAICtx(user?.id, isAdmin, user?.name || ''); }, [user?.id, user?.name, isAdmin]);
   // Sesiones antiguas (anónimas, de antes del ingreso seguro por PIN) no tienen
@@ -2583,12 +2574,7 @@ export default function App() {
 
   // Menú corto por rubro: varios apartados se juntan en uno y adentro se cambian con
   // pestañas. Nada se borra: cada vista sigue existiendo con su mismo id.
-  const finanzasConDatos = finances.some(f => f.type === 'familia' || f.type === 'inversion' || f.type === 'deuda');
-  const apartadoEncendido = (clave?: string) => {
-    if (!clave) return true;
-    const v = misApartados?.[clave];
-    return v === undefined ? (clave !== 'finanzas' || finanzasConDatos) : v;
-  };
+  const apartadoEncendido = (_clave?: string) => true; // todos los apartados siempre visibles
   const GRUPOS_MENU: { seccion: string; id: string; label: string; corto?: string; icon: any; miembros: { id: string; label: string }[]; apartado?: string }[] = [
     { seccion: 'Inicio', id: 'dashboard', label: 'Panel Principal', icon: Activity, miembros: [{ id: 'dashboard', label: 'Panel' }, { id: 'reporte', label: 'Reporte del mes' }] },
     { seccion: 'Inicio', id: 'membresia', label: 'Membresía Premium', corto: 'Membresía', icon: Crown, miembros: [{ id: 'membresia', label: 'Membresía' }] },
@@ -2688,42 +2674,6 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800">
-      {/* MIS APARTADOS: cada usuario elige qué apartados de diseño ve en su menú */}
-      {verMisApartados && (
-        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-3" onClick={() => setVerMisApartados(false)}>
-          <div className="bg-white w-full sm:max-w-sm max-h-[85vh] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-            <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3 border-b border-slate-100">
-              <div className="min-w-0">
-                <h3 className="text-base font-black text-slate-900">Mis apartados</h3>
-                <p className="text-[12px] text-slate-500 leading-snug">Apaga lo que no usas y tu menú queda más corto. No se borra nada: lo vuelves a encender cuando quieras.</p>
-              </div>
-              <button onClick={() => setVerMisApartados(false)} className="shrink-0 w-10 h-10 -mr-1 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-100 cursor-pointer" aria-label="Cerrar"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-              {gruposVisibles.filter(g => g.apartado).map(g => {
-                const on = apartadoEncendido(g.apartado);
-                const G = g.icon;
-                return (
-                  <button key={g.id} onClick={() => setMisApartados({ ...(misApartados || {}), [g.apartado!]: !on })}
-                    className="w-full flex items-center gap-3 px-3 min-h-[52px] rounded-xl border border-slate-200 bg-white text-left cursor-pointer active:bg-slate-50">
-                    <G className="w-5 h-5 text-slate-500 shrink-0" />
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-sm font-bold text-slate-800 truncate">{g.label}</span>
-                      {g.apartado === 'finanzas' && <span className="block text-[11px] text-slate-500 truncate">Caja familiar, inversiones y deudas</span>}
-                    </span>
-                    <span className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${on ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                      <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="px-4 py-3 border-t border-slate-100">
-              <button onClick={() => setVerMisApartados(false)} className="w-full h-11 rounded-xl bg-slate-900 text-white text-sm font-bold cursor-pointer">Listo</button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* PANEL DE INTERRUPTORES DE APARTADOS (solo admin) */}
       {isAdmin && showDevPanel && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3" onClick={() => setShowDevPanel(false)}>
@@ -2853,11 +2803,6 @@ export default function App() {
                 </React.Fragment>
               );
             })}
-            <button onClick={() => { setVerMisApartados(true); setIsMobileMenuOpen(false); }} title="Mis apartados: elige qué ves en el menú"
-              className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center py-2.5' : 'pl-3 pr-2.5 py-2'} rounded-lg text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 cursor-pointer`}>
-              <SlidersHorizontal className={`w-[18px] h-[18px] ${isSidebarCollapsed ? '' : 'mr-3'} shrink-0 text-slate-500`} />
-              {!isSidebarCollapsed && <span className="truncate text-[13px]">Mis apartados</span>}
-            </button>
           </div>
         </div>
         
