@@ -393,6 +393,66 @@
           "titulo": "12. Crecer: de taller a empresa"
         }
       ]
+    },
+    {
+      "clave": "portones",
+      "nombre": "Portones Automáticos",
+      "descripcion": "Automatiza portones que no fallan: tipos, peso y motor, hoja y riel, cremallera, batientes, electricidad, seguridad, entrega, levadizos, control de acceso, cortes de luz y mantenimiento.",
+      "gratis": false,
+      "precioSoles": 39,
+      "precioAntesSoles": 79,
+      "destacado": true,
+      "enSlider": true,
+      "portada": "portadas/portones-v2.png",
+      "recursos": [
+        {
+          "nombre": "Elección del motor y checklist de instalación.pdf",
+          "archivo": "recursos/portones-motor-instalacion.pdf"
+        },
+        {
+          "nombre": "Checklist de seguridad, entrega y mantenimiento.pdf",
+          "archivo": "recursos/portones-seguridad-mantenimiento.pdf"
+        }
+      ],
+      "clases": [
+        {
+          "titulo": "1. Tipos de portón y cuál conviene",
+          "gratis": true
+        },
+        {
+          "titulo": "2. Peso de la hoja y elección del motor"
+        },
+        {
+          "titulo": "3. La hoja que corre sola"
+        },
+        {
+          "titulo": "4. Motor y cremallera del corredizo"
+        },
+        {
+          "titulo": "5. Portones batientes"
+        },
+        {
+          "titulo": "6. La instalación eléctrica"
+        },
+        {
+          "titulo": "7. Seguridad: que nunca lastime a nadie"
+        },
+        {
+          "titulo": "8. Programación, cotización y entrega"
+        },
+        {
+          "titulo": "9. Levadizos y seccionales"
+        },
+        {
+          "titulo": "10. Control de acceso"
+        },
+        {
+          "titulo": "11. Cuando se va la luz"
+        },
+        {
+          "titulo": "12. Fallas y mantenimiento"
+        }
+      ]
     }
   ],
   "recursos_tecnicos": [

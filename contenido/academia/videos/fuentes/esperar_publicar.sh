@@ -2,7 +2,7 @@
 # Espera hasta que haya N videos nuevos listos (de la lista) y los sube a la rama; imprime los nombres.
 cd /home/claude/video
 N=$1; shift
-declare -A NOMBRE=( [sold]=soldadura [est]=estructuras [carp]=carpinteria [plan]=planos [naves]=naves [techo]=techos [neg]=negocio )
+declare -A NOMBRE=( [sold]=soldadura [est]=estructuras [carp]=carpinteria [plan]=planos [naves]=naves [techo]=techos [neg]=negocio [porton]=portones )
 hechos=0
 while [ $hechos -lt $N ]; do
   for c in "$@"; do

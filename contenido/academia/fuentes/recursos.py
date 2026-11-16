@@ -441,6 +441,36 @@ NEG_ACUERDO = doc('Cotización y acuerdo simple', 'El Negocio del Metalero',
  '<h2>Control de pagos</h2>' + tabla(['Fecha', 'Concepto', 'Monto (S/)', 'Constancia'], [['', 'Adelanto', '', ''], ['', 'Adicional N.º', '', ''], ['', 'Saldo a la entrega', '', '']]) +
  '<h2>Entrega y postventa</h2>' + checklist(['Revisión propia antes de entregar', 'Recorrido con el cliente y conformidad por escrito', 'Fotos, reseña y recomendación', 'Mensaje a los 30 días · recordatorio a los 6 meses']) + FIRMAS)
 
+PORT_MOTOR = doc('Elección del motor y checklist de instalación', 'Portones Automáticos',
+ 'Para elegir el motor con números y no olvidar nada en la instalación. Los valores son referenciales: manda siempre el manual del fabricante. La conexión a la red eléctrica la hace o revisa un electricista según el CNE.',
+ '<h2>1. Peso de la hoja</h2>' + tabla(['Parte', 'Cálculo', 'Peso (kg)'], [
+   ['Perfiles del marco y travesaños', 'metros × kg/m (tubo 50×50×2 mm ≈ 3.0 kg/m)', ''], ['Plancha o relleno', 'm² × 7.85 × espesor en mm (1.5 mm ≈ 11.8 kg/m²)', ''],
+   ['Ruedas, guías, cremallera, soldadura', 'estimado (≈ 10 %)', ''], ['<b>TOTAL</b>', '', '']]) +
+ '<p><b>Ejemplo del curso:</b> hoja corredizo 3.90 × 2.40 m → 73 + 110 + 20 ≈ <b>200 kg</b> → motor de <b>600 kg</b>.</p>' +
+ '<h2>2. Elección del motor</h2>' + tabla(['Dato', 'Regla', 'Tu portón'], [
+   ['Capacidad', 'Al menos 1.5 a 2 veces el peso real', ''], ['Uso / ciclos', 'Casa: residencial · Condominio/empresa: uso intenso o 24 V', ''],
+   ['Velocidad', '≈ 10 a 12 m/min es normal', ''], ['Protección', 'Exterior: IP44 o más', ''], ['Tensión', '220 V (económico) · 24 V (suave, más ciclos, batería)', ''],
+   ['Batiente', 'Largo máximo y peso máximo POR HOJA', '']]) +
+ '<h2>3. Antes del motor (prueba sin motor)</h2>' + checklist(['Diagonales iguales (± 3 mm)', 'Riel recto y a nivel; largo = hoja + recorrido', 'Ruedas en V con rodamiento, alineadas',
+   'Guía superior con 2 a 3 mm de juego', 'Topes mecánicos en ambos extremos', 'Se mueve con una mano y se queda quieta en cualquier punto']) +
+ '<h2>4. Instalación</h2>' + checklist(['Dado de concreto nivelado con tubo para cables (antes de vaciar)', 'Medidas de placa y distancia a la hoja según el manual',
+   'Cremallera: holgura de 1 a 2 mm con el piñón; empalmes con regla de cremallera', 'Fines de carrera 2 a 3 cm antes de los topes',
+   'Circuito exclusivo con termomagnético, diferencial 30 mA y tierra', 'Baja tensión en tubo separado · empalmes solo en cajas · motor elevado']) + FIRMAS)
+
+PORT_SEG = doc('Checklist de seguridad, entrega y mantenimiento', 'Portones Automáticos',
+ 'Úsalo en cada entrega y en cada visita de mantenimiento. Guárdalo firmado junto con la garantía.',
+ DATOS_OBRA +
+ '<h2>1. Seguridad</h2>' + checklist(['Fotoceldas a 40–50 cm del piso, alineadas', 'Fuerza / sensibilidad regulada al mínimo que mueve la hoja', 'Luz destellante (obligatoria con cierre automático)',
+   'Banda de seguridad en el borde de cierre (si corresponde)', 'Zonas de atrapamiento revisadas · malla en barrotes junto al poste', 'Desbloqueo manual probado',
+   '<b>Prueba del obstáculo:</b> para y retrocede', '<b>Prueba de fotoceldas:</b> para y abre']) +
+ '<h2>2. Programación y entrega</h2>' + checklist(['Aprendizaje del recorrido y frenada suave', 'Cierre automático solo con fotoceldas y luz', 'Controles de código variable grabados: N.º ____',
+   '10 ciclos completos con el cliente', 'Cliente capacitado: desbloqueo, pila, corte de luz', 'Entregados: controles, manual, garantía escrita', 'Primera revisión programada: ____ / ____ / ____']) +
+ '<h2>3. Diagnóstico rápido</h2>' + tabla(['Síntoma', 'Revisar primero'], [
+   ['No responde al control', 'Energía · pila · receptor · memoria del control'], ['Abre y regresa / se detiene', 'Fotoceldas (sucias o desalineadas) · fuerza baja · roce'],
+   ['Zumba y no se mueve', 'Desbloqueo · condensador de arranque (220 V) · traba mecánica'], ['Se pasa del final', 'Fin de carrera'], ['Hace ruido', 'Cremallera · ruedas · riel · guía']]) +
+ '<h2>4. Mantenimiento (cada 6 meses)</h2>' + checklist(['Cortar la energía antes de trabajar', 'Limpiar riel y fotoceldas (sin grasa en el riel)', 'Revisar ruedas, guías, topes y pernos de la base',
+   'Ajustar cremallera', 'Probar fuerza, fotoceldas, obstáculo y desbloqueo', 'Anotar observaciones y próxima visita']) + FIRMAS)
+
 RECURSOS = {
   'soldadura-tabla-electrodos': SOLD_TABLA, 'soldadura-checklist-inspeccion': SOLD_CHECK,
   'naves-tabla-trazo-arco': NAVES_TRAZO, 'naves-checklist-montaje': NAVES_CHECK,
@@ -449,6 +479,7 @@ RECURSOS = {
   'planos-simbologia-soldadura': PL_SIMB, 'planos-glosario': PL_GLOS,
   'techos-tabla-pendientes': TECHO_TABLA, 'techos-hoja-metrado': TECHO_HOJA,
   'negocio-costo-hora': NEG_HORA, 'negocio-cotizacion-acuerdo': NEG_ACUERDO,
+  'portones-motor-instalacion': PORT_MOTOR, 'portones-seguridad-mantenimiento': PORT_SEG,
 }
 
 if __name__ == '__main__':

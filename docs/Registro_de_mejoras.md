@@ -19,6 +19,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-16 · Academia: plantillas verificadas, Naves 1-8 corregidas, paquetes y curso "Portones Automáticos"
+- Pedido del dueño: "Que sigue" → "Todas" (paquetes, plantillas, rehacer Naves 1-8, curso nuevo).
+- Qué se hizo: (1) 5 plantillas nuevas en Recursos Técnicos (taller 2 aguas 10×16, nave 2 aguas 12×24, casa 4 aguas 8×12, parabólicas 10×20 y 18×36), generadas con el motor real de Techos Metálicos y memoria de cálculo CUMPLE, S/ 9.90 c/u. (2) Naves clases 1-8 vueltas a grabar ("CLASE n DE 13") y reemplazadas en sus mismas clases. (3) Propuesta de 4 paquetes con ids y precios en el doc del proyecto "Paquetes_Academia_propuesta" (los carga el admin en la Tienda). (4) Curso nuevo "Portones Automáticos": 12 clases (≈39 min), obra = portón corredizo 3.90 × 2.40 m de una cochera; S/ 39 (antes 79), clase 1 gratis, portada v2 y 2 PDFs.
+- Archivos principales: `contenido/academia/plantillas/*` (5 json + vista); `contenido/academia/videos/fuentes/porton_comun.py`, `porton_c1..c12.py`, `naves_c1v2.py`, `naves_c2..c8.py`; `contenido/academia/fuentes/portadas2.py` (ilustración portones), `recursos.py` (PORT_MOTOR, PORT_SEG); `portadas/portones-v2.png`, `recursos/portones-*.pdf`; `catalogo.json`.
+- Cómo se probó: hoja de cuadros de prueba de cada clase revisada y corregida antes de grabar; tamaño de cada video en la rama comparado antes de subir; `listar_cursos` / `listar_recursos` confirman todo.
+- Versión: sin compilar (solo contenido).
+- Commit(s): este.
+- Pendiente / a vigilar: el dueño carga los paquetes en la Tienda y borra los 3 duplicados viejos de plantillas de naves (bib_1794716266314, …267262, …268146). Temas eléctricos del curso remiten a electricista (CNE).
+
 ## 2026-11-16 · Academia: curso "El Negocio del Metalero" y portadas nuevas
 - Pedido del dueño: "Dale" (curso del negocio) y "mejorar las imágenes de los cursos, que llamen la atención".
 - Qué se hizo: 12 clases publicadas con el MCP siguiendo el caso de una cochera (costo de la hora, visita, cotización, precio y margen, acuerdo y adelanto, cobranza y caja, entrega y garantía; avanzado: clientes, formalización —orientación general, remite a contador—, equipo, crecer). S/ 39 (antes 79), clase 1 gratis, 2 PDFs. Portadas v2 para los 7 cursos (título grande, gancho, etiquetas, ilustración con brillo; zonas libres para las insignias y el contador de clases de la tarjeta) ya puestas en la Academia; se mostraron antes y después.
@@ -65,7 +74,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Próximo código Android | **26110424** (el contador sigue +1 desde aquí; nunca bajar de 26110423) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | Programado y probado; **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
-| MCP de Academia | **Publicado y conectado** (15/11/2026). **7 cursos completos** (80 clases): Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 3 plantillas de naves en Recursos Técnicos (`plantilla.datosUrl`). Voz: la mexicana automática (el dueño no quiso usar la suya). Videos en la rama `academia-videos` |
+| MCP de Academia | **Publicado y conectado** (15/11/2026). **8 cursos completos** (92 clases): Naves Parabólicas 13 (S/ 79, ≈1 h), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |
 | Datos de venta | Acceso **S/ 50, pago único y permanente** · Yape **966000500** a nombre del **Ing. Luis Zapata** |
 | Despliegue web | `firebase deploy --only hosting,firestore:rules` (+ `functions` cuando estén los secretos de WhatsApp) |
 
