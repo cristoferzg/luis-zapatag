@@ -19,6 +19,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Compilación 26110427 (web 2026.11.16.2218) — «carga todo, compila todo»
+- Web + AAB/APK 26110427 (firmados 01:D3…74:33, verificado). Manual V6 subido con el MCP a Recursos
+  (bib_1792893362869 «Manual de Usuario de la Plataforma V6», archivo en academia/mcp/manual/).
+- Play: la subida automática (subir-play.yml) NO se pudo lanzar: el archivo no está en la rama principal (master) → GitHub da 404.
+  Para usarla: pasar .github/workflows/subir-play.yml a master y cargar los secretos KEYSTORE_BASE64/KEYSTORE_PASSWORD/
+  PLAY_SERVICE_ACCOUNT_JSON. Esta vez el dueño sube el .aab a mano.
+- Firebase: sin credenciales en el equipo de trabajo → el dueño despliega `firebase deploy --only hosting,functions`.
+- Pendiente: tras desplegar functions, cargar `detalles` del visor 3D a las plantillas con el MCP.
+
 ## 2026-11-17 · Compilación web 2026.11.16.2212 (sin app nueva)
 - Pedido del dueño: "Compila".
 - Incluye: carga más rápida, Carpeta privada rediseñada (descargas PDF/AutoCAD/Revit), Academia con tarjetas de cursos para
@@ -413,9 +422,9 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 | Dato | Valor |
 |---|---|
 | Última mejora sin compilar | — (web 2026.11.16.2212 compilada el 17/11/2026) |
-| Última versión compilada | Web **2026.11.16.2212** (17/11/2026) · Android **código 26110426** (sin cambios nativos después) |
+| Última versión compilada | Web **2026.11.16.2218** · Android **código 26110427** (17/11/2026) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
-| Próximo código Android | **26110427** (nunca bajar de 26110426) |
+| Próximo código Android | **26110428** (nunca bajar de 26110427) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | **Apagado en el servidor** (16/11/2026, exports comentados para que el deploy no pida los secretos). Programado y probado; para activarlo **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026). **9 cursos completos** (104 clases): Seguridad en Obra y Trabajos en Altura 12 (S/ 29, ≈35 min), Naves Parabólicas 13 (S/ 79, ≈1 h 35 min, clases ampliadas), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |
