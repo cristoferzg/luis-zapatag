@@ -69,6 +69,25 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): (este commit)
 - Pendiente / a vigilar: aberturas en muros del IFC; Melamina/Drywall 3D/Gasfitería/Electricidad aún sin IFC propio.
 
+## 2026-11-16 · Recursos Técnicos: 5 plantillas Excel de techos
+- Pedido del dueño: "Nos falta poder añadir plantillas Excel para techos parabólicos, a dos aguas y etc." → se mostró una muestra
+  (parabólica), luego: "Sí dale. Agrego todo pero no lo pongas gratis".
+- Qué se hizo: 5 hojas de Excel con fórmulas (solo se llenan las celdas amarillas): Nave parabólica, Techo a dos aguas (tijeral
+  Pratt/Howe/Warren/Fink), Techo a cuatro aguas (limatesas, medios tijerales, correas por línea), Techo a una agua (cocheras) y
+  Arcotecho (tubo curvado con tirante). Cada una: Cómo usar · Datos · tabla de trazo/tijeral · Metrado (m, kg, barras de 6 m) ·
+  Presupuesto (GG, utilidad, IGV, precio por m²) · Catálogo (perfiles y coberturas de `techosCadCatalog`, precios editables).
+  Criterios de Techos Metálicos: flecha 0.14 L, peralte L/18, mismos nombres y perfiles de las plantillas de Recursos Técnicos.
+  Subidas con el MCP a Recursos Técnicos (categoría Techos Metálicos): parabólica bib_1794874514436, dos aguas bib_1794874515477,
+  cuatro aguas bib_1794874516538 (S/ 9.90 c/u), una agua bib_1794874517583 (S/ 4.90, antes 9.90) y arcotecho bib_1794874518657 (S/ 9.90).
+  La app ya aceptaba .xlsx (MIME en `mcpCursos.js` y subida «PDF, DWG, DXF, XLSX, ZIP»): no hubo cambios de código.
+- Archivos principales: `contenido/academia/plantillas-excel/` (xlsx, portadas y `fuentes/`: `armar.py` constructor común, un script por techo).
+- Cómo se probó: recálculo con LibreOffice, 0 errores en las 5 hojas; números revisados contra las plantillas 3D (p. ej. nave 15 × 30 m:
+  arco de 15.75 m, 7 arcos, 12.1 kg/m²); vista previa de cada hoja.
+- Versión: sin compilar (solo contenido de Recursos Técnicos).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: el dueño crea el paquete «Plantillas Excel de Techos» (5 ids, sugerido S/ 24.90) en la Tienda; precios de mano de
+  obra, montaje y placas son referenciales.
+
 ## 2026-11-16 · Academia: video «Instalar InnovApp en tu iPhone o iPad»
 - Pedido del dueño: "No tenemos video de instalación desde iPhone" → hacerlo y subirlo, cuidando el léxico y la pronunciación de la voz.
 - Qué se hizo: tutorial de 2 min 32 s con un iPhone dibujado y círculo de toque: Safari → Compartir → «Agregar a pantalla de inicio»
