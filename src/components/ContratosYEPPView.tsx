@@ -474,7 +474,7 @@ function ContratosSubView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
       {/* Celular: alternar entre llenar datos y ver el documento */}
-      <div className="lg:hidden sticky top-0 z-20 grid grid-cols-2 border-b border-slate-200 bg-slate-50">
+      <div className="lg:hidden grid grid-cols-2 border-b border-slate-200">
         {([['datos', '1. Llenar datos'], ['documento', '2. Ver contrato']] as const).map(([id, txt]) => (
           <button key={id} type="button" onClick={() => { setVistaMovil(id); window.scrollTo({ top: 0 }); }}
             className={`py-2.5 -mb-px border-b-[3px] text-[13px] font-black cursor-pointer ${vistaMovil === id ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500'}`}>{txt}</button>
@@ -624,7 +624,7 @@ function ContratosSubView({
           {errorIA && <p className="mb-1.5 text-[11px] font-bold text-rose-700">{errorIA}</p>}
           <textarea 
             rows={5} 
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono leading-relaxed resize-none text-slate-800"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-[13px] leading-relaxed resize-y text-slate-800"
             value={detallesEspeciales}
             onChange={e => setDetallesEspeciales(e.target.value)}
           />

@@ -37,6 +37,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Versión: sin compilar aún (hosting + functions: el gasto se anota desde que se despliegue).
 - Commit(s): (este commit)
 - Pendiente / a vigilar: el gasto anterior al despliegue no tiene detalle por función (solo el total de usos).
+- Vuelta 3 (captura de Contratos & EPP en el celular): las pestañas «1. Llenar datos / 2. Ver contrato» ya no quedan pegadas arriba
+  tapando el formulario al bajar, y las cláusulas usan letra normal (antes de máquina de escribir) y el cuadro se puede agrandar.
 - Vuelta 2 (dueño: "No pongas archivo json. Revisa Revit… no lo reconoce"): «archivo .json» era solo el título de prueba; los diseños
   subidos como .json ahora se llaman «Diseño editable». IFC: validado con reglas EXPRESS completas (0 errores en techo, escalera y
   obra) → el contenido está bien. Se descarga como application/octet-stream (Android ya no puede cambiarle la extensión), cabecera
