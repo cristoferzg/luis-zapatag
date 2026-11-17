@@ -188,16 +188,36 @@ export function ifc(solidos: SolidoCad[], proyecto = 'InnovApp', autor = 'InnovA
   if (elementos.length) e(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${guid()}',${hist},$,$,(${elementos.join(',')}),${nivel})`);
   porMaterial.forEach((els, m) => e(`IFCRELASSOCIATESMATERIAL('${guid()}',${hist},$,$,(${els.join(',')}),${e(`IFCMATERIAL(${txt(m)})`)})`));
   const fecha = new Date().toISOString().slice(0, 19);
-  return ['ISO-10303-21;', 'HEADER;', "FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');",
+  return ['ISO-10303-21;', 'HEADER;', "FILE_DESCRIPTION(('ViewDefinition [CoordinationView_V2.0]'),'2;1');",
     `FILE_NAME(${txt(proyecto + '.ifc')},'${fecha}',(${txt(autor)}),('InnovApp'),'InnovApp','InnovApp','');`, "FILE_SCHEMA(('IFC2X3'));", 'ENDSEC;', 'DATA;', ...L, 'ENDSEC;', 'END-ISO-10303-21;'].join('\n');
 }
 
-/** Descarga un texto como archivo (en la app de Android lo guarda en Descargas/InnovApp). */
+/** Descarga un texto como archivo (en la app de Android lo guarda en Descargas/InnovApp).
+ *  Los .IFC y .DXF van como «application/octet-stream»: con su tipo propio, Android puede cambiarles la
+ *  extensión al guardarlos y Revit/AutoCAD ya no los reconocen. */
 export function descargarTexto(contenido: string, nombre: string, mime = 'application/octet-stream') {
-  const url = URL.createObjectURL(new Blob([contenido], { type: mime }));
+  const cad = /\.(ifc|dxf)$/i.test(nombre);
+  const url = URL.createObjectURL(new Blob([contenido], { type: cad ? 'application/octet-stream' : mime }));
   const a = document.createElement('a');
   a.href = url; a.download = nombre;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 3000);
+  if (/\.ifc$/i.test(nombre)) avisoComoAbrirIfc();
+}
+
+/** El .IFC no se abre con doble clic (Windows no lo asocia a Revit): se dice cómo abrirlo. */
+function avisoComoAbrirIfc() {
+  try {
+    const d = document.createElement('div');
+    d.setAttribute('role', 'status');
+    d.style.cssText = 'position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:10001;max-width:min(92vw,520px);background:#312e81;color:#fff;font:600 13px/1.4 system-ui,sans-serif;padding:12px 40px 12px 14px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.3)';
+    d.innerHTML = '<b>Archivo para Revit (.IFC)</b><br>Ábrelo desde Revit: <b>Archivo → Abrir → IFC</b>, o <b>Insertar → Vincular IFC</b>. Con doble clic Windows no lo reconoce.';
+    const x = document.createElement('button');
+    x.textContent = '✕'; x.setAttribute('aria-label', 'Cerrar');
+    x.style.cssText = 'position:absolute;right:8px;top:8px;background:transparent;border:0;color:#fff;font-size:16px;cursor:pointer';
+    x.onclick = () => d.remove();
+    d.appendChild(x); document.body.appendChild(d);
+    setTimeout(() => d.remove(), 14000);
+  } catch { /* sin aviso */ }
 }
 export const nombreArchivo = (s: string) => (s || 'modelo').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 60) || 'modelo';

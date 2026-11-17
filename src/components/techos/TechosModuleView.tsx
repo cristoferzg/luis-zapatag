@@ -631,7 +631,7 @@ export const TechosModuleViewContent: React.FC<TechosModuleViewProps> = ({
           const { solidos, superficies } = solidosDeTecho(engineState.nodes, engineState.segments, engineState.coverageZones || {});
           return solidos.length ? dxf3D(solidos, nombreProyecto || 'Techo', superficies) : dxfModelo3D(engineState.nodes, engineState.segments, nombreProyecto);
         })();
-    const url = URL.createObjectURL(new Blob([texto], { type: 'application/dxf' }));
+    const url = URL.createObjectURL(new Blob([texto], { type: 'application/octet-stream' }));   // con su tipo propio Android puede cambiar la extensión
     const a = document.createElement('a');
     a.href = url; a.download = `${base}_${tipo === 'lamina' ? 'lamina' : '3d'}.dxf`;
     document.body.appendChild(a); a.click(); a.remove();

@@ -986,7 +986,7 @@ export default function ConcretoPlanoCad({ onEditarEnTechos, modo = 'obra' }: { 
     bloques.forEach(b => rect(b.x, b.y, b.ancho, b.fondo, `ACCESORIO_${b.nombre}`.toUpperCase().replace(/[^A-Z0-9_]/g, '_').slice(0, 30)));
     const txt = generateDxfContent(L, esDrywall ? 'Drywall' : 'Obra_Civil');
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([txt], { type: 'application/dxf' }));
+    a.href = URL.createObjectURL(new Blob([txt], { type: 'application/octet-stream' }));
     a.download = `${esDrywall ? 'drywall' : 'obra_civil'}_${new Date().toISOString().slice(0, 10)}.dxf`;
     document.body.appendChild(a); a.click(); a.remove();
   };

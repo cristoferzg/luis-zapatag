@@ -11,6 +11,7 @@ const MODULO: Record<string, string> = { techos: 'Techos Metálicos', carpimetal
 export function tipoRecurso(r: BibliotecaItem): { texto: string; Icono: typeof Layers; fondo: string } {
   if (r.plantilla) return { texto: `Se abre en ${MODULO[r.plantilla.modulo] || 'el programa'}`, Icono: Layers, fondo: 'from-emerald-600 to-teal-800' };
   const ext = (r.fileName || '').toLowerCase().split('.').pop() || '';
+  if (ext === 'json') return { texto: 'Diseño editable', Icono: Layers, fondo: 'from-emerald-600 to-teal-800' };
   if (/xlsx?|csv/.test(ext)) return { texto: 'Excel editable', Icono: FileSpreadsheet, fondo: 'from-green-600 to-emerald-800' };
   if (/docx?/.test(ext)) return { texto: 'Word editable', Icono: FileType2, fondo: 'from-sky-600 to-blue-800' };
   if (/dwg|dxf/.test(ext)) return { texto: 'Plano CAD', Icono: Ruler, fondo: 'from-indigo-600 to-violet-800' };
