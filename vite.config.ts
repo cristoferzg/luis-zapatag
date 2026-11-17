@@ -119,14 +119,23 @@ export default defineConfig({
     chunkSizeWarningLimit: 4000,
     rollupOptions: {
       output: {
+        // Solo se fijan bloques para lo grande y compartido. Lo demás va con quien lo usa:
+        // antes TODO node_modules caía en vendor-main (cargado al abrir), incluidas las librerías
+        // de PDF, QR y ZIP que solo usan algunos apartados (≈ 1/2 del bloque inicial).
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('three')) return 'vendor-three';
-            if (id.includes('firebase')) return 'vendor-firebase';
-            if (id.includes('mediabunny')) return 'vendor-video'; // solo al subir un video
-            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('html2pdf')) return 'vendor-pdf';
-            return 'vendor-main';
-          }
+          // Ayudantes de Vite/Rollup: si caen en un bloque pesado (PDF), lo arrastran al arranque.
+          if (id.includes('vite/preload-helper') || id.includes('commonjsHelpers') || id.includes('vite/modulepreload-polyfill')) return 'vendor-react';
+          if (!id.includes('node_modules')) return undefined;
+          if (/node_modules\/(@babel\/runtime|tslib)\//.test(id)) return 'vendor-react';
+          if (id.includes('lucide-react')) return 'vendor-iconos'; // un solo bloque (antes: un archivo por ícono)
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react';
+          if (id.includes('three')) return 'vendor-three';
+          if (id.includes('firebase') || id.includes('/re2js/') || id.includes('/idb/')) return 'vendor-firebase';
+          if (id.includes('mediabunny')) return 'vendor-video'; // solo al subir un video
+          if (/node_modules\/(jspdf|html2canvas|html2pdf|canvg|fflate|fast-png|dompurify|core-js|stackblur-canvas|iobuffer|svg-pathdata|rgbcolor|raf|performance-now)\//.test(id)) return 'vendor-pdf';
+          if (/node_modules\/(jszip|pako)\//.test(id)) return 'vendor-zip';
+          if (id.includes('/jsqr/')) return 'vendor-qr';
+          return undefined;
         },
       },
     },

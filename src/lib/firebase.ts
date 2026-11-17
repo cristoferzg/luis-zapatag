@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, setLogLevel, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, terminate, clearIndexedDbPersistence, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, Auth, signInAnonymously, onAuthStateChanged, connectAuthEmulator } from 'firebase/auth';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
@@ -27,9 +27,25 @@ const targetDbId = currentProjectId === 'innovacontratistas-434d2' ? undefined :
 
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-export const db: Firestore = (targetDbId && targetDbId !== '(default)')
-  ? getFirestore(app, targetDbId)
-  : getFirestore(app);
+// Memoria de la base en el equipo (IndexedDB): al abrir la app se muestra al instante lo que ya
+// tenía y el servidor manda SOLO lo que cambió (antes cada apertura volvía a bajar las listas
+// completas). Si el navegador no la permite (modo privado, WebView antiguo), queda como antes.
+const dbIdFinal = targetDbId && targetDbId !== '(default)' ? targetDbId : undefined;
+function crearDb(): Firestore {
+  try {
+    const ajustes = { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) };
+    return dbIdFinal ? initializeFirestore(app, ajustes, dbIdFinal) : initializeFirestore(app, ajustes);
+  } catch (e) {
+    console.warn('[db] sin memoria en el equipo:', (e as Error)?.message);
+    return dbIdFinal ? getFirestore(app, dbIdFinal) : getFirestore(app);
+  }
+}
+export const db: Firestore = crearDb();
+
+/** Al cerrar sesión: borra la memoria de la base en el equipo (celulares compartidos). */
+export async function borrarMemoriaBase(): Promise<void> {
+  try { await terminate(db); await clearIndexedDbPersistence(db); } catch { /* otra pestaña abierta: se borra la próxima vez */ }
+}
 
 export const auth: Auth = getAuth(app);
 export const storage: FirebaseStorage = getStorage(app);

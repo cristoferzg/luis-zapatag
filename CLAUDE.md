@@ -245,6 +245,13 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - DEV: `__pagoEnLineaSimulado`, `__primeraDobleSimulada`, `__embudoSimulado`, `__aiAccessSimulado` (incluir en el grep del dist).
 
 ## Rapidez al entrar
+- Bloques (vite.config.ts `manualChunks`): vendor-react (+ ayudantes de Vite), vendor-iconos, vendor-firebase (+re2js, idb),
+  vendor-pdf, vendor-zip, vendor-qr, vendor-three, vendor-video; lo demás va con quien lo usa. NO volver a un "vendor-main" con
+  todo node_modules (metía PDF/QR/ZIP en el arranque). Bloque inicial ≈ 352 KB gz (antes 525). Revisar con build + modulepreload.
+- App NO importa catalogoPrecios.ts (trae catálogos de ≈200 KB): usa `lib/catalogoEstado.ts` (estado de precios).
+- Firestore con `persistentLocalCache` (IndexedDB) en lib/firebase.ts; al cerrar sesión `borrarMemoriaBase()` + recarga.
+  db.ts ignora una lista vacía que venga de la memoria (`fromCache`) si el equipo ya tenía copia.
+- Medir con volumen: `seguridad/semilla_volumen.mjs` (emuladores).
 - `useFirestoreArraySync(..., { diferirMs, ahora })`: usuarios, cursos, tutoriales, biblioteca, tickets y asesorías se conectan
   8 s después de entrar (o al instante si se abre su apartado; luego quedan conectadas). El Inicio solo espera projects,
   clients, finances, settings, notificaciones y config_flags. Aviso de compras (purchases) también a los 8 s.

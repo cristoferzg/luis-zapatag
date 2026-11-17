@@ -19,6 +19,31 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Carga más rápida al entrar (25 % menos espera con internet de celular)
+- Pedido del dueño: "que cargue mucho más rápido la base de datos porque demora un poco" (también pidió: plantillas 5 opciones,
+  Academia en el Inicio según el usuario y rediseño de la carpeta privada de Proyectos/Personal → siguientes conversaciones).
+- Análisis (medido): (1) el bloque inicial pesaba 525 KB comprimidos: la regla de `manualChunks` metía TODO node_modules en
+  vendor-main (librerías de PDF, QR y ZIP que solo usan algunos apartados) y el ayudante de carga diferida de Vite quedaba dentro
+  del bloque de PDF. (2) App importaba catalogoPrecios.ts y con él los catálogos de Carpintería Metálica y Techos (≈ 200 KB de
+  código) solo para leer el estado de precios. (3) Firestore sin memoria en el equipo: cada apertura vuelve a pedir las listas.
+- Qué se hizo: `vite.config.ts` con bloques vendor-react / vendor-iconos (un solo archivo de íconos) / vendor-firebase /
+  vendor-pdf / vendor-zip / vendor-qr y el resto con quien lo usa; `lib/catalogoEstado.ts` (estado de precios liviano; App ya no
+  carga los catálogos; la migración de precios viejos se carga aparte y corre una vez). Firestore con `persistentLocalCache`
+  (IndexedDB, varias pestañas): muestra lo guardado al instante y, si se vuelve a abrir dentro de ~30 min, el servidor manda solo
+  lo cambiado; si el equipo no la permite, queda como antes. Al cerrar sesión se borra (`borrarMemoriaBase`) y la app se recarga.
+  db.ts no pisa la copia del equipo con una lista vacía que venga de la memoria aún vacía.
+- Resultado: bloque inicial 525 → 352 KB comprimidos; Inicio visible en 4G simulado (1.6 Mbps, 150 ms) 3.2 s → 2.4 s (3 tomas cada uno).
+- Archivos: `vite.config.ts`, `src/lib/firebase.ts`, `src/lib/db.ts`, `src/lib/catalogoEstado.ts`, `src/lib/catalogoPrecios.ts`,
+  `src/App.tsx`, `seguridad/semilla_volumen.mjs` (datos de volumen para medir en emuladores).
+- Cómo se probó: tsc 0 errores; build; vista previa compilada recorriendo Carpintería Metálica, Techos, Obra Civil, Academia y
+  Melamina sin errores; PDF A3 de Techos (su librería se descarga recién al pedirlo); memoria creada al entrar y borrada al salir;
+  medición en emuladores con 300 obras/800 gastos/200 clientes (una sola petición por lista; el emulador no imita el envío de solo
+  cambios, por eso esa parte no se pudo medir aquí). Imagen de la carga segundo a segundo antes/después.
+- Versión: sin compilar aún (solo web: hosting).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: en emuladores las funciones con disparadores no arrancan por el proxy del equipo de trabajo
+  ("upstream r…"): para medir se simuló el ingreso con PIN. Siguientes: Academia en el Inicio, plantillas, carpeta privada.
+
 ## 2026-11-17 · Compilación 26110426 (web 2026.11.16.1909)
 - Pedido del dueño: "Compila".
 - Incluye: notificaciones (probarAviso, canal 'avisos'), Escalera a medida + «Leer con IA» (disenarCarpimetal), grabador de
@@ -277,7 +302,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (todo compilado en 26110426) |
+| Última mejora sin compilar | Carga más rápida al entrar (17/11/2026): desplegar hosting |
 | Última versión compilada | Web **2026.11.16.1909** · Android **código 26110426** (17/11/2026: notificaciones, escalera a medida con IA, grabador CarpiMetal, AutoCAD 3D/Revit gratis, avisos de descarga) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110427** (nunca bajar de 26110426) |

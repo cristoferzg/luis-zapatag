@@ -60,6 +60,9 @@ export const subscribeToCollection = <T>(
       // are never accidentally wiped out if a remote doc was written with empty arrays or missing fields
       // Solo se mezcla con la copia propia (antes se leían 4 copias en cada cambio y trababa).
       const currentCached = safeStorage.getItem<T[]>(cacheKey, []) || [];
+      // Primera apertura con la memoria de la base aún vacía: no se pisa la copia del equipo
+      // con una lista vacía mientras llega la respuesta del servidor.
+      if (snapshot.metadata.fromCache && remoteItems.length === 0 && currentCached.length > 0) return;
 
       const lookupMap = new Map<string, any>();
       const cachedLists = [currentCached];

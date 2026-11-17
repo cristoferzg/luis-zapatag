@@ -1,8 +1,7 @@
 import AvisoVersionApp from './components/AvisoVersionApp';
 import type { TechosDelProyecto } from './types';
 import { conAcuerdo } from './lib/acuerdoTechos';
-import { useCatalogo, migrarPreciosAntiguos, hidratarCatalogo, EstadoCatalogo } from './lib/catalogoPrecios';
-import { INVENTARIO_PERFILES_TUBULARES } from './components/techos/techosCadCatalog';
+import { useCatalogo, hidratarCatalogo, type EstadoCatalogo } from './lib/catalogoEstado';
 import { EmpresaProvider, datosDesdeSettings, settingsDesdeDatos, DatosEmpresa } from './lib/empresa';
 import { fijarMarcaCaptura } from './lib/captura3d';
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
@@ -16,7 +15,7 @@ import { performAdminBackup } from './lib/backupService';
 import { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
-import { auth, authReady } from './lib/firebase';
+import { auth, authReady, borrarMemoriaBase } from './lib/firebase';
 import { loginWithPinViaFunction } from './lib/pinAuth';
 import { cambiarEspacioDeTrabajo, fijarDuenoSiFalta } from './lib/espacioUsuario';
 import { quitarComunicado } from './lib/comunicados';
@@ -1848,7 +1847,13 @@ export default function App() {
   // Catálogo de precios único: migra precios viejos una vez y se sincroniza
   // con el documento de configuración del usuario (gana el más reciente).
   const catalogoPrecios = useCatalogo();
-  useEffect(() => { migrarPreciosAntiguos(id => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)); }, []);
+  // Una sola vez en la vida del equipo; se carga aparte para no meter los catálogos en el arranque.
+  useEffect(() => {
+    if (safeStorage.getItem<boolean>('innova_catalogo_migrado', false)) return;
+    Promise.all([import('./lib/catalogoPrecios'), import('./components/techos/techosCadCatalog')])
+      .then(([c, t]) => c.migrarPreciosAntiguos(id => t.INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)))
+      .catch(() => { /* se reintenta al abrir otra vez */ });
+  }, []);
   const catalogoRemoto = (currentSettings as any).catalogoPrecios as EstadoCatalogo | undefined;
   useEffect(() => { hidratarCatalogo(catalogoRemoto); }, [catalogoRemoto?.actualizado]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -2175,6 +2180,9 @@ export default function App() {
       await auth.signOut();
     } catch (e) {}
     setCurrentView('dashboard');
+    // La memoria de la base en el equipo se borra y la app se recarga limpia (pantalla del PIN).
+    await borrarMemoriaBase();
+    window.location.reload();
   };
 
   if (loading && !user && !user) {

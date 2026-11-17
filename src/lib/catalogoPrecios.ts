@@ -10,8 +10,8 @@
 // Se guarda en el dispositivo y, si hay sesión, en el documento de
 // configuración del usuario (sincronizado en la nube por App).
 // =============================================================================
-import { useSyncExternalStore } from 'react';
 import { safeStorage } from './storageManager';
+import { almacen, emitir } from './catalogoEstado';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS, PLACA_BASE_ESTANDAR, PERNO_ANCLAJE_J, PERNO_EPDM_ESTANDAR, SOLDADURA_AWS_E6011 } from '../components/techos/techosCadCatalog';
 import { PERFILES_CATALOGO, ACCESORIOS_CATALOGO } from '../components/herreria/herreriaCatalog';
 import { DRYWALL_DEFAULTS, DRYWALL_ITEMS_EXTRA } from '../catalogo/drywall';
@@ -244,8 +244,8 @@ let cacheItems: ItemCatalogo[] | null = null;
 let cacheTodos: { base: ItemCatalogo[]; propios?: ItemCatalogo[]; lista: ItemCatalogo[] } | null = null;
 export const itemsCatalogo = () => {
   const base = (cacheItems ||= construirItems());
-  if (!cacheTodos || cacheTodos.base !== base || cacheTodos.propios !== estado.propios || cacheTodos.lista.length !== base.length + (estado.propios?.length || 0)) {
-    cacheTodos = { base, propios: estado.propios, lista: [...(estado.propios || []), ...base] };
+  if (!cacheTodos || cacheTodos.base !== base || cacheTodos.propios !== almacen.estado.propios || cacheTodos.lista.length !== base.length + (almacen.estado.propios?.length || 0)) {
+    cacheTodos = { base, propios: almacen.estado.propios, lista: [...(almacen.estado.propios || []), ...base] };
   }
   return cacheTodos.lista;
 };
@@ -260,52 +260,37 @@ export const itemCatalogo = (clave: string) => {
 // planchas: coberturas que compras POR PLANCHA → largo de la plancha (m). Sin
 // entrada, la cobertura se compra por m². El precio se guarda siempre por m².
 // propios: materiales que agrega el usuario (clave 'propio:…').
-export interface EstadoCatalogo { precios: Record<string, number>; fechas: Record<string, string>; actualizado: number; planchas?: Record<string, number>; propios?: ItemCatalogo[] }
-const KEY = 'innova_catalogo_precios';
-let estado: EstadoCatalogo = safeStorage.getItem<EstadoCatalogo>(KEY, { precios: {}, fechas: {}, actualizado: 0 }) || { precios: {}, fechas: {}, actualizado: 0 };
-const oyentes = new Set<() => void>();
-const emitir = () => { safeStorage.setItem(KEY, estado); oyentes.forEach(f => f()); };
-
-export const leerCatalogo = () => estado;
-export function useCatalogo() {
-  return useSyncExternalStore(f => { oyentes.add(f); return () => oyentes.delete(f); }, () => estado);
-}
+// El estado vive en catalogoEstado.ts (liviano: lo usa el arranque sin cargar los catálogos).
+export { useCatalogo, hidratarCatalogo, leerCatalogo, type EstadoCatalogo } from './catalogoEstado';
 // Precio vigente: el del usuario o, si no puso uno, el de referencia.
 export function precio(clave: string, defecto = 0): number {
-  const v = estado.precios[clave];
+  const v = almacen.estado.precios[clave];
   if (v !== undefined) return v;
   return itemCatalogo(clave)?.ref ?? defecto;
 }
-export const tienePrecioPropio = (clave: string) => estado.precios[clave] !== undefined;
+export const tienePrecioPropio = (clave: string) => almacen.estado.precios[clave] !== undefined;
 export function fijarPrecio(clave: string, valor: number, fuente = 'manual') {
-  estado = { ...estado, precios: { ...estado.precios, [clave]: Math.max(0, valor) }, fechas: { ...estado.fechas, [clave]: `${new Date().toISOString().slice(0, 10)} · ${fuente}` }, actualizado: Date.now() };
+  almacen.estado = { ...almacen.estado, precios: { ...almacen.estado.precios, [clave]: Math.max(0, valor) }, fechas: { ...almacen.estado.fechas, [clave]: `${new Date().toISOString().slice(0, 10)} · ${fuente}` }, actualizado: Date.now() };
   emitir();
 }
 export function quitarPrecio(clave: string) {
-  const precios = { ...estado.precios }; delete precios[clave];
-  const fechas = { ...estado.fechas }; delete fechas[clave];
-  estado = { ...estado, precios, fechas, actualizado: Date.now() };
+  const precios = { ...almacen.estado.precios }; delete precios[clave];
+  const fechas = { ...almacen.estado.fechas }; delete fechas[clave];
+  almacen.estado = { ...almacen.estado, precios, fechas, actualizado: Date.now() };
   emitir();
 }
-// Llega desde la nube (configuración del usuario): gana el más reciente.
-export function hidratarCatalogo(remoto?: EstadoCatalogo | null) {
-  if (!remoto || !remoto.precios || (remoto.actualizado || 0) <= estado.actualizado) return;
-  estado = { precios: { ...remoto.precios }, fechas: { ...(remoto.fechas || {}) }, actualizado: remoto.actualizado, planchas: { ...(remoto.planchas || {}) }, propios: [...(remoto.propios || [])] };
-  emitir();
-}
-
 // ---- Materiales propios del usuario -----------------------------------------
 export function agregarPropio(it: { nombre: string; grupo: GrupoCatalogo | string; unidad: string; precio: number; usadoEn: string[] }) {
   const clave = `propio:${Date.now().toString(36)}`;
   const nuevo: ItemCatalogo = { clave, grupo: it.grupo as GrupoCatalogo, nombre: it.nombre.trim(), unidad: it.unidad.trim() || 'unidad', ref: 0, usadoEn: it.usadoEn.length ? it.usadoEn : ['Mis materiales'] };
-  estado = { ...estado, propios: [...(estado.propios || []), nuevo], precios: { ...estado.precios, [clave]: Math.max(0, it.precio) },
-    fechas: { ...estado.fechas, [clave]: `${new Date().toISOString().slice(0, 10)} · propio` }, actualizado: Date.now() };
+  almacen.estado = { ...almacen.estado, propios: [...(almacen.estado.propios || []), nuevo], precios: { ...almacen.estado.precios, [clave]: Math.max(0, it.precio) },
+    fechas: { ...almacen.estado.fechas, [clave]: `${new Date().toISOString().slice(0, 10)} · propio` }, actualizado: Date.now() };
   emitir();
   return clave;
 }
 export function quitarPropio(clave: string) {
-  const precios = { ...estado.precios }; delete precios[clave];
-  estado = { ...estado, propios: (estado.propios || []).filter(p => p.clave !== clave), precios, actualizado: Date.now() };
+  const precios = { ...almacen.estado.precios }; delete precios[clave];
+  almacen.estado = { ...almacen.estado, propios: (almacen.estado.propios || []).filter(p => p.clave !== clave), precios, actualizado: Date.now() };
   emitir();
 }
 export const esPropio = (clave: string) => clave.startsWith('propio:');
@@ -313,7 +298,7 @@ export const esPropio = (clave: string) => clave.startsWith('propio:');
 // ---- Coberturas: por m² o por plancha ----------------------------------------
 const coberturaDe = (clave: string) => INVENTARIO_COBERTURAS.find(c => claveCobertura(c.id) === clave);
 /** Largo de plancha (m) si esta cobertura se compra por plancha; si no, undefined. */
-export const largoPlanchaCompra = (clave: string): number | undefined => estado.planchas?.[clave];
+export const largoPlanchaCompra = (clave: string): number | undefined => almacen.estado.planchas?.[clave];
 /** m² que trae una plancha (ancho total × largo). */
 export function m2PorPlancha(clave: string, largoM = largoPlanchaCompra(clave)): number {
   const c = coberturaDe(clave);
@@ -321,9 +306,9 @@ export function m2PorPlancha(clave: string, largoM = largoPlanchaCompra(clave)):
 }
 /** Cambia cómo se compra la cobertura. El precio se guarda por m² y se convierte para mostrarlo. */
 export function fijarCompraCobertura(clave: string, largoM: number | null) {
-  const planchas = { ...(estado.planchas || {}) };
+  const planchas = { ...(almacen.estado.planchas || {}) };
   if (largoM && largoM > 0) planchas[clave] = Math.round(largoM * 100) / 100; else delete planchas[clave];
-  estado = { ...estado, planchas, actualizado: Date.now() };
+  almacen.estado = { ...almacen.estado, planchas, actualizado: Date.now() };
   emitir();
 }
 export const esCobertura = (clave: string) => clave.startsWith('cobertura:');
@@ -358,9 +343,9 @@ export function importarJornales(trabajadores: { role?: string; dailyRate?: numb
       cacheItems?.push({ clave: k, grupo: 'Mano de obra (jornal por día)', nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1), unidad: 'día', ref: 0, usadoEn: ['Personal'] });
       mapa = null; cacheTodos = null;
     }
-    estado.precios[k] = prom; estado.fechas[k] = `${new Date().toISOString().slice(0, 10)} · Personal`;
+    almacen.estado.precios[k] = prom; almacen.estado.fechas[k] = `${new Date().toISOString().slice(0, 10)} · Personal`;
   });
-  estado = { ...estado, precios: { ...estado.precios }, fechas: { ...estado.fechas }, actualizado: Date.now() };
+  almacen.estado = { ...almacen.estado, precios: { ...almacen.estado.precios }, fechas: { ...almacen.estado.fechas }, actualizado: Date.now() };
   emitir();
   return grupos.size;
 }
@@ -369,7 +354,7 @@ export function importarJornales(trabajadores: { role?: string; dailyRate?: numb
 // (Techos guardaba S/ por metro; Obra Civil S/ por m² y S/ por millar.)
 export function migrarPreciosAntiguos(perfilTechos: (id: string) => { categoria: string; anchoMm: number; altoMm: number; espesorMm: number; longitudComercialM?: number; nombre?: string; normaAcabado?: string } | undefined) {
   if (safeStorage.getItem<boolean>('innova_catalogo_migrado', false)) return;
-  const p = { ...estado.precios };
+  const p = { ...almacen.estado.precios };
   const poner = (k: string, v: unknown) => { if (typeof v === 'number' && isFinite(v) && p[k] === undefined) p[k] = Math.round(v * 100) / 100; };
   const ct = safeStorage.getItem<any>('techos_costos_usuario', null);
   if (ct) {
@@ -387,6 +372,6 @@ export function migrarPreciosAntiguos(perfilTechos: (id: string) => { categoria:
   (safeStorage.getItem<any[]>('catalogo_ladrillo', []) || []).forEach(d => siDistinto(claveLadrillo(d.id), d.precioxMil || 0));
   const pc = safeStorage.getItem<any>('concreto_metrados_precios', null);
   if (pc) { siDistinto('concreto:cemento', pc.cementoBolsa); siDistinto('concreto:arena', pc.arenaM3); siDistinto('concreto:piedra', pc.piedraM3); siDistinto('concreto:acero', pc.aceroKg); siDistinto('concreto:encofrado', pc.encofradoM2); }
-  if (Object.keys(p).length !== Object.keys(estado.precios).length) { estado = { ...estado, precios: p, actualizado: Date.now() }; emitir(); }
+  if (Object.keys(p).length !== Object.keys(almacen.estado.precios).length) { almacen.estado = { ...almacen.estado, precios: p, actualizado: Date.now() }; emitir(); }
   safeStorage.setItem('innova_catalogo_migrado', true);
 }
