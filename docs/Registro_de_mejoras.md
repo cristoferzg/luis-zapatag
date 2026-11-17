@@ -19,6 +19,26 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Academia: plantillas y recursos con el mismo diseño que los cursos + mini visor 3D
+- Pedido del dueño: "plantilla y recursos debe visualizar igual que los cursos… mejorar el diseño"; con capturas: buscar
+  «plantillas» no las encontraba y «Mis plantillas» (admin) mostraba carrusel y tarjetas viejas. Además: "añade una opción para
+  visualizar el diseño en 3D sin editarlo, sin descargar, como un mini visor, para que el MCP pueda añadir los detalles".
+- Qué se hizo: `academia/TarjetaRecurso.tsx` (misma tarjeta que los cursos: portada 16:9 completa, etiquetas Plantilla editable /
+  Destacado / Gratis / -%, tipo de archivo en simple —Se abre en Techos, Excel editable, Word, PDF, plano— título en 2 líneas,
+  descripción y pie con precio + «Comprar» / «Canjear» con texto, o «Tienes acceso · Abrir →»). La usan la Tienda (3 columnas como
+  cursos; antes 4 y la portada salía cortada) y «Mis plantillas» (ya no muestra el precio de lo que ya tienes ni el carrusel).
+  Búsqueda tolerante (`coincideBusqueda`: sin tildes, plural/singular, por tipo). Mini visor `academia/VisorPlantilla3D.tsx`
+  (botón «Ver en 3D» en plantillas de Techos y Carpintería Metálica; también antes de comprar): gira solo, se arrastra y acerca;
+  ficha con medidas, piezas y metros calculados + «Detalles» que carga el MCP (`guardar_recurso.detalles` [{etiqueta, valor}],
+  máx. 20, se limpian en el servidor). Usa las mismas piezas que AutoCAD/Revit (solidosCad).
+- Archivos: `src/components/academia/TarjetaRecurso.tsx`, `VisorPlantilla3D.tsx`, `AcademiaTienda.tsx`,
+  `src/components/BibliotecaPremiumView.tsx`, `functions/mcpCursos.js`, `seguridad/mcpCursos.test.mjs`.
+- Cómo se probó: tsc 0 errores; `npm run test:mcp` OK (detalles nuevos); capturas antes/después en PC y celular con los 11 cursos
+  y 14 recursos reales (títulos/precios del MCP); visor con la nave 12×24 y la escalera en U (medidas reales); búsqueda «plantillas» → 10.
+- Versión: sin compilar aún (web: hosting; functions: mcpCursos por el campo detalles).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: cargar «detalles» a las plantillas con el MCP (tras desplegar functions); Drywall no tiene vista 3D.
+
 ## 2026-11-17 · Carpeta privada de clientes: rediseño más claro (Proyectos & Clientes → Carpeta)
 - Pedido del dueño: "rediseña las carpetas porque es un poco confuso" → la carpeta privada de Proyectos y Personal.
 - Qué confundía: dos títulos repetidos ("Carpeta Privada de Clientes" + "Carpeta Privada de Juan"), un número suelto sin explicar,
@@ -381,7 +401,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Carga más rápida + rediseño de la Carpeta privada (17/11/2026): desplegar hosting |
+| Última mejora sin compilar | Carga rápida + Carpeta privada + Academia (tarjetas y visor 3D) (17/11/2026): desplegar hosting + functions (mcpCursos) |
 | Última versión compilada | Web **2026.11.16.1909** · Android **código 26110426** (17/11/2026: notificaciones, escalera a medida con IA, grabador CarpiMetal, AutoCAD 3D/Revit gratis, avisos de descarga) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110427** (nunca bajar de 26110426) |

@@ -87,6 +87,10 @@ assert.equal(rec.isOferta, true); assert.equal(rec.plantilla.modulo, 'techos'); 
 rec.allowedUserIds = ['u9'];
 const r2 = await academia.guardar_recurso({ titulo: 'NAVE PARABÓLICA 20 M', precioSoles: 30 });
 assert.equal(r2.id, r1.id); assert.equal(db.datos.biblioteca.get(r1.id).titulo, 'Nave parabólica 20 m'); assert.deepEqual(db.datos.biblioteca.get(r1.id).allowedUserIds, ['u9']);
+// 6b2) Detalles para el visor 3D: se limpian (sin vacíos, largo máximo) y reemplazan la lista anterior
+await academia.guardar_recurso({ titulo: 'Nave parabólica 20 m', detalles: [{ etiqueta: 'Luz', valor: '20 m' }, { etiqueta: '', valor: 'x' }, { etiqueta: 'Nota', valor: 'y'.repeat(500) }] });
+assert.deepEqual(db.datos.biblioteca.get(r1.id).detalles.map((d) => d.etiqueta), ['Luz', 'Nota']);
+assert.equal(db.datos.biblioteca.get(r1.id).detalles[1].valor.length, 200);
 const lr = await academia.listar_recursos();
 assert.equal(lr[0].plantilla, 'techos'); assert.equal(lr[0].compradores, 1); assert.equal(lr[0].precioSoles, 30);
 

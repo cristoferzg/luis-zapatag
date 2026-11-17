@@ -59,6 +59,7 @@ export interface BibliotecaItem {
   enSlider?: boolean;      // aparece en el carrusel de arriba
   adjuntos?: { nombre: string; url: string; tipo: string; tamano?: number }[];
   plantilla?: { modulo: 'techos' | 'carpimetal' | 'drywall'; datos: any }; // plantilla prediseñada
+  detalles?: { etiqueta: string; valor: string }[]; // ficha junto al visor 3D (la carga el MCP)
   allowedUserIds?: string[];
   fileName?: string;
   isFree?: boolean;
@@ -84,6 +85,9 @@ interface BibliotecaPremiumViewProps {
   sinTitulo?: boolean;   // dentro de la Academia (pestaña "Mis plantillas") el título ya va en la banda de arriba
   soloMios?: boolean;    // Academia → «Mis plantillas»: solo lo que el usuario tiene; sin destacados ni carrusel (eso va en la Tienda)
 }
+
+import TarjetaRecurso, { tiene3D, coincideBusqueda, textoDeRecurso } from './academia/TarjetaRecurso';
+const VisorPlantilla3D = React.lazy(() => import('./academia/VisorPlantilla3D'));
 
 export default function BibliotecaPremiumView({
   items: propItems,
@@ -315,8 +319,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
       matchesTab = !!item.plantilla;
     }
 
-    const matchesSearch = item.titulo.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          item.descripcion.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = coincideBusqueda(searchQuery, textoDeRecurso(item));
     const matchesCategory = selectedCategory === 'all' || item.categoria === selectedCategory;
     return matchesTab && matchesSearch && matchesCategory;
   });
@@ -368,6 +371,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
 
   // Asistente de subida (crear / editar)
   const [plantillaAUsar, setPlantillaAUsar] = useState<BibliotecaItem | null>(null);
+  const [ver3D, setVer3D] = useState<BibliotecaItem | null>(null);
   const [asistente, setAsistente] = useState<{ id: string | null; inicial: BorradorSubida } | null>(null);
 
   const abrirAsistente = async (item?: BibliotecaItem) => {
@@ -565,7 +569,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
         <div className="space-y-4">
           {/* CARRUSEL DE DESTACADOS */}
           {(() => {
-            const enCarrusel = soloMios ? [] : items.filter(i => i.enSlider && (comprasPermitidas() || hasAccess(i)));
+            const enCarrusel = soloMios || sinTitulo ? [] : items.filter(i => i.enSlider && (comprasPermitidas() || hasAccess(i)));
             return enCarrusel.length > 0 && (
               <SliderDestacados laminas={enCarrusel.map(item => ({
                 id: item.id,
@@ -627,99 +631,23 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                 const unlocked = hasAccess(item);
 
                 return (
-                  <div 
-                    key={item.id}
-                    className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-3.5 group"
-                  >
-                    {/* Header del Item */}
-                    <div className="space-y-3">
-                      {item.previewImageUrl && (
-                        <div className="w-full flex items-center justify-center overflow-hidden rounded-xl bg-slate-100 border border-slate-200/70">
-                          <img 
-                            src={item.previewImageUrl} 
-                            alt={item.titulo} 
-                            style={{
-                              width: item.imageWidth && item.imageWidth > 0 ? `${item.imageWidth}px` : '100%',
-                              height: item.imageHeight && item.imageHeight > 0 ? `${item.imageHeight}px` : '150px',
-                              maxWidth: '100%',
-                              objectFit: 'cover'
-                            }}
-                            className="rounded-xl transition-transform duration-300 group-hover:scale-105" 
-                          />
-                        </div>
-                      )}
-
-                      {/* Fila Superior: Icono de Tipo + Categoria | Precio / Acceso Libre */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="p-2.5 rounded-xl shrink-0 flex items-center justify-center bg-indigo-50 text-indigo-600 border border-indigo-100">
-                            <BookOpen className="w-4 h-4" />
-                          </div>
-                          <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/80 truncate">
-                            {item.categoria}
-                          </span>
-                        </div>
-
-                        <div className="shrink-0">
-                          {item.isFree || !comprasPermitidas() ? (
-                            <span className="text-[11px] font-black text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
-                              {item.isFree ? 'Acceso Libre' : 'Habilitado'}
-                            </span>
-                          ) : (
-                            (() => {
-                              const pricing = getConvertedPriceStr(item.precioSoles || 0, item.discountPercentage);
-                              return (
-                                <span className="text-[11px] font-black text-indigo-900 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200/90 shadow-2xs flex items-center gap-1.5 flex-wrap">
-                                  {pricing.hasDiscount ? (
-                                    <>
-                                      <span className="line-through text-slate-400 font-bold text-[10px]">
-                                        {pricing.originalStr}
-                                      </span>
-                                      <span className="text-emerald-600 font-black">
-                                        {pricing.discountedStr}
-                                      </span>
-                                      <span className="text-emerald-600 font-extrabold text-[9px] bg-emerald-50 px-1 rounded-md">
-                                        -{item.discountPercentage}%
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span>{pricing.originalStr}</span>
-                                  )}
-                                </span>
-                              );
-                            })()
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Banner de Oferta / Contador de Expiración (si aplica) */}
-                      {item.discountExpiryDate && comprasPermitidas() && (
-                        <div className="w-full flex items-center justify-between gap-2 bg-amber-50/90 border border-amber-200/90 rounded-xl px-2.5 py-1.5 text-[11px] text-amber-900 font-bold">
-                          <span className="flex items-center gap-1 text-amber-800 shrink-0">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Oferta</span>
-                          </span>
+                  <TarjetaRecurso key={item.id} r={item}
+                    gratis={!!item.isFree || (item.isFree !== false && !(Number(item.precioSoles) > 0))}
+                    descuento={comprasPermitidas() && !unlocked ? item.discountPercentage || 0 : 0}
+                    onVer3D={tiene3D(item) ? () => setVer3D(item) : undefined}
+                    extra={<>
+                      {(item.adjuntos?.length || 0) > 0 && <p className="text-[10px] font-bold text-slate-500 mt-1 flex items-center gap-1"><Paperclip className="w-3 h-3" />{item.adjuntos!.length} archivo(s) adjunto(s)</p>}
+                      {item.discountExpiryDate && comprasPermitidas() && !unlocked && (
+                        <div className="mt-2 flex items-center justify-between gap-2 bg-amber-50 rounded-xl px-2.5 py-1.5 text-[11px] text-amber-900 font-bold">
+                          <span className="flex items-center gap-1"><Sparkles className="w-3.5 h-3.5 text-amber-600" />Oferta</span>
                           <Countdown expiryDate={item.discountExpiryDate} />
                         </div>
                       )}
-
-                      {/* Título y Descripción */}
-                      <div>
-                        <h3 className="font-extrabold text-slate-900 text-sm leading-snug line-clamp-2 group-hover:text-indigo-600 transition-colors">
-                          {item.isDestacado && <Star className="w-3.5 h-3.5 text-amber-500 inline -mt-0.5 mr-1" fill="currentColor" />}
-                          {item.plantilla && <span className="inline-block align-middle mr-1.5 text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md">Plantilla {NOMBRE_MODULO[item.plantilla.modulo]}</span>}
-                          {item.titulo}
-                        </h3>
-                        {(item.adjuntos?.length || 0) > 0 && (
-                          <p className="text-[10px] font-bold text-slate-500 mt-1 flex items-center gap-1"><Paperclip className="w-3 h-3" />{item.adjuntos!.length} archivo(s) adjunto(s)</p>
-                        )}
-                        <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                          {item.descripcion}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Footer y Botones de Acción */}
+                      {!unlocked && comprasPermitidas() && (() => { const pr = getConvertedPriceStr(item.precioSoles || 0, item.discountPercentage); return (
+                        <p className="mt-2 text-lg font-black text-slate-900">{pr.discountedStr}{pr.hasDiscount && <span className="ml-1.5 text-xs font-bold text-slate-400 line-through">{pr.originalStr}</span>}</p>
+                      ); })()}
+                    </>}
+                    pie={(
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         {unlocked && (item.plantilla || esDisenoEditable(item)) ? (
@@ -814,7 +742,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
                         </div>
                       )}
                     </div>
-                  </div>
+                  )} />
                 );
               })}
             </div>
@@ -908,6 +836,7 @@ const Countdown = ({ expiryDate }: { expiryDate: string }) => {
         </div>
       )}
 
+      {ver3D && <React.Suspense fallback={null}><VisorPlantilla3D item={ver3D} bloqueada={!hasAccess(ver3D)} onClose={() => setVer3D(null)} /></React.Suspense>}
       {plantillaAUsar?.plantilla && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-3">

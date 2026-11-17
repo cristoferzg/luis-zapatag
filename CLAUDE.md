@@ -298,6 +298,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   (`lib/paquetesAcademia.ts`), compra `paq_<id>` / id de curso / id de biblioteca con Yape/Plin; `AdminPurchasesView` habilita todo.
   «Mis cursos» / «Mis plantillas» (`soloMios`): solo lo que el usuario tiene; destacados, ofertas y carrusel SOLO en la Tienda.
   «Mis apartados» se quitó (16/11/2026): los usuarios no apagan apartados.
+  Tarjetas de plantillas/recursos = diseño de cursos (`academia/TarjetaRecurso.tsx`, Tienda y Mis plantillas; búsqueda `coincideBusqueda`).
+  Mini visor «Ver en 3D» (`academia/VisorPlantilla3D.tsx`, techos/carpimetal, también antes de comprar) con ficha + `detalles`
+  [{etiqueta, valor}] que carga el MCP (`guardar_recurso.detalles`).
   Android no vende: muestra gratis + comprados + cursos de pago con clase de muestra (sin precio) y NINGÚN texto que invite a pagar
   fuera de Play. Canje con créditos (también Android): cursos, recursos y paquetes (`canjearCurso` tipo 'paquete'; precio en soles × créditos/sol de la
   recarga más conveniente, `useFactorCreditos`/`creditosPorSol`, o `precioCreditos`); no depende de la IA activada. Prueba: `cd seguridad && npm run test:canje`. DEV: `__paquetesSimulados`, `__comprasAcademiaSimuladas`, `__androidSimulado` (incluir en el grep del dist).

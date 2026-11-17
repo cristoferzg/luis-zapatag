@@ -133,6 +133,11 @@ export const HERRAMIENTAS = [
         destacado: { type: 'boolean' },
         enSlider: { type: 'boolean' },
         adjuntos: ADJUNTOS,
+        detalles: {
+          type: 'array', maxItems: 20,
+          description: 'Ficha que se muestra junto al visor 3D de la plantilla: [{etiqueta, valor}], p. ej. {etiqueta:"Luz", valor:"12 m"}, {etiqueta:"Columnas", valor:"Tubo 3\" × 3\" × 3 mm"}. Reemplaza la lista anterior.',
+          items: { type: 'object', properties: { etiqueta: { type: 'string' }, valor: { type: 'string' } }, required: ['etiqueta', 'valor'] },
+        },
         plantilla: {
           type: 'object',
           description: 'Plantilla prediseñada que el usuario abre en su módulo: {modulo: techos|carpimetal|drywall, datos: <diseño guardado del módulo>} o, para diseños grandes, datosUrl (https de un .json con ese diseño).',
@@ -314,6 +319,9 @@ export function crearAcademia({ db, bucket, fetchFn = fetch, ahora = () => Date.
       isDestacado: a.destacado,
       enSlider: a.enSlider,
       adjuntos: a.adjuntos,
+      detalles: Array.isArray(a.detalles)
+        ? a.detalles.slice(0, 20).map((d) => ({ etiqueta: String(d?.etiqueta || '').slice(0, 60), valor: String(d?.valor || '').slice(0, 200) })).filter((d) => d.etiqueta && d.valor)
+        : undefined,
       plantilla: a.plantilla,
       fileName: a.nombreArchivo,
       enlaceDescargaUrl: a.archivoUrl,

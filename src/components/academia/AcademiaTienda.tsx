@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import {
   GraduationCap, PlayCircle, Lock, CheckCircle2, Clock, Package, Sparkles, FileText, Search, X, ShieldCheck,
-  Smartphone, Download, Infinity as InfinityIcon, Layers, Plus, Pencil, Trash2, Star, ShoppingCart, BookOpen, Coins,
+  Smartphone, Download, Infinity as InfinityIcon, Layers, Plus, Pencil, Trash2, Star, ShoppingCart, Coins,
 } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import type { CourseCategory, TutorialVideo } from '../UsabilidadVideosView';
@@ -22,6 +22,9 @@ import { leerPagoDirecto, pagoDirectoListo, nombreMediosPago, type ConfigPagoDir
 import { escucharPaquetes, guardarPaquetes, ID_COMPRA_PAQUETE, type PaqueteAcademia } from '../../lib/paquetesAcademia';
 import VentanaPagoDirecto from '../VentanaPagoDirecto';
 import ConfirmarCanjeCreditos from '../ConfirmarCanjeCreditos';
+import TarjetaRecurso, { tiene3D, coincideBusqueda, textoDeRecurso } from './TarjetaRecurso';
+import { lazy, Suspense } from 'react';
+const VisorPlantilla3D = lazy(() => import('./VisorPlantilla3D'));
 import { useFactorCreditos, creditosDeCurso, creditosDeRecurso, creditosDePaquete, canjearCursoConCreditos, canjearRecursoConCreditos, canjearPaqueteConCreditos } from '../../lib/cursosCreditos';
 
 const TEL_DUENO = '51966000500';
@@ -46,7 +49,6 @@ const grad = (s: string) => GRADIENTES[[...s].reduce((a, ch) => a + ch.charCodeA
 const COLOR_PAQ: Record<string, string> = {
   ambar: 'from-amber-500 to-orange-600', indigo: 'from-indigo-600 to-violet-700', esmeralda: 'from-emerald-600 to-teal-700', rosa: 'from-rose-500 to-pink-600',
 };
-const NOMBRE_PLANTILLA: Record<string, string> = { techos: 'Techos metálicos', carpimetal: 'Carpintería metálica', drywall: 'Drywall' };
 
 interface Props {
   cursos: CourseCategory[]; tutoriales: TutorialVideo[]; biblioteca: BibliotecaItem[];
@@ -69,6 +71,7 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
   const [pendientes, setPendientes] = useState<Set<string>>(new Set());
   const [busca, setBusca] = useState('');
   const [detalle, setDetalle] = useState<CourseCategory | null>(null);
+  const [ver3D, setVer3D] = useState<BibliotecaItem | null>(null);
   const [editor, setEditor] = useState(false);
   // Mientras llegan los cursos de internet (la primera vez tardan unos segundos) se muestran tarjetas
   // "fantasma" con «Cargando cursos…» en vez del espacio vacío. Si en 15 s no llega nada, se avisa.
@@ -102,12 +105,12 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
   const tieneMuestra = (c: CourseCategory) => tutoriales.some(v => v.category === c.name && v.isFree !== false);
   const clasesDe = (c: CourseCategory) => tutoriales.filter(v => v.category === c.name);
   const q = busca.trim().toLowerCase();
-  const coincide = (...t: (string | undefined)[]) => !q || t.some(x => (x || '').toLowerCase().includes(q));
+  const coincide = (...t: (string | undefined)[]) => !q || coincideBusqueda(q, ...t);
 
   // En Android no se vende por fuera de Google Play: el contenido de pago se canjea con créditos.
   const cursosVis = cursos.filter(c => (ofrece || tieneCurso(c) || tieneMuestra(c)) && coincide(c.name, c.description))
     .sort((a, b) => Number(!!b.isFeatured) - Number(!!a.isFeatured) || clasesDe(b).length - clasesDe(a).length);
-  const recursosVis = biblioteca.filter(r => r.tipo !== 'video' && (ofrece || tieneRecurso(r)) && coincide(r.titulo, r.descripcion, r.categoria))
+  const recursosVis = biblioteca.filter(r => r.tipo !== 'video' && (ofrece || tieneRecurso(r)) && coincide(textoDeRecurso(r)))
     .sort((a, b) => Number(!!b.plantilla) - Number(!!a.plantilla) || Number(!!b.isMasComprado) - Number(!!a.isMasComprado));
   const paquetesVis = ofrece ? paquetes.filter(p => (p.activo || isAdmin) && coincide(p.nombre, p.descripcion)) : [];
 
@@ -314,33 +317,27 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
                 <p className={`text-xs ${sub}`}>Diseños listos para cargar en el programa, planos y libros técnicos.</p></div>
               <button onClick={onIrRecursos} className="text-xs font-black text-emerald-700 hover:underline cursor-pointer">Ver mis plantillas →</button>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {recursosVis.slice(0, 12).map(r => {
                 const acceso = tieneRecurso(r), pr = precioRecurso(r), enRevision = pendientes.has(r.id);
+                const gratis = r.isFree || (r.isFree !== false && !(Number(r.precioSoles) > 0));
                 return (
-                  <article key={r.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-shadow overflow-hidden flex flex-col">
-                    <div className="relative aspect-[4/3] bg-slate-100">
-                      {r.previewImageUrl ? <img src={r.previewImageUrl} alt="" className="w-full h-full object-cover" />
-                        : <div className={`w-full h-full bg-gradient-to-br ${r.plantilla ? 'from-emerald-500 to-teal-700' : 'from-slate-500 to-slate-700'} flex items-center justify-center`}>{r.plantilla ? <Layers className="w-10 h-10 text-white/80" /> : <BookOpen className="w-10 h-10 text-white/80" />}</div>}
-                      <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
-                        {r.plantilla && <Insignia tono="bg-emerald-600 text-white">Plantilla · {NOMBRE_PLANTILLA[r.plantilla.modulo] || r.plantilla.modulo}</Insignia>}
-                        {r.isMasComprado && <Insignia tono="bg-amber-400 text-slate-950">Más comprado</Insignia>}
-                      </div>
-                    </div>
-                    <div className="p-3 flex flex-col flex-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{r.categoria}</span>
-                      <h3 className="text-sm font-black text-slate-900 leading-snug line-clamp-2 flex-1">{r.titulo}</h3>
-                      <div className="mt-2">
-                        {acceso ? <button onClick={onIrRecursos} className="w-full py-1.5 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-black cursor-pointer flex items-center justify-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Abrir</button>
-                          : enRevision ? <div className="w-full py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-black text-center">En revisión</div>
-                          : <div className="flex items-center justify-between gap-1">{vende ? <Precio {...pr} /> : <Creditos n={creditosDeRecurso(r)} />}
-                            <span className="flex gap-1 shrink-0">
-                              {vende && <button onClick={() => comprar(r.id, r.titulo, pr.precio)} className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer" title="Comprar"><ShoppingCart className="w-4 h-4" /></button>}
-                              {canjea && <button onClick={() => pedirCanje('recurso', r.id, r.titulo, creditosDeRecurso(r))} className="p-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white cursor-pointer" title={`Canjear con ${creditosDeRecurso(r)} créditos`} aria-label="Canjear con créditos"><Coins className="w-4 h-4" /></button>}
-                            </span></div>}
-                      </div>
-                    </div>
-                  </article>
+                  <TarjetaRecurso key={r.id} r={r} gratis={gratis} descuento={vende && pr.d > 0 ? pr.d : 0} onClick={acceso ? onIrRecursos : undefined}
+                    onVer3D={tiene3D(r) ? () => setVer3D(r) : undefined}
+                    pie={acceso
+                      ? <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-black text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" />{gratis ? 'Acceso libre' : 'Tienes acceso'}</span>
+                          <button onClick={onIrRecursos} className="text-xs font-black text-indigo-600 hover:underline cursor-pointer">Abrir →</button>
+                        </div>
+                      : enRevision ? <span className="text-xs font-black text-amber-700 flex items-center gap-1"><Clock className="w-4 h-4" />Pago en revisión</span>
+                      : <div className="flex items-center justify-between gap-2">
+                          {vende ? <Precio {...pr} /> : <Creditos n={creditosDeRecurso(r)} />}
+                          <span className="flex gap-1.5 shrink-0">
+                            {vende && <button onClick={() => comprar(r.id, r.titulo, pr.precio)} className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1 cursor-pointer"><ShoppingCart className="w-3.5 h-3.5" />Comprar</button>}
+                            {canjea && <button onClick={() => pedirCanje('recurso', r.id, r.titulo, creditosDeRecurso(r))} title={`Canjear con ${creditosDeRecurso(r)} créditos`}
+                              className={`px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1 cursor-pointer ${vende ? 'bg-orange-50 text-orange-700 hover:bg-orange-100' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}><Coins className="w-3.5 h-3.5" />Canjear</button>}
+                          </span>
+                        </div>} />
                 );
               })}
             </div>
@@ -349,6 +346,8 @@ export default function AcademiaTienda({ cursos, tutoriales, biblioteca, current
 
         {/* App de Android: sin textos que inviten a comprar por fuera de Google Play (política de pagos). */}
       </div>
+
+      {ver3D && <Suspense fallback={null}><VisorPlantilla3D item={ver3D} bloqueada={!tieneRecurso(ver3D)} onClose={() => setVer3D(null)} /></Suspense>}
 
       {/* DETALLE DEL CURSO */}
       {detalle && (() => {
