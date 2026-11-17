@@ -49,6 +49,7 @@ export default function ProyectosYClientesView({
   const [portfolioSearch, setPortfolioSearch] = useState<string>('');
   const [portfolioAdminScope, setPortfolioAdminScope] = useState<'admin' | 'all'>('admin');
   const [selectedFolderGroupId, setSelectedFolderGroupId] = useState<string | null>(null);
+  const [pestanaCarpeta, setPestanaCarpeta] = useState<'todo' | 'docs' | 'fotos' | 'planos' | 'notas'>('todo');
   const [clientNotesMap, setClientNotesMap] = useState<Record<string, string>>(() => {
     return safeStorage.getItem<Record<string, string>>('innova_client_notes_map', {}) || {};
   });
@@ -384,17 +385,13 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
     <div className="space-y-6">
       {/* Encabezado según sección */}
       {activeTab === 'portafolio' ? (
-        selectedFolderGroupId !== null ? null : <header className="mb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="titulo-pagina">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
-                <FolderKanban className="w-7 h-7 sm:w-8 sm:h-8 mr-3 text-slate-600" />
-                Carpeta Privada de Clientes
-              </h1>
-              <p className="text-slate-500 text-xs sm:text-sm mt-1">
-                Carpeta privada segura: consulta y gestiona automáticamente planos 3D, contratos, estados de cuenta y recursos técnicos de cada cliente.
-              </p>
-            </div>
+        selectedFolderGroupId !== null ? null : <header className="mb-2">
+          <div className="titulo-pagina">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 flex items-center">
+              <FolderKanban className="w-7 h-7 sm:w-8 sm:h-8 mr-3 text-slate-600" />
+              Carpetas de clientes
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">Una carpeta por cliente con sus documentos, fotos, planos y notas. Solo tú la ves.</p>
           </div>
         </header>
       ) : (
@@ -958,526 +955,267 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
       )}
 
       {/* TAB 3: PORTAFOLIO 3D & CARPETAS PRIVADAS POR CLIENTE */}
-      {activeTab === 'portafolio' && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          {/* Header depending on whether a specific folder is selected or all folders are shown */}
-          {selectedFolderGroupId === null ? (
-            <>
-              {/* Barra Superior de la Vista de Carpetas */}
-              <div className="bg-white p-4 sm:p-5 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 bg-slate-50 text-slate-600 rounded-xl border border-slate-100">
-                      <FolderKanban className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-black text-slate-900 tracking-tight">
-                        {isAdmin ? 'Carpetas Privadas de Administrador' : `Carpeta Privada de ${currentUser?.name || 'Usuario'}`}
-                      </h2>
-                      <p className="text-xs text-slate-500 font-medium">
-                        {isAdmin
-                          ? 'Espacio exclusivo y ordenado: visualiza únicamente tus proyectos y clientes sin mezclar datos de otros usuarios.'
-                          : 'Tu espacio 100% privado e independiente: organiza tus planos 3D, contratos, fotos de obra y notas.'}
-                      </p>
-                    </div>
-                  </div>
+      {activeTab === 'portafolio' && (() => {
+        // Datos de una carpeta: obras, cobros y archivos por tipo (mismos datos que antes).
+        const contratosGuardados = safeStorage.getItem<any[]>('innova_client_contracts', []) || [];
+        const datosCarpeta = (groupId: string) => {
+          const clientObj = clients.find(c => c.id === groupId);
+          const clientName = clientObj?.name || (groupId === 'sin_cliente' ? 'Planos sin cliente' : 'Cliente');
+          const nombreN = clientName.toLowerCase().trim();
+          const planos = portfolioDesigns.filter(d => (groupId !== 'sin_cliente' ? (d.clientId === groupId || d.clientName === clientObj?.name) : !d.clientId));
+          const obras = projects.filter(p => p.client === clientName);
+          const presupuesto = obras.reduce((s2, p) => s2 + (p.presupuesto || 0), 0);
+          const cobrado = obras.reduce((s2, p) => s2 + (p.cobros?.reduce((cs, c) => cs + c.amount, 0) || 0), 0);
+          const contratos = contratosGuardados.filter(c => String(c.clientName || '').toLowerCase().trim() === nombreN);
+          const fotos = (clientObj?.files || []).filter(f => f.type === 'photo');
+          const docs = (clientObj?.files || []).filter(f => f.type === 'contract' || f.type === 'document');
+          return { clientObj, clientName, planos, obras, presupuesto, cobrado, contratos, fotos, docs, nota: clientNotesMap[groupId] || '' };
+        };
+        const Conteo = ({ icon: Ic, n, t }: { icon: any; n: number; t: string }) => (
+          <span className={`inline-flex items-center gap-1 text-[11px] font-bold rounded-lg px-1.5 py-0.5 ${n ? 'bg-slate-100 text-slate-700' : 'text-slate-300'}`} title={t}>
+            <Ic className="w-3.5 h-3.5" />{n}
+          </span>
+        );
+
+        if (selectedFolderGroupId === null) {
+          // ─── LISTA DE CARPETAS ───
+          const filteredClients = clients.filter(c => {
+            if (!isAdmin) {
+              return (c.userId && (c.userId === 'user_' + currentUser?.id || c.userId === currentUser?.id)) ||
+                (c.creatorName && currentUser?.name && c.creatorName.toLowerCase().trim() === currentUser.name.toLowerCase().trim());
+            }
+            return portfolioAdminScope === 'admin' ? isClientCreatedByAdmin(c) : true;
+          });
+          const q = portfolioSearch.trim().toLowerCase();
+          const ids = filteredClients.filter(c => !q || c.name.toLowerCase().includes(q) || (c.company || '').toLowerCase().includes(q) || (c.dni || '').includes(q)
+            || portfolioDesigns.some(d => (d.clientId === c.id || d.clientName === c.name) && d.nombre.toLowerCase().includes(q))).map(c => c.id);
+          const sinCliente = portfolioDesigns.filter(d => !d.clientId && (!(d as any).userId || (d as any).userId === 'admin' || (d as any).userId === currentUser?.id) && (!q || d.nombre.toLowerCase().includes(q)));
+          if (sinCliente.length) ids.push('sin_cliente');
+          return (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input type="text" value={portfolioSearch} onChange={(e) => setPortfolioSearch(e.target.value)} placeholder="Buscar cliente, DNI o plano…"
+                    className="w-full pl-9 pr-8 py-2.5 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-slate-400 transition-all" />
+                  {portfolioSearch && <button onClick={() => setPortfolioSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer" aria-label="Borrar búsqueda">×</button>}
                 </div>
+                {isAdmin && (
+                  <div className="flex items-center p-1 bg-slate-100 rounded-xl text-xs font-bold shrink-0">
+                    {([['admin', 'Mis carpetas'], ['all', 'Todo el equipo']] as const).map(([v, t]) => (
+                      <button key={v} type="button" onClick={() => setPortfolioAdminScope(v)}
+                        className={`px-3 py-1.5 rounded-lg cursor-pointer ${portfolioAdminScope === v ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500'}`}>{t}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {ids.length === 0 ? (
+                <div className="p-10 text-center bg-white rounded-3xl shadow-2xs space-y-3 max-w-lg mx-auto">
+                  <div className="text-4xl">📁</div>
+                  <h3 className="text-base font-extrabold text-slate-800">{q ? 'No hay carpetas con esa búsqueda' : 'Aún no tienes carpetas'}</h3>
+                  <p className="text-xs text-slate-500">Cada cliente que registres tiene su carpeta para guardar contratos, fotos de obra, planos y notas.</p>
+                  {!q && <button type="button" onClick={() => { setActiveTab('clients'); setCEditingId(null); }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl cursor-pointer">+ Registrar cliente</button>}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {ids.map(id => {
+                    const d = datosCarpeta(id);
+                    const avance = d.presupuesto > 0 ? Math.min(100, Math.round((d.cobrado / d.presupuesto) * 100)) : 0;
+                    const sub = d.obras.length ? `${d.obras[0].name}${d.obras.length > 1 ? ` +${d.obras.length - 1}` : ''}` : (d.clientObj?.company || 'Sin obras');
+                    return (
+                      <button type="button" key={id} onClick={() => { setSelectedFolderGroupId(id); setPestanaCarpeta('todo'); }}
+                        className="text-left bg-white rounded-2xl p-4 shadow-xs hover:shadow-md transition-all cursor-pointer active:scale-[0.99] space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 ${id === 'sin_cliente' ? 'bg-slate-100 text-slate-500' : colorAvatar(d.clientName)}`}>
+                            {id === 'sin_cliente' ? '📐' : iniciales(d.clientName)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-sm font-bold text-slate-900 truncate">{d.clientName}</h3>
+                            <p className="text-xs text-slate-500 truncate">{sub}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Conteo icon={FileText} n={d.contratos.length + d.docs.length} t="Documentos" />
+                          <Conteo icon={ImageIcon} n={d.fotos.length} t="Fotos" />
+                          <Conteo icon={Box} n={d.planos.length} t="Planos 3D" />
+                          {d.nota && <Conteo icon={StickyNote} n={1} t="Nota" />}
+                          {d.presupuesto > 0 && <span className={`ml-auto text-[11px] font-bold ${d.presupuesto - d.cobrado > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                            {d.presupuesto - d.cobrado > 0 ? `Por cobrar ${soles(d.presupuesto - d.cobrado)}` : 'Pagado ✓'}</span>}
+                        </div>
+                        {d.presupuesto > 0 && (
+                          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden" title={`Cobrado ${avance}%`}>
+                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${avance}%` }} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        }
 
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {/* Selector de Ámbito solo para Administrador */}
-                  {isAdmin && (
-                    <div className="flex items-center p-1 bg-slate-100 rounded-xl text-xs font-bold border border-slate-200/70">
-                      <button
-                        type="button"
-                        onClick={() => setPortfolioAdminScope('admin')}
-                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                          portfolioAdminScope === 'admin'
-                            ? 'bg-white text-slate-700 shadow-2xs font-extrabold'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        👑 Solo Mis Carpetas
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPortfolioAdminScope('all')}
-                        className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                          portfolioAdminScope === 'all'
-                            ? 'bg-white text-slate-700 shadow-2xs font-extrabold'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        👥 Todo el Equipo
-                      </button>
+        // ─── DENTRO DE UNA CARPETA ───
+        const groupId = selectedFolderGroupId;
+        const d = datosCarpeta(groupId);
+        const saldo = d.presupuesto - d.cobrado;
+        const nDocs = d.contratos.length + d.docs.length;
+        const esCliente = groupId !== 'sin_cliente';
+        const subir = (tipo: 'photo' | 'contract', texto: string, corto: string, Ic: any, color: string) => esCliente && (
+          <label className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap cursor-pointer transition-all ${color} ${subiendoArchivo ? 'opacity-60 pointer-events-none' : ''}`}>
+            <Ic className="w-4 h-4 shrink-0" />{subiendoArchivo === tipo ? 'Subiendo…' : <><span className="sm:hidden">{corto}</span><span className="hidden sm:inline">{texto}</span></>}
+            <input type="file" multiple accept={tipo === 'photo' ? 'image/*' : '.pdf,.doc,.docx,.xls,.xlsx,.txt,.dwg,.dxf,image/*'} className="hidden"
+              disabled={subiendoArchivo !== null} onChange={(e) => handleClientFileUpload(groupId, e, tipo)} />
+          </label>
+        );
+        const Fila = ({ icon: Ic, color, titulo, sub, children }: { icon: any; color: string; titulo: string; sub: string; children?: React.ReactNode }) => (
+          <div className="flex items-center gap-3 py-2.5">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}><Ic className="w-4 h-4" /></div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-slate-800 truncate">{titulo}</p>
+              <p className="text-[11px] text-slate-400 truncate">{sub}</p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">{children}</div>
+          </div>
+        );
+        const Vacio = ({ t }: { t: string }) => <p className="py-8 text-center text-xs text-slate-400">{t}</p>;
+        const btnBorrar = (fn: () => void, t: string) => (
+          <button type="button" onClick={fn} className="p-2 text-slate-400 hover:text-rose-600 rounded-lg cursor-pointer" title={t} aria-label={t}><Trash2 className="w-4 h-4" /></button>
+        );
+        const listaDocs = (
+          <>
+            {d.contratos.map(c => <Fila key={c.id} icon={FileText} color="bg-indigo-50 text-indigo-600" titulo={c.fileName} sub="Contrato hecho en la app" />)}
+            {d.docs.map(f => (
+              <Fila key={f.id} icon={FileText} color="bg-blue-50 text-blue-600" titulo={f.name} sub={`Documento · ${f.uploadedAt}`}>
+                <a href={f.dataUrl} download={f.name} target="_blank" rel="noopener noreferrer"
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1"><Download className="w-3.5 h-3.5" />Ver</a>
+                {btnBorrar(() => handleRemoveClientFile(groupId, f.id), 'Eliminar archivo')}
+              </Fila>
+            ))}
+          </>
+        );
+        const listaPlanos = d.planos.map(p => (
+          <Fila key={p.id} icon={Box} color="bg-amber-50 text-amber-600" titulo={p.nombre} sub={`Plano 3D · ${p.updatedAt || p.savedAt || ''}`}>
+            <button type="button" onClick={() => handleOpenPlanInTechos(p)}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"><Eye className="w-3.5 h-3.5" />Abrir</button>
+            {btnBorrar(() => handleDeletePortfolioDesign(p.id, p.nombre), 'Eliminar plano')}
+          </Fila>
+        ));
+        const galeria = (lista: typeof d.fotos) => (
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+            {lista.map(ph => (
+              <div key={ph.id} className="relative group rounded-xl overflow-hidden bg-slate-100 aspect-square">
+                <img src={ph.dataUrl} alt={ph.name} className="w-full h-full object-cover cursor-pointer" onClick={() => setPreviewPhotoUrl(ph.dataUrl)} />
+                <button type="button" onClick={() => handleRemoveClientFile(groupId, ph.id)} title="Eliminar foto" aria-label="Eliminar foto"
+                  className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-rose-600 text-white rounded-md sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"><Trash2 className="w-3 h-3" /></button>
+              </div>
+            ))}
+          </div>
+        );
+        const pestanas = [
+          { id: 'todo' as const, label: 'Todo', n: -1 },
+          { id: 'docs' as const, label: 'Documentos', corto: 'Docs', n: nDocs },
+          { id: 'fotos' as const, label: 'Fotos', n: d.fotos.length },
+          { id: 'planos' as const, label: 'Planos', n: d.planos.length },
+          { id: 'notas' as const, label: 'Notas', n: -1 },
+        ].filter(t => esCliente || t.id === 'planos' || t.id === 'todo');
+        return (
+          <div className="space-y-4 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between gap-2">
+              <button type="button" onClick={() => setSelectedFolderGroupId(null)} className="text-sm font-bold text-blue-600 flex items-center gap-1.5 cursor-pointer hover:text-blue-700">
+                <ArrowLeft className="w-4 h-4" /><span>Todas las carpetas</span>
+              </button>
+              <button type="button" onClick={() => handleDownloadClientZip(d.clientName, d.clientObj, d.obras, d.planos, d.nota)}
+                className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer" title="Descargar toda la carpeta en un ZIP">
+                <FileArchive className="w-4 h-4 text-emerald-600" /><span>Descargar todo (ZIP)</span>
+              </button>
+            </div>
+
+            {/* Ficha del cliente */}
+            <div className="bg-white rounded-2xl p-4 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-extrabold shrink-0 ${esCliente ? colorAvatar(d.clientName) : 'bg-slate-100 text-slate-500'}`}>{esCliente ? iniciales(d.clientName) : '📐'}</div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-lg font-extrabold text-slate-900 leading-tight truncate">{d.clientName}</h2>
+                  <p className="text-xs text-slate-500 truncate">{[d.obras.map(p => p.name).join(', ') || d.clientObj?.company, d.clientObj?.phone && `📞 ${d.clientObj.phone}`, d.clientObj?.dni && `DNI ${d.clientObj.dni}`].filter(Boolean).join(' · ')}</p>
+                </div>
+              </div>
+              {d.presupuesto > 0 && (
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  {([['Presupuesto', d.presupuesto, 'text-slate-900'], ['Cobrado', d.cobrado, 'text-emerald-700'], [saldo > 0 ? 'Por cobrar' : 'Saldo', saldo, saldo > 0 ? 'text-amber-700' : 'text-emerald-700']] as [string, number, string][]).map(([l, v, c]) => (
+                    <div key={l} className="bg-slate-50 rounded-xl px-3 py-2 min-w-0">
+                      <p className={`text-sm sm:text-base font-extrabold truncate ${c}`}>{soles(v)}</p>
+                      <p className="text-[11px] text-slate-500">{l}</p>
                     </div>
-                  )}
+                  ))}
+                </div>
+              )}
+            </div>
 
-                  {/* Filtro de búsqueda en mis carpetas */}
-                  <div className="relative min-w-[200px] flex-1 sm:flex-none">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={portfolioSearch}
-                      onChange={(e) => setPortfolioSearch(e.target.value)}
-                      placeholder="Buscar en mis carpetas..."
-                      className="w-full pl-8 pr-7 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 outline-none focus:border-slate-400 focus:bg-white transition-all font-medium"
-                    />
-                    {portfolioSearch && (
-                      <button 
-                        onClick={() => setPortfolioSearch('')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                      >
-                        ×
+            {/* Una sola fila para agregar */}
+            {esCliente && (
+              <div className="flex flex-wrap gap-2">
+                {subir('contract', 'Subir documento', '+ Documento', FileText, 'bg-blue-600 hover:bg-blue-700 text-white')}
+                {subir('photo', 'Subir fotos', '+ Fotos', ImageIcon, 'bg-emerald-600 hover:bg-emerald-700 text-white')}
+                <button type="button" onClick={() => setPestanaCarpeta('notas')} className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap bg-white text-slate-700 shadow-xs cursor-pointer">
+                  <StickyNote className="w-4 h-4 shrink-0 text-amber-500" /><span className="sm:hidden">+ Nota</span><span className="hidden sm:inline">Escribir nota</span>
+                </button>
+              </div>
+            )}
+
+            {/* Pestañas: lo que hay en la carpeta, por tipo */}
+            <div className="bg-white rounded-2xl shadow-xs">
+              <div className="flex gap-1 border-b border-slate-100 px-2 overflow-x-auto">
+                {pestanas.map(t => (
+                  <button key={t.id} type="button" onClick={() => setPestanaCarpeta(t.id)}
+                    className={`shrink-0 inline-flex items-center gap-1 px-2.5 sm:px-3 py-3 -mb-px border-b-[3px] text-[13px] font-black whitespace-nowrap cursor-pointer ${pestanaCarpeta === t.id ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-500'}`}>
+                    {'corto' in t ? <><span className="sm:hidden">{t.corto}</span><span className="hidden sm:inline">{t.label}</span></> : t.label}{t.n >= 0 && <span className={`text-[10px] rounded-md px-1.5 py-0.5 ${pestanaCarpeta === t.id ? 'bg-indigo-100' : 'bg-slate-100'}`}>{t.n}</span>}
+                  </button>
+                ))}
+              </div>
+              <div className="p-4 pt-1">
+                {pestanaCarpeta === 'todo' && (
+                  nDocs + d.fotos.length + d.planos.length === 0 && !d.nota
+                    ? <Vacio t="La carpeta está vacía. Sube el contrato, fotos de la obra o escribe una nota." />
+                    : <div className="divide-y divide-slate-100">
+                        {d.nota && (
+                          <button type="button" onClick={() => setPestanaCarpeta('notas')} className="w-full text-left py-3 cursor-pointer">
+                            <p className="text-[11px] font-bold text-amber-600 uppercase tracking-wide mb-0.5">Nota</p>
+                            <p className="text-sm text-slate-700 line-clamp-2">{d.nota}</p>
+                          </button>
+                        )}
+                        {d.fotos.length > 0 && <div className="py-3 space-y-2"><p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Fotos de obra</p>{galeria(d.fotos.slice(0, 6))}</div>}
+                        {nDocs > 0 && <div className="divide-y divide-slate-100">{listaDocs}</div>}
+                        {d.planos.length > 0 && <div className="divide-y divide-slate-100">{listaPlanos}</div>}
+                      </div>
+                )}
+                {pestanaCarpeta === 'docs' && (nDocs ? <div className="divide-y divide-slate-100">{listaDocs}</div> : <Vacio t="Sin documentos. Usa «Subir documento» (PDF, Word, Excel, DWG, DXF)." />)}
+                {pestanaCarpeta === 'fotos' && (d.fotos.length ? <div className="pt-3">{galeria(d.fotos)}</div> : <Vacio t="Sin fotos. Usa «Subir fotos» para guardar el avance de la obra." />)}
+                {pestanaCarpeta === 'planos' && (
+                  <div>
+                    {d.planos.length ? <div className="divide-y divide-slate-100">{listaPlanos}</div> : <Vacio t="Sin planos. Los techos que guardes con este cliente en Techos Metálicos aparecen aquí." />}
+                    {esCliente && onNavigateToTechos && (
+                      <button type="button" onClick={onNavigateToTechos} className="mt-2 w-full py-2.5 rounded-xl border border-dashed border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-1.5">
+                        <Plus className="w-4 h-4" />Dibujar un plano en Techos Metálicos
                       </button>
                     )}
                   </div>
-
-                  {/* Botón Ir a Diseñar */}
-                  {onNavigateToTechos && (
-                    <button
-                      type="button"
-                      onClick={onNavigateToTechos}
-                      className="px-3.5 py-2 bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-98"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>+ Plano 3D</span>
-                    </button>
-                  )}
-                </div>
+                )}
+                {pestanaCarpeta === 'notas' && (
+                  <div className="pt-3 space-y-2">
+                    <textarea id="carpeta-notas" autoFocus value={d.nota} onChange={(e) => handleSaveClientNote(groupId, e.target.value)} rows={6}
+                      placeholder="Acuerdos de pago, pedidos del cliente, medidas, recordatorios…"
+                      className="w-full bg-slate-50 rounded-xl p-3 text-sm text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-200 resize-none" />
+                    <p className="text-[11px] text-slate-400">Se guarda sola mientras escribes y va dentro del ZIP.</p>
+                  </div>
+                )}
               </div>
-
-              {/* VISTA EN CUADRÍCULA DE CARPETAS (FOLDER GRID VIEW CON FILTRO ESTRICTO DE PROPIEDAD) */}
-              {(() => {
-                const clientGroups = new Map<string, { clientName: string; clientObj?: Client; designs: SavedTechosDesign[] }>();
-                
-                // Aislamiento estricto: los usuarios ven solo sus propios clientes; el admin ve los suyos o del equipo según toggle
-                const filteredClients = clients.filter(c => {
-                  if (!isAdmin) {
-                    const isMyClient = 
-                      (c.userId && (c.userId === 'user_' + currentUser?.id || c.userId === currentUser?.id)) ||
-                      (c.creatorName && currentUser?.name && c.creatorName.toLowerCase().trim() === currentUser.name.toLowerCase().trim());
-                    return isMyClient;
-                  }
-                  if (portfolioAdminScope === 'admin') {
-                    return isClientCreatedByAdmin(c);
-                  }
-                  return true;
-                });
-
-                filteredClients.forEach(c => {
-                  if (portfolioSearch.trim()) {
-                    const s = portfolioSearch.toLowerCase();
-                    const matchClient = c.name.toLowerCase().includes(s) || (c.company || '').toLowerCase().includes(s) || (c.dni || '').includes(s);
-                    const matchHasDesign = portfolioDesigns.some(d => (d.clientId === c.id || d.clientName === c.name) && d.nombre.toLowerCase().includes(s));
-                    if (!matchClient && !matchHasDesign) return;
-                  }
-                  clientGroups.set(c.id, { clientName: c.name, clientObj: c, designs: [] });
-                });
-
-                portfolioDesigns.forEach(d => {
-                  const groupKey = d.clientId || 'sin_cliente';
-                  if (clientGroups.has(groupKey)) {
-                    clientGroups.get(groupKey)!.designs.push(d);
-                  } else if (groupKey === 'sin_cliente') {
-                    // Solo incluir si pertenece al usuario activo
-                    const dUserId = (d as any).userId;
-                    const isMyDesign = !dUserId || dUserId === 'admin' || (currentUser?.id && dUserId === currentUser.id);
-                    if (isMyDesign && (!portfolioSearch.trim() || d.nombre.toLowerCase().includes(portfolioSearch.toLowerCase()))) {
-                      if (!clientGroups.has('sin_cliente')) {
-                        clientGroups.set('sin_cliente', { clientName: 'Planos Generales (Sin Asignar)', designs: [] });
-                      }
-                      clientGroups.get('sin_cliente')!.designs.push(d);
-                    }
-                  }
-                });
-
-                if (clientGroups.size === 0) {
-                  return (
-                    <div className="p-12 text-center bg-white rounded-3xl border border-slate-200/80 shadow-2xs space-y-3.5 max-w-lg mx-auto animate-fadeIn">
-                      <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-50/80 text-slate-500 border border-slate-100 flex items-center justify-center text-3xl">
-                        📁
-                      </div>
-                      <h3 className="text-base font-extrabold text-slate-800">
-                        {isAdmin && portfolioAdminScope === 'admin'
-                          ? 'No tienes carpetas privadas de administrador registradas'
-                          : 'Tu espacio privado está en orden y al día'}
-                      </h3>
-                      <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
-                        {isAdmin
-                          ? 'Tus obras y clientes registrados aparecerán aquí sin mezclarse con la información de los usuarios.'
-                          : 'Cada cliente que registres en tu directorio creará de inmediato su carpeta privada para almacenar planos 3D, contratos y fotos.'}
-                      </p>
-                      <div className="pt-2 flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => { setActiveTab('clients'); setCEditingId(null); }}
-                          className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
-                        >
-                          + Registrar Cliente
-                        </button>
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 animate-fadeIn">
-                    {Array.from(clientGroups.entries()).map(([groupId, group]) => {
-                      const clientObj = group.clientObj || clients.find(c => c.id === groupId);
-                      const clientProjects = projects.filter(p => p.client === group.clientName || (clientObj && p.client === clientObj.name));
-                      const totalPresupuesto = clientProjects.reduce((s, p) => s + (p.presupuesto || 0), 0);
-                      const totalCobrado = clientProjects.reduce((s, p) => s + (p.cobros?.reduce((cs, c) => cs + c.amount, 0) || 0), 0);
-                      const avance = totalPresupuesto > 0 ? Math.min(100, Math.round((totalCobrado / totalPresupuesto) * 100)) : 0;
-
-                      const allSavedContracts = safeStorage.getItem<any[]>('innova_client_contracts', []) || [];
-                      const clientSavedContracts = allSavedContracts.filter(c =>
-                        c.clientName.toLowerCase().trim() === group.clientName.toLowerCase().trim() ||
-                        (clientObj && c.clientName.toLowerCase().trim() === clientObj.name.toLowerCase().trim())
-                      );
-                      const totalArchivos = group.designs.length + clientSavedContracts.length + (clientObj?.files || []).length;
-                      const subtitulo = clientProjects.length > 0
-                        ? `${clientProjects[0].name}${clientProjects.length > 1 ? ` +${clientProjects.length - 1}` : ''}`
-                        : (clientObj?.company || 'Sin obras activas');
-
-                      return (
-                        <button
-                          type="button"
-                          key={groupId}
-                          onClick={() => setSelectedFolderGroupId(groupId)}
-                          className="text-left bg-white rounded-2xl p-4 shadow-xs hover:shadow-md transition-all cursor-pointer active:scale-[0.99]"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 ${groupId === 'sin_cliente' ? 'bg-slate-100 text-slate-500' : colorAvatar(group.clientName)}`}>
-                              {groupId === 'sin_cliente' ? '📐' : iniciales(group.clientName)}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h3 className="text-sm font-bold text-slate-900 truncate">{group.clientName}</h3>
-                              <p className="text-xs text-slate-500 truncate">{subtitulo}</p>
-                              {totalPresupuesto > 0 && <p className="text-[11px] text-slate-400">Saldo {soles(totalPresupuesto - totalCobrado)} · {avance}% cobrado</p>}
-                            </div>
-                            <span className="text-[11px] font-bold text-slate-600 bg-slate-100 rounded-lg px-2 py-0.5 shrink-0" title="Archivos en la carpeta">{totalArchivos}</span>
-                          </div>
-                          {totalPresupuesto > 0 && (
-                            <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden" title={`Cobrado ${avance}%`}>
-                              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${avance}%` }} />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </>
-          ) : (
-            /* VISTA INTERIOR DE CARPETA DEL CLIENTE SELECCIONADO */
-            (() => {
-              const groupId = selectedFolderGroupId;
-              const clientObj = clients.find(c => c.id === groupId);
-              const groupDesigns = portfolioDesigns.filter(d => (groupId !== 'sin_cliente' ? (d.clientId === groupId || d.clientName === clientObj?.name) : !d.clientId));
-              const clientName = clientObj?.name || (groupId === 'sin_cliente' ? 'Planos Generales (Sin Cliente)' : 'Cliente de Obra');
-
-              const clientProjects = projects.filter(p => p.client === clientName || (clientObj && p.client === clientObj.name));
-              const totalPresupuesto = clientProjects.reduce((s, p) => s + (p.presupuesto || 0), 0);
-              const totalCobrado = clientProjects.reduce((s, p) => s + (p.cobros?.reduce((cs, c) => cs + c.amount, 0) || 0), 0);
-              const saldoPendiente = totalPresupuesto - totalCobrado;
-
-              const allSavedContracts = safeStorage.getItem<any[]>('innova_client_contracts', []) || [];
-              const clientSavedContracts = allSavedContracts.filter(c => 
-                c.clientName.toLowerCase().trim() === clientName.toLowerCase().trim() ||
-                (clientObj && c.clientName.toLowerCase().trim() === clientObj.name.toLowerCase().trim())
-              );
-              const uploadedDocs = (clientObj?.files || []).filter(f => f.type === 'contract' || f.type === 'document');
-              const currentNote = clientNotesMap[groupId] || '';
-
-              return (
-                <div className="space-y-6">
-                  {/* Volver + descargar ZIP */}
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedFolderGroupId(null)}
-                      className="text-sm font-bold text-blue-600 flex items-center gap-1.5 cursor-pointer hover:text-blue-700"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      <span>Carpetas</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadClientZip(clientName, clientObj, clientProjects, groupDesigns, currentNote)}
-                      className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                      title="Descargar ZIP completo de esta carpeta"
-                    >
-                      <FileArchive className="w-4 h-4 text-emerald-600" />
-                      <span>Descargar ZIP</span>
-                    </button>
-                  </div>
-
-                  {/* Ficha del cliente con resumen de la obra */}
-                  <div className="rounded-3xl p-5 text-white bg-gradient-to-br from-blue-600 to-blue-500 shadow-md">
-                    <h2 className="text-lg font-extrabold leading-tight">{clientName}</h2>
-                    <p className="text-xs text-blue-100 mt-0.5">
-                      {[clientProjects.map(p => p.name).join(', ') || clientObj?.company, clientObj?.phone && `📞 ${clientObj.phone}`, clientObj?.dni && `DNI ${clientObj.dni}`].filter(Boolean).join(' · ') || 'Carpeta privada del cliente'}
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 mt-4">
-                      {([['Presupuesto', totalPresupuesto], ['Cobrado', totalCobrado], ['Saldo', saldoPendiente]] as [string, number][]).map(([l, v]) => (
-                        <div key={l} className="bg-white/15 rounded-2xl px-3 py-2.5 min-w-0">
-                          <p className="text-sm sm:text-base font-extrabold truncate">{soles(v)}</p>
-                          <p className="text-[11px] text-blue-100">{l}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Acciones rápidas */}
-                  {groupId !== 'sin_cliente' && (
-                    <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                      <label className={`bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all ${subiendoArchivo ? 'opacity-60 pointer-events-none' : ''}`}>
-                        <ImageIcon className="w-5 h-5 mx-auto text-emerald-600" />
-                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">{subiendoArchivo === 'photo' ? 'Subiendo…' : 'Foto'}</span>
-                        <input type="file" multiple accept="image/*" className="hidden" disabled={subiendoArchivo !== null} onChange={(e) => handleClientFileUpload(groupId, e, 'photo')} />
-                      </label>
-                      <label className={`bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all ${subiendoArchivo ? 'opacity-60 pointer-events-none' : ''}`}>
-                        <FileText className="w-5 h-5 mx-auto text-blue-600" />
-                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">{subiendoArchivo === 'contract' ? 'Subiendo…' : 'Documento'}</span>
-                        <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.dwg,.dxf,image/*" className="hidden" disabled={subiendoArchivo !== null} onChange={(e) => handleClientFileUpload(groupId, e, 'contract')} />
-                      </label>
-                      <button type="button" onClick={onNavigateToTechos} disabled={!onNavigateToTechos}
-                        className="bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all disabled:opacity-50">
-                        <Box className="w-5 h-5 mx-auto text-amber-600" />
-                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">Plano 3D</span>
-                      </button>
-                      <button type="button" onClick={() => document.getElementById('carpeta-notas')?.focus()}
-                        className="bg-white rounded-2xl py-3 shadow-xs text-center cursor-pointer hover:shadow-md transition-all">
-                        <StickyNote className="w-5 h-5 mx-auto text-purple-600" />
-                        <span className="block text-[11px] sm:text-xs font-bold text-slate-700 mt-1">Nota</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Últimos movimientos */}
-                  {(() => {
-                    const movs = [
-                      ...(clientObj?.files || []).slice(0, 4).map(f => ({ id: f.id, titulo: f.name, sub: `${f.uploadedAt} · ${f.type === 'photo' ? 'Foto de obra' : 'Documento'}`, color: f.type === 'photo' ? 'bg-emerald-500' : 'bg-blue-500' })),
-                      ...groupDesigns.slice(0, 2).map(d => ({ id: d.id, titulo: d.nombre, sub: `${d.updatedAt || d.savedAt || ''} · Plano 3D`, color: 'bg-amber-500' })),
-                    ].slice(0, 5);
-                    if (movs.length === 0) return null;
-                    return (
-                      <div className="bg-white rounded-2xl p-4 shadow-xs space-y-2.5">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Últimos movimientos</p>
-                        {movs.map(m => (
-                          <div key={m.id} className="flex gap-2.5">
-                            <span className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${m.color}`} />
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate">{m.titulo}</p>
-                              <p className="text-[11px] text-slate-400">{m.sub}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Grid / Content Blocks inside Folder */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* 1. PLANOS 3D / CAD DE LA CARPETA */}
-                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          <Box className="w-4 h-4 text-slate-600" />
-                          <span>Planos 3D y CAD ({groupDesigns.length})</span>
-                        </h4>
-                        {groupId !== 'sin_cliente' && onNavigateToTechos && (
-                          <button
-                            onClick={onNavigateToTechos}
-                            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Nuevo</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {groupDesigns.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {groupDesigns.map((design) => (
-                            <div key={design.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-between gap-2.5 hover:border-slate-300 transition-all">
-                              <div>
-                                <div className="font-bold text-xs text-slate-900 truncate">{design.nombre}</div>
-                                <div className="text-[10px] text-slate-500 mt-0.5">
-                                  {design.updatedAt ? `Actualizado: ${design.updatedAt}` : `Guardado: ${design.savedAt}`}
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/80">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeletePortfolioDesign(design.id, design.nombre)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                                  title="Eliminar plano"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenPlanInTechos(design)}
-                                  className="px-3 py-1 bg-slate-600 hover:bg-slate-700 text-white text-[11px] font-bold rounded-md shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>Abrir 3D</span>
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="py-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
-                          Sin planos 3D registrados en esta carpeta.
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 2. CONTRATOS Y DOCUMENTOS */}
-                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-indigo-600" />
-                          <span>Contratos y Documentos ({clientSavedContracts.length + uploadedDocs.length})</span>
-                        </h4>
-                        {groupId !== 'sin_cliente' && (
-                          <label className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0">
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>{subiendoArchivo === 'contract' ? 'Subiendo…' : 'Subir'}</span>
-                            <input 
-                              type="file" 
-                              multiple
-                              disabled={subiendoArchivo !== null}
-                              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.dwg,.dxf,image/*" 
-                              className="hidden" 
-                              onChange={(e) => handleClientFileUpload(groupId, e, 'contract')} 
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      {(clientSavedContracts.length > 0 || uploadedDocs.length > 0) ? (
-                        <div className="space-y-2">
-                          {clientSavedContracts.map(c => (
-                            <div key={c.id} className="p-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl flex items-center justify-between gap-2 text-xs">
-                              <span className="font-bold text-slate-800 truncate">{c.fileName}</span>
-                              <span className="text-[10px] bg-indigo-100 text-blue-800 font-bold px-2 py-0.5 rounded">Generado</span>
-                            </div>
-                          ))}
-                          {uploadedDocs.map(docItem => (
-                            <div key={docItem.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between gap-2 text-xs">
-                              <span className="font-medium text-slate-800 truncate">{docItem.name}</span>
-                              <div className="flex items-center gap-2">
-                                <a
-                                  href={docItem.dataUrl}
-                                  download={docItem.name}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] rounded-md transition-colors flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Download className="w-3 h-3" />
-                                  <span>Ver</span>
-                                </a>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveClientFile(groupId, docItem.id)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                  title="Eliminar archivo"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="py-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
-                          Sin contratos registrados en esta carpeta.
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 3. FOTOS DE OBRA */}
-                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          <ImageIcon className="w-4 h-4 text-slate-600" />
-                          <span>Fotos de Avance / Obra ({(clientObj?.files || []).filter(f => f.type === 'photo').length})</span>
-                        </h4>
-                        {groupId !== 'sin_cliente' && (
-                          <label className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap shrink-0">
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>{subiendoArchivo === 'photo' ? 'Subiendo…' : 'Subir'}</span>
-                            <input 
-                              type="file" 
-                              multiple
-                              disabled={subiendoArchivo !== null}
-                              accept="image/*" 
-                              className="hidden" 
-                              onChange={(e) => handleClientFileUpload(groupId, e, 'photo')} 
-                            />
-                          </label>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {(clientObj?.files || []).filter(f => f.type === 'photo').map(photo => (
-                          <div key={photo.id} className="relative group bg-slate-100 rounded-xl overflow-hidden border border-slate-200 aspect-square flex items-center justify-center">
-                            <img 
-                              src={photo.dataUrl} 
-                              alt={photo.name} 
-                              className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                              onClick={() => setPreviewPhotoUrl(photo.dataUrl)}
-                            />
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveClientFile(groupId, photo.id);
-                              }}
-                              className="absolute top-1.5 right-1.5 p-1 bg-rose-600/90 hover:bg-rose-700 text-white rounded-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer shadow-xs"
-                              title="Eliminar foto"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                        {(clientObj?.files || []).filter(f => f.type === 'photo').length === 0 && (
-                          <div className="col-span-full py-6 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
-                            Sin fotos de trabajo subidas a esta carpeta.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 4. NOTAS U OBSERVACIONES DEL CLIENTE */}
-                    <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
-                      <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <StickyNote className="w-4 h-4 text-amber-500" />
-                        <span>Notas u Observaciones del Cliente</span>
-                      </label>
-                      <textarea
-                        id="carpeta-notas"
-                        value={currentNote}
-                        onChange={(e) => handleSaveClientNote(groupId, e.target.value)}
-                        placeholder="Escribe notas de obra, acuerdos de pago o requerimientos especiales de este cliente..."
-                        rows={4}
-                        className="w-full bg-slate-50 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-blue-200 transition-all resize-none"
-                      />
-                      <p className="text-[11px] text-slate-400 italic">
-                        * Las notas se guardan automáticamente y se incluirán al descargar la carpeta ZIP.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()
-          )}
-        </div>
-      )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* MODAL DE VISTA PREVIA DE FOTO */}
       {previewPhotoUrl && (

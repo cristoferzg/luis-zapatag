@@ -19,6 +19,21 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Carpeta privada de clientes: rediseño más claro (Proyectos & Clientes → Carpeta)
+- Pedido del dueño: "rediseña las carpetas porque es un poco confuso" → la carpeta privada de Proyectos y Personal.
+- Qué confundía: dos títulos repetidos ("Carpeta Privada de Clientes" + "Carpeta Privada de Juan"), un número suelto sin explicar,
+  "+ Plano 3D" que saltaba a Techos, y dentro dos juegos de botones para subir (4 arriba + "Subir" en cada bloque), "Últimos
+  movimientos" que repetía lo de abajo y 5 bloques seguidos.
+- Qué se hizo: lista con UN título ("Carpetas de clientes") + buscador; cada tarjeta muestra cuántos documentos, fotos, planos y
+  si tiene nota (íconos) y "Por cobrar S/ …" o "Pagado ✓". Dentro: ficha del cliente (presupuesto/cobrado/por cobrar), UNA fila
+  para agregar (+ Documento, + Fotos, + Nota) y pestañas Todo / Docs / Fotos / Planos / Notas. "Dibujar un plano en Techos
+  Metálicos" queda dentro de Planos. Mismos datos y funciones (ZIP, ver, eliminar, abrir plano, nota que se guarda sola).
+- Archivos: `src/components/ProyectosYClientesView.tsx`.
+- Cómo se probó: tsc 0 errores; capturas antes/después en PC y celular con 3 clientes de ejemplo; pestañas y nota probadas.
+- Versión: sin compilar aún (solo web: hosting).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: el Manual habla de la Carpeta privada → revisar al compilar si hay que actualizar su texto/captura.
+
 ## 2026-11-17 · Carga más rápida al entrar (25 % menos espera con internet de celular)
 - Pedido del dueño: "que cargue mucho más rápido la base de datos porque demora un poco" (también pidió: plantillas 5 opciones,
   Academia en el Inicio según el usuario y rediseño de la carpeta privada de Proyectos/Personal → siguientes conversaciones).
@@ -346,7 +361,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Carga más rápida al entrar (17/11/2026): desplegar hosting |
+| Última mejora sin compilar | Carga más rápida + rediseño de la Carpeta privada (17/11/2026): desplegar hosting |
 | Última versión compilada | Web **2026.11.16.1909** · Android **código 26110426** (17/11/2026: notificaciones, escalera a medida con IA, grabador CarpiMetal, AutoCAD 3D/Revit gratis, avisos de descarga) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110427** (nunca bajar de 26110426) |
