@@ -19,6 +19,14 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Compilación web 2026.11.17.0953 (sin app nueva)
+- Pedido del dueño: "Compila".
+- Incluye: Administración → Créditos (recargas y gasto), visor 3D más robusto, menú del celular por encima, Revit (octet-stream +
+  aviso de cómo abrirlo), «Diseño editable» en vez de .json y Contratos en el celular (pestañas y letra de cláusulas).
+- Android: SIN AAB (no hubo cambios nativos desde 26110427). Manual: sin cambios.
+- Despliegue: `firebase deploy --only hosting,functions` (functions por el registro del gasto en cobrarUsoIA y mcpCursos).
+- Commit(s): (este commit)
+
 ## 2026-11-17 · Créditos de usuarios (cómo recargan y en qué gastan) + arreglos del visor 3D y del menú
 - Pedido del dueño: "Permíteme poder ver en qué los usuarios recargan sus créditos" → eligió «Recargas y gasto». Durante el trabajo:
   "verifica y corrige el visualizar 3D dentro de la Academia, algunos no se ven el botón" (captura: menú lateral tapado en Techos).
@@ -461,8 +469,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Créditos de usuarios + visor 3D + menú (17/11/2026): desplegar hosting + functions |
-| Última versión compilada | Web **2026.11.16.2218** · Android **código 26110427** (17/11/2026) |
+| Última mejora sin compilar | — (web 2026.11.17.0953 compilada el 17/11/2026) |
+| Última versión compilada | Web **2026.11.17.0953** (17/11/2026) · Android **código 26110427** |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110428** (nunca bajar de 26110427) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
