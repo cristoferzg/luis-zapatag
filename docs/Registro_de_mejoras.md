@@ -19,6 +19,30 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Techos: vigas W bien vistas, placas base y pernos, y paredes de aluzinc con largueros
+- Pedido del dueño: "las vigas W no se ven correctas en el sistema o no está implementado" y "permíteme colocar los pernos de anclaje y las
+  planchas… y si algunas naves requieren aluzinc a los lados de la luz, con sus divisiones recomendadas de material".
+- Qué se hizo:
+  · Vigas W: símbolo «H» de la columna en la planta 2D (antes salía como tubo); 7 vigas W nuevas en el catálogo (W6x9, W8x10, W8x15, W10x12,
+    W10x15, W12x16, W12x26, medidas reales, ≈ S/ 6 por kg); «Perfiles a comprar» en el Resumen (antes decía «tubos»).
+  · Placas base y pernos (`techos/anclaje.ts`): bloque en el Inspector para TODAS las columnas: pernos J (4/6/8), diámetro (1/2"–1"),
+    placa ancho × largo × espesor y botón «Recomendado» (pernos que pide la memoria + placa según la columna, 5 cm de borde). Cada base
+    guarda `numPernos`, `boltDiameter`, `placaMm`. El 3D dibuja la placa y los pernos reales; la memoria (anclaje) usa lo elegido
+    (tracción = levantamiento + 2·M/brazo, brazo = largo de placa − 10 cm); costos: pernos reales y placa por peso; plano CM-02 con la placa.
+    Arreglado el selector por nudo (las opciones tenían comilla simple y no coincidían).
+  · Paredes de aluzinc (`techos/cerramiento.ts`, botón «Paredes» del 3D): costados (los lados de la luz) y frontis; desde el piso o encima
+    de un muro; plancha; largueros a 1.50 m (plancha ≥ 0.40 mm y vano ≤ 6 m) o 1.20 m; perfil del larguero = el tubo más económico que
+    cumple el viento (40 kg/m², flecha L/180), con el lado alto perpendicular a la pared. Se guarda en la zona principal (como la canaleta).
+    Suma planchas (m²), largueros, pernos autoperforantes y remates a Materiales, costos y presupuesto; sale en AutoCAD/Revit.
+- Archivos principales: techos/anclaje.ts, techos/cerramiento.ts, TechosViewer3D.tsx, PropiedadesCad.tsx, TechosCanvas2D.tsx,
+  memoriaCalculo.ts, techosCadCalculations.ts, useTechosCadEngineState.ts, TechosMaterialesView.tsx, TechosPresupuestoView.tsx,
+  TechosPlanoCadView.tsx, TechosCostosView.tsx, exportarCadTechos.ts, techosCadCatalog.ts, techosCadEngineTypes.ts.
+- Cómo se probó: tsc 0, build OK; capturas antes/después (planta, panel, base 3D, paredes 3D, largueros, materiales, memoria de anclaje).
+- Versión: sin compilar aún.
+- Commit(s): (este commit)
+- Pendiente / a vigilar: en Revit las paredes salen como placas de cubierta (IfcSlab), no como muros; el frontis llega hasta la altura de
+  las columnas (el triángulo de arriba del dos aguas queda abierto).
+
 ## 2026-11-17 · Techos Metálicos: columnas de viga H
 - Pedido del dueño: "vigas h en las columnas".
 - Antes: las vigas H (W/IPE) se podían elegir en la lista de perfiles, pero el 3D las dibujaba como un bloque macizo, el cálculo
@@ -534,7 +558,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Techos: columnas de viga H (17/11/2026), espera «compila» |
+| Última mejora sin compilar | Techos: viga H en columnas, vigas W, placas y pernos, paredes de aluzinc (17/11/2026), espera «compila» |
 | Última versión compilada | Web **2026.11.17.0953** (17/11/2026) · Android **código 26110427** |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110428** (nunca bajar de 26110427) |

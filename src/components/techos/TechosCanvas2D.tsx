@@ -2172,6 +2172,28 @@ export const TechosCanvas2D: React.FC<TechosCanvas2DProps> = ({
                       );
                     }
 
+                    if (profile?.categoria === 'perfil_h_ipe') {
+                      // Columna de viga H: símbolo «H» con el alma a lo largo de la luz (X), como en el 3D y el cálculo.
+                      const c = isSelected ? '#0f172a' : '#4338ca', bo = isSelected ? '#f59e0b' : '#ffffff';
+                      return (
+                        <g key={seg.id} onClick={(e) => handleSegmentClick(seg.id, e)} className="group cursor-pointer">
+                          <rect x={x1 - 14} y={y1 - 14} width="28" height="28" rx="4" fill="rgba(67, 56, 202, 0.18)" stroke="#818cf8" strokeWidth="1"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <rect x={x1 - 11} y={y1 - 11} width="22" height="22" fill="transparent" />
+                          <path d={`M${x1 - 10},${y1 - 9}h4v7.5h12v-7.5h4v18h-4v-7.5h-12v7.5h-4z`} fill={c} stroke={bo} strokeWidth={isSelected ? 2 : 1.2}
+                            strokeLinejoin="round" className="group-hover:fill-amber-500 transition-colors" />
+                          {showDimensions && etiquetaLibre(x1, y1 + 16, 50, 16) && (
+                            <g transform={`translate(${x1}, ${y1 + 16})`} className="pointer-events-none">
+                              <rect x="-24" y="-7" width="48" height="14" rx="3" fill="#ffffff" stroke="#c7d2fe" strokeWidth="1" />
+                              <text x="0" y="3" fill="#312e81" fontSize="8" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                                H {lengthM.toFixed(1)}m
+                              </text>
+                            </g>
+                          )}
+                        </g>
+                      );
+                    }
+
                     return (
                       <g key={seg.id} onClick={(e) => handleSegmentClick(seg.id, e)} className="group cursor-pointer">
                         <rect 

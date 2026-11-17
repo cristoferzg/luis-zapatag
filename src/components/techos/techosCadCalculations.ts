@@ -1,3 +1,5 @@
+import { metradoCerramiento } from './cerramiento';
+import { nudosDeApoyo, anclajeDeNudo, pesoPlacaKg, AREA_PERNO } from './anclaje';
 // Motor de Cálculo Matemático, Despiece 1D (Bin Packing FFD) y Metrados para Techos Metálicos
 // Inteligencia de Materiales: Optimización de retazos, modulación con ancho útil y presupuesto paramétrico.
 
@@ -301,6 +303,8 @@ export function generarReportePresupuestoBom(
   const costoMovilSoles = mecanismoMovil.reduce((x, l) => x + l.subtotal, 0);
   const canaletas = metradoCanaletas(nodes, coverageZones, segments);
   const costoCanaletasSoles = canaletas.reduce((x, l) => x + l.subtotal, 0);
+  const cerramiento = metradoCerramiento(nodes, segments, coverageZones);
+  const costoCerramientoSoles = cerramiento.reduce((x, l) => x + l.subtotal, 0);
   const iluminacionLed = metradoLed(nodes, segments);
   const costoLedSoles = iluminacionLed.reduce((x, l) => x + l.subtotal, 0);
   const costoCimentacionSoles = cimentacion.reduce((x, l) => x + l.subtotal, 0);
@@ -317,7 +321,15 @@ export function generarReportePresupuestoBom(
   // Contar columnas apoyadas para Placas Base y Pernos J
   const numColumnas = Object.values(nodes).filter(n => n.isFixedSupport).length || 4;
   const placasBaseTotales = numColumnas;
-  const pernosAnclajeJ = numColumnas * 4;
+  // Pernos y placas elegidos en cada base (Placas base y pernos): cantidad real y placa según su peso
+  // (el precio del Catálogo es por la placa estándar de 250×250×10; una mayor cuesta en proporción a su peso).
+  const apoyos = nudosDeApoyo(nodes, segments);
+  const confs = apoyos.map(({ nodo, seg }) => anclajeDeNudo(nodo, INVENTARIO_PERFILES_TUBULARES.find(p => p.id === seg.profileId)));
+  const sinConf = Math.max(0, placasBaseTotales - confs.length);
+  const pernosAnclajeJ = confs.reduce((t, c) => t + c.numPernos, 0) + sinConf * 4;
+  const factorPlacas = (confs.reduce((t, c) => t + pesoPlacaKg(c.placaMm) / PLACA_BASE_ESTANDAR.pesoKg, 0) + sinConf);
+  // Perno más grueso que 5/8": el precio sube con el área del perno.
+  const factorPernos = pernosAnclajeJ ? (confs.reduce((t, c) => t + c.numPernos * (AREA_PERNO[c.diametro] || 1.98) / 1.98, 0) + sinConf * 4) / pernosAnclajeJ : 1;
 
   // Suma de pernos autoperforantes EPDM de todas las coberturas
   const totalPernosEpdmUnids = resumenCoberturas.reduce((sum, c) => sum + c.pernosEpdmRequeridosUnidades, 0);
@@ -337,12 +349,12 @@ export function generarReportePresupuestoBom(
   const costoCoberturasSoles = resumenCoberturas.reduce((sum, c) => sum + c.costoTotalCoberturaSoles, 0);
   // Placas de cabeza: columnas marcadas en Revisar (la viga que reciben es más ancha).
   const placasCabeza = Object.values(segments).filter(s => s.rolEstructural === 'columna' && s.placaCabeza).length;
-  const costoPlacasSoles = placasBaseTotales * precio('techos:placa_base', PLACA_BASE_ESTANDAR.costoUnidadSol) + placasCabeza * precio('techos:placa_cabeza', 0);
-  const costoPernosAnclajeSoles = (pernosAnclajeJ / 100) * precio('techos:perno_anclaje', PERNO_ANCLAJE_J.costoCaja100Sol);
+  const costoPlacasSoles = factorPlacas * precio('techos:placa_base', PLACA_BASE_ESTANDAR.costoUnidadSol) + placasCabeza * precio('techos:placa_cabeza', 0);
+  const costoPernosAnclajeSoles = (pernosAnclajeJ / 100) * factorPernos * precio('techos:perno_anclaje', PERNO_ANCLAJE_J.costoCaja100Sol);
   const costoPernosEpdmSoles = cajasPernosEpdm * precio('techos:perno_epdm', PERNO_EPDM_ESTANDAR.costoCaja100Sol);
   const costoSoldaduraSoles = kgSoldaduraEstimados * precio('soldadura:kg', SOLDADURA_AWS_E6011.costoKgSol);
 
-  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles + costoMovilSoles + costoCanaletasSoles + costoLedSoles + costoCimentacionSoles;
+  const costoDirectoMateriales = costoPerfilesSoles + costoCoberturasSoles + costoPlacasSoles + costoPernosAnclajeSoles + costoPernosEpdmSoles + costoSoldaduraSoles + costoTensoresSoles + costoMovilSoles + costoCanaletasSoles + costoCerramientoSoles + costoLedSoles + costoCimentacionSoles;
 
   // Mano de obra y gastos operativos: % de materiales o detalle del usuario
   // (cuadrilla con jornales; grúa, transporte… con montos).
@@ -382,6 +394,8 @@ export function generarReportePresupuestoBom(
     costoMovilSoles: r2(costoMovilSoles),
     canaletas,
     costoCanaletasSoles: r2(costoCanaletasSoles),
+    cerramiento,
+    costoCerramientoSoles: r2(costoCerramientoSoles),
     iluminacionLed,
     costoLedSoles: r2(costoLedSoles),
     cimentacion,

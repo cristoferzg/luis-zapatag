@@ -1,3 +1,4 @@
+import { anclajeComun } from './anclaje';
 // =============================================================================
 // Lámina de Plano CAD Estructural (CM-02) para Techos Metálicos.
 //
@@ -220,8 +221,9 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
 
     // Datos de anclaje (del primer apoyo fijo que los tenga, o estándar).
     const anclaje = (() => {
-      const base = nArr.find(n => n.isFixedSupport && (n.numPernos || n.boltDiameter));
-      return { numPernos: base?.numPernos || 4, boltDiameter: base?.boltDiameter || '5/8"' };
+      // Lo que más se repite en las bases (Placas base y pernos).
+      const c = anclajeComun(nodes as any, segments as any, (id: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id));
+      return { numPernos: c.numPernos, boltDiameter: c.diametro, placaMm: c.placaMm };
     })();
 
     return {
@@ -536,7 +538,7 @@ export const TechosPlanoCadView: React.FC<TechosPlanoCadViewProps> = ({ engineSt
                 </Vista>
               )}
               {tab === 'todas' && (
-                <Vista titulo="DETALLE: PLACA BASE Y ANCLAJE DE COLUMNA (S/E)" sub={`${info.anclaje?.numPernos || 4} pernos Ø ${info.anclaje?.boltDiameter || '5/8"'}`}>
+                <Vista titulo="DETALLE: PLACA BASE Y ANCLAJE DE COLUMNA (S/E)" sub={`Placa ${info.anclaje?.placaMm ? info.anclaje.placaMm.join('×') + ' mm · ' : ''}${info.anclaje?.numPernos || 4} pernos Ø ${info.anclaje?.boltDiameter || '5/8"'}`}>
                   <SvgPlacaBase />
                 </Vista>
               )}

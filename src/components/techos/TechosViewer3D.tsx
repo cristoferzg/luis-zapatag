@@ -40,6 +40,7 @@ import {
   Footprints,
   Palette,
   Droplets,
+  PanelsTopLeft,
   Camera,
   Sparkles
 } from 'lucide-react';
@@ -52,7 +53,9 @@ import { movilDe, TIPOS_MOVIL, zonaPrincipal } from './mecanismoMovil';
 import { canaletaActiva, posicionesBajadas, cfgCanaleta, tramosCanaleta, NOMBRE_FORMA, NOMBRE_LADOS, NOMBRE_BAJADA } from './canaletas';
 import { safeStorage } from '../../lib/storageManager';
 import { guardarFotoPropuesta, fotoPropuesta } from './fotoPropuesta';
-import type { TechoMovil, CoverageZone3D } from './techosCadEngineTypes';
+import type { TechoMovil, CoverageZone3D, Node3D, Segment3D, PerfilTubularItem } from './techosCadEngineTypes';
+import { anclajeDeNudo, diametroMm } from './anclaje';
+import { geometriaCerramiento, cfgCerramiento, cerramientoActivo, separacionRecomendada, NOMBRE_LADO_CERR, type LadoCerramiento } from './cerramiento';
 
 /** Contorno de una sección H: ancho (x) × alto (y). almaVertical: el alma corre en y (alas arriba y abajo). */
 function formaH(ancho: number, alto: number, tw: number, tf: number, almaVertical: boolean): THREE.Shape {
@@ -491,7 +494,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const colorEstructuraRef = useRef(colorEstructura);
   const setColorEstructura = (c: number) => { colorEstructuraRef.current = c; setColorEstructuraSt(c); safeStorage.setItem('innova_techos_color_estructura', c); };
   // Un solo panel abierto a la vez (antes cada uno tenía su estado y se encimaban).
-  const [panel3d, setPanel3d] = useState<'movil' | 'canaleta' | 'colores' | 'perfil' | null>(null);
+  const [panel3d, setPanel3d] = useState<'movil' | 'canaleta' | 'cerramiento' | 'colores' | 'perfil' | null>(null);
   const panelColores = panel3d === 'colores';
   // Foto real de fondo (el patio del cliente) para mostrar el techo encima.
   const [fotoFondo, setFotoFondo] = useState<string | null>(null);
@@ -593,6 +596,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
   const movilClave = movil ? `${movil.tipo}|${movil.panos}|${movil.accionamiento}|${movil.abreHacia || 'inicio'}` : '';
   const panelMovil = panel3d === 'movil';
   const panelCanaleta = panel3d === 'canaleta';
+  const panelCerramiento = panel3d === 'cerramiento';
   const [apertura, setApertura] = useState(0);
   const aperturaRef = useRef(0);
   const panosRef = useRef<{ g: THREE.Group; k: number; zPiv: number; yPiv: number }[]>([]);
@@ -647,7 +651,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
     setPanel3d(null);
   };
   // El mismo botón abre y cierra; abrir uno cierra el otro. En el celular se pliega la barra.
-  const alternarPanel3d = (k: 'movil' | 'canaleta' | 'colores' | 'perfil') => {
+  const alternarPanel3d = (k: 'movil' | 'canaleta' | 'cerramiento' | 'colores' | 'perfil') => {
     if (panel3d === k) { cerrarPanel3d(); return; }
     if (panel3d === 'movil' && movilPrueba) { cancelAnimationFrame(animRef.current); setMovilPrueba(null); setApertura(0); }
     setPanel3d(k);
@@ -2585,6 +2589,40 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       modeloGroup.add(wireframe);
     }
 
+    // CERRAMIENTO LATERAL: largueros (correas de pared) entre columnas y planchas verticales por fuera.
+    {
+      const gc = geometriaCerramiento(nodes as Record<string, Node3D>, segments as Record<string, Segment3D>, zonasCob);
+      if (gc) {
+        const grupoCerr = new THREE.Group(); grupoCerr.name = 'cerramiento';
+        const matLarg = new THREE.MeshStandardMaterial({ color: colorEstructuraRef.current, metalness: 0.5, roughness: 0.45 });
+        const lw = Math.min(gc.perfil.anchoMm, gc.perfil.altoMm || gc.perfil.anchoMm) / 1000, lh = Math.max(gc.perfil.anchoMm, gc.perfil.altoMm || gc.perfil.anchoMm) / 1000;
+        gc.largueros.forEach(g => {
+          const enZ = Math.abs(g.b[2] - g.a[2]) > Math.abs(g.b[0] - g.a[0]);
+          // El lado alto del tubo perpendicular a la pared (resiste el viento); la plancha se atornilla al lado corto.
+          const m = new THREE.Mesh(new THREE.BoxGeometry(enZ ? lh : g.largo, lw, enZ ? g.largo : lh), matLarg);
+          m.position.set((g.a[0] + g.b[0]) / 2, g.a[1], (g.a[2] + g.b[2]) / 2);
+          m.userData = { esCerramiento: true };
+          grupoCerr.add(m);
+        });
+        if (mostrarCobertura) {
+          const lienzo = document.createElement('canvas'); lienzo.width = 64; lienzo.height = 4;
+          const cx = lienzo.getContext('2d');
+          if (cx) { cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, 64, 4); cx.fillStyle = '#b8bec6'; cx.fillRect(0, 0, 10, 4); cx.fillStyle = '#e2e6ea'; cx.fillRect(10, 0, 4, 4); }
+          gc.panos.forEach(q => {
+            const tex = new THREE.CanvasTexture(lienzo); tex.wrapS = THREE.RepeatWrapping; tex.repeat.set(q.largo / 0.25, 1); // TR-4: una onda cada 25 cm
+            const mat = new THREE.MeshStandardMaterial({ color: aluzincColorHex, map: tex, metalness: 0.35, roughness: 0.5, transparent: aluzincOpacity < 1, opacity: aluzincOpacity, side: THREE.DoubleSide });
+            const enZ = q.normal[0] !== 0;
+            const cxp = (q.pts[0][0] + q.pts[1][0]) / 2, czp = (q.pts[0][2] + q.pts[1][2]) / 2;
+            const m = new THREE.Mesh(new THREE.BoxGeometry(enZ ? 0.012 : q.largo, q.alto, enZ ? q.largo : 0.012), mat);
+            m.position.set(cxp, q.pts[0][1] + q.alto / 2, czp);
+            m.name = 'cobertura_malla'; m.userData = { esCerramiento: true };
+            grupoCerr.add(m);
+          });
+        }
+        modeloGroup.add(grupoCerr);
+      }
+    }
+
     // 3. RENDERIZADO DE DADOS DE CONCRETO (PEDESTALES), PLACAS BASE Y PERNOS DE ANCLAJE
     if (mostrarPernosAnclaje) {
       const pedestalGeo = new THREE.BoxGeometry(0.40, 0.22, 0.40);
@@ -2608,10 +2646,16 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         roughness: 0.15
       });
 
+      // Placa y pernos de cada base (Placas base y pernos); la placa por defecto se ajusta a la columna.
+      const colDeNudo = new Map<string, string>();
+      Object.values(segments).forEach(sg => { if (sg.rolEstructural !== 'columna') return; const a = nodes[sg.nodeAId], b = nodes[sg.nodeBId]; if (a && b) colDeNudo.set((a.y <= b.y ? a : b).id, sg.profileId); });
       nodeArray.forEach(n => {
         if (n.y <= 0.3) { // los anclajes al muro (apoyos elevados) no llevan dado en el suelo
+          const cfgA = anclajeDeNudo(n as Partial<Node3D>, colDeNudo.has(n.id) ? perfilTechos(colDeNudo.get(n.id)!) as PerfilTubularItem : undefined);
+          const [pAn, pLa, pEs] = cfgA.placaMm.map(v => v / 1000);
           // Dado de concreto / Pedestal de cimentación
           const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+          pedestal.scale.set(Math.max(1, (pLa + 0.1) / 0.4), 1, Math.max(1, (pAn + 0.1) / 0.4));
           pedestal.name = 'dado_base'; pedestal.visible = !fotoFondoRef.current; // sobre la foto real, la columna llega al piso existente
           pedestal.position.set(n.x, 0.11, n.z || 0);
           modeloGroup.add(pedestal);
@@ -2619,20 +2663,24 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           // Placa base de anclaje
           const plate = new THREE.Mesh(plateGeo, plateMat);
           plate.name = 'dado_base'; plate.visible = !fotoFondoRef.current;
-          plate.position.set(n.x, 0.22 + 0.01, n.z || 0);
+          // Largo de la placa a lo largo de la luz (X, como el peralte de la columna) y ancho en Z.
+          plate.scale.set(pLa / 0.30, Math.max(0.3, pEs / 0.02), pAn / 0.30);
+          plate.position.set(n.x, 0.22 + pEs / 2, n.z || 0);
           modeloGroup.add(plate);
 
-          const offsets = [
-            [-0.09, -0.09],
-            [0.09, -0.09],
-            [-0.09, 0.09],
-            [0.09, 0.09]
-          ];
-          offsets.forEach(([ox, oz]) => {
-            const boltMesh = new THREE.Mesh(boltGeo, boltMat);
-            boltMesh.name = 'dado_base'; boltMesh.visible = !fotoFondoRef.current;
-            boltMesh.position.set(n.x + ox, 0.22 + 0.035, (n.z || 0) + oz);
-            modeloGroup.add(boltMesh);
+          // Pernos: la mitad en cada lado (a 5 cm del borde), repartidos a lo ancho.
+          const porLado = Math.max(2, Math.round(cfgA.numPernos / 2));
+          const rB = diametroMm(cfgA.diametro) / 2000;
+          const ox = pLa / 2 - 0.05;
+          [-1, 1].forEach(lado => {
+            for (let i = 0; i < porLado; i++) {
+              const oz = porLado === 1 ? 0 : -(pAn / 2 - 0.05) + i * ((pAn - 0.1) / (porLado - 1));
+              const boltMesh = new THREE.Mesh(boltGeo, boltMat);
+              boltMesh.name = 'dado_base'; boltMesh.visible = !fotoFondoRef.current;
+              boltMesh.scale.set(rB / 0.01, 1, rB / 0.01);
+              boltMesh.position.set(n.x + lado * ox, 0.22 + pEs + 0.025, (n.z || 0) + oz);
+              modeloGroup.add(boltMesh);
+            }
           });
         }
       });
@@ -4242,6 +4290,69 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         );
       })()}
 
+      {/* PANEL CERRAMIENTO LATERAL (paredes de aluzinc) */}
+      {panelCerramiento && (() => {
+        const cfg = cfgCerramiento(zonasCob);
+        const gc = geometriaCerramiento(nodes as Record<string, Node3D>, segments as Record<string, Segment3D>, zonasCob);
+        const guardar = (p: Partial<typeof cfg>) => {
+          if (p.activo === false && !zonaPrincipal(zonasCob)) return;
+          const ok = engineState?.setCerramiento?.({ ...cfg, ...p });
+          if (!ok) alert('Este diseño no tiene correas ni columnas para colocar las paredes: usa el Asistente.');
+          else setMostrarCobertura(true);
+        };
+        const chip = (activo: boolean) => `px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border ${activo ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`;
+        const ladosTodos: LadoCerramiento[] = ['izquierda', 'derecha', 'adelante', 'atras'];
+        const sepRec = gc?.separacionRecomendada ?? separacionRecomendada(cfg.coberturaId, 6);
+        const planchas = INVENTARIO_COBERTURAS.filter(c => /aluzinc|calamina|termo|upvc|panel/i.test(c.categoria));
+        const perfilesLarg = INVENTARIO_PERFILES_TUBULARES.filter(p => (p.categoria === 'tubo_rectangular' || p.categoria === 'tubo_cuadrado' || p.categoria === 'perfil_c') && p.anchoMm >= 50 && p.anchoMm <= 152);
+        return (
+          <PanelDock3D titulo="Paredes de aluzinc" icono={<PanelsTopLeft className="w-4 h-4" />} tono="text-indigo-800" top={altoBarra3d} onClose={cerrarPanel3d}>
+            <label className="flex items-center gap-2 text-xs font-bold cursor-pointer">
+              <input type="checkbox" checked={cfg.activo} onChange={e => guardar({ activo: e.target.checked })} className="w-4 h-4 accent-indigo-600" /> La nave lleva paredes (cerramiento)
+            </label>
+            {cfg.activo && (<>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase">Qué lados</p>
+                <div className="flex flex-wrap gap-1.5">{ladosTodos.map(l => (
+                  <button key={l} onClick={() => { const n = cfg.lados.includes(l) ? cfg.lados.filter(x => x !== l) : [...cfg.lados, l]; if (n.length) guardar({ lados: n }); }} className={chip(cfg.lados.includes(l))}>{NOMBRE_LADO_CERR[l]}</button>
+                ))}</div>
+                <p className="text-[10px] text-slate-500">Costados = los dos lados de la luz (a lo largo de la nave). Frontis = las cabeceras.</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Desde (m)
+                  <input type="number" min={0} max={4} step={0.1} value={cfg.desdeM} onChange={e => { const v = Number(e.target.value); if (v >= 0 && v <= 4) guardar({ desdeM: v }); }}
+                    className="mt-0.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-sm font-black text-slate-800" />
+                </label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Plancha
+                  <select value={cfg.coberturaId} onChange={e => guardar({ coberturaId: e.target.value })} className="mt-0.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-800 cursor-pointer">
+                    {planchas.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                  </select>
+                </label>
+              </div>
+              <p className="text-[10px] text-slate-500 -mt-1">«Desde»: 0 = la plancha llega al piso; pon la altura del muro o zócalo si va encima de uno.</p>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-500 uppercase">Largueros (correas de pared)</p>
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  <button onClick={() => guardar({ separacionM: 0 })} className={chip(!cfg.separacionM)}>Recomendado: cada {sepRec.toFixed(2)} m</button>
+                  {[1.0, 1.2, 1.5, 1.8].filter(v => Math.abs(v - sepRec) > 0.01).map(v => <button key={v} onClick={() => guardar({ separacionM: v })} className={chip(Math.abs(cfg.separacionM - v) < 0.01)}>{v.toFixed(2)} m</button>)}
+                </div>
+                <select value={cfg.perfilId} onChange={e => guardar({ perfilId: e.target.value })} className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-800 cursor-pointer">
+                  <option value="">Recomendado por viento{gc && !cfg.perfilId ? ` (${gc.perfil.nombre})` : ''}</option>
+                  {perfilesLarg.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                </select>
+              </div>
+              {gc ? (
+                <p className="text-[10px] text-indigo-900 bg-indigo-50 rounded-lg p-2 leading-snug">
+                  {gc.filas} filas de largueros · {gc.metrosLarguero.toFixed(1)} m de {gc.perfil.nombre} · {gc.areaM2.toFixed(1)} m² de plancha.
+                  {gc.separacion > gc.separacionRecomendada + 0.01 ? ' ⚠ Más separado que lo recomendado: la plancha puede vibrar o abollarse con el viento.' : ''}
+                </p>
+              ) : <p className="text-[10px] text-amber-800 bg-amber-50 rounded-lg p-2">Hacen falta al menos 2 columnas en el lado elegido.</p>}
+            </>)}
+            <p className="text-[10px] text-slate-500 bg-indigo-50/60 rounded-lg p-2">Se guarda con el diseño y suma planchas, largueros, pernos y remates a Materiales y al presupuesto. Separación recomendada: 1.50 m con plancha de 0.40 mm o más y vanos de hasta 6 m; 1.20 m si la plancha es más delgada o el vano es mayor.</p>
+          </PanelDock3D>
+        );
+      })()}
+
       {panelMovil && (() => {
         const base: TechoMovil = movil || { tipo: 'corredizo', panos: 3, accionamiento: 'manual', abreHacia: 'inicio' };
         const cambiar = (p: Partial<TechoMovil>) => guardarMovil({ ...base, ...p });
@@ -4474,6 +4585,15 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           </button>
 
 {!modoCliente && (<>
+          {/* Paredes de aluzinc (cerramiento lateral) */}
+          <button
+            onClick={() => alternarPanel3d('cerramiento')} aria-pressed={panelCerramiento}
+            className={`p-1.5 sm:p-2 rounded-xl transition-all cursor-pointer border shrink-0 flex items-center gap-1 ${panelCerramiento ? 'bg-indigo-600 text-white border-indigo-500 font-bold' : cerramientoActivo(zonasCob) ? 'bg-indigo-50 text-indigo-800 border-indigo-300 font-bold' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}`}
+            title="Paredes de aluzinc: costados y frontis con largueros a la separación recomendada"
+          >
+            <PanelsTopLeft className="w-4 h-4" />
+            <span className="hidden xl:inline text-[11px] font-bold">Paredes</span>
+          </button>
           {/* Canaletas y bajadas de agua */}
           {(() => { const activa = canaletaActiva(zonasCob); return (
             <button

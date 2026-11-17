@@ -1,3 +1,4 @@
+import { geometriaCerramiento } from './cerramiento';
 // Techos Metálicos → sólidos para AutoCAD (DXF 3D) y Revit (IFC): cada tubo con su perfil del
 // catálogo (columnas, cordones, montantes, diagonales, correas, tensores…) y la cobertura
 // de cada zona como cubierta con su espesor.
@@ -55,5 +56,13 @@ export function solidosDeTecho(nodes: Record<string, Node3D>, segments: Record<s
     superficies.push({ tipo: 'cubierta', nombre: z.nombre || cob?.nombre || 'Cobertura', capa: 'Cobertura', contorno,
       espesor: Math.max(0.0004, (Number(cob?.espesorMm) || 0.4) / 1000), material: cob?.nombre || 'Cobertura' });
   });
+  // Cerramiento lateral: largueros y planchas de pared.
+  const gc = geometriaCerramiento(nodes, segments, zonas);
+  if (gc) {
+    const an = gc.perfil.anchoMm / 1000, al = (gc.perfil.altoMm || gc.perfil.anchoMm) / 1000, t = Math.max(0.0008, gc.perfil.espesorMm / 1000);
+    gc.largueros.forEach(g => solidos.push({ tipo: 'viga', nombre: `Larguero de pared (${gc.perfil.nombre})`, capa: 'Largueros de pared', material: 'Acero', a: g.a, b: g.b,
+      seccion: { forma: /^tubo_/.test(gc.perfil.categoria) ? 'rect_hueco' : 'rect', ancho: Math.max(an, al), alto: Math.min(an, al), espesor: t } }));
+    gc.panos.forEach(q => superficies.push({ tipo: 'cubierta', nombre: `Pared de aluzinc (${q.lado})`, capa: 'Paredes de aluzinc', material: 'Aluzinc', espesor: 0.004, contorno: q.pts }));
+  }
   return { solidos, superficies };
 }

@@ -158,8 +158,8 @@ export const TechosCostosView: React.FC<TechosCostosViewProps> = ({ design }) =>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([
-            ['techos:placa_base', `Placa base (${simb()} c/u) · ${bom?.placasBaseTotalesUnids ?? 0} u`, PLACA_BASE_ESTANDAR.costoUnidadSol],
-            ['techos:perno_anclaje', `Pernos de anclaje (${simb()} caja ×100)`, PERNO_ANCLAJE_J.costoCaja100Sol],
+            ['techos:placa_base', `Placa base 250×250×10 (${simb()} c/u; otras según su peso) · ${bom?.placasBaseTotalesUnids ?? 0} u`, PLACA_BASE_ESTANDAR.costoUnidadSol],
+            ['techos:perno_anclaje', `Pernos de anclaje (${simb()} caja ×100) · ${bom?.pernosAnclajeJTotalesUnids ?? 0} u`, PERNO_ANCLAJE_J.costoCaja100Sol],
             ['techos:perno_epdm', `Pernos EPDM (${simb()} caja ×100) · ${bom?.cajasPernosEpdmTotales ?? 0} cj`, PERNO_EPDM_ESTANDAR.costoCaja100Sol],
             ['soldadura:kg', `Soldadura (${simb()} kg) · ${bom?.kgSoldaduraAwsEstimados ?? 0} kg`, SOLDADURA_AWS_E6011.costoKgSol],
           ] as [string, string, number][]).map(([k, l, def]) => (

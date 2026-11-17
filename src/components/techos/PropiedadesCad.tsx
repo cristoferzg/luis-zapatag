@@ -27,6 +27,8 @@ import { INVENTARIO_PERFILES_TUBULARES, PERFILES_TECHOS_AGRUPADOS } from './tech
 import { RolEstructuralSegmento } from './techosCadEngineTypes';
 import { MERCADO_COLORES_PINTURA, TipoTijeral } from './techosCadColors';
 import InputNumero from '../common/InputNumero';
+import { anclajeComun, PERNOS_OPCIONES, DIAMETROS_PERNO, ESPESORES_PLACA, pesoPlacaKg, normalizarDiametro } from './anclaje';
+import { calcularMemoria } from './memoriaCalculo';
 
 export interface PropiedadesCadProps {
   engineState?: UseTechosCadEngineReturn;
@@ -574,6 +576,50 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
               );
             })()}
 
+            {/* Placas base y pernos de anclaje (aplica a TODAS las columnas metálicas) */}
+            {(() => {
+              if (!engineState?.nodes || !engineState.setAnclajeColumnas) return null;
+              const perfilDe = (id: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id);
+              const conf = anclajeComun(engineState.nodes, segments as any, perfilDe);
+              if (!conf.n) return null;
+              let anc: ReturnType<typeof calcularMemoria>['anclaje'] = null;
+              try { anc = calcularMemoria(engineState.nodes, segments as any, engineState.coverageZones || {}, engineState.structuralInputs as any).anclaje; } catch { /* sin memoria */ }
+              const set = engineState.setAnclajeColumnas;
+              const [pa, pl, pe] = conf.placaMm;
+              const medida = (i: 0 | 1, v: number) => { const p = [...conf.placaMm] as [number, number, number]; p[i] = Math.max(150, Math.min(800, Math.round(v))); set({ placaMm: p }); };
+              const sel = 'w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-bold text-xs cursor-pointer focus:border-amber-500 outline-none';
+              return (
+                <div className="p-2.5 rounded-xl bg-white border border-amber-300 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="block text-[10px] font-black text-amber-900 uppercase tracking-wide">🔩 Placas base y pernos de anclaje</span>
+                    <button onClick={() => set('recomendado')} className="px-2 py-1 rounded-lg text-[10px] font-black cursor-pointer border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100">✓ Recomendado</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="block"><span className="block text-[10px] text-slate-600 font-bold mb-0.5">Pernos J por columna</span>
+                      <select value={conf.numPernos} onChange={e => set({ numPernos: Number(e.target.value) })} className={sel}>
+                        {PERNOS_OPCIONES.map(n => <option key={n} value={n}>{n} pernos</option>)}
+                      </select></label>
+                    <label className="block"><span className="block text-[10px] text-slate-600 font-bold mb-0.5">Diámetro</span>
+                      <select value={conf.diametro} onChange={e => set({ boltDiameter: e.target.value })} className={sel}>
+                        {DIAMETROS_PERNO.map(d => <option key={d} value={d}>Ø {d}</option>)}
+                      </select></label>
+                  </div>
+                  <span className="block text-[10px] text-slate-600 font-bold">Placa base (mm)</span>
+                  <div className="grid grid-cols-3 gap-1.5 items-center">
+                    <InputNumero type="number" step="10" min="150" value={pa} onChange={e => medida(0, parseFloat(e.target.value) || pa)} className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-bold text-xs outline-none focus:border-amber-500" />
+                    <InputNumero type="number" step="10" min="150" value={pl} onChange={e => medida(1, parseFloat(e.target.value) || pl)} className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-bold text-xs outline-none focus:border-amber-500" />
+                    <select value={pe} onChange={e => { const p = [...conf.placaMm] as [number, number, number]; p[2] = Number(e.target.value); set({ placaMm: p }); }} className={sel}>
+                      {ESPESORES_PLACA.map(t => <option key={t} value={t}>{t} mm</option>)}
+                    </select>
+                  </div>
+                  <p className="text-[9px] text-slate-500 leading-snug">Ancho × largo × espesor · {conf.n} bases · {pesoPlacaKg(conf.placaMm).toFixed(1)} kg c/u.</p>
+                  {anc && <p className={`text-[10px] font-bold leading-snug rounded-md px-2 py-1 ${anc.estado === 'CUMPLE' ? 'bg-emerald-50 text-emerald-800' : 'bg-rose-50 text-rose-700'}`}>
+                    {anc.estado === 'CUMPLE' ? '✓ Cumple' : '✗ No cumple'}: tracción {Math.round(anc.demandaKg).toLocaleString('es-PE')} ≤ {Math.round(anc.capacidadKg).toLocaleString('es-PE')} kg{anc.estado !== 'CUMPLE' && anc.recomendado ? ` · usar ${anc.recomendado.numPernos} pernos Ø ${anc.recomendado.diametro}` : ''}
+                  </p>}
+                </div>
+              );
+            })()}
+
             {/* Columnas mixtas: concreto abajo + metal arriba (aplica a TODAS) */}
             <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-300 space-y-1.5">
               <span className="block text-[10px] font-black text-stone-800 uppercase tracking-wide">
@@ -857,15 +903,11 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
                     <div>
                       <label className="block text-[10px] text-slate-600 font-bold mb-0.5">Diámetro:</label>
                       <select
-                        value={selectedNode.boltDiameter || '5/8"'}
+                        value={normalizarDiametro(selectedNode.boltDiameter)}
                         onChange={(e) => engineState?.updateNodeAnchorBolts(selectedNode.id, selectedNode.numPernos || 4, e.target.value)}
                         className="w-full bg-white border border-slate-300 rounded-lg p-1.5 text-slate-800 font-bold text-xs cursor-pointer focus:border-amber-500 outline-none"
                       >
-                        <option value="1/2'">1/2"</option>
-                        <option value="5/8'">5/8"</option>
-                        <option value="3/4'">3/4"</option>
-                        <option value="M16">M16</option>
-                        <option value="M20">M20</option>
+                        {DIAMETROS_PERNO.map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
                   </div>

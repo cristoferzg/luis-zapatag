@@ -113,6 +113,7 @@ export interface Node3D {
   selected?: boolean;
   numPernos?: number;           // Número de pernos de anclaje (4, 6, 8)
   boltDiameter?: string;        // Diámetro de pernos (ej. "5/8\"", "M16")
+  placaMm?: [number, number, number]; // Placa base: ancho × largo × espesor (mm); sin dato = la recomendada (anclaje.ts)
   ladoCv?: 'alto' | 'bajo';     // Techo con cortaviento: de qué lado de la ranura queda (la cobertura no la cruza)
 }
 
@@ -180,7 +181,18 @@ export interface CoverageZone3D {
   selected?: boolean;
   movil?: TechoMovil;           // Techo movible (opcional): mecanismo de apertura
   canaleta?: CanaletaCfg; // canaletas y bajadas (apagadas si no se activan)
+  cerramiento?: CerramientoCfg; // paredes de aluzinc con largueros (apagado si no se activa; ver cerramiento.ts)
   colorHex?: number;      // color elegido en el 3D de Techos (Obra Civil y Drywall lo respetan)
+}
+
+/** Cerramiento lateral: paredes de plancha sobre largueros entre columnas (cerramiento.ts). */
+export interface CerramientoCfg {
+  activo?: boolean;
+  lados?: ('izquierda' | 'derecha' | 'adelante' | 'atras')[];
+  desdeM?: number;        // altura donde empieza la plancha (0 = piso; encima de un muro o zócalo)
+  coberturaId?: string;   // plancha de las paredes
+  separacionM?: number;   // entre largueros (0 = la recomendada)
+  perfilId?: string;      // perfil del larguero ('' = el más económico que cumple con el viento)
 }
 
 // Techo movible: la cobertura se divide en paños que se abren a lo largo (Z).
@@ -338,6 +350,8 @@ export interface FullTechosBomReport {
   costoMovilSoles?: number;
   canaletas?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
   costoCanaletasSoles?: number;
+  cerramiento?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
+  costoCerramientoSoles?: number;
   iluminacionLed?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];
   /** Columnas de concreto armado y zapatas (obra civil del techo). */
   cimentacion?: { clave: string; nombre: string; unidad: string; cantidad: number; precio: number; subtotal: number; nota: string }[];

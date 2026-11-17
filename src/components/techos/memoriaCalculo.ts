@@ -12,6 +12,7 @@
 // =============================================================================
 import type { Node3D, Segment3D, CoverageZone3D, RolEstructuralSegmento, PerfilTubularItem } from './techosCadEngineTypes';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { anclajeComun, capacidadPernosKg, pernosRecomendados } from './anclaje';
 import { propsPerfil, esVigaH, factorK, limitesLambda, seAnaliza, cumpleTramo, perfilMasEconomico, CargasGrupo } from './propiedadesPerfil';
 import { precio, clavePerfilDe, leerCatalogo } from '../../lib/catalogoPrecios';
 import { perfilSuperior, alerosConCanaleta } from './canaletas';
@@ -366,7 +367,9 @@ export interface DireccionY {
   fuerzaVarillaKg: number; capVarillaKg: number; varilla: string; estado: EstadoMemoria; motivo: string;
 }
 /** Anclaje de cada columna frente al levantamiento por viento (y el momento por sismo en bases rígidas). */
-export interface Anclaje { tipo: string; pernos: number; diam: string; demandaKg: number; capacidadKg: number; levantamientoKg: number; estado: EstadoMemoria; motivo: string }
+export interface Anclaje { tipo: string; pernos: number; diam: string; demandaKg: number; capacidadKg: number; levantamientoKg: number; estado: EstadoMemoria; motivo: string;
+  /** Placa base usada (mm) y los pernos más económicos que cumplen (para el botón «Recomendado»). */
+  placaMm?: [number, number, number]; recomendado?: { numPernos: number; diametro: string } }
 const S_SUELO: Record<string, Record<string, number>> = {
   Z4: { S0: 0.8, S1: 1.0, S2: 1.05, S3: 1.10 }, Z3: { S0: 0.8, S1: 1.0, S2: 1.15, S3: 1.20 },
   Z2: { S0: 0.8, S1: 1.0, S2: 1.20, S3: 1.40 }, Z1: { S0: 0.8, S1: 1.0, S2: 1.60, S3: 2.00 },
@@ -609,16 +612,21 @@ function calcularMemoriaSinCache(nodes: Record<string, Node3D>, segments: Record
   const anclaje: Anclaje | null = (() => {
     if (!sismo) return null;
     const levant = Math.max(0, -reacciones.levantamientoKg);
-    const nPernos = 4, Ab = 1.98; // Ø 5/8"
-    const cap = nPernos * 0.75 * 0.75 * 4200 * Ab;               // φRnt (ASTM A307 / A36)
+    // Pernos y placa elegidos en las bases (Placas base y pernos); sin elegir: 4 pernos Ø 5/8" y la placa recomendada.
     const ca = sismo.concreto;
-    // Base rígida (acero): el momento por sismo se reparte en el par de pernos de cada lado (brazo ≈ 0.20 m).
-    const tirSismo = ca ? 0 : (sismo.MColKgM / 0.2) / 2;
+    const conf = ca ? { numPernos: 4, diametro: '5/8"', placaMm: undefined } : anclajeComun(nodes, segments, perfilDe);
+    const nPernos = conf.numPernos, diam = conf.diametro;
+    const cap = capacidadPernosKg(nPernos, diam);               // φRnt (ASTM A307 / A36)
+    // Base rígida (acero): el momento por sismo lo toman los pernos de un lado (brazo = largo de placa − 10 cm, mín. 0.15 m).
+    const brazo = Math.max(0.15, ((conf.placaMm?.[1] || 300) - 100) / 1000);
+    // T = M / brazo la toma la mitad de los pernos: frente al grupo completo equivale a 2·T.
+    const tirSismo = ca ? 0 : 2 * (sismo.MColKgM / brazo);
     const demanda = levant + tirSismo;
     const ok = demanda <= cap;
-    return { tipo: ca ? 'Plancha embebida con 4 espárragos Ø 5/8"' : 'Placa base con 4 pernos J Ø 5/8" (ASTM A307)', pernos: nPernos, diam: '5/8"',
-      demandaKg: demanda, capacidadKg: cap, levantamientoKg: levant, estado: ok ? 'CUMPLE' : 'NO_CUMPLE',
-      motivo: ok ? 'Los pernos resisten el levantamiento por viento' + (tirSismo ? ' y el momento por sismo' : '') : 'Pernos insuficientes: usar Ø 3/4" o 6 pernos' };
+    const rec = pernosRecomendados(demanda);
+    return { tipo: ca ? `Plancha embebida con ${nPernos} espárragos Ø ${diam}` : `Placa base ${conf.placaMm ? `${conf.placaMm[0]}×${conf.placaMm[1]}×${conf.placaMm[2]} mm ` : ''}con ${nPernos} pernos J Ø ${diam} (ASTM A307)`, pernos: nPernos, diam,
+      demandaKg: demanda, capacidadKg: cap, levantamientoKg: levant, estado: ok ? 'CUMPLE' : 'NO_CUMPLE', placaMm: conf.placaMm, recomendado: rec,
+      motivo: ok ? 'Los pernos resisten el levantamiento por viento' + (tirSismo ? ' y el momento por sismo' : '') : `Pernos insuficientes: usar ${rec.numPernos} pernos Ø ${rec.diametro}` };
   })();
   const estado: EstadoMemoria = grupos.some(g => g.estado === 'NO_CUMPLE') || sismo?.estado === 'NO_CUMPLE' || sismo?.dirY?.estado === 'NO_CUMPLE' || anclaje?.estado === 'NO_CUMPLE' ? 'NO_CUMPLE' : grupos.some(g => g.estado === 'OBSERVACION') ? 'OBSERVACION' : 'CUMPLE';
   return {

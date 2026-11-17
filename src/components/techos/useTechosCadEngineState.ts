@@ -24,6 +24,7 @@ import {
   CoverageZone3D, 
   TechoMovil,
   CanaletaCfg,
+  CerramientoCfg,
   ToolModoCad, 
   RolEstructuralSegmento,
   FullTechosBomReport,
@@ -32,6 +33,7 @@ import {
 } from './techosCadEngineTypes';
 
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
+import { nudosDeApoyo, placaRecomendada } from './anclaje';
 import { generarTechoAlpino } from './techoAlpino';
 import { generarReportePresupuestoBom } from './techosCadCalculations';
 import { TipoTijeral } from './techosCadColors';
@@ -134,6 +136,8 @@ export interface UseTechosCadEngineReturn {
   setTechoMovil: (movil: TechoMovil | null) => boolean;
   /** Canaletas y bajadas: activas / material (en la cobertura principal). */
   setCanaleta: (c: CanaletaCfg) => boolean;
+  /** Paredes de aluzinc con largueros (cerramiento lateral). */
+  setCerramiento: (c: CerramientoCfg) => boolean;
 
   // Generadores Paramétricos Automáticos que generan Nodos y Segmentos reales en PROJECT_MODEL
   generateTrussFreehand: (startNodeId: string, endNodeId: string, heightM?: number, type?: TipoTijeral, numDivisions?: number, customSpacingM?: number) => string | void;
@@ -184,6 +188,8 @@ export interface UseTechosCadEngineReturn {
   globalPaintColor: string;
   setGlobalPaintColor: (colorId: string) => void;
   updateNodeAnchorBolts: (nodeId: string, numPernos: number, boltDiameter: string) => void;
+  /** Placas base y pernos de TODAS las columnas metálicas. 'recomendado' = lo que pide la memoria (pernos) y la placa según la columna. */
+  setAnclajeColumnas: (cfg: { numPernos?: number; boltDiameter?: string; placaMm?: [number, number, number] } | 'recomendado') => void;
 
   // Importar / Exportar AutoCAD DXF
   importDxfModel: (dxfModel: any, scale?: number) => void;
@@ -495,6 +501,38 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     setSegments(segs);
     pushHistory(nodes, segs, coverageZones);
   }, [segments]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setAnclajeColumnas = useCallback((cfg: { numPernos?: number; boltDiameter?: string; placaMm?: [number, number, number] } | 'recomendado') => {
+    const ap = nudosDeApoyo(nodes, segments);
+    if (!ap.length) return;
+    let c = cfg;
+    if (cfg === 'recomendado') {
+      let rec = { numPernos: 4, diametro: '5/8"' };
+      try { rec = calcularMemoria(nodes, segments, coverageZones, structuralInputs).anclaje?.recomendado || rec; } catch { /* sin memoria */ }
+      c = { numPernos: rec.numPernos, boltDiameter: rec.diametro };
+    }
+    const nuevo = { ...nodes };
+    ap.forEach(({ nodo, seg }) => {
+      const cc = c as { numPernos?: number; boltDiameter?: string; placaMm?: [number, number, number] };
+      const numPernos = cc.numPernos ?? nodo.numPernos ?? 4;
+      const perfil = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === seg.profileId);
+      // «Recomendado» también ajusta la placa al perfil de la columna (y a la cantidad de pernos).
+      const placaMm = cfg === 'recomendado' ? placaRecomendada(perfil, numPernos) : cc.placaMm ?? nodo.placaMm;
+      nuevo[nodo.id] = { ...nodo, isFixedSupport: true, numPernos, boltDiameter: cc.boltDiameter ?? nodo.boltDiameter ?? '5/8"', placaMm };
+    });
+    // La memoria vuelve a revisar: si con esos pernos aún no cumple, «Recomendado» sube al siguiente.
+    if (cfg === 'recomendado') {
+      try {
+        const r2 = calcularMemoria(nuevo, segments, coverageZones, structuralInputs).anclaje;
+        if (r2 && r2.estado === 'NO_CUMPLE' && r2.recomendado) ap.forEach(({ nodo, seg }) => {
+          const perfil = INVENTARIO_PERFILES_TUBULARES.find(p => p.id === seg.profileId);
+          nuevo[nodo.id] = { ...nuevo[nodo.id], numPernos: r2.recomendado!.numPernos, boltDiameter: r2.recomendado!.diametro, placaMm: placaRecomendada(perfil, r2.recomendado!.numPernos) };
+        });
+      } catch { /* sin memoria */ }
+    }
+    setNodes(nuevo);
+    pushHistory(nuevo, segments, coverageZones);
+  }, [nodes, segments, coverageZones, structuralInputs, pushHistory]);
 
   const updateNodeAnchorBolts = useCallback((nodeId: string, numPernos: number, boltDiameter: string) => {
     setNodes(prev => {
@@ -1063,6 +1101,17 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pushHistory(nodes, segments, newZones);
     return true;
   }, [nodes, segments, coverageZones, pushHistory]);
+
+  const setCerramiento = useCallback((c: CerramientoCfg) => {
+    // Igual que la canaleta: se guarda en la zona principal (si aún no hay cobertura, se crea desde las correas).
+    const base = zonaPrincipal(coverageZones) ? coverageZones : { ...coverageZones, ...zonasDesdeCorreas(nodes, segments, activeCoverageId || 'cob_aluzinc_030') };
+    const z = zonaPrincipal(base);
+    if (!z) return false;
+    const newZones = { ...base, [z.id]: { ...z, cerramiento: c } };
+    setCoverageZones(newZones);
+    pushHistory(nodes, segments, newZones);
+    return true;
+  }, [nodes, segments, coverageZones, pushHistory, activeCoverageId]);
 
   // Eliminar Elementos Seleccionados
   const deleteSelectedElements = useCallback(() => {
@@ -4617,6 +4666,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     pedirVigaSimple,
     pedirPerfilesAptos,
     pedirColumnasConcreto,
+    setAnclajeColumnas,
     pedirCortaviento,
     setColorCobertura,
     setOcultos,
@@ -4626,6 +4676,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     assignCoverageToSelectedZones,
     setTechoMovil,
     setCanaleta,
+    setCerramiento,
     generateTrussFreehand,
     generateRoofGable,
     generateRoofMonoslope,

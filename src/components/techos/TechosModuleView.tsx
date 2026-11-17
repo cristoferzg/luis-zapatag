@@ -264,7 +264,7 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
       {/* Números principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {kpi(totalStructuralWeight.toLocaleString('es-PE', { maximumFractionDigits: 0 }), 'kg', 'Acero', `${segmentList.length} piezas · ${nodeList.length} uniones`, 'text-emerald-700')}
-        {kpi(`${simb()} ${totalStructuralCost.toLocaleString('es-PE', { maximumFractionDigits: 0 })}`, '', 'Tubos (perfilería)', `${profileStats.length} medidas de tubo distintas`, 'text-amber-700')}
+        {kpi(`${simb()} ${totalStructuralCost.toLocaleString('es-PE', { maximumFractionDigits: 0 })}`, '', 'Perfilería', `${profileStats.length} perfiles distintos`, 'text-amber-700')}
         {kpi(planchasMostrar || '—', planchasMostrar ? 'planchas' : '', 'Cobertura', estimadas.length ? 'Estimado (aún sin cobertura elegida)' : (porCobertura[0]?.nombre || 'Sin cobertura'), 'text-sky-700')}
         {kpi(areaMostrar.toFixed(1), 'm²', 'Área del techo', 'Medida con la pendiente', 'text-violet-700')}
       </div>
@@ -317,7 +317,7 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
         <div className="xl:col-span-3 bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
           <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
             <Box className="w-4 h-4 text-amber-600" />
-            <h3 className="text-sm font-black text-slate-800">Piezas del techo y su tubo</h3>
+            <h3 className="text-sm font-black text-slate-800">Piezas del techo y su perfil</h3>
           </div>
           {porRol.length === 0 ? <p className="p-6 text-center text-slate-400 text-xs">Aún no hay piezas. Arma tu techo con el Asistente.</p> : (
             <div className="divide-y divide-slate-100">
@@ -344,7 +344,7 @@ export function TechosResumenGeneralPanel({ engineState, nombreProyecto }: { eng
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
               <Package className="w-4 h-4 text-amber-600" />
-              <h3 className="text-sm font-black text-slate-800">Tubos a comprar (barras de 6 m)</h3>
+              <h3 className="text-sm font-black text-slate-800">Perfiles a comprar (barras de 6 m)</h3>
             </div>
             <div className="divide-y divide-slate-100">
               {profileStats.map(({ profile, totalLength, totalWeight, totalCost }) => (

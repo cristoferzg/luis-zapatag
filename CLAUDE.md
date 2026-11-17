@@ -172,7 +172,10 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   Columnas: UNA regla `columnaQueCumple` (estático + mínimo 3"×3"×3 mm + sismo X + sismo Y sin cruces; cruces solo si ninguna columna sola alcanza:
   el dueño indica que muchas obras no llevan arriostres/tensores).
   Columnas de VIGA H (W): botón «Viga H» (panel y Asistente, `COLUMNAS_H`); sección H real (`esVigaH`, `alaEspMm`; anchoMm = peralte,
-  altoMm = ala): sismo X eje fuerte (alma en el pórtico), Y débil; 3D/IFC/DXF con forma H (de columna el alma en X, de viga vertical). La usan memoria, 3D, Asistente y ambos botones «Aplicar recomendados» (mismo método). memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
+  altoMm = ala): sismo X eje fuerte (alma en el pórtico), Y débil; 3D/IFC/DXF con forma H (de columna el alma en X, de viga vertical).
+  Placas base y pernos: `techos/anclaje.ts` (nudo de apoyo: numPernos, boltDiameter, placaMm; `setAnclajeColumnas`, botón «Recomendado»);
+  lo usan 3D, memoria (anclaje), costos y plano CM-02. Paredes de aluzinc: `techos/cerramiento.ts` (zona principal `.cerramiento`, como la
+  canaleta; `setCerramiento`, botón «Paredes» del 3D): largueros 1.50/1.20 m, perfil por viento; metrado en `bom.cerramiento`. La usan memoria, 3D, Asistente y ambos botones «Aplicar recomendados» (mismo método). memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
 
 ## Carpintería Metálica: escaleras a medida
 - `herreria/escaleraAMedida.ts` (`generarEscalera`/`normalizarEscalera`): recta, L o U con descanso y medidas reales. Ventana `EscaleraAMedida.tsx`
