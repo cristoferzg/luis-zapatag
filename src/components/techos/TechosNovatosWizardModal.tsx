@@ -75,8 +75,8 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
   const [largoStr, setLargoStr] = useState<string>('24');
   const [alturaColStr, setAlturaColStr] = useState<string>('4.5');
   // Material de las columnas: metálicas (tubo) o de concreto armado (tijeral sobre plancha embebida).
-  const [columnasDe, setColumnasDeSt] = useState<'metal' | 'concreto'>(() => { try { return localStorage.getItem('techos_columnas_de') === 'concreto' ? 'concreto' : 'metal'; } catch { return 'metal'; } });
-  const setColumnasDe = (v: 'metal' | 'concreto') => { setColumnasDeSt(v); try { localStorage.setItem('techos_columnas_de', v); } catch { /* */ } };
+  const [columnasDe, setColumnasDeSt] = useState<'metal' | 'h' | 'concreto'>(() => { try { const v = localStorage.getItem('techos_columnas_de'); return v === 'concreto' || v === 'h' ? v : 'metal'; } catch { return 'metal'; } });
+  const setColumnasDe = (v: 'metal' | 'h' | 'concreto') => { setColumnasDeSt(v); try { localStorage.setItem('techos_columnas_de', v); } catch { /* */ } };
   const [flechaStr, setFlechaStr] = useState<string>('2.0');
   const [pendienteStr, setPendienteStr] = useState<string>('20');
   const [alturaCol2Str, setAlturaCol2Str] = useState<string>('6.0');
@@ -497,7 +497,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
     if (!engineState) return;
     // Perfiles aptos según el tamaño del techo (columnas, cordones, correas…), no todo en 3 × 3 cm.
     engineState.pedirPerfilesAptos?.();
-    engineState.pedirColumnasConcreto?.(columnasDe === 'concreto' && tipo !== 'marquesina');
+    engineState.pedirColumnasConcreto?.(tipo === 'marquesina' ? false : columnasDe === 'concreto' ? true : columnasDe === 'h' ? 'h' : false);
 
     // N° de espacios → separación equivalente para los tipos que trabajan por
     // separación (parabólico, una agua, cuatro aguas…); a dos aguas usa el N° directo.
@@ -1009,8 +1009,8 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
               {tipo !== 'marquesina' && (
               <div className="p-2.5 bg-white rounded-xl border border-slate-200/90 space-y-1.5 shadow-2xs">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1">Columnas de <QueEs termino="columna" /></span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {([['metal', 'Metálicas (tubo)', 'Todo de acero, se arma en taller'], ['concreto', 'Concreto armado', 'El tijeral se apoya en una plancha embebida']] as const).map(([v, t, d]) => (
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([['metal', 'Tubo', 'Todo de acero, se arma en taller'], ['h', 'Viga H', 'Más rígida: naves grandes o altas'], ['concreto', 'Concreto armado', 'El tijeral se apoya en una plancha embebida']] as const).map(([v, t, d]) => (
                     <button key={v} type="button" onClick={() => setColumnasDe(v)}
                       className={`text-left p-2 rounded-lg border cursor-pointer ${columnasDe === v ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : 'border-slate-200 hover:bg-slate-50'}`}>
                       <span className="block text-xs font-black text-slate-900">{t}</span>
@@ -1018,6 +1018,7 @@ export const TechosNovatosWizardModal: React.FC<TechosNovatosWizardModalProps> =
                     </button>
                   ))}
                 </div>
+                {columnasDe === 'h' && <p className="text-[10px] text-indigo-800 bg-indigo-50 rounded-md px-2 py-1">Se elige la viga H (W) más liviana que cumple el peso del techo y el sismo (E.090 / E.030).</p>}
                 {columnasDe === 'concreto' && <p className="text-[10px] text-blue-800 bg-blue-50 rounded-md px-2 py-1">La sección y el acero (fierro y estribos) se calculan solos según el peso del techo y el sismo (E.060 / E.030).</p>}
               </div>
               )}

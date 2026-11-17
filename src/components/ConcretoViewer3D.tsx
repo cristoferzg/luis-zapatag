@@ -92,9 +92,9 @@ function seccionPerfil(p: PerfilTubularItem): THREE.Shape | null {
       const t = Math.max(e, 0.002);
       return poli([[-b, -h / 2], [t / 2, -h / 2], [t / 2, h / 2 - t], [b, h / 2 - t], [b, h / 2], [-t / 2, h / 2], [-t / 2, -h / 2 + t], [-b, -h / 2 + t]].map(([x, y]) => [x / 2, y] as [number, number]));
     }
-    case 'perfil_h_ipe': {
-      const tf = Math.max(e * 1.4, h * 0.07), tw = Math.max(e, h * 0.045);
-      return poli([[-b / 2, -h / 2], [b / 2, -h / 2], [b / 2, -h / 2 + tf], [tw / 2, -h / 2 + tf], [tw / 2, h / 2 - tf], [b / 2, h / 2 - tf], [b / 2, h / 2], [-b / 2, h / 2], [-b / 2, h / 2 - tf], [-tw / 2, h / 2 - tf], [-tw / 2, -h / 2 + tf], [-b / 2, -h / 2 + tf]]);
+    case 'perfil_h_ipe': { // anchoMm = peralte (d), altoMm = ala (bf): alma vertical (de columna se gira, ver perfil3d)
+      const d = b, bf = h, tw = e, tf = Math.max(0.0015, (p.alaEspMm || p.espesorMm * 1.3) / 1000);
+      return poli([[-bf / 2, -d / 2], [bf / 2, -d / 2], [bf / 2, -d / 2 + tf], [tw / 2, -d / 2 + tf], [tw / 2, d / 2 - tf], [bf / 2, d / 2 - tf], [bf / 2, d / 2], [-bf / 2, d / 2], [-bf / 2, d / 2 - tf], [-tw / 2, d / 2 - tf], [-tw / 2, -d / 2 + tf], [-bf / 2, -d / 2 + tf]]);
     }
     case 'angulo_estructural': {
       const t = Math.max(e, 0.003);
@@ -440,6 +440,8 @@ export default function ConcretoViewer3D({ elems, niveles = ['Cimentación', 'Pi
         geo = sec ? new THREE.ExtrudeGeometry(sec, { depth: L, bevelEnabled: false, curveSegments: 4 })
           : new THREE.CylinderGeometry(p.anchoMm / 2000, p.anchoMm / 2000, L, 14).rotateX(Math.PI / 2).translate(0, 0, L / 2);
       }
+      // Columna de viga H: el alma en el plano del pórtico (peralte a lo largo de X), como en Techos.
+      if (p?.categoria === 'perfil_h_ipe' && Math.abs(z.y) > 0.98) geo.rotateZ(Math.PI / 2);
       if (giroGrados) geo.rotateZ((giroGrados * Math.PI) / 180);
       if (datos.current.resaltarPerfiles) geo.scale(3, 3, 1);
       const m = new THREE.Mesh(geo, mat);

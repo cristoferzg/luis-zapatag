@@ -12,7 +12,7 @@
 // =============================================================================
 import type { Node3D, Segment3D, CoverageZone3D, RolEstructuralSegmento, PerfilTubularItem } from './techosCadEngineTypes';
 import { INVENTARIO_PERFILES_TUBULARES, INVENTARIO_COBERTURAS } from './techosCadCatalog';
-import { propsPerfil, factorK, limitesLambda, seAnaliza, cumpleTramo, perfilMasEconomico, CargasGrupo } from './propiedadesPerfil';
+import { propsPerfil, esVigaH, factorK, limitesLambda, seAnaliza, cumpleTramo, perfilMasEconomico, CargasGrupo } from './propiedadesPerfil';
 import { precio, clavePerfilDe, leerCatalogo } from '../../lib/catalogoPrecios';
 import { perfilSuperior, alerosConCanaleta } from './canaletas';
 import { zonaPrincipal } from './mecanismoMovil';
@@ -277,7 +277,8 @@ export function columnaQueCumple(nodes: Record<string, Node3D>, segments: Record
     return { x: !q || (q.deriva <= q.derivaLim && q.ratioFlexion <= 1), y: !q?.dirY || q.dirY.estado !== 'NO_CUMPLE' };
   };
   const candidatos = INVENTARIO_PERFILES_TUBULARES
-    .filter(p => ['tubo_cuadrado', 'tubo_rectangular'].includes(p.categoria) && p.id.includes('galv') === galv)
+    // Columnas de viga H: se busca entre vigas H (el usuario las eligió); si no, entre tubos.
+    .filter(p => esVigaH(actual) ? esVigaH(p) : ['tubo_cuadrado', 'tubo_rectangular'].includes(p.categoria) && p.id.includes('galv') === galv)
     .map(p => ({ p, $: precioMetroPerfil(p) })).filter(x => x.$ > 0)
     .sort((a, b) => a.$ - b.$ || a.p.pesoLinealKgM - b.p.pesoLinealKgM);
   let soloX: PerfilTubularItem | null = null, elegido: PerfilTubularItem | null = null;
@@ -470,14 +471,16 @@ function calcularSismo(nodes: Record<string, Node3D>, segments: Record<string, S
   const PKg = pesoKg + area * (D + 0.25 * L);
   const VKg = (Z * U * C * S / R) * PKg;
   const VColKg = VKg / Math.max(1, nCols);
-  const I = pr.iMinCm4 * 1e-8; // m⁴
+  // Viga H: el alma va en el plano del pórtico (como en el 3D), trabaja con su eje fuerte; en Y (a lo largo), el débil.
+  const vigaH = esVigaH(p);
+  const I = (vigaH ? pr.iMaxCm4 : pr.iMinCm4) * 1e-8; // m⁴
   const nudoRigido = Object.values(segments).some(s => /cordon_|viga_principal/.test(s.rolEstructural || ''));
   const deltaE = (VColKg * G * h ** 3) / ((nudoRigido ? 12 : 3) * E_ACERO * I); // m
   const delta = 0.75 * R * deltaE;
   const deriva = delta / Math.max(0.1, h), derivaLim = 0.010;
-  const c = Math.min(p.anchoMm, p.altoMm || p.anchoMm) / 20; // cm (mitad del lado menor)
+  const c = (vigaH ? p.anchoMm : Math.min(p.anchoMm, p.altoMm || p.anchoMm)) / 20; // cm (mitad del peralte / del lado menor)
   const MColKgM = VColKg * h / (nudoRigido ? 2 : 1);
-  const fb = (MColKgM * 100) / (pr.iMinCm4 / c);
+  const fb = (MColKgM * 100) / ((vigaH ? pr.iMaxCm4 : pr.iMinCm4) / c);
   const fbAdm = 0.6 * 3200 * 1.33;
   const ratioFlexion = fb / fbAdm;
   let estado: EstadoMemoria = 'CUMPLE', motivo = 'Cumple deriva y flexión de columnas';

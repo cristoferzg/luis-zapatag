@@ -170,7 +170,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   objeto (`bordes_tubos`), nudos instanciados, fusión de tubos > 400 piezas (`tubos_fusionados`; piezas sueltas en sismo/exigencia/
   selección) y ciclo de imagen que solo repinta al cambiar algo.
   Columnas: UNA regla `columnaQueCumple` (estático + mínimo 3"×3"×3 mm + sismo X + sismo Y sin cruces; cruces solo si ninguna columna sola alcanza:
-  el dueño indica que muchas obras no llevan arriostres/tensores). La usan memoria, 3D, Asistente y ambos botones «Aplicar recomendados» (mismo método). memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
+  el dueño indica que muchas obras no llevan arriostres/tensores).
+  Columnas de VIGA H (W): botón «Viga H» (panel y Asistente, `COLUMNAS_H`); sección H real (`esVigaH`, `alaEspMm`; anchoMm = peralte,
+  altoMm = ala): sismo X eje fuerte (alma en el pórtico), Y débil; 3D/IFC/DXF con forma H (de columna el alma en X, de viga vertical). La usan memoria, 3D, Asistente y ambos botones «Aplicar recomendados» (mismo método). memoriaCalculo con caché y `luzLibre` con candidatos. Programa de PC 2.1.1: `ignore-gpu-blocklist` + `enable-unsafe-swiftshader`.
 
 ## Carpintería Metálica: escaleras a medida
 - `herreria/escaleraAMedida.ts` (`generarEscalera`/`normalizarEscalera`): recta, L o U con descanso y medidas reales. Ventana `EscaleraAMedida.tsx`

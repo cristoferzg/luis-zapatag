@@ -555,17 +555,21 @@ export const PropiedadesCad: React.FC<PropiedadesCadProps> = ({
             {(() => {
               const vals = Object.values(segments) as any[];
               const nMet = vals.filter(s => s.rolEstructural === 'columna').length, nCA = vals.filter(s => s.rolEstructural === 'columna_concreto').length;
+              const colsH = vals.filter(s => s.rolEstructural === 'columna' && INVENTARIO_PERFILES_TUBULARES.find(p => p.id === s.profileId)?.categoria === 'perfil_h_ipe');
+              const nH = colsH.length, nTubo = nMet - nH;
+              const perfilH = nH ? INVENTARIO_PERFILES_TUBULARES.find(p => p.id === colsH[0].profileId)?.nombre : '';
               if (!nMet && !nCA) return null;
               const sec = vals.find(s => s.rolEstructural === 'columna_concreto')?.seccionCm;
               return (
                 <div className="p-2.5 rounded-xl bg-white border border-stone-300 space-y-1.5">
                   <span className="block text-[10px] font-black text-stone-800 uppercase tracking-wide">🏗️ Material de las columnas</span>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button onClick={() => engineState?.setColumnasMaterial?.('metal')} className={`px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nMet && !nCA ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Metálicas (tubo)</button>
-                    <button onClick={() => engineState?.setColumnasMaterial?.('concreto')} className={`px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nCA && !nMet ? 'bg-stone-700 text-white border-stone-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Concreto armado</button>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button onClick={() => engineState?.setColumnasMaterial?.('metal')} className={`px-1.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nTubo && !nCA && !nH ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Tubo</button>
+                    <button onClick={() => engineState?.setColumnasMaterial?.('h')} title="Columnas de viga H (W): para naves grandes o altas" className={`px-1.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border flex items-center justify-center gap-1 ${nH && !nCA && !nTubo ? 'bg-indigo-700 text-white border-indigo-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}><span className="font-mono text-[13px] leading-none">H</span>Viga H</button>
+                    <button onClick={() => engineState?.setColumnasMaterial?.('concreto')} className={`px-1.5 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border ${nCA && !nMet ? 'bg-stone-700 text-white border-stone-700' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}>Concreto</button>
                   </div>
                   <button onClick={() => engineState?.agregarCrucesParedes?.()} className="w-full px-2 py-1.5 rounded-lg text-[11px] font-black cursor-pointer border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100">✕ Agregar cruces en las paredes (sismo Y)</button>
-                  <p className="text-[9px] text-slate-500 leading-snug">{nCA ? `${nCA} columnas de concreto${sec ? ` de ${sec[0]}×${sec[1]} cm` : ''}: sección, fierro y zapata calculados (E.060). ` : ''}{nMet ? `${nMet} columnas metálicas.` : ''}</p>
+                  <p className="text-[9px] text-slate-500 leading-snug">{nCA ? `${nCA} columnas de concreto${sec ? ` de ${sec[0]}×${sec[1]} cm` : ''}: sección, fierro y zapata calculados (E.060). ` : ''}{nTubo ? `${nTubo} columnas de tubo. ` : ''}{nH ? `${nH} columnas de viga H (${perfilH}): se elige la que cumple el sismo.` : ''}</p>
                 </div>
               );
             })()}

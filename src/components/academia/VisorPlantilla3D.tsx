@@ -7,7 +7,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { X, Box, Ruler, Layers, Lock, RotateCw } from 'lucide-react';
 import { crearRenderer, liberarRenderer } from '../../lib/webglSeguro';
-import { ejesLocales, ejesSuperficie, type SolidoCad, type SuperficieCad } from '../../lib/solidosCad';
+import { ejesLocales, ejesSuperficie, partesSeccion, type SolidoCad, type SuperficieCad } from '../../lib/solidosCad';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { BibliotecaItem } from '../BibliotecaPremiumView';
 
 const COLOR: Record<string, number> = { columna: 0x2563eb, viga: 0x475569, miembro: 0xf59e0b, baranda: 0x16a34a, placa: 0x8b5a2b, losa: 0x94a3b8, muro: 0xfb923c, zapata: 0x78716c };
@@ -76,7 +77,9 @@ export default function VisorPlantilla3D({ item, onClose, bloqueada }: { item: B
         const sec = s.seccion;
         const geo = /circ/.test(sec.forma)
           ? new THREE.CylinderGeometry(sec.ancho / 2, sec.ancho / 2, largo, 12).rotateX(Math.PI / 2)
-          : new THREE.BoxGeometry(Math.max(0.004, sec.ancho), Math.max(0.004, sec.alto), largo);
+          : sec.forma === 'h' // viga H: alas + alma
+            ? mergeGeometries(partesSeccion(sec).map(([cx, cy, w, h]) => new THREE.BoxGeometry(Math.max(0.002, w), Math.max(0.002, h), largo).translate(cx, cy, 0))) || new THREE.BoxGeometry(sec.ancho, sec.alto, largo)
+            : new THREE.BoxGeometry(Math.max(0.004, sec.ancho), Math.max(0.004, sec.alto), largo);
         const m = new THREE.Mesh(geo, mat(s.tipo));
         m.matrixAutoUpdate = false;
         m.matrix.makeBasis(new THREE.Vector3(...x), new THREE.Vector3(...y), new THREE.Vector3(...z));

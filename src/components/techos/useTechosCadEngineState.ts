@@ -1,6 +1,6 @@
 import { aVigaSimple } from './vigaSimple';
 import { aplicarPerfilesAptos } from './perfilesAptos';
-import { calcularMemoria , cambiosRecomendados } from './memoriaCalculo';
+import { calcularMemoria , cambiosRecomendados, columnaQueCumple } from './memoriaCalculo';
 import { metradoColumnasCA } from './columnaConcreto';
 import { metradoZapatas } from './zapata';
 import { agregarCrucesPared, crucesPared } from './arriostresPared';
@@ -13,6 +13,8 @@ import { useCostosTechos } from './costosTechos';
 import { safeStorage } from '../../lib/storageManager';
 import { tijeralesDeAlero } from './tijeralesAlero';
 export const KEY_ESCENA_ACTUAL = 'innova_techos_escena_actual';
+/** Columnas de viga H, de la más liviana a la más rígida (el sismo sube a la siguiente si no cumple). */
+export const COLUMNAS_H = ['perfil_w6x15', 'perfil_w8x18', 'perfil_w8x31', 'perfil_w10x33'];
 import { useCatalogo } from '../../lib/catalogoPrecios';
 import { zonasDesdeCorreas } from './coberturaAuto';
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
@@ -88,7 +90,8 @@ export interface UseTechosCadEngineReturn {
   replaceScene: (nodes: Record<string, Node3D>, segments: Record<string, Segment3D>, zones: Record<string, CoverageZone3D>) => void;
   pedirVigaSimple: (perfilId: string) => void;
   pedirPerfilesAptos: () => void;
-  pedirColumnasConcreto: (si: boolean) => void;
+  /** Columnas del Asistente: true = concreto armado, 'h' = viga H, false = tubo. */
+  pedirColumnasConcreto: (si: boolean | 'h') => void;
   pedirCortaviento: (o: OpcionesCortaviento) => void;
   setColorCobertura: (colorHex: number) => void;
   setOcultos: (ids: string[], oculto: boolean) => void;
@@ -160,7 +163,7 @@ export interface UseTechosCadEngineReturn {
   columnasConcretoBaseM: number;
   setColumnasConcretoBaseM: (metros: number) => void;        // aplica a TODAS las columnas
   /** Pasa TODAS las columnas a concreto armado (con su sección diseñada) o de vuelta a metal (perfil apto). */
-  setColumnasMaterial: (material: 'concreto' | 'metal') => void;
+  setColumnasMaterial: (material: 'concreto' | 'metal' | 'h') => void;
   /** Agrega cruces de arriostre (varilla) en las paredes laterales: 1.er y último paño. */
   agregarCrucesParedes: () => void;
   /** Botón «Aplicar cambios recomendados»: perfiles de la memoria de cálculo + columnas que cumplen el sismo X + cruces si falla el Y. */
@@ -444,8 +447,8 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
   const perfilesAptosPendiente = useRef(false);
   const pedirPerfilesAptos = useCallback(() => { perfilesAptosPendiente.current = true; }, []);
   // Columnas de concreto armado (opción del Asistente): se convierten al armar la nave y se diseñan (E.060).
-  const columnasConcretoPendiente = useRef(false);
-  const pedirColumnasConcreto = useCallback((si: boolean) => { columnasConcretoPendiente.current = si; }, []);
+  const columnasConcretoPendiente = useRef<boolean | 'h'>(false);
+  const pedirColumnasConcreto = useCallback((si: boolean | 'h') => { columnasConcretoPendiente.current = si; }, []);
   useEffect(() => {
     if (!perfilesAptosPendiente.current || !Object.keys(segments).length) return;
     if (ajusteEnCurso.current) { ajusteEnCurso.current = false; return; }
@@ -455,7 +458,11 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     // Lo que la memoria de cálculo marca "NO CUMPLE" se refuerza con su perfil recomendado
     // (el mismo de "Aplicar recomendados"), así el techo sale verificado desde el Asistente.
     let segs = r.segs, cambios = r.cambios;
-    if (columnasConcretoPendiente.current) {
+    const columnasH = columnasConcretoPendiente.current === 'h';
+    if (columnasH) {
+      columnasConcretoPendiente.current = false;
+      segs = Object.fromEntries(Object.entries(segs).map(([id, sg]) => [id, sg.rolEstructural === 'columna' ? (cambios++, { ...sg, profileId: COLUMNAS_H[0] }) : sg]));
+    } else if (columnasConcretoPendiente.current) {
       columnasConcretoPendiente.current = false;
       segs = Object.fromEntries(Object.entries(segs).map(([id, sg]) => [id, sg.rolEstructural === 'columna' ? (cambios++, { ...sg, rolEstructural: 'columna_concreto' as const, concretoBaseM: undefined }) : sg]));
     }
@@ -464,7 +471,7 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
       try { mem = calcularMemoria(nodes, segs, coverageZones, structuralInputs); } catch { break; }
       const refuerzos = mem.grupos.filter(g => g.estado === 'NO_CUMPLE' && g.recomendadoId);
       // Sismo (E.030): si la deriva o la flexión de columnas no cumple, columna un tamaño mayor.
-      const COLS = ['perfil_sq_3x3_30', 'perfil_sq_4x4_30', 'perfil_sq_4x4_45', 'perfil_sq_5x5_45', 'perfil_sq_6x6_45', 'perfil_sq_6x6_60', 'perfil_sq_8x8_60'];
+      const COLS = columnasH ? COLUMNAS_H : ['perfil_sq_3x3_30', 'perfil_sq_4x4_30', 'perfil_sq_4x4_45', 'perfil_sq_5x5_45', 'perfil_sq_6x6_45', 'perfil_sq_6x6_60', 'perfil_sq_8x8_60'];
       const sismoFalla = mem.sismo?.estado === 'NO_CUMPLE';
       // Dirección Y: si no cumple y faltan cruces en las paredes, se agregan (1.er y último paño de cada costado).
       const yFalla = mem.sismo?.dirY?.estado === 'NO_CUMPLE' && !crucesPared(nodes, segs).length;
@@ -4025,18 +4032,26 @@ export function useTechosCadEngineState(initialNodes?: Record<string, Node3D>, i
     });
   }, [nodes, coverageZones, pushHistory]);
 
-  const setColumnasMaterial = useCallback((material: 'concreto' | 'metal') => {
+  const setColumnasMaterial = useCallback((material: 'concreto' | 'metal' | 'h') => {
     let segs: Record<string, Segment3D> = {};
+    const esH = (id?: string) => INVENTARIO_PERFILES_TUBULARES.find(p => p.id === id)?.categoria === 'perfil_h_ipe';
     for (const [id, s] of Object.entries(segments)) {
       if (material === 'concreto' && s.rolEstructural === 'columna') segs[id] = { ...s, rolEstructural: 'columna_concreto', concretoBaseM: undefined };
       else if (material === 'metal' && s.rolEstructural === 'columna_concreto') segs[id] = { ...s, rolEstructural: 'columna', seccionCm: undefined, profileId: 'perfil_sq_4x4_30' };
+      else if (material === 'metal' && s.rolEstructural === 'columna' && esH(s.profileId)) segs[id] = { ...s, profileId: 'perfil_sq_4x4_30' };
+      // Viga H: la más liviana; si no cumple, la memoria la cambia por la viga H que sí cumple (abajo).
+      else if (material === 'h' && /^columna/.test(s.rolEstructural || '')) segs[id] = { ...s, rolEstructural: 'columna', seccionCm: undefined, concretoBaseM: s.rolEstructural === 'columna' ? s.concretoBaseM : undefined, profileId: esH(s.profileId) ? s.profileId : COLUMNAS_H[0] };
       else segs[id] = s;
     }
     try {
       const mem = calcularMemoria(nodes, segs, coverageZones, structuralInputs);
       const ca = mem.sismo?.concreto;
       if (ca) Object.values(segs).forEach(sg => { if (sg.rolEstructural === 'columna_concreto') segs[sg.id] = { ...sg, seccionCm: [ca.b, ca.h] }; });
-      if (material === 'metal') {
+      if (material === 'h') {
+        // La viga H que cumple carga + sismo (misma regla que «Aplicar recomendados»).
+        const cq = columnaQueCumple(nodes, segs, structuralInputs, mem.piezas);
+        if (cq && !cq.sinColumna && esH(cq.perfilId)) { segs = { ...segs }; Object.values(segs).forEach(sg => { if (sg.rolEstructural === 'columna') segs[sg.id] = { ...sg, profileId: cq.perfilId }; }); }
+      } else if (material === 'metal') {
         const rec = mem.grupos.find(g => g.rol === 'columna' && g.recomendadoId && g.estado !== 'CUMPLE');
         if (rec) { segs = { ...segs }; rec.ids.forEach(id => { if (segs[id]) segs[id] = { ...segs[id], profileId: rec.recomendadoId! }; }); }
       }

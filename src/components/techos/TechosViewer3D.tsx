@@ -54,6 +54,15 @@ import { safeStorage } from '../../lib/storageManager';
 import { guardarFotoPropuesta, fotoPropuesta } from './fotoPropuesta';
 import type { TechoMovil, CoverageZone3D } from './techosCadEngineTypes';
 
+/** Contorno de una sección H: ancho (x) × alto (y). almaVertical: el alma corre en y (alas arriba y abajo). */
+function formaH(ancho: number, alto: number, tw: number, tf: number, almaVertical: boolean): THREE.Shape {
+  const d = almaVertical ? alto : ancho, bf = almaVertical ? ancho : alto;
+  const pts: [number, number][] = [[-bf / 2, -d / 2], [bf / 2, -d / 2], [bf / 2, -d / 2 + tf], [tw / 2, -d / 2 + tf], [tw / 2, d / 2 - tf], [bf / 2, d / 2 - tf],
+    [bf / 2, d / 2], [-bf / 2, d / 2], [-bf / 2, d / 2 - tf], [-tw / 2, d / 2 - tf], [-tw / 2, -d / 2 + tf], [-bf / 2, -d / 2 + tf]];
+  const v = (almaVertical ? pts : pts.map(([x, y]) => [y, x] as [number, number]).reverse()).map(([x, y]) => new THREE.Vector2(x, y));
+  return new THREE.Shape(v);
+}
+
 interface TechosViewer3DProps {
   engineState?: UseTechosCadEngineReturn;
   nodes?: Record<string, { id: string; x: number; y: number; z?: number; isFixedSupport?: boolean; anchorBoltsCount?: number }>;
@@ -2742,6 +2751,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
         altoM = Math.max(altoM, 0.12);
       }
 
+      // Viga H / W / IPE: anchoMm = peralte, altoMm = ala. De columna, el alma va en el plano del pórtico
+      // (peralte a lo largo de X, como en el cálculo); acostada, el alma va vertical (como toda viga).
+      const vigaH = profCatalog?.categoria === 'perfil_h_ipe' && seg.rolEstructural !== 'columna_concreto';
+      const verticalH = vigaH && Math.abs(pB.y - pA.y) / distance > 0.98;
+      if (vigaH && !verticalH) { const d = anchoM; anchoM = altoM; altoM = d; }
+
       // Columna de concreto: sección robusta tipo columna de concreto (25x25 cm).
       const esConcreto3D = seg.rolEstructural === 'columna_concreto';
       if (esConcreto3D) {
@@ -2783,6 +2798,12 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
       if (isRedondo && !esConcreto3D) {
         geom = new THREE.CylinderGeometry(radiusM, radiusM, distance, 16);
         geom.rotateX(Math.PI / 2);
+      } else if (vigaH && profCatalog) {
+        // Sección H real (dos alas + alma), extruida a lo largo de la pieza.
+        const tw = Math.max(0.003, profCatalog.espesorMm / 1000), tf = Math.max(0.003, (profCatalog.alaEspMm || profCatalog.espesorMm * 1.3) / 1000);
+        const largo = distance + alargueA + alargueB;
+        geom = new THREE.ExtrudeGeometry(formaH(anchoM, altoM, tw, tf, !verticalH), { depth: largo, bevelEnabled: false, curveSegments: 1 });
+        geom.translate(0, 0, -largo / 2 + (alargueB - alargueA) / 2);
       } else {
         // Cordones y vigas: se alargan un poco en cada punta para que en los quiebres
         // (arco, cumbrera) los tubos se junten sin dejar una muesca en "V" arriba.
@@ -4869,7 +4890,7 @@ export const TechosViewer3D: React.FC<TechosViewer3DProps> = ({
           setTimeout(() => setFeedbackMsg(null), 3500);
         };
 
-        const tipoCorto = currentProf.categoria === 'tubo_redondo' ? `Tubo Ø ${currentProf.anchoMm}` : currentProf.categoria === 'perfil_c' ? `Perfil C ${currentProf.anchoMm}×${currentProf.altoMm}` : currentProf.categoria === 'perfil_z' ? `Perfil Z ${currentProf.anchoMm}×${currentProf.altoMm}` : `Tubo ${currentProf.anchoMm}×${currentProf.altoMm}`;
+        const tipoCorto = currentProf.categoria === 'tubo_redondo' ? `Tubo Ø ${currentProf.anchoMm}` : currentProf.categoria === 'perfil_c' ? `Perfil C ${currentProf.anchoMm}×${currentProf.altoMm}` : currentProf.categoria === 'perfil_z' ? `Perfil Z ${currentProf.anchoMm}×${currentProf.altoMm}` : currentProf.categoria === 'perfil_h_ipe' ? `Viga H ${currentProf.anchoMm}×${currentProf.altoMm}` : `Tubo ${currentProf.anchoMm}×${currentProf.altoMm}`;
 
         // Al tocar un tubo solo aparece una etiqueta pequeña; el panel se abre con "Cambiar".
         if (panel3d !== 'perfil') return (

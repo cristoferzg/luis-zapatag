@@ -54,6 +54,8 @@ export interface PerfilTubularItem {
   inerciaIcm4?: number;         // Momento de inercia Ix (cm4)
   moduloSeccionZcm3?: number;   // Módulo de sección Zx (cm3)
   areaSeccionCm2?: number;      // Área transversal (cm2)
+  /** Vigas H / W / IPE: anchoMm = peralte (d), altoMm = ancho de ala (bf), espesorMm = alma (tw). */
+  alaEspMm?: number;            // espesor de las alas (tf, mm)
 }
 
 // 1.2 MODELO DE COBERTURA / PLANCHA

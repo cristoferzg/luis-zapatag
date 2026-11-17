@@ -19,6 +19,26 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Techos Metálicos: columnas de viga H
+- Pedido del dueño: "vigas h en las columnas".
+- Antes: las vigas H (W/IPE) se podían elegir en la lista de perfiles, pero el 3D las dibujaba como un bloque macizo, el cálculo
+  las trataba como un tubo cajón (eje débil → W8x18 «NO CUMPLE» por deriva) y el Asistente nunca las ofrecía.
+- Qué se hizo:
+  · Botón «Viga H» junto a Tubo y Concreto (Material de las columnas) y en el Asistente («Columnas de»): pone la viga H más liviana
+    que cumple carga + sismo (misma regla `columnaQueCumple`, buscando solo entre vigas H; `COLUMNAS_H`).
+  · Cálculo de la sección H real (alas + alma; `esVigaH`, `alaEspMm`): sismo X con el eje fuerte (alma en el plano del pórtico),
+    sismo Y y pandeo con el débil. Catálogo con medidas reales y 2 vigas nuevas: W8x31 y W10x33.
+  · 3D con la forma H (Techos, Obra Civil y el mini visor de la Academia); de columna el alma va en el pórtico, de viga va vertical.
+  · AutoCAD (3 cajas) y Revit (IfcIShapeProfileDef) con la sección H real.
+- Archivos principales: techos/propiedadesPerfil.ts, memoriaCalculo.ts, useTechosCadEngineState.ts, PropiedadesCad.tsx,
+  TechosNovatosWizardModal.tsx, TechosViewer3D.tsx, techosCadCatalog.ts, exportarCadTechos.ts, lib/solidosCad.ts, ConcretoViewer3D.tsx,
+  academia/VisorPlantilla3D.tsx.
+- Cómo se probó: tsc 0, build OK; capturas antes/después (3D, memoria, botones); IFC validado con ifcopenshell (0 errores, columnas con el
+  peralte en X, viga con alma vertical) y DXF con ezdxf.
+- Versión: sin compilar aún.
+- Commit(s): (este commit)
+- Pendiente / a vigilar: precios de W8x31/W10x33 estimados (≈ S/ 6 por kg); el dueño puede ajustarlos en el Catálogo de precios.
+
 ## 2026-11-17 · Despliegue de funciones: «User code failed to load… Timeout after 10000»
 - Pedido del dueño: captura del error al correr `firebase deploy --only hosting,functions` en su PC (proyecto dentro de OneDrive).
 - Causa: firebase-tools da 10 s para cargar index.js y leer qué funciones hay. Aquí carga en <1 s, pero la librería de IA tarda ≈2 s
@@ -514,7 +534,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (web 2026.11.17.0953 compilada el 17/11/2026) |
+| Última mejora sin compilar | Techos: columnas de viga H (17/11/2026), espera «compila» |
 | Última versión compilada | Web **2026.11.17.0953** (17/11/2026) · Android **código 26110427** |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110428** (nunca bajar de 26110427) |

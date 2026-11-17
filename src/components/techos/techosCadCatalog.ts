@@ -1590,16 +1590,18 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
   },
 
   // ==========================================
-  // VIGAS H / W / IPE (ASTM A36 / A992)
+  // VIGAS H / W / IPE (ASTM A36 / A992) — también como COLUMNAS
+  // anchoMm = peralte (d), altoMm = ancho de ala (bf), espesorMm = alma (tw), alaEspMm = ala (tf)
   // ==========================================
   {
     id: 'perfil_w6x15',
     categoria: 'perfil_h_ipe',
-    nombre: 'Perfil W 6" x 6" (W6x15 - 150x150)',
+    nombre: 'Viga H W 6" x 6" (W6x15 - 152x152)',
     codigoComercial: 'W6X15-A36',
-    anchoMm: 150,
-    altoMm: 150,
-    espesorMm: 6.0,
+    anchoMm: 152,
+    altoMm: 152,
+    espesorMm: 5.8,
+    alaEspMm: 6.6,
     pesoLinealKgM: 22.50,
     longitudComercialM: 6.0,
     costoMetroSol: 135,
@@ -1608,15 +1610,44 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
   {
     id: 'perfil_w8x18',
     categoria: 'perfil_h_ipe',
-    nombre: 'Perfil W 8" x 5 1/4" (W8x18 - 200x133)',
+    nombre: 'Viga W 8" x 5 1/4" (W8x18 - 207x133)',
     codigoComercial: 'W8X18-A36',
-    anchoMm: 200,
+    anchoMm: 207,
     altoMm: 133,
-    espesorMm: 8.0,
+    espesorMm: 5.8,
+    alaEspMm: 8.4,
     pesoLinealKgM: 26.80,
     longitudComercialM: 6.0,
     costoMetroSol: 160.833,
     resistenciaFluenciaFyMpa: 345
+  },
+  {
+    id: 'perfil_w8x31',
+    categoria: 'perfil_h_ipe',
+    nombre: 'Viga H W 8" x 8" (W8x31 - 203x203)',
+    codigoComercial: 'W8X31-A36',
+    anchoMm: 203,
+    altoMm: 203,
+    espesorMm: 7.2,
+    alaEspMm: 11.0,
+    pesoLinealKgM: 46.10,
+    longitudComercialM: 6.0,
+    costoMetroSol: 276.6,
+    resistenciaFluenciaFyMpa: 250
+  },
+  {
+    id: 'perfil_w10x33',
+    categoria: 'perfil_h_ipe',
+    nombre: 'Viga W 10" x 8" (W10x33 - 247x202)',
+    codigoComercial: 'W10X33-A36',
+    anchoMm: 247,
+    altoMm: 202,
+    espesorMm: 7.4,
+    alaEspMm: 11.0,
+    pesoLinealKgM: 49.10,
+    longitudComercialM: 6.0,
+    costoMetroSol: 294.6,
+    resistenciaFluenciaFyMpa: 250
   },
   {
     id: 'perfil_ipe_140',
@@ -1626,6 +1657,7 @@ export const INVENTARIO_PERFILES_TUBULARES: PerfilTubularItem[] = [
     anchoMm: 140,
     altoMm: 73,
     espesorMm: 4.7,
+    alaEspMm: 6.9,
     pesoLinealKgM: 12.90,
     longitudComercialM: 6.0,
     costoMetroSol: 77.4167,

@@ -4,6 +4,9 @@ import type { PerfilTubularItem, RolEstructuralSegmento } from './techosCadEngin
 
 export interface PropsSeccion { areaCm2: number; iMinCm4: number; rMinCm: number; iMaxCm4: number }
 
+/** ¿Es una viga H / W / IPE? (se puede usar como columna) */
+export const esVigaH = (p: PerfilTubularItem | undefined) => p?.categoria === 'perfil_h_ipe';
+
 export function propsPerfil(p: PerfilTubularItem | undefined): PropsSeccion | null {
   if (!p || !(p.anchoMm > 0) || !(p.espesorMm > 0)) return null;
   const b = p.anchoMm / 10, h = (p.altoMm || p.anchoMm) / 10, t = p.espesorMm / 10; // cm
@@ -12,6 +15,12 @@ export function propsPerfil(p: PerfilTubularItem | undefined): PropsSeccion | nu
     const D = b, d = p.categoria === 'barra_redonda' ? 0 : Math.max(0, D - 2 * t);
     A = (Math.PI / 4) * (D * D - d * d);
     I = (Math.PI / 64) * (D ** 4 - d ** 4);
+  } else if (esVigaH(p)) {
+    // Viga H / W / IPE: dos alas (bf × tf) y el alma (tw). Eje fuerte con el alma en el plano del pórtico.
+    const d = b, bf = h, tw = t, tf = (p.alaEspMm || p.espesorMm * 1.3) / 10, hw = Math.max(0, d - 2 * tf);
+    A = 2 * bf * tf + hw * tw;
+    Imax = (bf * d ** 3 - (bf - tw) * hw ** 3) / 12;
+    I = (2 * tf * bf ** 3 + hw * tw ** 3) / 12;
   } else {
     // Sección cajón (tubos). Para C, Z, H y ángulos es una aproximación conservadora.
     const bi = Math.max(0, b - 2 * t), hi = Math.max(0, h - 2 * t);
@@ -77,7 +86,7 @@ export function cumpleTramo(p: PerfilTubularItem, rol: RolEstructuralSegmento, L
  * elegir tubos menores (60x40, 50x40, 3"x3"…) cuando de verdad alcanzan.
  */
 export function perfilMasEconomico(catalogo: PerfilTubularItem[], actual: PerfilTubularItem | undefined, rol: RolEstructuralSegmento, longitudMaxM: number, precioM: (p: PerfilTubularItem) => number, cargas?: CargasGrupo): PerfilTubularItem | null {
-  const fam = actual?.categoria === 'perfil_c' || actual?.categoria === 'perfil_z' ? [actual.categoria] : ['tubo_cuadrado', 'tubo_rectangular'];
+  const fam = actual?.categoria === 'perfil_c' || actual?.categoria === 'perfil_z' || actual?.categoria === 'perfil_h_ipe' ? [actual.categoria] : ['tubo_cuadrado', 'tubo_rectangular'];
   const galv = !!actual?.id?.includes('galv');
   const ok = catalogo
     .filter(p => fam.includes(p.categoria) && p.id.includes('galv') === galv)

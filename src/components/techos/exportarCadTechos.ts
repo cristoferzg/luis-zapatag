@@ -34,7 +34,11 @@ export function solidosDeTecho(nodes: Record<string, Node3D>, segments: Record<s
       // Vigas y correas: el lado alto del tubo en vertical (como en el 3D); 90° lo voltea.
       let sx = vertical ? an : Math.min(an, al), sy = vertical ? al : Math.max(an, al);
       if (Math.round((sg.anguloRotacionGrados || 0) / 90) % 2) [sx, sy] = [sy, sx];
-      seccion = p?.categoria === 'tubo_redondo' || p?.categoria === 'barra_redonda'
+      seccion = p?.categoria === 'perfil_h_ipe'
+        // Viga H (anchoMm = peralte, altoMm = ala): de columna, el alma en el plano del pórtico (X); acostada, alma vertical.
+        ? (vertical ? { forma: 'h', ancho: an, alto: al, espesor: t, espesorAla: (p.alaEspMm || p.espesorMm * 1.3) / 1000, almaVertical: false }
+          : { forma: 'h', ancho: al, alto: an, espesor: t, espesorAla: (p.alaEspMm || p.espesorMm * 1.3) / 1000, almaVertical: true })
+        : p?.categoria === 'tubo_redondo' || p?.categoria === 'barra_redonda'
         ? { forma: p.categoria === 'barra_redonda' ? 'circ' : 'circ_hueco', ancho: an, alto: an, espesor: t }
         : { forma: /^tubo_/.test(p?.categoria || '') ? 'rect_hueco' : 'rect', ancho: Math.max(0.004, sx), alto: Math.max(0.004, sy), espesor: t };
     }

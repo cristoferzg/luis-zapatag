@@ -12,10 +12,12 @@
 export type V3 = [number, number, number];
 export type TipoSolido = 'columna' | 'viga' | 'miembro' | 'placa' | 'losa' | 'muro' | 'zapata' | 'baranda';
 export interface SeccionSolido {
-  forma: 'rect' | 'rect_hueco' | 'circ' | 'circ_hueco';
+  forma: 'rect' | 'rect_hueco' | 'circ' | 'circ_hueco' | 'h';
   ancho: number;      // m, lado horizontal de la sección (o diámetro)
   alto: number;       // m, lado vertical de la sección
-  espesor?: number;   // m, pared de los tubos
+  espesor?: number;   // m, pared de los tubos (viga H: alma)
+  espesorAla?: number; // m, viga H: alas
+  almaVertical?: boolean; // viga H: el alma corre a lo «alto» (si no, a lo «ancho», como en columnas)
 }
 export interface SolidoCad {
   tipo: TipoSolido;
@@ -68,11 +70,20 @@ export function ejesLocales(s: SolidoCad): { z: V3; x: V3; y: V3; largo: number 
   return { z, x, y, largo };
 }
 
-/** Las 8 esquinas de la caja que envuelve el sólido (para el DXF). */
-export function esquinas(s: SolidoCad): V3[] {
+/** Rectángulos que forman la sección (centro x, centro y, ancho, alto): uno, o tres en la viga H (alas + alma). */
+export function partesSeccion(sec: SeccionSolido): [number, number, number, number][] {
+  if (sec.forma !== 'h') return [[0, 0, sec.ancho, sec.alto]];
+  const tw = Math.max(0.002, sec.espesor || 0.006), tf = Math.max(0.002, sec.espesorAla || tw * 1.3);
+  if (sec.almaVertical) { const d = sec.alto, bf = sec.ancho; return [[0, -d / 2 + tf / 2, bf, tf], [0, d / 2 - tf / 2, bf, tf], [0, 0, tw, Math.max(0.001, d - 2 * tf)]]; }
+  const d = sec.ancho, bf = sec.alto;
+  return [[-d / 2 + tf / 2, 0, tf, bf], [d / 2 - tf / 2, 0, tf, bf], [0, 0, Math.max(0.001, d - 2 * tf), tw]];
+}
+
+/** Las 8 esquinas de una caja del sólido (para el DXF); `parte` = rectángulo de partesSeccion (por defecto, toda la sección). */
+export function esquinas(s: SolidoCad, parte: [number, number, number, number] = [0, 0, s.seccion.ancho, s.seccion.alto]): V3[] {
   const { x, y } = ejesLocales(s);
-  const hx = s.seccion.ancho / 2, hy = s.seccion.alto / 2;
-  const off = (p: V3, i: number, j: number): V3 => [p[0] + x[0] * hx * i + y[0] * hy * j, p[1] + x[1] * hx * i + y[1] * hy * j, p[2] + x[2] * hx * i + y[2] * hy * j];
+  const [cx, cy, w, h] = parte, hx = w / 2, hy = h / 2;
+  const off = (p: V3, i: number, j: number): V3 => { const u = cx + hx * i, v = cy + hy * j; return [p[0] + x[0] * u + y[0] * v, p[1] + x[1] * u + y[1] * v, p[2] + x[2] * u + y[2] * v]; };
   return [off(s.a, -1, -1), off(s.a, 1, -1), off(s.a, 1, 1), off(s.a, -1, 1), off(s.b, -1, -1), off(s.b, 1, -1), off(s.b, 1, 1), off(s.b, -1, 1)];
 }
 
@@ -92,8 +103,11 @@ export function dxf3D(solidos: SolidoCad[], proyecto = 'InnovApp', superficies: 
     q.forEach((p, i) => { const z = aZArriba(p); o.push(String(10 + i), f(z[0]), String(20 + i), f(z[1]), String(30 + i), f(z[2])); });
   };
   solidos.forEach(s => {
-    const capa = nombreCapa(s.capa), e = esquinas(s);
-    [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]].forEach(ix => cara(capa, ix.map(i => e[i])));
+    const capa = nombreCapa(s.capa);
+    partesSeccion(s.seccion).forEach(parte => {
+      const e = esquinas(s, parte);
+      [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]].forEach(ix => cara(capa, ix.map(i => e[i])));
+    });
     const a = aZArriba(s.a), b = aZArriba(s.b);
     o.push('0', 'LINE', '8', 'EJES', '10', f(a[0]), '20', f(a[1]), '30', f(a[2]), '11', f(b[0]), '21', f(b[1]), '31', f(b[2]));
   });
@@ -156,7 +170,14 @@ export function ifc(solidos: SolidoCad[], proyecto = 'InnovApp', autor = 'InnovA
     const a = aZArriba(s.a), zz = aZArriba(z), xx = aZArriba(x);
     const sec = s.seccion;
     const t = Math.max(0.0005, Math.min(sec.espesor || 0.002, Math.min(sec.ancho, sec.alto) / 2 - 0.0001));
-    const perfil = sec.forma === 'rect_hueco' ? e(`IFCRECTANGLEHOLLOWPROFILEDEF(.AREA.,$,${centro2d},${r(sec.ancho)},${r(sec.alto)},${r(t)},$,$)`)
+    const perfil = sec.forma === 'h'
+      ? (() => { // IfcIShapeProfileDef: ancho de ala en X del perfil y peralte en Y; si el alma va «a lo ancho», se gira 90°.
+          const tw = Math.max(0.002, sec.espesor || 0.006), tf = Math.max(0.002, sec.espesorAla || tw * 1.3);
+          const d = sec.almaVertical ? sec.alto : sec.ancho, bf = sec.almaVertical ? sec.ancho : sec.alto;
+          const pos = sec.almaVertical ? centro2d : e(`IFCAXIS2PLACEMENT2D(${e('IFCCARTESIANPOINT((0.,0.))')},${e('IFCDIRECTION((0.,1.))')})`);
+          return e(`IFCISHAPEPROFILEDEF(.AREA.,$,${pos},${r(bf)},${r(d)},${r(Math.min(tw, bf / 2))},${r(Math.min(tf, d / 2 - 0.0005))},$)`);
+        })()
+      : sec.forma === 'rect_hueco' ? e(`IFCRECTANGLEHOLLOWPROFILEDEF(.AREA.,$,${centro2d},${r(sec.ancho)},${r(sec.alto)},${r(t)},$,$)`)
       : sec.forma === 'circ_hueco' ? e(`IFCCIRCLEHOLLOWPROFILEDEF(.AREA.,$,${centro2d},${r(sec.ancho / 2)},${r(t)})`)
       : sec.forma === 'circ' ? e(`IFCCIRCLEPROFILEDEF(.AREA.,$,${centro2d},${r(sec.ancho / 2)})`)
       : e(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${centro2d},${r(sec.ancho)},${r(sec.alto)})`);
