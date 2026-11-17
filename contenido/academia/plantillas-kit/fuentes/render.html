@@ -41,7 +41,7 @@ window.render = (d) => {
   piso.rotation.x = -Math.PI / 2; piso.position.y = box.min.y - 0.002; sc.add(piso);
   const cam = new THREE.PerspectiveCamera(35, 1.5, 0.05, 100);
   const R = Math.max(s.x, s.y * 1.4, s.z) * 1.25 + 0.4;
-  cam.position.set(c.x + R * 0.55, c.y + R * 0.35, c.z + R * 0.95); cam.lookAt(c);
+  const k = d.__cam || [0.55, 0.35, 0.95]; cam.position.set(c.x + R * k[0], c.y + R * k[1], c.z + R * k[2]); cam.lookAt(c);
   ren.render(sc, cam);
   return true;
 };

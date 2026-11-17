@@ -24,6 +24,31 @@ def techo(tipo):
                 f'<line x1="40" y1="206" x2="480" y2="144" {s}/>' + ''.join(f'<rect x="{90+i*58}" y="{188-i*8.2}" width="16" height="12" fill="#fdba74" transform="rotate(-8 {98+i*58} {194-i*8.2})"/>' for i in range(6)))
     if tipo == 'arco':
         return base + '<path d="M60 190 Q260 60 460 190" ' + s + '/><line x1="60" y1="190" x2="460" y2="190" stroke="#fdba74" stroke-width="4" stroke-dasharray="14 8"/>'
+    if tipo == 'mariposa':
+        vy = lambda x: 112 + 52 * (1 - abs(x - 260) / 230)
+        return (base + f'<polyline points="30,112 260,164 490,112" {s}/><line x1="60" y1="190" x2="460" y2="190" stroke="#f97316" stroke-width="5"/>'
+                + ''.join(f'<line x1="{x}" y1="190" x2="{x}" y2="{vy(x):.0f}" stroke="#fdba74" stroke-width="3"/>' for x in range(60, 461, 50))
+                + ''.join(f'<line x1="{x}" y1="190" x2="{x+50}" y2="{vy(x+50):.0f}" stroke="#fdba74" stroke-width="3"/>' for x in range(60, 260, 50))
+                + ''.join(f'<line x1="{x}" y1="{vy(x):.0f}" x2="{x+50}" y2="190" stroke="#fdba74" stroke-width="3"/>' for x in range(260, 460, 50))
+                + '<rect x="242" y="152" width="36" height="14" rx="3" fill="#38bdf8"/><text x="260" y="140" fill="#7dd3fc" font-size="18" font-weight="800" text-anchor="middle" font-family="Inter,Arial">canal</text>')
+    if tipo == 'diente':
+        out = '<line x1="20" y1="300" x2="500" y2="300" stroke="#8fb8de" stroke-width="3"/>'
+        for k in range(3):
+            x0 = 50 + k * 140
+            out += (f'<line x1="{x0}" y1="300" x2="{x0}" y2="200" {c}/>'
+                    f'<polygon points="{x0},200 {x0+140},130 {x0+140},200" fill="rgba(56,189,248,.10)"/>'
+                    f'<line x1="{x0}" y1="200" x2="{x0+140}" y2="130" {s}/><line x1="{x0}" y1="200" x2="{x0+140}" y2="200" stroke="#f97316" stroke-width="4"/>'
+                    f'<rect x="{x0+132}" y="134" width="10" height="64" fill="#7dd3fc" opacity=".85"/>'
+                    + ''.join(f'<line x1="{x0+j*35}" y1="200" x2="{x0+j*35}" y2="{200-j*17.5}" stroke="#fdba74" stroke-width="3"/>' for j in (1, 2, 3)))
+        return out + '<line x1="470" y1="300" x2="470" y2="200" stroke="#8fb8de" stroke-width="7"/>'
+    if tipo == 'pergola':
+        out = '<line x1="20" y1="300" x2="500" y2="300" stroke="#8fb8de" stroke-width="3"/>'
+        out += ''.join(f'<line x1="{x}" y1="300" x2="{x}" y2="{y}" {c}/>' for x, y in ((90, 170), (230, 150), (330, 185), (450, 165)))
+        out += f'<line x1="60" y1="172" x2="260" y2="146" {s}/><line x1="300" y1="188" x2="480" y2="162" {s}/>'
+        out += ''.join(f'<line x1="{70+i*44}" y1="{176-i*5.5+0}" x2="{250+i*26}" y2="{188-i*3}" stroke="#fdba74" stroke-width="5"/>' for i in range(0, 0))
+        out += ''.join(f'<line x1="{80+i*40}" y1="{170-i*3.3}" x2="{310+i*20}" y2="{186-i*3}" stroke="#fdba74" stroke-width="5"/>' for i in range(9))
+        return out + '<polygon points="80,170 400,144 480,160 310,186" fill="rgba(125,211,252,.18)"/>'
+
 
 def html(tit, sub, tipo, hojas):
     celdas = ''.join(f'<div style="display:flex;gap:6px;margin-bottom:6px">' + ''.join(
@@ -54,11 +79,15 @@ ITEMS = [
     ('dos', 'Techo a dos aguas', 'Medidas del tijeral (Pratt, Howe, Warren o Fink), metrado y presupuesto con IGV.', ['Datos', 'Tijeral', 'Metrado', 'Presupuesto']),
     ('cuatro', 'Techo a cuatro aguas', 'Limatesas, tijerales, correas por línea, metrado y presupuesto con IGV.', ['Datos', 'Tijeral', 'Correas', 'Presupuesto']),
     ('una', 'Techo a una agua', 'Cocheras, patios y terrazas: pórticos, correas, canaleta, metrado y presupuesto.', ['Datos', 'Pórtico', 'Metrado', 'Presupuesto']),
+    ('mariposa', 'Techo mariposa', 'Dos faldones hacia un canal central: medidas del tijeral, metrado, canal y presupuesto con IGV.', ['Datos', 'Tijeral', 'Metrado', 'Presupuesto']),
+    ('diente', 'Techo diente de sierra', 'Naves con luz natural: dientes, ventanas, canaletas, metrado y presupuesto con IGV.', ['Datos', 'Diente', 'Metrado', 'Presupuesto']),
+    ('pergola', 'Pérgola metálica', 'Terrazas y jardines: columnas, vigas, listones o policarbonato, replanteo y presupuesto.', ['Datos', 'Replanteo', 'Metrado', 'Presupuesto']),
     ('arco', 'Arcotecho', 'Arco curvo de un tubo con tirante: trazo, rolado, metrado y presupuesto con IGV.', ['Datos', 'Trazo', 'Metrado', 'Presupuesto']),
 ]
 with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(viewport={'width': 1280, 'height': 720})
-    for t, tit, sub, h in ITEMS:
+    import sys
+    for t, tit, sub, h in [x for x in ITEMS if len(sys.argv) < 2 or x[0] in sys.argv[1:]]:
         pg.set_content(html(tit, sub, t, h)); pg.wait_for_timeout(200)
         pg.screenshot(path=f'/home/claude/excel/portada-excel-{t}.jpg', type='jpeg', quality=88)
     b.close()

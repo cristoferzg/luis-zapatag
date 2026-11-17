@@ -39,11 +39,16 @@ ITEMS = [
   ('d-puerta', 'Puerta principal de dos hojas', '1.60 × 2.40 m con vidrio templado arriba y plancha abajo.', 'diseno', '/tmp/pcm/puerta-principal-dos-hojas_3d.png', ['3D', 'Despiece', 'Presupuesto'], False),
   ('d-reja', 'Reja de ventana', '1.50 × 1.20 m con barrotes cada 11 cm y travesaño al centro.', 'diseno', '/tmp/pcm/reja-ventana_3d.png', ['3D', 'Despiece', 'Presupuesto'], False),
   ('d-baranda', 'Baranda de terraza', '4.00 × 1.00 m con pasamanos de 2" y barrotes seguros para niños.', 'diseno', '/tmp/pcm/baranda-terraza_3d.png', ['3D', 'Despiece', 'Presupuesto'], False),
+  ('liquidacion', 'Liquidación de obra', 'Cierra la obra con la cuenta clara: adicionales, deductivos, pagos, atraso, garantía y el acta lista para firmar.', 'excel', E + 'prevs/crop_liq.png', ['Saldo automático', 'Adicionales', 'Acta lista'], True),
+  ('d-batiente', 'Portón batiente de dos hojas', '3.00 × 2.20 m: dos hojas de 1.50 m, plancha abajo y barrotes arriba.', 'diseno', '/tmp/pcm2/porton-batiente-dos-hojas_3d.png', ['3D', 'Despiece', 'Presupuesto'], False),
+  ('d-ventana', 'Ventana de fierro con vidrio', '1.80 × 1.20 m: dos hojas corredizas con vidrio de 6 mm.', 'diseno', '/tmp/pcm2/ventana-fierro-con-vidrio_3d.png', ['3D', 'Despiece', 'Presupuesto'], False),
+  ('d-escalera-l', 'Escalera en L con descanso', 'Llega a 2.70 m con descanso en la esquina, columnas y baranda.', 'diseno', '/tmp/pcm2/escalera-en-l-con-descanso_3d.png', ['3D', 'Despiece', 'Presupuesto'], False),
   ('d-escalera', 'Escalera recta a segundo piso', 'Llega a 2.70 m: zancos, peldaños de plancha estriada y baranda.', 'diseno', '/tmp/pcm/escalera-recta-segundo-piso_3d.png', ['3D', 'Despiece', 'Presupuesto'], False),
 ]
 with sync_playwright() as p:
     b = p.chromium.launch(); pg = b.new_page(viewport={'width': 1280, 'height': 720})
-    for k, t, s, tipo, img, ch, papel in ITEMS:
+    import sys
+    for k, t, s, tipo, img, ch, papel in [x for x in ITEMS if len(sys.argv) < 2 or x[0] in sys.argv[1:]]:
         pg.set_content(html(t, s, tipo, img, ch, papel)); pg.wait_for_timeout(150)
         pg.screenshot(path=f'{E}portadas2/portada-{k}.jpg', type='jpeg', quality=88)
     b.close()

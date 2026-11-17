@@ -62,6 +62,30 @@ const disenos: Record<string, any> = {
       rejaConfig: { orientacion: 'vertical', perfilId: 'cuad-3/4x3/4-1.2', separacionObjetivoCm: 12, separacionRealCm: 12, cantidadBarras: 33 } }],
     barrotesConfig: { activo: true, perfilId: 'cuad-3/4x3/4-1.2', orientacion: 'vertical', separacionCm: 12, cantidad: 33, separacionRealCm: 12 },
   }),
+  'porton-batiente-dos-hojas': armar('porton', {
+    id: 'plantilla-porton-batiente', nombre: 'PORTÓN BATIENTE DE DOS HOJAS 3.00 × 2.20 m',
+    descripcion: 'Portón de cochera de dos hojas de 1.50 m que abren hacia adentro: plancha abajo y barrotes arriba. Bisagras de alto tránsito, cerrojo de piso en la hoja fija y chapa en la de uso diario.',
+    anchoM: 3.00, altoM: 2.20, numHojas: 2, tipoAperturaPorton: 'abatible',
+    hojas: [{ id: 'h1', numero: 1, anchoM: 1.50, apertura: 'izquierda' }, { id: 'h2', numero: 2, anchoM: 1.50, apertura: 'derecha' }],
+    sentidoAperturaTexto: 'Dos hojas batientes hacia el interior (revisa que no choquen con el auto ni con la rampa)',
+    divisiones: [{ id: 'div-pb-1', tipo: 'horizontal', posicionM: 1.10, porcentaje: 50, perfilId: 'rect-2x1-1.5' }],
+    paneles: [0, 1].flatMap(h => [
+      { id: `pan-pb-inf-${h}`, nombre: `Hoja ${h + 1} - Plancha LAC 1/32"`, hojaIndex: h, relX: 0, relY: 0, relW: 1, relH: 0.5, tipoRelleno: 'plancha', espesorMm: 0.8 },
+      { id: `pan-pb-sup-${h}`, nombre: `Hoja ${h + 1} - Barrotes 1" × 1"`, hojaIndex: h, relX: 0, relY: 0.5, relW: 1, relH: 0.5, tipoRelleno: 'reja', espesorMm: 25,
+        rejaConfig: { orientacion: 'vertical', perfilId: 'cuad-1x1-1.2', separacionObjetivoCm: 11, separacionRealCm: 11, cantidadBarras: 13 } },
+    ]),
+    barrotesConfig: { activo: true, perfilId: 'cuad-1x1-1.2', orientacion: 'vertical', separacionCm: 11, cantidad: 26, separacionRealCm: 11 },
+    acabado: { tipoPintura: 'anticorrosivo_esmalte', colorNombre: 'Gris Grafito', colorHex: '#374151', manosPintura: 2, costoPorM2: 24 },
+  }),
+  'ventana-fierro-con-vidrio': armar('ventana', {
+    id: 'plantilla-ventana-fierro-vidrio', nombre: 'VENTANA DE FIERRO CON VIDRIO 1.80 × 1.20 m',
+    descripcion: 'Ventana de fierro de 2 hojas corredizas con vidrio de 6 mm, marco de 2" × 1" y garruchas con rodamiento. Para casas, talleres y cuartos de servicio.',
+    anchoM: 1.80, altoM: 1.20, numHojas: 2,
+    hojas: [{ id: 'h1', numero: 1, anchoM: 0.90, apertura: 'corrediza' }, { id: 'h2', numero: 2, anchoM: 0.90, apertura: 'corrediza' }],
+    sentidoAperturaTexto: '2 hojas corredizas sobre riel',
+    acabado: { tipoPintura: 'anticorrosivo_esmalte', colorNombre: 'Negro Mate', colorHex: '#111827', manosPintura: 2, costoPorM2: 24 },
+  }),
+  'escalera-en-l-con-descanso': generarEscalera({ forma: 'L', alturaTotal: 2.70, ancho: 0.90, huella: 0.28, peldano: 'estriada', baranda: true, columnas: true, giro: 'izquierda', nombre: 'ESCALERA EN L CON DESCANSO (2.70 m)' } as any),
   'escalera-recta-segundo-piso': generarEscalera({ forma: 'recta', alturaTotal: 2.70, ancho: 0.90, huella: 0.28, peldano: 'estriada', baranda: true, nombre: 'ESCALERA RECTA A SEGUNDO PISO (2.70 m)' } as any),
 };
 
