@@ -241,6 +241,9 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
   la lee gratis (LectorComprobante, N° de operación repetido) y valida. Push: `avisoCompraNueva` (admin) y
   `avisoCompraEstado` (solo el comprador; ya NO se publica un comunicado general al validar). DEV: `__pagoDirectoSimulado`.
 - Embudo: `embudo_ventas/<AAAA-MM-DD>` contadores (`lib/embudoVentas.ts`); panel admin `VentasIAPanel` (lista para vender).
+- Administración → Créditos (`CreditosUsuariosView`): recargas por medio (de purchases validadas) y gasto por función (ai_access
+  gastoPorAccion / gastoMes / movimientos, que anota `cobrarUsoIA` con `conGasto`; regalos con `regalarCreditos(…, motivo)`).
+  DEV: `__creditosSimulados` (incluir en el grep del dist).
 - Costo en botones de IA: `common/CostoIA.tsx`. Saldo + "Recargar" arriba (PC: menú; celular: barra).
 - DEV: `__pagoEnLineaSimulado`, `__primeraDobleSimulada`, `__embudoSimulado`, `__aiAccessSimulado` (incluir en el grep del dist).
 

@@ -14,16 +14,33 @@ const COLOR: Record<string, number> = { columna: 0x2563eb, viga: 0x475569, miemb
 const NOMBRE: Record<string, string> = { columna: 'Columnas', viga: 'Vigas, cordones y correas', miembro: 'Diagonales, montantes y zancos', baranda: 'Barandas', placa: 'Planchas y peldaños', losa: 'Losas', muro: 'Muros', zapata: 'Zapatas' };
 const MODULO: Record<string, string> = { techos: 'Techos Metálicos', carpimetal: 'Carpintería Metálica', drywall: 'Drywall' };
 
+/** El diseño de la plantilla, venga como venga: dentro del recurso, en un archivo .json, con la escena
+ *  envuelta o sin piezas armadas (Carpintería Metálica las rearma). */
+async function disenoDe(item: BibliotecaItem): Promise<{ modulo: string; datos: any } | null> {
+  let datos: any = item.plantilla?.datos;
+  if (typeof datos === 'string') { try { datos = JSON.parse(datos); } catch { datos = null; } }
+  if (!datos && /\.json$/i.test(item.fileName || '') && item.enlaceDescargaUrl) {
+    try { datos = await (await fetch(item.enlaceDescargaUrl)).json(); } catch { datos = null; }
+  }
+  if (!datos || typeof datos !== 'object') return null;
+  if (datos.escena && !datos.nodes) datos = datos.escena;
+  if (datos.design && !datos.piezas) datos = datos.design;
+  const { detectarPlantilla } = await import('../../lib/plantillas');
+  const pl = await detectarPlantilla(datos, item.fileName || item.titulo || 'diseno.json').catch(() => null);
+  if (pl) return pl;
+  return item.plantilla ? { modulo: item.plantilla.modulo, datos } : null;
+}
+
 async function piezasDe(item: BibliotecaItem): Promise<{ solidos: SolidoCad[]; superficies: SuperficieCad[] } | null> {
-  const p = item.plantilla;
+  const p = await disenoDe(item);
   if (!p?.datos) return null;
   if (p.modulo === 'techos') {
     const { solidosDeTecho } = await import('../techos/exportarCadTechos');
     return solidosDeTecho(p.datos.nodes || {}, p.datos.segments || {}, p.datos.coverageZones || {});
   }
   if (p.modulo === 'carpimetal') {
-    const { solidosDeHerreria } = await import('../herreria/exportarCad');
-    return { solidos: solidosDeHerreria(p.datos), superficies: [] };
+    const [{ solidosDeHerreria }, { asegurarCad }] = await Promise.all([import('../herreria/exportarCad'), import('../herreria/herreriaCatalog')]);
+    return { solidos: solidosDeHerreria(asegurarCad(p.datos)), superficies: [] };
   }
   return null;
 }

@@ -52,6 +52,10 @@ caso('canje del paquete: 250 créditos', r.ok && r.creditos === 250, JSON.string
 caso('descuenta exactamente 250 créditos', antes - despues === 250, `${antes} → ${despues}`);
 caso('habilita sus 2 cursos y la plantilla', (await tiene('cursos', 'c1')) && (await tiene('cursos', 'c2')) && (await tiene('biblioteca', 'r1')));
 caso('registra paquetesCanjeados', ((await db.doc('ai_access/A').get()).data()?.paquetesCanjeados || []).some(x => x.paqueteId === 'p1'));
+{ const ac = (await db.doc('ai_access/A').get()).data() || {}; const mes = new Date().toISOString().slice(0, 7);
+  caso('anota el gasto por función (paquete: 250)', ac.gastoPorAccion?.paquete === 250, JSON.stringify(ac.gastoPorAccion));
+  caso('anota el gasto del mes', ac.gastoMes?.[mes]?.paquete === 250, JSON.stringify(ac.gastoMes));
+  caso('anota el movimiento con el nombre del paquete', ac.movimientos?.[0]?.tipo === 'uso' && ac.movimientos[0].accion === 'paquete' && ac.movimientos[0].creditos === 250 && !!ac.movimientos[0].detalle, JSON.stringify(ac.movimientos?.[0])); }
 r = await canjear(tA, { tipo: 'paquete', paqueteId: 'p1' });
 caso('volver a canjear no cobra (ya lo tiene)', r.ok && r.yaTenia && r.creditos === 0, JSON.stringify(r));
 await db.doc('cursos/c3').set({ name: 'Curso 3', isFree: false, priceSoles: 3, allowedUserIds: [] });

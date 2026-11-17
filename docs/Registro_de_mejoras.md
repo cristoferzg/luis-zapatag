@@ -19,6 +19,25 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Créditos de usuarios (cómo recargan y en qué gastan) + arreglos del visor 3D y del menú
+- Pedido del dueño: "Permíteme poder ver en qué los usuarios recargan sus créditos" → eligió «Recargas y gasto». Durante el trabajo:
+  "verifica y corrige el visualizar 3D dentro de la Academia, algunos no se ven el botón" (captura: menú lateral tapado en Techos).
+- Qué se hizo: Administración → Créditos (`CreditosUsuariosView`): tarjetas (créditos recargados, ingresos, créditos gastados,
+  regalados), «¿Cómo recargan?» (Yape, Plin, Transferencia, Google Play, Mercado Pago, WhatsApp, validada a mano; de purchases
+  validadas), «¿En qué gastan?» (barras por función y canjes), tabla por usuario (saldo, recargó, gastó) y detalle con sus recargas,
+  últimos movimientos y «Regalar créditos». Periodo: este mes / mes pasado / todo.
+  Servidor: `cobrarUsoIA` anota en ai_access gastoPorAccion, gastoMes (12 meses) y movimientos (últimos 40, con el nombre del
+  curso/plantilla/paquete en los canjes); la devolución por error de IA lo descuenta. Regalos (referidos y a mano) quedan anotados.
+  Visor 3D: el botón sale en toda plantilla de Techos/Carpintería y en diseños .json; acepta escena envuelta, texto JSON y diseños
+  sin piezas (asegurarCad). Menú lateral del celular por encima de las ventanas (z 170; antes la de inicio de Techos lo tapaba).
+- Archivos: `src/components/CreditosUsuariosView.tsx`, `functions/index.js`, `src/lib/aiAccess.ts`, `src/App.tsx`, `src/types/index.ts`,
+  `academia/VisorPlantilla3D.tsx`, `academia/TarjetaRecurso.tsx`, `UsuariosView.tsx`, `seguridad/canje.test.mjs`.
+- Cómo se probó: tsc 0 errores; `npm run test:canje` 15/15 (3 nuevas del registro de gasto); capturas antes/después (panel PC y celular,
+  visor con escena envuelta y con .json, menú en Techos).
+- Versión: sin compilar aún (hosting + functions: el gasto se anota desde que se despliegue).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: el gasto anterior al despliegue no tiene detalle por función (solo el total de usos).
+
 ## 2026-11-17 · Compilación 26110427 (web 2026.11.16.2218) — «carga todo, compila todo»
 - Web + AAB/APK 26110427 (firmados 01:D3…74:33, verificado). Manual V6 subido con el MCP a Recursos
   (bib_1792893362869 «Manual de Usuario de la Plataforma V6», archivo en academia/mcp/manual/).
@@ -434,7 +453,7 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | — (web 2026.11.16.2212 compilada el 17/11/2026) |
+| Última mejora sin compilar | Créditos de usuarios + visor 3D + menú (17/11/2026): desplegar hosting + functions |
 | Última versión compilada | Web **2026.11.16.2218** · Android **código 26110427** (17/11/2026) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110428** (nunca bajar de 26110427) |

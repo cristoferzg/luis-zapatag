@@ -62,6 +62,7 @@ const DiseñadorView = lazy(() => import('./components/DiseñadorView'));
 const HerreriaModuleView = lazy(() => import('./components/herreria/HerreriaModuleView'));
 const TechosModuleView = lazy(() => import('./components/techos/TechosModuleView'));
 const AdminPurchasesView = lazy(() => import('./components/AdminPurchasesView'));
+const CreditosUsuariosView = lazy(() => import('./components/CreditosUsuariosView'));
 const WhatsAppAdminView = lazy(() => import('./components/WhatsAppAdminView'));
 const ReporteMesView = lazy(() => import('./components/ReporteMesView'));
 const SupervisionView = lazy(() => import('./components/SupervisionView'));
@@ -1645,7 +1646,7 @@ export default function App() {
   // proyectos, clientes, finanzas, ajustes y comunicados.
   const DIFERIR_MS = 8000;
   const enVista = (...vs: string[]) => ({ diferirMs: DIFERIR_MS, ahora: vs.includes(currentView) });
-  const [usuarios, setUsuarios] = useFirestoreArraySync<SystemUser>('usuarios', activeUid, true, isAdmin, enVista('usuarios', 'supervision', 'settings', 'clients', 'whatsapp'));
+  const [usuarios, setUsuarios] = useFirestoreArraySync<SystemUser>('usuarios', activeUid, true, isAdmin, enVista('usuarios', 'supervision', 'settings', 'clients', 'whatsapp', 'creditos_usuarios'));
   const [cursos, setCursos] = useFirestoreArraySync<CourseCategory>('cursos', activeUid, true, isAdmin, enVista('usabilidad', 'settings'));
   const [tickets, setTickets] = useFirestoreArraySync<Ticket>('tickets', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
   const [asesorias, setAsesorias] = useFirestoreArraySync<Asesoria>('asesorias', activeUid, true, isAdmin, enVista('soporte', 'tickets', 'asesorias', 'settings'));
@@ -2360,6 +2361,7 @@ export default function App() {
         </div>
       )}<DashboardView projects={proyectosBalance} finances={filteredFinances} setCurrentView={setCurrentView} isAdmin={isAdmin} asesorias={asesorias} currentUser={user} globalNotifs={globalNotifs} setGlobalNotifs={setGlobalNotifs} /></div>;
       case 'admin_purchases': return <AdminPurchasesView />;
+      case 'creditos_usuarios': return isAdmin ? <CreditosUsuariosView usuarios={usuarios as any} /> : null;
       case 'whatsapp': return isAdmin ? <WhatsAppAdminView usuarios={usuarios} /> : null;
       case 'reporte': return <ReporteMesView projects={proyectosBalance} finances={filteredFinances} />;
       case 'supervision': return isAdmin ? (
@@ -2583,6 +2585,7 @@ export default function App() {
     { id: 'precios', label: 'Precios', icon: DollarSign },
     { id: 'usabilidad', label: 'Academia Técnica', icon: Video, badge: (clasesNuevas.length + recursosNuevos.length) || undefined },
     { id: 'admin_purchases', label: 'Validar Compras', icon: ShieldCheck, adminOnly: true },
+    { id: 'creditos_usuarios', label: 'Créditos', icon: ShieldCheck, adminOnly: true },
     { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, adminOnly: true },
     { id: 'supervision', label: 'Supervisión', icon: Eye, adminOnly: true },
     { id: 'biblioteca', label: 'Recursos Técnicos', icon: BookOpen, badge: recursosNuevos.length || undefined },
@@ -2623,7 +2626,7 @@ export default function App() {
     { seccion: 'Opcional', id: 'familia', label: 'Finanzas personales', corto: 'Finanzas', icon: Wallet, apartado: 'finanzas', miembros: [{ id: 'familia', label: 'Familia' }, { id: 'inversion', label: 'Inversiones' }, { id: 'deuda', label: 'Deudas' }] },
     { seccion: 'Cuenta', id: 'soporte', label: 'Ayuda y soporte', icon: Headset, miembros: [{ id: 'soporte', label: 'Ayuda' }] },
     { seccion: 'Cuenta', id: 'settings', label: 'Configuración', icon: Settings, miembros: [{ id: 'settings', label: 'Configuración' }, { id: 'precios', label: 'Precios' }] },
-    { seccion: 'Administración', id: 'usuarios', label: 'Administración', icon: ShieldCheck, miembros: [{ id: 'usuarios', label: 'Accesos' }, { id: 'admin_purchases', label: 'Compras' }, { id: 'whatsapp', label: 'WhatsApp' }, { id: 'supervision', label: 'Supervisión' }] },
+    { seccion: 'Administración', id: 'usuarios', label: 'Administración', icon: ShieldCheck, miembros: [{ id: 'usuarios', label: 'Accesos' }, { id: 'admin_purchases', label: 'Compras' }, { id: 'creditos_usuarios', label: 'Créditos' }, { id: 'whatsapp', label: 'WhatsApp' }, { id: 'supervision', label: 'Supervisión' }] },
   ];
   // Cada grupo con solo lo que este usuario puede ver; el grupo entra por su primer miembro visible.
   const gruposVisibles = GRUPOS_MENU.map(g => {
@@ -2739,7 +2742,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <div className={`menu-lateral fixed xl:static inset-y-0 left-0 z-50 ${isSidebarCollapsed ? 'xl:w-20 w-72' : 'w-72'} bg-slate-900 text-slate-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} xl:translate-x-0 transition-transform duration-200 ease-out flex flex-col`}>
+      <div className={`menu-lateral fixed xl:static inset-y-0 left-0 ${isMobileMenuOpen ? 'z-[170] xl:z-50' : 'z-50'} ${isSidebarCollapsed ? 'xl:w-20 w-72' : 'w-72'} bg-slate-900 text-slate-300 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} xl:translate-x-0 transition-transform duration-200 ease-out flex flex-col`}>
         <div className={`p-4 flex items-center ${isSidebarCollapsed ? 'justify-center xl:px-2' : 'justify-between'} border-b border-slate-800`}>
           <div className="flex items-center space-x-2.5 min-w-0 flex-1 mr-2">
             <img 
@@ -3066,7 +3069,7 @@ export default function App() {
         </nav>
       </div>
       
-      {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/50 z-40 xl:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
+      {isMobileMenuOpen && <div className="fixed inset-0 bg-slate-900/50 z-[165] xl:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />}
       {/* CELULAR / TABLET: botón con texto de la pantalla (crear lo que corresponde ahí) */}
       {!isMobileMenuOpen && fabActual && (
         <BotonMasFlotante key={currentView} label={fabActual.label} revisar={!(fabActual.ir && fabActual.ir !== currentView)}

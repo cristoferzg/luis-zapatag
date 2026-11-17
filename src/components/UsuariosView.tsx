@@ -134,7 +134,7 @@ export default function UsuariosView({ usuarios: propUsuarios, setUsuarios: prop
     // Referidos: el que lo recomendó recibe créditos de regalo.
     if (invitadoPor) {
       const quien = usuarios.find(u => u.id === invitadoPor);
-      regalarCreditos(invitadoPor, CREDITOS_REFERIDO)
+      regalarCreditos(invitadoPor, CREDITOS_REFERIDO, 'Por recomendar a un colega')
         .then(() => notify(`✓ ${quien?.name || 'El que lo invitó'} recibió ${CREDITOS_REFERIDO} créditos de regalo por recomendar la app`))
         .catch(() => notify('No se pudieron regalar los créditos del referido. Revisa la conexión.', 'error'));
       setInvitadoPor('');

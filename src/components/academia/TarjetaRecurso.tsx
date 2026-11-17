@@ -34,7 +34,7 @@ interface Props {
 }
 
 /** ¿La plantilla se puede mirar en 3D? */
-export const tiene3D = (r: BibliotecaItem) => !!r.plantilla?.datos && (r.plantilla.modulo === 'techos' || r.plantilla.modulo === 'carpimetal');
+export const tiene3D = (r: BibliotecaItem) => (!!r.plantilla && r.plantilla.modulo !== 'drywall') || (!r.plantilla && /\.json$/i.test(r.fileName || '') && !!r.enlaceDescargaUrl);
 
 export default function TarjetaRecurso({ r, gratis, descuento, onClick, pie, extra, onVer3D }: Props) {
   const t = tipoRecurso(r);

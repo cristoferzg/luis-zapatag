@@ -194,7 +194,25 @@ const PLANES_DEFAULT = [
 ];
 const mesActual = () => new Date().toISOString().slice(0, 7);
 
-async function cobrarUsoIA(request, accion, costoFijo) {
+// Registro del gasto (panel «Créditos de usuarios» del admin), dentro del mismo ai_access/<ws>:
+//   gastoPorAccion {accion: créditos}, gastoMes {'AAAA-MM': {accion: créditos}} y movimientos (últimos 40).
+// Si el cobro se devuelve (falló la IA), se descuenta también del registro.
+const MAX_MOVIMIENTOS = 40;
+function conGasto(a, accion, creditos, signo, mov) {
+  const mes = new Date().toISOString().slice(0, 7);
+  const porAccion = { ...(a.gastoPorAccion || {}) };
+  porAccion[accion] = Math.max(0, (Number(porAccion[accion]) || 0) + signo * creditos);
+  const gastoMes = { ...(a.gastoMes || {}) };
+  gastoMes[mes] = { ...(gastoMes[mes] || {}) };
+  gastoMes[mes][accion] = Math.max(0, (Number(gastoMes[mes][accion]) || 0) + signo * creditos);
+  // Solo los últimos 12 meses (el documento no crece sin fin).
+  Object.keys(gastoMes).sort().slice(0, -12).forEach((k) => delete gastoMes[k]);
+  let movimientos = Array.isArray(a.movimientos) ? a.movimientos : [];
+  movimientos = signo > 0 ? [mov, ...movimientos].slice(0, MAX_MOVIMIENTOS) : movimientos.filter((m) => m?.id !== mov.id);
+  return { gastoPorAccion: porAccion, gastoMes, movimientos };
+}
+
+async function cobrarUsoIA(request, accion, costoFijo, detalle) {
   const token = request.auth?.token || {};
   if (token.role === 'admin') return async () => {};
   const ws = String(token.workspace || '').replace(/^user_/, '');
@@ -211,6 +229,7 @@ async function cobrarUsoIA(request, accion, costoFijo) {
   const creditosGratis = Number.isFinite(gratis?.creditosMes) ? gratis.creditosMes : CREDITOS_GRATIS_DEFAULT;
 
   let descontado = { mes: 0, extra: 0 };
+  let movimiento = null;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const a = snap.exists ? snap.data() : { userId: ws, planId: 'gratis', creditosRestantes: creditosGratis, creditosExtra: CREDITOS_BIENVENIDA, mes: mesActual() };
@@ -227,6 +246,7 @@ async function cobrarUsoIA(request, accion, costoFijo) {
     }
     const deMes = Math.min(restantes, costo);
     descontado = { mes: deMes, extra: costo - deMes };
+    movimiento = { id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, fecha: new Date().toISOString(), tipo: 'uso', accion, creditos: costo, ...(detalle ? { detalle: String(detalle).slice(0, 120) } : {}) };
     tx.set(ref, {
       ...a, userId: ws, planId,
       creditosRestantes: restantes - deMes,
@@ -234,6 +254,7 @@ async function cobrarUsoIA(request, accion, costoFijo) {
       mes: mesActual(),
       usosTotales: (Number(a.usosTotales) || 0) + 1,
       ultimoUso: new Date().toISOString(),
+      ...conGasto(a, accion, costo, 1, movimiento),
     }, { merge: true });
   });
 
@@ -248,6 +269,7 @@ async function cobrarUsoIA(request, accion, costoFijo) {
           creditosRestantes: (Number(a.creditosRestantes) || 0) + descontado.mes,
           creditosExtra: (Number(a.creditosExtra) || 0) + descontado.extra,
           usosTotales: Math.max(0, (Number(a.usosTotales) || 0) - 1),
+          ...(movimiento ? conGasto(a, accion, costo, -1, movimiento) : {}),
         }, { merge: true });
       });
     } catch (_) { /* ignore */ }
@@ -449,7 +471,7 @@ async function canjearPaquete(request, ws) {
   });
   if (!faltan.length) return { ok: true, yaTenia: true, creditos: 0 };
   const creditos = Number(p.precioCreditos) > 0 ? Math.round(Number(p.precioCreditos)) : Math.max(1, Math.round((Number(p.precioSoles) || 0) * await creditosPorSol()));
-  const devolver = await cobrarUsoIA(request, 'paquete', creditos);
+  const devolver = await cobrarUsoIA(request, 'paquete', creditos, p.nombre || 'Paquete');
   try {
     const lote = db.batch();
     faltan.forEach((s) => lote.set(s.ref, { allowedUserIds: FieldValue.arrayUnion(ws) }, { merge: true }));
@@ -483,7 +505,7 @@ export const canjearCurso = onCall({ region: 'us-central1', cors: true, invoker:
   if (gratis || ids.includes(ws) || ids.includes('user_' + ws)) return { ok: true, yaTenia: true, creditos: 0 };
   const descuento = esRecurso || vigenteHasta(c.discountExpiryDate) ? Math.min(100, Math.max(0, Number(c.discountPercentage) || 0)) : 0;
   const creditos = Number(c.precioCreditos) > 0 ? Math.round(Number(c.precioCreditos)) : Math.max(1, Math.round(soles * (1 - descuento / 100) * await creditosPorSol()));
-  const devolver = await cobrarUsoIA(request, esRecurso ? 'recurso' : 'curso', creditos);
+  const devolver = await cobrarUsoIA(request, esRecurso ? 'recurso' : 'curso', creditos, esRecurso ? c.titulo : c.name);
   try {
     await ref.set({ allowedUserIds: FieldValue.arrayUnion(ws) }, { merge: true });
     const registro = { [esRecurso ? 'recursoId' : 'cursoId']: itemId, creditos, fecha: new Date().toISOString() };

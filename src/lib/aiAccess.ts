@@ -113,7 +113,15 @@ export interface AIAccess {
   usosTotales?: number;
   primeraRecarga?: boolean;  // ya recibió su primera recarga (la de regalo doble)
   invitadoPor?: string;      // quién lo invitó (referidos)
+  // Registro para el panel «Créditos de usuarios» (el servidor anota cada uso; el admin, los regalos).
+  gastoPorAccion?: Record<string, number>;
+  gastoMes?: Record<string, Record<string, number>>;
+  movimientos?: MovimientoCreditos[];
+  ultimoUso?: string;
 }
+export interface MovimientoCreditos { id: string; fecha: string; tipo: 'uso' | 'regalo'; accion?: string; creditos: number; detalle?: string }
+const conMovimiento = (base: AIAccess, m: Omit<MovimientoCreditos, 'id' | 'fecha'>): MovimientoCreditos[] =>
+  [{ id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, fecha: new Date().toISOString(), ...m }, ...(base.movimientos || [])].slice(0, 40);
 
 // Contexto del usuario actual (lo setea App en cada render para no pasar props).
 let _ctx: { userId: string | undefined; userName: string; isAdmin: boolean } = { userId: undefined, userName: '', isAdmin: false };
@@ -254,11 +262,13 @@ export async function grantCreditos(userId: string, creditos: number): Promise<n
 
 /** Créditos de regalo por recomendar la app a un colega (referidos). */
 export const CREDITOS_REFERIDO = 20;
-/** Regala créditos extra (no vencen) sin tocar la promoción de primera recarga. Solo admin. */
-export async function regalarCreditos(userId: string, creditos: number): Promise<void> {
+/** Regala créditos extra (no vencen) sin tocar la promoción de primera recarga. Solo admin.
+ *  Queda anotado en sus movimientos (panel «Créditos de usuarios»). */
+export async function regalarCreditos(userId: string, creditos: number, motivo = 'Regalo'): Promise<void> {
   const previo = await getAIAccess(userId);
   const base: AIAccess = previo || { userId, planId: 'gratis', creditosRestantes: 0, mes: '', creditosExtra: CREDITOS_BIENVENIDA };
-  await setDoc(doc(db, 'ai_access', userId), { ...base, creditosExtra: (base.creditosExtra || 0) + creditos });
+  await setDoc(doc(db, 'ai_access', userId), { ...base, creditosExtra: (base.creditosExtra || 0) + creditos,
+    movimientos: conMovimiento(base, { tipo: 'regalo', creditos, detalle: motivo }) });
 }
 
 /** Solicitud de compra de un plan (queda pendiente para que el admin valide). */
