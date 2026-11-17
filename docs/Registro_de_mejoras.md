@@ -19,6 +19,21 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Academia: curso «Techos a Dos y Cuatro Aguas» ampliado (≈45 min → ≈1 h 22 min)
+- Pedido del dueño: "1" (de la lista de ideas: alargar los cursos a ≈8–10 min por clase, empezando por Techos).
+- Qué se hizo: las 12 clases pasaron de 3.3–4.6 min a 6.0–7.4 min (total ≈82 min). Sin regrabar lo que ya estaba: se insertan escenas
+  nuevas con la receta de Naves → respuesta del reto de la clase anterior al inicio; antes de los errores: segundo ejemplo con tabla,
+  caso de obra, dos ejercicios para pausar (A y B) con solución, preguntas frecuentes y repaso rápido. Números verificados (factor
+  √(1+p²), limatesa/limahoya por Pitágoras, limahoya = pendiente × 0.707, dilatación 0.012 mm/m·°C, metrados).
+- Portada del curso con "≈1 h 22 min" y descripción actualizada.
+- Archivos: `contenido/academia/videos/fuentes/techo_ext.py` + `techo_x1.py` … `techo_x12.py`; portada `contenido/academia/portadas/techos-v3.jpg`
+  (`fuentes/portadas3.py`). Videos en la rama academia-videos `techos/techo-xN.mp4`.
+- Cómo se probó: pronunciación de todas las frases nuevas con revisar_voz.py ("InnovApp" → "Innova Ap"; "sesenta, ochenta y un metro" → con centímetros);
+  hojas de contacto (se achicó el dibujo de la respuesta de la clase 2 que tapaba el subtítulo); fotogramas de los videos.
+- Versión: sin cambios de la app (solo contenido vía MCP; mismas clases, video nuevo).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: siguen 7 cursos cortos (Soldadura, Estructuras, Carpintería, Planos, Negocio, Portones, Seguridad).
+
 ## 2026-11-17 · Créditos de usuarios (cómo recargan y en qué gastan) + arreglos del visor 3D y del menú
 - Pedido del dueño: "Permíteme poder ver en qué los usuarios recargan sus créditos" → eligió «Recargas y gasto». Durante el trabajo:
   "verifica y corrige el visualizar 3D dentro de la Academia, algunos no se ven el botón" (captura: menú lateral tapado en Techos).
