@@ -27,6 +27,40 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Despliegue: `firebase deploy --only hosting,functions` (functions por el registro del gasto en cobrarUsoIA y mcpCursos).
 - Commit(s): (este commit)
 
+## 2026-11-17 · Academia: 7 plantillas nuevas en Recursos Técnicos (Excel de techos, liquidación y diseños de Carpintería Metálica)
+- Pedido del dueño: "3" (de la lista de ideas: más plantillas para vender).
+- Qué se hizo (ninguna gratis):
+  - Excel de techos (S/ 9.90, Techos Metálicos): **Techo mariposa** (bib_1794920090880, taller 10 × 18 m: tijeral con canal central),
+    **Techo diente de sierra** (bib_1794920091907, nave 12 × 24 m, 3 dientes, ventanas al sur), **Pérgola metálica** (bib_1794920093028,
+    terraza 8 × 12 m, listones y/o cobertura Sí/No, hoja Replanteo). Mismo constructor `armar.py` (Datos · tabla · Metrado · Presupuesto · Catálogo).
+  - **Liquidación de obra** (S/ 9.90, Plantillas, bib_1794920093981): adicionales/deductivos (solo aprobados), pagos, penalidad con tope, retención
+    de garantía, saldo y Acta de liquidación que se llena sola. Orientación general (manda el contrato).
+  - Diseños editables de Carpintería Metálica (S/ 5.90, Herrería): **Portón batiente de dos hojas 3.00 × 2.20** (bib_1794920094952),
+    **Ventana de fierro con vidrio 1.80 × 1.20** (bib_1794920095810) y **Escalera en L con descanso** (bib_1794920096656). El "toldo" se cambió por
+    la ventana: el módulo no tiene tipo toldo.
+- Archivos: `contenido/academia/plantillas-excel/` (+ `fuentes/mariposa.py`, `diente_sierra.py`, `pergola.py`, `portadas_excel.py`),
+  `contenido/academia/plantillas-kit/` (+ `fuentes/liquidacion_obra.py`, `portadas_kit.py`, `render.html` con cámara `__cam`),
+  `contenido/academia/plantillas-carpimetal/generar.ts` + 3 .json nuevos.
+- Cómo se probó: recalc con 0 errores en los 4 Excel; valores revisados a mano (montantes, áreas, saldo); vista de cada hoja; vistas 3D de los diseños.
+- Versión: sin cambios de la app (solo contenido vía MCP).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: abrir un diseño nuevo en la app real; sumar los nuevos a los paquetes sugeridos (Excel de Techos, Kit del contratista, Diseños de Carpintería).
+
+## 2026-11-17 · Academia: curso «Techos a Dos y Cuatro Aguas» ampliado (≈45 min → ≈1 h 22 min)
+- Pedido del dueño: "1" (de la lista de ideas: alargar los cursos a ≈8–10 min por clase, empezando por Techos).
+- Qué se hizo: las 12 clases pasaron de 3.3–4.6 min a 6.0–7.4 min (total ≈82 min). Sin regrabar lo que ya estaba: se insertan escenas
+  nuevas con la receta de Naves → respuesta del reto de la clase anterior al inicio; antes de los errores: segundo ejemplo con tabla,
+  caso de obra, dos ejercicios para pausar (A y B) con solución, preguntas frecuentes y repaso rápido. Números verificados (factor
+  √(1+p²), limatesa/limahoya por Pitágoras, limahoya = pendiente × 0.707, dilatación 0.012 mm/m·°C, metrados).
+- Portada del curso con "≈1 h 22 min" y descripción actualizada.
+- Archivos: `contenido/academia/videos/fuentes/techo_ext.py` + `techo_x1.py` … `techo_x12.py`; portada `contenido/academia/portadas/techos-v3.jpg`
+  (`fuentes/portadas3.py`). Videos en la rama academia-videos `techos/techo-xN.mp4`.
+- Cómo se probó: pronunciación de todas las frases nuevas con revisar_voz.py ("InnovApp" → "Innova Ap"; "sesenta, ochenta y un metro" → con centímetros);
+  hojas de contacto (se achicó el dibujo de la respuesta de la clase 2 que tapaba el subtítulo); fotogramas de los videos.
+- Versión: sin cambios de la app (solo contenido vía MCP; mismas clases, video nuevo).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: siguen 7 cursos cortos (Soldadura, Estructuras, Carpintería, Planos, Negocio, Portones, Seguridad).
+
 ## 2026-11-17 · Créditos de usuarios (cómo recargan y en qué gastan) + arreglos del visor 3D y del menú
 - Pedido del dueño: "Permíteme poder ver en qué los usuarios recargan sus créditos" → eligió «Recargas y gasto». Durante el trabajo:
   "verifica y corrige el visualizar 3D dentro de la Academia, algunos no se ven el botón" (captura: menú lateral tapado en Techos).

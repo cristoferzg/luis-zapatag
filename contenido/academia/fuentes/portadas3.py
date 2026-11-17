@@ -18,7 +18,7 @@ CURSOS = {
   'estructuras': ('ESTRUCTURAS', 'METÁLICAS', 'Fabrica y monta estructuras seguras', '≈42 min', 'Clase 1 gratis', 'Obra real: Mezanine de 4 × 6 m', '#38bdf8', '#7dd3fc'),
   'carpinteria': ('CARPINTERÍA', 'METÁLICA', 'Puertas, rejas y escaleras que se venden', '≈36 min', 'Clase 1 gratis', 'Obra real: Casa de 2 pisos', '#f43f5e', '#fb7185'),
   'planos':      ('LECTURA DE', 'PLANOS', 'Del plano a la obra sin dudas', '≈28 min', 'Clase 1 gratis', 'Obra real: Planos del mezanine', '#22d3ee', '#67e8f9'),
-  'techos':      ('TECHOS A', '2 Y 4 AGUAS', 'Tijerales, pendientes y limatesas', '≈45 min', 'Clase 1 gratis', 'Obra real: Taller 10 × 16 y casa 8 × 12 m', '#f97316', '#ffd166'),
+  'techos':      ('TECHOS A', '2 Y 4 AGUAS', 'Tijerales, pendientes y limatesas', '≈1 h 22 min', 'Clase 1 gratis', 'Obra real: Taller 10 × 16 y casa 8 × 12 m', '#f97316', '#ffd166'),
   'negocio':     ('EL NEGOCIO', 'DEL METALERO', 'Cotiza, cobra y haz crecer tu taller', '≈40 min', 'Clase 1 gratis', 'Obra real: Cochera con portón y techo', '#22c55e', '#86efac'),
   'portones':    ('PORTONES', 'AUTOMÁTICOS', 'Automatiza portones que no fallan', '≈39 min', 'Clase 1 gratis', 'Obra real: Portón de 3.90 × 2.40 m', '#38bdf8', '#7dd3fc'),
   'seguridad':   ('SEGURIDAD', 'EN OBRA Y ALTURA', 'Trabaja arriba y vuelve a casa', '≈35 min', 'Clase 1 gratis', 'Obra real: Montaje de nave 15 × 30 m', '#facc15', '#fde68a'),
