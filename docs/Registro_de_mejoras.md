@@ -19,6 +19,17 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Compilación web 2026.11.16.2212 (sin app nueva)
+- Pedido del dueño: "Compila".
+- Incluye: carga más rápida, Carpeta privada rediseñada (descargas PDF/AutoCAD/Revit), Academia con tarjetas de cursos para
+  plantillas/recursos, búsqueda tolerante y mini visor 3D (+ `detalles` en el MCP).
+- Android: SIN AAB nuevo (no hubo cambios nativos desde 26110426; la app carga la web del servidor).
+- Manual: págs. 65 (Carpeta privada: Paso 1 lista + Paso 2 nuevo) y 78 (Mis plantillas con «Ver en 3D») con capturas nuevas
+  (`docs/herramientas/manual_carpeta_plantillas.py`).
+- Despliegue: `firebase deploy --only hosting,functions` (functions por mcpCursos/detalles; si ya se desplegaron las de 26110426
+  basta `--only hosting,functions:mcpCursos`).
+- Commit(s): (este commit)
+
 ## 2026-11-17 · Academia: plantillas y recursos con el mismo diseño que los cursos + mini visor 3D
 - Pedido del dueño: "plantilla y recursos debe visualizar igual que los cursos… mejorar el diseño"; con capturas: buscar
   «plantillas» no las encontraba y «Mis plantillas» (admin) mostraba carrusel y tarjetas viejas. Además: "añade una opción para
@@ -401,8 +412,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Carga rápida + Carpeta privada + Academia (tarjetas y visor 3D) (17/11/2026): desplegar hosting + functions (mcpCursos) |
-| Última versión compilada | Web **2026.11.16.1909** · Android **código 26110426** (17/11/2026: notificaciones, escalera a medida con IA, grabador CarpiMetal, AutoCAD 3D/Revit gratis, avisos de descarga) |
+| Última mejora sin compilar | — (web 2026.11.16.2212 compilada el 17/11/2026) |
+| Última versión compilada | Web **2026.11.16.2212** (17/11/2026) · Android **código 26110426** (sin cambios nativos después) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110427** (nunca bajar de 26110426) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
