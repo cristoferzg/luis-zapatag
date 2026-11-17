@@ -94,6 +94,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Versión: sin cambios de la app (solo contenido vía MCP). Clases tut-1794886446046 … tut-1794886450286.
 - Commit(s): (este commit)
 - Pendiente / a vigilar: si cambia una pantalla del celular (p. ej. la Carpeta rediseñada el 17/11), rehacer la escena con su fuente.
+- Segunda vuelta (17/11, "Dale"): escena 8 del Celular 2 rehecha con la Carpeta nueva (lista con conteos y "Por cobrar", dentro ficha + "+ Documento / + Fotos / + Nota",
+  pestañas Todo/Documentos/Fotos/Planos/Notas y "Descargar todo (ZIP)"). Clase tut-1794886446776-3da14d actualizada con el video nuevo (3:10).
 
 ## 2026-11-17 · Carpeta privada de clientes: rediseño más claro (Proyectos & Clientes → Carpeta)
 - Pedido del dueño: "rediseña las carpetas porque es un poco confuso" → la carpeta privada de Proyectos y Personal.
