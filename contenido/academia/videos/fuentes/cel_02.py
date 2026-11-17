@@ -140,20 +140,39 @@ E.append(dict(frases=[
     ('🧾', 'Materiales, espesores y acabados'), ('📑', 'Pasan solas al <b class="nar">contrato</b>')], lambda i: i)
   + telefono(proyectos(tarjeta_proyecto('S/ 2 000', 'S/ 2 800', '40%', resaltar=2)) + capa(hoja_abajo(esp, 440), 0))))
 
-# 8 · carpeta
-carpeta = (titulo_seccion('Carpetas de clientes', 'Una carpeta por cliente con sus documentos, fotos, planos y notas. Solo tú la ves.')
-           + '<div style="height:42px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;display:flex;align-items:center;padding:0 12px;color:#94a3b8;font-size:14px;margin-bottom:10px">🔍 Buscar cliente, DNI o plano…</div>'
-           + tarjeta('<div style="display:flex;gap:10px;align-items:center"><span style="font-size:30px">📁</span><div style="flex:1"><b>Sr. Carlos Mendoza</b>' + gris('1 proyecto · 3 fotos de obra · 1 nota') + '</div></div>', '#a5b4fc', '#eef2ff')
-           + tarjeta('<div style="display:flex;gap:10px;align-items:center"><span style="font-size:30px">📁</span><div style="flex:1"><b>Sra. Rosa Huamán</b>' + gris('1 proyecto · 1 contrato') + '</div></div>')
-           + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">' + boton('＋ Nota', '#0f172a') + boton('Descargar todo (ZIP)', '#e2e8f0', '#0f172a') + '</div>')
+# 8 · carpeta (diseño del 17/11: lista con conteos + interior con ficha, una fila para agregar y pestañas)
+def conteo(ic, n):
+    return f'<span style="display:inline-flex;gap:3px;align-items:center;font-size:11px;font-weight:800;border-radius:7px;padding:2px 6px;{"background:#f1f5f9;color:#334155" if n else "color:#cbd5e1"}">{ic} {n}</span>'
+def tarjeta_carpeta(nombre, c, cobro, color, av):
+    return tarjeta(f'<div style="display:flex;gap:10px;align-items:center"><span style="font-size:28px">📁</span><div style="flex:1"><b>{nombre}</b>'
+                   f'<div style="display:flex;gap:4px;margin-top:4px">{conteo("📄", c[0])}{conteo("🖼️", c[1])}{conteo("📐", c[2])}{conteo("📝", c[3])}</div></div>'
+                   f'<b style="font-size:12px;color:{color}">{cobro}</b></div>'
+                   f'<div style="height:5px;border-radius:3px;background:#e2e8f0;margin-top:8px"><div style="height:5px;border-radius:3px;background:#10b981;width:{av}"></div></div>')
+lista_carp = (titulo_seccion('Carpetas de clientes', 'Una carpeta por cliente con sus documentos, fotos, planos y notas. Solo tú la ves.')
+              + '<div style="height:42px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;display:flex;align-items:center;padding:0 12px;color:#94a3b8;font-size:14px;margin-bottom:10px">🔍 Buscar cliente, DNI o plano…</div>'
+              + tarjeta_carpeta('Sr. Carlos Mendoza', (1, 3, 1, 1), 'Por cobrar S/ 2 800', '#e11d48', '42%')
+              + tarjeta_carpeta('Sra. Rosa Huamán', (2, 0, 0, 0), 'Pagado ✓', '#059669', '100%'))
+peq = lambda t, sel: f'<span style="padding:6px 10px;font-size:12px;font-weight:800;{"color:#4f46e5;border-bottom:3px solid #4f46e5" if sel else "color:#64748b"}">{t}</span>'
+dentro = ('<div style="font-size:12px;font-weight:800;color:#4f46e5;margin-bottom:6px">‹ Todas las carpetas</div>'
+          + tarjeta('<b style="font-size:16px">📁 Sr. Carlos Mendoza</b>' + gris('DNI 45879632 · 987 654 321')
+                    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;font-size:11px">'
+                    + ''.join(f'<div style="background:{b};border-radius:10px;padding:5px 7px">{t}<br><b style="font-size:13px;color:{c}">{v}</b></div>'
+                              for t, v, b, c in [('Presupuesto', 'S/ 4 800', '#f8fafc', '#0f172a'), ('Cobrado', 'S/ 2 000', '#ecfdf5', '#059669'), ('Por cobrar', 'S/ 2 800', '#fff1f2', '#e11d48')]) + '</div>')
+          + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">' + boton('+ Documento', '#0f172a', alto=38) + boton('+ Fotos', '#0f172a', alto=38) + boton('+ Nota', '#0f172a', alto=38) + '</div>'
+          + '<div style="display:flex;border-bottom:1px solid #e2e8f0;margin-bottom:8px">' + peq('Todo', 1) + peq('Documentos', 0) + peq('Fotos', 0) + peq('Planos', 0) + peq('Notas', 0) + '</div>'
+          + tarjeta('<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span>📄 Contrato techo.pdf</span><span style="font-size:11px;font-weight:800;color:#4f46e5">Ver · Descargar</span></div>')
+          + '<div style="display:flex;gap:6px;margin-bottom:8px">' + ''.join(f'<div style="flex:1;height:54px;border-radius:10px;background:linear-gradient(135deg,{a},{b})"></div>' for a, b in [('#94a3b8', '#475569'), ('#a8a29e', '#57534e'), ('#93c5fd', '#64748b')]) + '</div>'
+          + boton('Descargar todo (ZIP)', '#e2e8f0', '#0f172a', alto=40))
 E.append(dict(frases=[
   'Paso ocho: toca Carpeta, el tercer botón de arriba.',
-  'Cada cliente tiene su carpeta con sus proyectos, fotos de obra, contratos y notas. Solo tú la ves.',
-  'Con más Nota apuntas acuerdos o medidas, y con Descargar todo te llevas la carpeta completa en un archivo ZIP.',
+  'Cada cliente tiene su carpeta. En la tarjeta ves cuántos documentos, fotos y planos tiene, y cuánto te debe.',
+  'Ábrela: arriba ves lo que ya te pagaron y lo que falta. Con más Documento, más Fotos y más Nota guardas contratos, fotos de obra y acuerdos.',
+  'Las pestañas separan todo por tipo, y con Descargar todo te llevas la carpeta completa en un archivo ZIP. Solo tú la ves.',
 ], zoom=[(0, 1.0, 50, 50), (1, 1.02, 55, 50)],
   html=lado(8, 'La <span class="nar">carpeta</span> del cliente', [
-    ('📁', 'Botón <b class="nar">Carpeta</b>'), ('🖼️', 'Fotos, contratos y notas'), ('🗜️', '<b class="nar">Nota</b> y descarga en ZIP')], lambda i: i)
-  + telefono(pantalla('Proyectos', carpeta, 'proyectos', GRUPO, 'Carpeta', fab_txt='Registrar cliente', extra=toque(270, 124, 0) + toque(200, 330, 1)))))
+    ('📁', 'Botón <b class="nar">Carpeta</b>'), ('🔢', 'Conteos y <b class="nar">por cobrar</b>'), ('➕', '<b class="nar">Documento · Fotos · Nota</b>'), ('🗜️', 'Pestañas y <b class="nar">ZIP</b>')], lambda i: i)
+  + telefono(pantalla('Proyectos', lista_carp, 'proyectos', GRUPO, 'Carpeta', fab_txt='Registrar cliente', extra=toque(270, 124, 0) + toque(200, 330, 1))
+             + capa(pantalla('Proyectos', dentro, 'proyectos', GRUPO, 'Carpeta'), 2) + toque(200, 330, 2) + toque(200, 500, 3))))
 
 # 9 · consejos
 E.append(dict(frases=[
