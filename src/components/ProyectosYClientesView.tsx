@@ -49,6 +49,7 @@ export default function ProyectosYClientesView({
   const [portfolioSearch, setPortfolioSearch] = useState<string>('');
   const [portfolioAdminScope, setPortfolioAdminScope] = useState<'admin' | 'all'>('admin');
   const [selectedFolderGroupId, setSelectedFolderGroupId] = useState<string | null>(null);
+  const [exportandoPlano, setExportandoPlano] = useState<string | null>(null);
   const [pestanaCarpeta, setPestanaCarpeta] = useState<'todo' | 'docs' | 'fotos' | 'planos' | 'notas'>('todo');
   const [clientNotesMap, setClientNotesMap] = useState<Record<string, string>>(() => {
     return safeStorage.getItem<Record<string, string>>('innova_client_notes_map', {}) || {};
@@ -956,6 +957,44 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
 
       {/* TAB 3: PORTAFOLIO 3D & CARPETAS PRIVADAS POR CLIENTE */}
       {activeTab === 'portafolio' && (() => {
+        // Descargas desde la carpeta: archivos (PDF, Word…) y planos de techo en PDF / AutoCAD / Revit.
+        const bajarBlob = (blob: Blob, nombre: string) => {
+          const u = URL.createObjectURL(blob); const a = document.createElement('a');
+          a.href = u; a.download = nombre; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(u), 4000);
+        };
+        const descargarArchivo = async (url: string, nombre: string) => {
+          try {
+            if (url.startsWith('data:')) { const a = document.createElement('a'); a.href = url; a.download = nombre; document.body.appendChild(a); a.click(); a.remove(); return; }
+            bajarBlob(await (await fetch(url)).blob(), nombre);
+          } catch { window.open(url, '_blank'); }
+        };
+        const base = (n: string) => (n || 'techo').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 60) || 'techo';
+        const exportarPlano = async (dz: SavedTechosDesign, tipo: 'pdf' | 'dxf' | 'ifc') => {
+          setExportandoPlano(`${dz.id}:${tipo}`);
+          try {
+            if (tipo === 'ifc') {
+              const [{ solidosDeTecho }, { ifc, descargarTexto }] = await Promise.all([import('./techos/exportarCadTechos'), import('../lib/solidosCad')]);
+              const r = solidosDeTecho(dz.nodes || {}, dz.segments || {}, dz.coverageZones || {});
+              if (!r.solidos.length) { alert('Este plano no tiene piezas para exportar.'); return; }
+              descargarTexto(ifc(r.solidos, dz.nombre || 'Techo', currentUser?.name || 'InnovApp', r.superficies), `${base(dz.nombre)}.ifc`, 'application/x-step');
+              return;
+            }
+            const [m, mem] = await Promise.all([import('../lib/dxfLamina'), import('./techos/memoriaCalculo')]);
+            let memoria: any = null;
+            try { memoria = mem.calcularMemoria(dz.nodes || {}, dz.segments || {}, dz.coverageZones || {}, {} as any); } catch { /* sin memoria */ }
+            const o = { nombre: dz.nombre || 'Techo', empresa: undefined, escala: 0, memoria };
+            if (tipo === 'pdf') {
+              const blob = await m.pdfLaminas(dz.nodes || {}, dz.segments || {}, o, 'A3');
+              if (blob) bajarBlob(blob, `${base(dz.nombre)}_laminas_A3.pdf`); else alert('Este plano no tiene piezas para dibujar.');
+            } else {
+              const { descargarTexto } = await import('../lib/solidosCad');
+              descargarTexto(m.dxfLamina(dz.nodes || {}, dz.segments || {}, o), `${base(dz.nombre)}_lamina.dxf`, 'application/dxf');
+            }
+          } catch (e: any) {
+            alert('No se pudo preparar el archivo: ' + (e?.message || e));
+          } finally { setExportandoPlano(null); }
+        };
         // Datos de una carpeta: obras, cobros y archivos por tipo (mismos datos que antes).
         const contratosGuardados = safeStorage.getItem<any[]>('innova_client_contracts', []) || [];
         const datosCarpeta = (groupId: string) => {
@@ -966,9 +1005,10 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
           const obras = projects.filter(p => p.client === clientName);
           const presupuesto = obras.reduce((s2, p) => s2 + (p.presupuesto || 0), 0);
           const cobrado = obras.reduce((s2, p) => s2 + (p.cobros?.reduce((cs, c) => cs + c.amount, 0) || 0), 0);
-          const contratos = contratosGuardados.filter(c => String(c.clientName || '').toLowerCase().trim() === nombreN);
           const fotos = (clientObj?.files || []).filter(f => f.type === 'photo');
           const docs = (clientObj?.files || []).filter(f => f.type === 'contract' || f.type === 'document');
+          // La ficha del contrato solo se muestra si su PDF no está ya en la carpeta (antes salía repetido y sin descarga).
+          const contratos = contratosGuardados.filter(c => String(c.clientName || '').toLowerCase().trim() === nombreN && !docs.some(f => f.name === c.fileName));
           return { clientObj, clientName, planos, obras, presupuesto, cobrado, contratos, fotos, docs, nota: clientNotesMap[groupId] || '' };
         };
         const Conteo = ({ icon: Ic, n, t }: { icon: any; n: number; t: string }) => (
@@ -1086,22 +1126,34 @@ ${designs.map(d => `- ${d.nombre} (Guardado: ${d.savedAt || d.updatedAt})`).join
         );
         const listaDocs = (
           <>
-            {d.contratos.map(c => <Fila key={c.id} icon={FileText} color="bg-indigo-50 text-indigo-600" titulo={c.fileName} sub="Contrato hecho en la app" />)}
+            {d.contratos.map(c => <Fila key={c.id} icon={FileText} color="bg-indigo-50 text-indigo-600" titulo={c.fileName} sub="Contrato hecho en la app · para bajarlo, vuelve a generarlo en Contratos & EPP" />)}
             {d.docs.map(f => (
               <Fila key={f.id} icon={FileText} color="bg-blue-50 text-blue-600" titulo={f.name} sub={`Documento · ${f.uploadedAt}`}>
-                <a href={f.dataUrl} download={f.name} target="_blank" rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1"><Download className="w-3.5 h-3.5" />Ver</a>
+                <a href={f.dataUrl} target="_blank" rel="noopener noreferrer" title="Ver" aria-label={`Ver ${f.name}`}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center"><Eye className="w-4 h-4" /></a>
+                <button type="button" onClick={() => descargarArchivo(f.dataUrl, f.name)}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"><Download className="w-3.5 h-3.5" />Descargar</button>
                 {btnBorrar(() => handleRemoveClientFile(groupId, f.id), 'Eliminar archivo')}
               </Fila>
             ))}
           </>
         );
         const listaPlanos = d.planos.map(p => (
-          <Fila key={p.id} icon={Box} color="bg-amber-50 text-amber-600" titulo={p.nombre} sub={`Plano 3D · ${p.updatedAt || p.savedAt || ''}`}>
-            <button type="button" onClick={() => handleOpenPlanInTechos(p)}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"><Eye className="w-3.5 h-3.5" />Abrir</button>
-            {btnBorrar(() => handleDeletePortfolioDesign(p.id, p.nombre), 'Eliminar plano')}
-          </Fila>
+          <div key={p.id} className="py-2.5">
+            <Fila icon={Box} color="bg-amber-50 text-amber-600" titulo={p.nombre} sub={`Plano de techo · ${p.updatedAt || p.savedAt || ''}`}>
+              <button type="button" onClick={() => handleOpenPlanInTechos(p)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"><Eye className="w-3.5 h-3.5" />Abrir</button>
+              {btnBorrar(() => handleDeletePortfolioDesign(p.id, p.nombre), 'Eliminar plano')}
+            </Fila>
+            <div className="flex flex-wrap gap-1.5 pl-12">
+              {([['pdf', 'PDF', 'Láminas para imprimir (A3)', 'text-rose-700 bg-rose-50 hover:bg-rose-100'], ['dxf', 'AutoCAD', 'Láminas en .DXF (AutoCAD lo abre y guarda como .DWG)', 'text-blue-700 bg-blue-50 hover:bg-blue-100'], ['ifc', 'Revit', 'Modelo .IFC para Revit (Insertar → Vincular IFC)', 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100']] as const).map(([t, l, tt, c]) => (
+                <button key={t} type="button" title={tt} disabled={exportandoPlano !== null} onClick={() => exportarPlano(p, t)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-black flex items-center gap-1 cursor-pointer disabled:opacity-50 ${c}`}>
+                  <Download className="w-3 h-3" />{exportandoPlano === `${p.id}:${t}` ? 'Preparando…' : l}
+                </button>
+              ))}
+            </div>
+          </div>
         ));
         const galeria = (lista: typeof d.fotos) => (
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">

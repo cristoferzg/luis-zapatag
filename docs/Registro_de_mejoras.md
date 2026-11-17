@@ -33,6 +33,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Versión: sin compilar aún (solo web: hosting).
 - Commit(s): (este commit)
 - Pendiente / a vigilar: el Manual habla de la Carpeta privada → revisar al compilar si hay que actualizar su texto/captura.
+- Segunda vuelta (pedido: "debe permitirme descargar los PDF… o también en Revit o AutoCAD si se guarda el techo"): cada documento
+  tiene «Ver» y «Descargar» (antes solo «Ver», que en la web abría el PDF sin bajarlo); la ficha del contrato ya no sale repetida
+  cuando su PDF está en la carpeta; cada plano de techo trae PDF (láminas A3), AutoCAD (láminas .DXF) y Revit (.IFC), preparados
+  al momento en el equipo (gratis, sin IA). Probado: las 4 descargas bajan desde la carpeta (PDF 305 KB, DXF 221 KB, IFC 219 KB).
 
 ## 2026-11-17 · Carga más rápida al entrar (25 % menos espera con internet de celular)
 - Pedido del dueño: "que cargue mucho más rápido la base de datos porque demora un poco" (también pidió: plantillas 5 opciones,
