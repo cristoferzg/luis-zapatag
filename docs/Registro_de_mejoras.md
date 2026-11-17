@@ -19,6 +19,16 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Compilación 26110426 (web 2026.11.16.1909)
+- Pedido del dueño: "Compila".
+- Incluye: notificaciones (probarAviso, canal 'avisos'), Escalera a medida + «Leer con IA» (disenarCarpimetal), grabador de
+  Carpintería Metálica arreglado, exportar AutoCAD 3D y Revit (IFC, gratis por decisión del dueño 16/11) y avisos de descarga
+  en Android (cartel con «Abrir» + notificación «Descarga lista» del plugin Archivos).
+- Archivos: dist_ACTUALIZADO.zip, InnovApp_26110426.aab / .apk (firmados con la llave 01:D3…74:33, verificado con apksigner/keytool).
+- Manual: sin cambios (no describe DXF, grabador ni descargas; nada de lo que explica quedó distinto).
+- Despliegue: `firebase deploy --only hosting,functions` (functions nuevas: probarAviso, disenarCarpimetal).
+- Commit(s): (este commit)
+
 ## 2026-11-16 · Descargas en la app de Android: aviso visible con «Abrir» (y grabador más liviano)
 - Pedido del dueño: "análisis no profundo de qué falla con el grabador… al descargar un archivo la aplicación no me muestra la
   descarga ni las alertas".
@@ -267,10 +277,10 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Notificaciones + Escalera a medida con IA + grabador de CarpiMetal, exportar AutoCAD 3D/Revit y avisos de descarga (16/11/2026); desplegar hosting + functions y AAB 26110426 (plugin Archivos) |
-| Última versión compilada | Web **2026.11.16.1331** · Android **código 26110425** (16/11/2026: memoria coherente, sin Mis apartados, Mis cursos propios, Gasfitería/Electricidad rediseñadas, vincular y enviar al proyecto) |
+| Última mejora sin compilar | — (todo compilado en 26110426) |
+| Última versión compilada | Web **2026.11.16.1909** · Android **código 26110426** (17/11/2026: notificaciones, escalera a medida con IA, grabador CarpiMetal, AutoCAD 3D/Revit gratis, avisos de descarga) |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
-| Próximo código Android | **26110426** (el contador sigue +1 desde aquí; nunca bajar de 26110425) |
+| Próximo código Android | **26110427** (nunca bajar de 26110426) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
 | Asistente WhatsApp | **Apagado en el servidor** (16/11/2026, exports comentados para que el deploy no pida los secretos). Programado y probado; para activarlo **falta** conectar Meta (registro de desarrollador, secretos `WA_TOKEN`/`WA_APP_SECRET`/`WA_VERIFY_TOKEN`, webhook, desplegar funciones) |
 | MCP de Academia | **Publicado y conectado** (15/11/2026). **9 cursos completos** (104 clases): Seguridad en Obra y Trabajos en Altura 12 (S/ 29, ≈35 min), Naves Parabólicas 13 (S/ 79, ≈1 h 35 min, clases ampliadas), Techos a Dos y Cuatro Aguas 12 (S/ 45, ≈45 min), El Negocio del Metalero 12 (S/ 39, ≈40 min), Portones Automáticos 12 (S/ 39, ≈39 min), Soldadura 12 (S/ 39, ≈50 min), Estructuras Metálicas 11 (S/ 45, ≈42 min), Carpintería Metálica 11 (S/ 29, ≈36 min), Lectura de Planos 9 (S/ 19, ≈28 min); cada curso con módulo principal + módulo avanzado; la clase 1 es gratis. 8 plantillas de techos y naves en Recursos Técnicos (`plantilla.datosUrl`, memoria CUMPLE). Paquetes propuestos en el doc del proyecto (los carga el admin). Voz: la mexicana automática. Videos en la rama `academia-videos` |
