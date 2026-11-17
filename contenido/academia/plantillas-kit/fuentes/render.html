@@ -1,0 +1,49 @@
+<!doctype html><html><body style="margin:0;background:#eef2f6"><canvas id="c" width="1200" height="800"></canvas>
+<script type="module">
+import * as THREE from './three.module.js';
+window.render = (d) => {
+  const ren = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+  ren.setClearColor(0xeef2f6);
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.6));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(3, 6, 5); sc.add(dl);
+  const color = d.acabado?.colorHex || '#334155';
+  const pulg = s => s.split('/').length === 2 ? (+s.split('/')[0] / +s.split('/')[1]) : +s;
+  const sec = id => {
+    let m = /^(rect|cuad)-([\d/.]+)x([\d/.]+)/.exec(id || ''); if (m) return { w: pulg(m[2]) * 0.0254, h: pulg(m[3]) * 0.0254 };
+    m = /^red-([\d/.]+)/.exec(id || ''); if (m) return { r: pulg(m[1]) * 0.0254 / 2 };
+    return { w: 0.03, h: 0.03 };
+  };
+  const box = new THREE.Box3();
+  for (const p of d.piezas) {
+    const a = new THREE.Vector3(p.x1, p.y1, p.z1), b = new THREE.Vector3(p.x2, p.y2, p.z2);
+    let mesh;
+    if (p.esPlancha) {
+      const mn = a.clone().min(b), mx = a.clone().max(b), s = mx.clone().sub(mn);
+      const e = Math.max(0.004, (p.espesorPlanchaMm || 2) / 1000);
+      const g = new THREE.BoxGeometry(Math.max(s.x, e), Math.max(s.y, e), Math.max(s.z, e));
+      const vid = p.tipo === 'vidrio';
+      const col = vid ? '#9fd3f0' : (p.colorHex || (p.subtipoPlancha === 'estriada' ? '#8b97a6' : color));
+      mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: col, metalness: vid ? 0.1 : 0.5, roughness: vid ? 0.1 : 0.55, transparent: vid, opacity: vid ? 0.45 : 1 }));
+      mesh.position.copy(mn.clone().add(mx).multiplyScalar(0.5));
+    } else {
+      const L = a.distanceTo(b); if (L < 1e-4) continue;
+      const s = sec(p.perfilId);
+      const g = s.r ? new THREE.CylinderGeometry(s.r, s.r, L, 16) : new THREE.BoxGeometry(s.w, L, s.h);
+      mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: p.colorHex || color, metalness: 0.55, roughness: 0.45 }));
+      mesh.position.copy(a.clone().add(b).multiplyScalar(0.5));
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    }
+    sc.add(mesh); box.expandByObject(mesh);
+  }
+  const c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ color: '#d7dde5' }));
+  piso.rotation.x = -Math.PI / 2; piso.position.y = box.min.y - 0.002; sc.add(piso);
+  const cam = new THREE.PerspectiveCamera(35, 1.5, 0.05, 100);
+  const R = Math.max(s.x, s.y * 1.4, s.z) * 1.25 + 0.4;
+  const k = d.__cam || [0.55, 0.35, 0.95]; cam.position.set(c.x + R * k[0], c.y + R * k[1], c.z + R * k[2]); cam.lookAt(c);
+  ren.render(sc, cam);
+  return true;
+};
+window.listo = true;
+</script></body></html>

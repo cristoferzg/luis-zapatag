@@ -1,0 +1,92 @@
+# Compila la app de Android, la firma con la llave de subida del dueño y la sube a Google Play
+# (Prueba interna). Se lanza a mano (workflow_dispatch) desde GitHub o desde Claude.
+# Antes de lanzarlo: subir el contador en android/app/codigo-version.txt (+1) y subirlo al repositorio.
+#
+# Secretos (GitHub → Settings → Secrets and variables → Actions), nunca en el repositorio:
+#   KEYSTORE_BASE64            innovapp-upload.jks en base64 (alias innovapp, huella 01:D3…74:33)
+#   KEYSTORE_PASSWORD          contraseña de esa llave (la misma para almacén y llave)
+#   PLAY_SERVICE_ACCOUNT_JSON  clave JSON de la cuenta de servicio con permiso de publicar en pruebas
+name: Subir app a Google Play
+
+on:
+  workflow_dispatch:
+    inputs:
+      notas:
+        description: 'Notas de la versión (español, máx. 500 caracteres)'
+        required: false
+        default: 'Mejoras y correcciones.'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: subir-play
+  cancel-in-progress: false
+
+jobs:
+  subir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar la web (dist)
+        run: npm run build
+
+      - name: Copiar la web a Android
+        run: npx cap sync android
+
+      - name: Preparar la llave de firma (desde los secretos)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then echo "Faltan los secretos de la llave"; exit 1; fi
+          echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$RUNNER_TEMP/innovapp-upload.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=innovapp\nkeyPassword=%s\n' "$RUNNER_TEMP/innovapp-upload.jks" "$KEYSTORE_PASSWORD" "$KEYSTORE_PASSWORD" > android/keystore.properties
+
+      - name: Compilar el App Bundle (AAB)
+        working-directory: android
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Verificar la firma (llave registrada en Play)
+        run: |
+          keytool -printcert -jarfile android/app/build/outputs/bundle/release/app-release.aab | tee firma.txt
+          grep -q "01:D3:26:58:51:CB:EF:02:6E:0F:86:C8:B6:77:DC:FD:A3:40:6E:C3:68:D7:B2:05:22:27:04:F9:DB:0F:74:33" firma.txt || { echo "La firma NO es la llave registrada en Play"; exit 1; }
+          echo "Código de versión: $(cat android/app/codigo-version.txt) · versión $(cat dist/version.txt)"
+
+      - name: Notas de la versión
+        env:
+          NOTAS: ${{ github.event.inputs.notas }}
+        run: |
+          mkdir -p notas
+          printf '%s' "${NOTAS:-Mejoras y correcciones.}" | cut -c1-500 > notas/whatsnew-es-419
+
+      - name: Subir a Google Play (Prueba interna)
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: pe.innovacontratistas.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          whatsNewDirectory: notas
+
+      - name: Borrar la llave del equipo
+        if: always()
+        run: rm -f "$RUNNER_TEMP/innovapp-upload.jks" android/keystore.properties firma.txt

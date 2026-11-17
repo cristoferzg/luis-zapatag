@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "969835994110",
+    "project_id": "innovacontratistas-434d2",
+    "storage_bucket": "innovacontratistas-434d2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:969835994110:android:6741d4d4f402881ba33eaf",
+        "android_client_info": {
+          "package_name": "pe.innovacontratistas.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "969835994110-hicaoe1vvco03bkkfev1l2cmfcgvvuo5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxNmmEawzFEDb85GFEFwR4uUUBxGQvbZk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "969835994110-hicaoe1vvco03bkkfev1l2cmfcgvvuo5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,79 @@
+apply plugin: 'com.android.application'
+
+// Llave de subida a Google Play: se lee de android/keystore.properties (NO va al repositorio).
+// Ese archivo dice dónde está el .jks y sus contraseñas. Sin él, se compila sin firmar.
+def propsFirma = new Properties()
+def archivoFirma = rootProject.file('keystore.properties')
+if (archivoFirma.exists()) { archivoFirma.withInputStream { propsFirma.load(it) } }
+// Versión única: la misma de la web (dist/version.txt, copiada por `npx cap sync`), p. ej.
+// 2026.11.05.1432 (versionName). versionCode = contador simple de codigo-version.txt (10, 11, 12…):
+// se sube en 1 en cada versión que va a Google Play (Play exige que siempre aumente y avisa si salta mucho).
+def archivoVersion = file('src/main/assets/public/version.txt')
+def versionWeb = archivoVersion.exists() ? archivoVersion.text.trim() : new Date().format('yyyy.MM.dd.HHmm')
+def versionAuto = Integer.parseInt(file('codigo-version.txt').text.trim())
+
+android {
+    namespace = "pe.innovacontratistas.app"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "pe.innovacontratistas.app"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode versionAuto
+        versionName versionWeb
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (archivoFirma.exists()) {
+                storeFile file(propsFirma['storeFile'])
+                storePassword propsFirma['storePassword']
+                keyAlias propsFirma['keyAlias']
+                keyPassword propsFirma['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (archivoFirma.exists()) signingConfig signingConfigs.release
+            // R8: ofusca y reduce el código (Play pide ≥ 25 % de ofuscación DEX). Reglas en proguard-rules.pro.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
