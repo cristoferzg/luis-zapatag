@@ -59,6 +59,19 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): (este commit)
 - Pendiente / a vigilar: cargar «detalles» a las plantillas con el MCP (tras desplegar functions); Drywall no tiene vista 3D.
 
+## 2026-11-16 · Academia: 6 tutoriales de uso DESDE EL CELULAR (Usabilidad de la plataforma)
+- Pedido del dueño: "en usabilidad agrega videos tutoriales que se usen en el teléfono; solo hay desde la PC". Elegido: animados por Claude, todos los temas necesarios.
+- Qué se hizo: serie "InnovApp en el celular" (6 clases gratis, 2–3.5 min cada una, voz es-MX, pantallas del celular animadas con los textos reales de la app):
+  1 Conoce la app (PIN, Panel, barras, Más, botón naranja, pestañas, campana, logo y datos) · 2 Cliente y proyecto (cobros, avance con fotos,
+  especificaciones, carpeta) · 3 Materiales, gastos, costo/margen y Reporte del mes · 4 Techo con el Asistente → 3D → materiales → presupuesto →
+  propuesta por WhatsApp · 5 Portón en Carpintería Metálica (marco, plancha, accesorios, 3D, cortes, Imprimir → Guardar como PDF) ·
+  6 Academia (Tienda / Mis cursos / Mis plantillas, canje con créditos; recarga en Android solo con Google Play).
+- Archivos: `contenido/academia/videos/fuentes/cel_comun.py`, `cel_01.py` … `cel_06.py` (videos en la rama academia-videos, `usabilidad/celular-0N.mp4`).
+- Cómo se probó: pronunciación revisada con revisar_voz.py (arreglos: "Innova Ap", "Drai-uol"); hojas de contacto de cada escena; videos revisados.
+- Versión: sin cambios de la app (solo contenido vía MCP). Clases tut-1794886446046 … tut-1794886450286.
+- Commit(s): (este commit)
+- Pendiente / a vigilar: si cambia una pantalla del celular (p. ej. la Carpeta rediseñada el 17/11), rehacer la escena con su fuente.
+
 ## 2026-11-17 · Carpeta privada de clientes: rediseño más claro (Proyectos & Clientes → Carpeta)
 - Pedido del dueño: "rediseña las carpetas porque es un poco confuso" → la carpeta privada de Proyectos y Personal.
 - Qué confundía: dos títulos repetidos ("Carpeta Privada de Clientes" + "Carpeta Privada de Juan"), un número suelto sin explicar,
