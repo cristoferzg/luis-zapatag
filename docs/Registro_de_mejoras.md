@@ -113,6 +113,22 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): (este commit)
 - Pendiente / a vigilar: aberturas en muros del IFC; Melamina/Drywall 3D/Gasfitería/Electricidad aún sin IFC propio.
 
+## 2026-11-16 · Academia: portadas v3 (3D real + datos) en los 11 cursos
+- Pedido del dueño: "Cambia la portada de los cursos que ya estaban. Y mejorarlo" → eligió "Todos los 11" y "3D real + datos".
+- Qué se hizo: portada nueva para los 9 cursos técnicos + «Usabilidad de la plataforma» + «Curso Revit Básico a Profesional».
+  Cada una con la estructura en 3D (nave 15 × 30 y casa a cuatro aguas de las plantillas de Techos Metálicos; mezanine, portón,
+  puerta, reja y escalera armados con el generador de Carpintería Metálica; nudo soldado; cochera; casa BIM para Revit), título grande,
+  gancho y datos: «Clase 1 gratis» (o «Gratis»), duración y la obra real del curso. Detalles por curso (chispas en soldadura, lámina
+  de plano, cotización, escudo de seguridad, control del portón, laptop y celular con InnovApp). Se respetan las zonas libres de la
+  app (insignias arriba a la izquierda y franja de abajo). Solo cambió `portadaUrl` (precios, clases y alumnos intactos).
+- Archivos principales: `contenido/academia/fuentes/portadas3.py`, `contenido/academia/portadas/*-v3.jpg` y `portadas/3d/*.png`,
+  `contenido/academia/plantillas-kit/fuentes/escenas.py`, `render_cursos.py`, `escena.html`.
+- Cómo se probó: hoja de antes y después de los 9 cursos técnicos (las portadas viejas de Usabilidad y Revit no se pudieron descargar
+  desde aquí); revisión de cada portada a tamaño real.
+- Versión: sin compilar (solo contenido de la Academia).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: si alguna no gusta, se vuelve a la v2 con el mismo MCP (las v2 siguen en Storage).
+
 ## 2026-11-16 · Recursos Técnicos: kit de cotización (Excel y Word) y 5 diseños editables de Carpintería Metálica
 - Pedido del dueño: "otro tipo de plantillas… para presupuestos, cotizaciones… llamativo al público… y de diseños… que puedan
   modificarse según las condiciones que los usuarios quieran" → eligió "Las dos a la vez" y "Excel y Word".

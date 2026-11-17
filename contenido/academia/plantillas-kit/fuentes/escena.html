@@ -1,0 +1,48 @@
+<!doctype html><html><body style="margin:0;background:transparent"><canvas id="c" width="1400" height="1100"></canvas>
+<script type="module">
+// Visor de escenas para portadas: tubos (perfiles), cajas y polígonos (coberturas). Fondo transparente y sombras suaves.
+import * as THREE from './three.module.js';
+window.render = (E) => {
+  const cv = document.getElementById('c'); cv.width = E.w || 1400; cv.height = E.h || 1100;
+  const ren = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  ren.setClearColor(0x000000, 0); ren.shadowMap.enabled = true; ren.shadowMap.type = THREE.PCFSoftShadowMap;
+  ren.toneMapping = THREE.ACESFilmicToneMapping; ren.toneMappingExposure = 1.15;
+  const sc = new THREE.Scene();
+  sc.add(new THREE.HemisphereLight(0xdbeafe, 0x1e293b, 1.3));
+  const sol = new THREE.DirectionalLight(0xfff1dd, 2.6); sol.position.set(...(E.sol || [8, 14, 10])); sol.castShadow = true;
+  sol.shadow.mapSize.set(2048, 2048); sc.add(sol);
+  const rim = new THREE.DirectionalLight(0x93c5fd, 1.2); rim.position.set(-10, 6, -8); sc.add(rim);
+  const box = new THREE.Box3(), V = (p) => new THREE.Vector3(p[0], p[1], p[2]);
+  const mat = (c, o = 1, m = .6, r = .4, em) => new THREE.MeshStandardMaterial({ color: c, metalness: m, roughness: r, transparent: o < 1, opacity: o, side: THREE.DoubleSide, emissive: em || 0x000000, emissiveIntensity: em ? .6 : 0 });
+  for (const t of E.tubos || []) {
+    const a = V(t.a), b = V(t.b), L = a.distanceTo(b); if (L < 1e-4) continue;
+    const g = t.r ? new THREE.CylinderGeometry(t.r, t.r, L, 14) : new THREE.BoxGeometry(t.w || .05, L, t.h || .05);
+    const m = new THREE.Mesh(g, mat(t.c || '#f97316', t.o ?? 1, t.m ?? .6, t.ro ?? .38, t.em));
+    m.position.copy(a.clone().add(b).multiplyScalar(.5));
+    const d = b.clone().sub(a).normalize(); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
+    if (!t.r && t.gira) m.rotateY(t.gira);
+    m.castShadow = true; sc.add(m); box.expandByObject(m);
+  }
+  for (const q of E.cajas || []) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(...q.s), mat(q.c || '#cbd5e1', q.o ?? 1, q.m ?? .1, q.ro ?? .8, q.em));
+    m.position.set(...q.p); if (q.ry) m.rotation.y = q.ry; m.castShadow = q.sombra !== false; m.receiveShadow = true; sc.add(m);
+    if (!q.fuera) box.expandByObject(m);
+  }
+  for (const p of E.polis || []) {
+    const pts = p.pts.map(V); const g = new THREE.BufferGeometry(); const pos = [];
+    for (let i = 1; i < pts.length - 1; i++) pos.push(...pts[0].toArray(), ...pts[i].toArray(), ...pts[i + 1].toArray());
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, mat(p.c || '#d6dde6', p.o ?? .9, p.m ?? .7, p.ro ?? .35)); m.castShadow = p.o === undefined || p.o > .6; m.receiveShadow = true; sc.add(m); box.expandByObject(m);
+  }
+  const c = E.mira ? V(E.mira) : box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+  const piso = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: .35 }));
+  piso.rotation.x = -Math.PI / 2; piso.position.y = box.min.y - .005; piso.receiveShadow = true; sc.add(piso);
+  const sh = sol.shadow.camera, R0 = Math.max(s.x, s.y, s.z) * 1.2; sh.left = -R0; sh.right = R0; sh.top = R0; sh.bottom = -R0; sh.far = 200;
+  sol.target.position.copy(c); sc.add(sol.target); sol.position.copy(c.clone().add(V(E.sol || [8, 14, 10])));
+  const cam = new THREE.PerspectiveCamera(E.fov || 32, cv.width / cv.height, .05, 500);
+  const R = E.dist || ((Math.max(s.x, s.y * 1.3, s.z) * 1.45 + .5) * (E.zoom || 1)); const dir = V(E.dir || [.62, .42, .95]).normalize();
+  cam.position.copy(c.clone().add(dir.multiplyScalar(R))); cam.lookAt(c);
+  ren.render(sc, cam); return true;
+};
+window.listo = true;
+</script></body></html>
