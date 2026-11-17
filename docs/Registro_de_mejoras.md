@@ -19,6 +19,15 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Compilación web 2026.11.17.1307 (sin app nueva) + Manual
+- Pedido del dueño: "compila".
+- Incluye: columnas de viga H, vigas W en planta y catálogo, placas base y pernos para todas las columnas y paredes de aluzinc con largueros.
+- Android: SIN AAB (solo web; la app carga la web publicada). Próximo código sigue siendo 26110428.
+- Manual: página nueva «30 b» (Paso 21-B Columnas de viga H, placas y pernos; Paso 21-C Paredes de aluzinc) y «Paredes» en la pág. 30
+  (`docs/herramientas/manual_techos_paredes.py`). 86 → 87 hojas; el índice no cambia (la nueva va como 30 b).
+- Despliegue: `firebase deploy --only hosting` (no cambió nada del servidor).
+- Commit(s): (este commit)
+
 ## 2026-11-17 · Techos: vigas W bien vistas, placas base y pernos, y paredes de aluzinc con largueros
 - Pedido del dueño: "las vigas W no se ven correctas en el sistema o no está implementado" y "permíteme colocar los pernos de anclaje y las
   planchas… y si algunas naves requieren aluzinc a los lados de la luz, con sus divisiones recomendadas de material".
@@ -558,8 +567,8 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 | Dato | Valor |
 |---|---|
-| Última mejora sin compilar | Techos: viga H en columnas, vigas W, placas y pernos, paredes de aluzinc (17/11/2026), espera «compila» |
-| Última versión compilada | Web **2026.11.17.0953** (17/11/2026) · Android **código 26110427** |
+| Última mejora sin compilar | — (web 2026.11.17.1307 compilada el 17/11/2026) |
+| Última versión compilada | Web **2026.11.17.1307** (17/11/2026) · Android **código 26110427** |
 | Play Console | Código **26110424** subido por el dueño el 16/11/2026 (canje de créditos en la Academia). Al aprobarlo: Configuración → Descargas → «App de Android» 26110424 y «Avisar a todos que actualicen» |
 | Próximo código Android | **26110428** (nunca bajar de 26110427) |
 | Llave de firma | `llave_google_play.zip` del dueño (alias `innovapp`, SHA-256 01:D3:…:74:33). Pedirla en cada compilación |
