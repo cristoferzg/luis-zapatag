@@ -25,7 +25,8 @@ PWA de gestión para contratistas (React 19 + Vite 6 + TypeScript + Tailwind + F
 - Validar Compras: `ai_plan_<id>[__anual]` activa plan; `ai_creditos_<n>` suma recarga.
 - `firestore.rules`: sin comodín. `config_ia` escribe solo admin; `ai_access`
   lee dueño/admin, escribe solo admin. **Cada colección NUEVA necesita su línea.**
-- Despliegue: `firebase deploy --only hosting,functions,firestore:rules`
+- Despliegue: `firebase deploy --only hosting,functions,firestore:rules` (si da «Timeout after 10000» al cargar: `set FUNCTIONS_DISCOVERY_TIMEOUT=120`;
+  la librería de IA se carga perezosa en functions/index.js para no pasar ese límite: no volver a importarla arriba)
   (NO subir el ZIP a mano). Poner tope de gasto (Budget alert). Guía:
   `docs/Guia_API_IA_y_App_Android.pdf`.
 

@@ -19,6 +19,17 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 
 ---
 
+## 2026-11-17 · Despliegue de funciones: «User code failed to load… Timeout after 10000»
+- Pedido del dueño: captura del error al correr `firebase deploy --only hosting,functions` en su PC (proyecto dentro de OneDrive).
+- Causa: firebase-tools da 10 s para cargar index.js y leer qué funciones hay. Aquí carga en <1 s, pero la librería de IA tarda ≈2 s
+  sola y en una carpeta de OneDrive (miles de archivos revisados por OneDrive/antivirus) pasa los 10 s.
+- Qué se hizo: la librería de IA se carga recién al primer uso (clase `Anthropic` perezosa en functions/index.js; misma forma de uso,
+  sin tocar los demás archivos). Carga de index.js: ≈350 ms. También acelera el arranque en frío de las funciones sin IA.
+  Para el dueño: `set FUNCTIONS_DISCOVERY_TIMEOUT=120` antes de desplegar (variable propia de firebase-tools, en segundos).
+- Cómo se probó: node --check; carga de index.js (29 funciones); test:canje 15/15, test:carpimetal 12/12, test:mcp OK.
+- Commit(s): (este commit)
+- Pendiente / a vigilar: si vuelve a pasar, sacar el proyecto de OneDrive (p. ej. C:\proyectos\innovacontratistas).
+
 ## 2026-11-17 · Compilación web 2026.11.17.0953 (sin app nueva)
 - Pedido del dueño: "Compila".
 - Incluye: Administración → Créditos (recargas y gasto), visor 3D más robusto, menú del celular por encima, Revit (octet-stream +

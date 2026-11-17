@@ -37,7 +37,16 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import Anthropic from '@anthropic-ai/sdk';
+// La librería de IA pesa (≈2 s en cargar): se carga recién al primer uso. Así el análisis de `firebase deploy`
+// no pasa sus 10 s (en PCs con el proyecto dentro de OneDrive fallaba) y el arranque en frío de las demás
+// funciones (ingreso con PIN, avisos…) es más rápido. Misma forma de uso: new Anthropic(opciones).messages.create(…).
+let _sdkIA = null;
+const cargarSdkIA = async () => (_sdkIA ||= (await import('@anthropic-ai/sdk')).default);
+class Anthropic {
+  constructor(opciones) {
+    this.messages = { create: async (args) => new (await cargarSdkIA())(opciones).messages.create(args) };
+  }
+}
 import { GoogleAuth } from 'google-auth-library';
 import { crearDisenarCarpimetal } from './carpimetalIA.js';
 import { crearDisenarDrywall } from './drywallIA.js';
