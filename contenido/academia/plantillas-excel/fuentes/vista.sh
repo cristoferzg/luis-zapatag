@@ -7,7 +7,7 @@ from openpyxl.worksheet.properties import PageSetupProperties
 wb=load_workbook(sys.argv[1])
 for ws in wb.worksheets:
     ws.page_setup.orientation='landscape'; ws.sheet_properties.pageSetUpPr=PageSetupProperties(fitToPage=True); ws.page_setup.fitToWidth=1; ws.page_setup.fitToHeight=1
-wb['Catálogo'].sheet_state='hidden'; wb.save(sys.argv[2])
+('Catálogo' in wb.sheetnames) and setattr(wb['Catálogo'],'sheet_state','hidden'); wb.save(sys.argv[2])
 PY
 cd $d && python3 /root/.claude/skills/synced/84fa8981-1fd1-406d-a118-24fa705fea0f_5800e50a-e222-4fed-8755-cdd6fe690d19/xlsx/scripts/recalc.py v.xlsx 60 >/dev/null && soffice --headless --convert-to pdf v.xlsx >/dev/null 2>&1 && pdftoppm -r 90 -png v.pdf q
 python3 - "$d" "$o" <<'PY'

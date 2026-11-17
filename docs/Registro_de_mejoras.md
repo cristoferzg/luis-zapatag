@@ -69,6 +69,31 @@ qué versión la lleva y qué quedó pendiente. Así cada conversación nueva em
 - Commit(s): (este commit)
 - Pendiente / a vigilar: aberturas en muros del IFC; Melamina/Drywall 3D/Gasfitería/Electricidad aún sin IFC propio.
 
+## 2026-11-16 · Recursos Técnicos: kit de cotización (Excel y Word) y 5 diseños editables de Carpintería Metálica
+- Pedido del dueño: "otro tipo de plantillas… para presupuestos, cotizaciones… llamativo al público… y de diseños… que puedan
+  modificarse según las condiciones que los usuarios quieran" → eligió "Las dos a la vez" y "Excel y Word".
+- Qué se hizo (todo subido con el MCP, ninguno gratis):
+  · Kit de cotización (categoría Plantillas): Excel «Cotización profesional» (A4 imprimible, logo, hoja «Mis precios» con
+    lista que llena unidad y precio, IGV incluido o no, descuento, adelanto/saldo, validez automática) bib_1794875832031 S/ 9.90;
+    Excel «Presupuesto de obra y valorizaciones» (títulos que suman sus partidas con SUMPRODUCT, GG/utilidad/IGV, 4 valorizaciones
+    por % de avance con amortización del adelanto, cronograma de pagos con control) bib_1794875832895 S/ 9.90; Word «Propuesta
+    comercial» bib_1794875833724, «Acta de entrega y certificado de garantía» bib_1794875834636 y «Acuerdo de trabajo» (con aviso de
+    orientación general / consultar abogado) bib_1794875835524, S/ 6.90 c/u. Campos a cambiar resaltados en amarillo.
+  · Diseños editables (categoría Herrería, plantilla `carpimetal` por datosUrl, se abren en Carpintería Metálica): portón
+    corredizo 3.90 × 2.40 bib_1794875836611, puerta de dos hojas 1.60 × 2.40 bib_1794875837749, reja de ventana 1.50 × 1.20
+    bib_1794875839174, baranda de terraza 4.00 × 1.00 bib_1794875840239, escalera recta a 2.70 m bib_1794875841279 (S/ 5.90 c/u).
+    Armados con el generador del módulo (`crearDisenoPorElemento` + `asegurarCad`, y `generarEscalera`).
+- Archivos principales: `contenido/academia/plantillas-kit/` (xlsx, docx, portadas; `fuentes/` con cotizacion.py, presupuesto_obra.py,
+  documentos.js, portadas_kit.py y el visor 3D de portadas render.html/capturar.py), `contenido/academia/plantillas-carpimetal/`
+  (generar.ts + los .json).
+- Cómo se probó: recálculo LibreOffice 0 errores (cuadre de cobros = presupuesto total al 100 % de avance); Word validado (XSD) y
+  revisado en PDF; diseños revisados en 3D (se quitó un cerco porque el generador no dibuja la malla). Los emuladores no arrancaron
+  (descarga bloqueada), por eso las vistas 3D de las portadas salen de un visor propio con las piezas del diseño.
+- Versión: sin compilar (solo contenido de Recursos Técnicos).
+- Commit(s): (este commit)
+- Pendiente / a vigilar: el dueño crea los paquetes «Kit del contratista» (S/ 24.90) y «Diseños de Carpintería Metálica» (S/ 19.90);
+  conviene abrir un diseño en la app real para confirmar que carga igual que en la vista previa.
+
 ## 2026-11-16 · Recursos Técnicos: 5 plantillas Excel de techos
 - Pedido del dueño: "Nos falta poder añadir plantillas Excel para techos parabólicos, a dos aguas y etc." → se mostró una muestra
   (parabólica), luego: "Sí dale. Agrego todo pero no lo pongas gratis".
